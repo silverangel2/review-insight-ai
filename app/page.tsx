@@ -63,7 +63,7 @@ export default function LandingPage() {
           <div>
             <Badge tone="good">AI shopping intelligence</Badge>
             <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.95] tracking-tight text-slate-950 sm:text-7xl">
-              Know what reviews are really saying.
+              Know what product reviews are really saying.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700">
               ReviewIntel scans messy product reviews and turns them into clear buying decisions, fake-review signals, complaint patterns, and seller opportunities.
@@ -89,9 +89,9 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="relative min-h-[620px]">
+          <div className="relative min-h-[620px] lg:translate-x-3">
             <div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 blur-3xl" />
-            <div className="absolute inset-x-6 top-8 h-[530px] rounded-[3rem] border border-white/65 bg-white/28 shadow-[0_40px_130px_rgba(35,86,163,0.20)] backdrop-blur-2xl" style={{ animation: "riHeroPan 9s ease-in-out infinite" }}>
+            <div className="absolute inset-x-10 top-10 h-[500px] rounded-[3rem] border border-white/65 bg-white/28 shadow-[0_40px_130px_rgba(35,86,163,0.20)] backdrop-blur-2xl" style={{ animation: "riHeroPan 9s ease-in-out infinite" }}>
               <div className="absolute inset-0 overflow-hidden rounded-[3rem]">
                 <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.55),rgba(255,255,255,0.10)_45%,rgba(8,183,168,0.16))]" />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(20,184,166,0.35),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.28),transparent_28%),radial-gradient(circle_at_50%_90%,rgba(251,191,36,0.24),transparent_32%)]" />
@@ -111,7 +111,7 @@ export default function LandingPage() {
                 <div className="grid gap-5 md:grid-cols-[0.82fr_1fr]">
                   <div className="rounded-[2rem] border border-white/70 bg-slate-950/85 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.26)] backdrop-blur-xl">
                     <p className="text-xs font-black uppercase text-cyan-100">Review score</p>
-                    <p className="mt-5 text-7xl font-black">87%</p>
+                    <p className="mt-5 text-6xl font-black">87%</p>
                     <p className="mt-3 text-sm font-bold text-cyan-100">Worth buying with durability caution</p>
                   </div>
                   <div className="rounded-[2rem] border border-white/70 bg-white/72 p-6 shadow-soft backdrop-blur-xl">
@@ -135,9 +135,9 @@ export default function LandingPage() {
             </div>
 
             {[
-              ["Paste review", "Works great at first, but mine leaked after two weeks.", "left-0 top-8", "-8deg"],
-              ["Seller insight", "Top complaint: replacement parts and lid seal.", "right-0 bottom-20", "7deg"],
-              ["Buyer answer", "Best for casual smoothies, not heavy daily use.", "left-10 bottom-8", "5deg"]
+              ["Paste review", "Works great at first, but mine leaked after two weeks.", "left-4 top-14", "-4deg"],
+              ["Seller insight", "Top complaint: replacement parts and lid seal.", "right-4 bottom-24", "4deg"],
+              ["Buyer answer", "Best for casual smoothies, not heavy daily use.", "left-16 bottom-14", "3deg"]
             ].map(([title, text, pos, rotate], index) => (
               <div key={title} className={`absolute ${pos} max-w-[230px] rounded-[1.7rem] border border-white/70 bg-white/64 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-2xl`} style={{ "--rotate": rotate, animation: `riHeroPanelFloat ${7 + index}s ease-in-out infinite` } as React.CSSProperties}>
                 <p className="text-xs font-black uppercase tracking-wide text-ocean">{title}</p>
