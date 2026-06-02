@@ -1,103 +1,206 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
+import { FeaturedReviews } from "@/components/FeaturedReviews";
+import { PlatformLogoOrbit } from "@/components/PlatformLogoOrbit";
+import { SponsorAnalytics } from "@/components/SponsorAnalytics";
+import { SponsoredResources } from "@/components/SponsoredResources";
 
-export const metadata: Metadata = {
-  title: "Advertise with ReviewIntel",
-  description: "Apply for sponsored ecommerce resource placements inside ReviewIntel for shoppers and sellers."
-};
-
-const placementOptions = [
-  {
-    name: "Starter Resource",
-    price: "$49/month",
-    detail: "Directory-style sponsored resource card for ecommerce tools, seller services, or AI workflows.",
-    features: ["Resource card", "Category placement", "Sponsored label", "Manual approval"]
-  },
-  {
-    name: "Featured Resource",
-    price: "$99/month",
-    detail: "Higher-visibility placement across resource sections and seller-facing pages.",
-    features: ["Featured card", "Priority placement", "Seller audience", "Monthly review"]
-  },
-  {
-    name: "Premium Partner",
-    price: "$199/month",
-    detail: "Launch partner visibility for seller dashboards, resources, and selected product workflows.",
-    features: ["Premium placement", "Dashboard visibility", "Performance summary", "Priority approval"]
-  }
+const scanSignals = [
+  ["Review trust", "82%", "Clean language mix"],
+  ["Fake risk", "24%", "Low pattern match"],
+  ["Complaint heat", "41%", "Durability repeats"],
+  ["Value score", "78%", "Good under $45"]
 ];
 
-export default function AdvertisePage() {
+const scanSteps = ["Create free account", "Paste reviews in Analyzer", "AI reveals verdict"];
+
+const buyerWins = ["Buy / Maybe / Avoid", "Fake-review risk", "Best-for match", "Biggest complaint"];
+const sellerWins = ["Complaint clusters", "Keyword intelligence", "Pain points", "Export-ready report"];
+
+export default function LandingPage() {
   return (
-    <main className="bg-mist dark:bg-slate-950">
-      <section className="mx-auto max-w-7xl px-6 py-16">
-        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+    <main className="bg-ink text-white">
+      <SponsorAnalytics placement="landing" />
+
+      <section className="relative isolate min-h-[calc(100vh-73px)] overflow-hidden">
+        <div className="ri-hero-aurora absolute inset-0" />
+        <div className="ri-pixie-field absolute inset-0 opacity-85" aria-hidden="true">
+          {Array.from({ length: 18 }).map((_, index) => (
+            <span
+              key={index}
+              style={{
+                left: `${(index * 17 + 8) % 96}%`,
+                top: `${(index * 29 + 12) % 88}%`,
+                animationDelay: `${index * 0.22}s`
+              }}
+            />
+          ))}
+        </div>
+        <div className="ri-home-orb ri-home-orb-one" aria-hidden="true" />
+        <div className="ri-home-orb ri-home-orb-two" aria-hidden="true" />
+        <div className="ri-scan-grid absolute inset-0 opacity-45" />
+        <div className="ri-scan-beam absolute inset-x-0 top-0 h-32 opacity-70" />
+
+        <div className="relative mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl gap-8 px-6 py-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
           <div>
-            <Badge tone="info">Sponsored resources</Badge>
-            <h1 className="mt-5 max-w-4xl text-5xl font-black tracking-tight text-ink dark:text-white">
-              Feature your ecommerce tool inside ReviewIntel.
+            <Badge tone="good">AI review scanner</Badge>
+            <h1 className="mt-6 max-w-4xl text-6xl font-black leading-[0.9] md:text-8xl">
+              Do not trust the reviews yet.
             </h1>
-            <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-              ReviewIntel connects shoppers and sellers with useful ecommerce resources. Apply for a sponsored placement if your tool helps with selling, analytics, fulfillment, product research, marketing, automation, or AI workflows.
+            <p className="mt-6 max-w-xl text-xl leading-8 text-slate-200">
+              See how ReviewIntel turns messy product reviews into clear buying decisions and seller intelligence. Create a free account to run your first scan.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <a
-                href="mailto:support@reviewintel.ai?subject=Advertise%20with%20ReviewIntel&body=Business%20name%3A%0AWebsite%3A%0AContact%20email%3A%0APlacement%20interest%3A%0ATarget%20audience%20%28Shopper%2FSeller%29%3A%0AShort%20description%3A%0A"
-                className="rounded-2xl bg-ink px-6 py-4 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean dark:bg-white dark:text-ink"
-              >
-                Apply by email
-              </a>
-              <Link
-                href="/contact"
-                className="rounded-2xl border border-line bg-white px-6 py-4 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
-              >
-                Contact support
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/signup" className="rounded-2xl bg-white px-7 py-4 text-center text-sm font-black text-ink shadow-glow transition hover:-translate-y-0.5 hover:bg-cyan-100">
+                Create Free Account
               </Link>
+              <Link href="/reviews" className="rounded-2xl border border-white/15 bg-white/10 px-7 py-4 text-center text-sm font-black text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15">
+                Read User Reviews
+              </Link>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-2 text-xs font-black uppercase text-slate-300">
+              {["Amazon", "Walmart", "Temu", "TikTok Shop", "Etsy", "Shopify", "eBay"].map((item) => (
+                <span key={item} className="rounded-full border border-white/10 bg-white/5 px-3 py-2">{item}</span>
+              ))}
             </div>
           </div>
 
-          <aside className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">Application details</p>
-            <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">What we need from you</h2>
-            <ul className="mt-5 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              <li>• Business or product name</li>
-              <li>• Website URL</li>
-              <li>• Contact email</li>
-              <li>• Resource category</li>
-              <li>• Short description</li>
-              <li>• Target audience: Shopper or Seller</li>
-              <li>• Preferred placement option</li>
-            </ul>
-            <p className="mt-5 rounded-2xl border border-amber/25 bg-amber/10 p-4 text-xs font-bold leading-5 text-amber">
-              Sponsored resources are reviewed manually. Approval is not guaranteed, and every placement must remain clearly labeled as sponsored.
-            </p>
-          </aside>
-        </div>
+          <div className="relative min-h-[560px] md:min-h-[640px]">
+            <div className="relative w-full overflow-hidden rounded-[2rem] border border-white/15 bg-white/[0.08] p-5 shadow-[0_35px_140px_rgba(15,159,154,0.25)] backdrop-blur-2xl md:absolute md:left-0 md:top-8 md:w-[86%]">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div>
+                  <p className="text-xs font-black uppercase text-teal">Live product scan</p>
+                  <h2 className="mt-1 text-2xl font-black">Portable Blender</h2>
+                </div>
+                <span className="rounded-full border border-amber/30 bg-amber/15 px-3 py-1 text-xs font-black text-amber">Maybe</span>
+              </div>
 
-        <section className="mt-12 grid gap-5 md:grid-cols-3">
-          {placementOptions.map((option) => (
-            <article key={option.name} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{option.name}</p>
-              <p className="mt-3 text-3xl font-black text-ink dark:text-white">{option.price}</p>
-              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{option.detail}</p>
-              <ul className="mt-5 space-y-2 text-sm font-bold text-slate-700 dark:text-slate-200">
-                {option.features.map((feature) => (
-                  <li key={feature}>✓ {feature}</li>
+              <div className="mt-5 grid gap-4 lg:grid-cols-[0.72fr_1.28fr]">
+                <div className="grid place-items-center rounded-3xl border border-teal/30 bg-teal/10 p-6 text-center shadow-[0_0_60px_rgba(15,159,154,0.2)]">
+                  <p className="text-7xl font-black">78%</p>
+                  <p className="mt-2 text-xs font-black uppercase text-teal">Shopper score</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-slate-950/65 p-5">
+                  <p className="text-xs font-black uppercase text-slate-400">AI verdict</p>
+                  <p className="mt-3 text-3xl font-black">Good product. Check durability first.</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-300">Shoppers like the speed and cleanup. The risk is repeated lid leaks and motor-life complaints.</p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {scanSignals.map(([label, value, detail]) => (
+                  <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-black">{label}</p>
+                      <p className="text-2xl font-black text-teal">{value}</p>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+	                      <div className="h-full rounded-full bg-teal" style={{ width: value }} />
+                    </div>
+                    <p className="mt-2 text-xs text-slate-400">{detail}</p>
+                  </div>
                 ))}
-              </ul>
+              </div>
+            </div>
+
+            <div className="absolute right-0 top-0 hidden w-[48%] rounded-3xl border border-white/15 bg-white/[0.09] p-4 shadow-glow backdrop-blur-xl md:block">
+              <p className="text-xs font-black uppercase text-slate-300">Pasted review</p>
+              <p className="mt-3 rounded-2xl bg-white/10 p-4 text-sm leading-6 text-slate-200">
+                Works great at first, but mine leaked after two weeks.
+              </p>
+            </div>
+
+            <div className="absolute bottom-6 right-4 hidden w-[58%] rounded-3xl border border-white/15 bg-white/[0.09] p-4 shadow-[0_20px_80px_rgba(118,87,184,0.28)] backdrop-blur-xl md:block">
+              <p className="text-xs font-black uppercase text-purple-200">AI scan path</p>
+              <div className="mt-4 grid gap-3">
+                {scanSteps.map((step, index) => (
+                  <div key={step} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 p-3">
+                    <span className="grid size-8 place-items-center rounded-full bg-white text-sm font-black text-ink">{index + 1}</span>
+                    <span className="text-sm font-black">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <PlatformLogoOrbit />
+
+      <section className="bg-white px-6 py-10 text-ink dark:bg-slate-950 dark:text-white">
+        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+          <div>
+            <Badge tone="warn">Screenshot-worthy payoff</Badge>
+            <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">The result should feel like opening a prize box.</h2>
+            <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
+              Shoppers get the answer without reading a report. Sellers get a separate command view built for decisions, not shopping.
+            </p>
+          </div>
+          <div className="ri-reveal-pop grid gap-4 md:grid-cols-3">
+            {[
+              ["87%", "Worth Buying", "Low fake risk", "bg-teal"],
+              ["Top complaint", "Battery life", "Check before buying", "bg-coral"],
+              ["Best for", "Students, office, travel", "Great value", "bg-ocean"]
+            ].map(([eyebrow, title, detail, color]) => (
+              <article key={title} className="relative overflow-hidden rounded-[1.6rem] border border-line bg-mist p-5 shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
+                <div className={`absolute right-4 top-4 size-10 rounded-2xl ${color}`} />
+                <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{eyebrow}</p>
+                <h3 className="mt-5 text-3xl font-black">{title}</h3>
+                <p className="mt-3 text-sm font-bold text-slate-600 dark:text-slate-300">{detail}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-white/10 bg-slate-950 px-6 py-8">
+        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
+          <article className="rounded-[2rem] border border-teal/25 bg-teal/10 p-6 shadow-glow">
+            <Badge tone="good">Shopper mode</Badge>
+            <h2 className="mt-4 text-3xl font-black">Fast shopping verdict.</h2>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              {buyerWins.map((item) => <span key={item} className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-black">{item}</span>)}
+            </div>
+            <Link href="/signup" className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink">Start Free Scan</Link>
+          </article>
+
+          <article className="rounded-[2rem] border border-plum/30 bg-plum/15 p-6 shadow-[0_24px_80px_rgba(118,87,184,0.22)]">
+            <Badge tone="warn">Seller Pro</Badge>
+            <h2 className="mt-4 text-3xl font-black">Business intelligence.</h2>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              {sellerWins.map((item) => <span key={item} className="rounded-2xl bg-white/10 px-4 py-3 text-sm font-black">{item}</span>)}
+            </div>
+            <Link href="/pricing" className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink">See Seller Plans</Link>
+          </article>
+        </div>
+      </section>
+
+      <section className="bg-mist px-6 py-12 text-ink dark:bg-slate-950 dark:text-white">
+        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">
+          {[
+            ["1", "Paste or upload", "Reviews, TXT, CSV, or quick screenshots."],
+            ["2", "AI scan", "Trust, complaints, value, keywords, and patterns."],
+	            ["3", "Clear answer", "Shopper verdict or Seller Pro report."]
+          ].map(([step, title, detail]) => (
+            <article key={step} className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
+              <span className="grid size-11 place-items-center rounded-full bg-ink text-sm font-black text-white dark:bg-white dark:text-ink">{step}</span>
+              <h3 className="mt-5 text-2xl font-black">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{detail}</p>
             </article>
           ))}
-        </section>
-
-        <section className="mt-10 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <Badge tone="neutral">No false partnership</Badge>
-          <h2 className="mt-4 text-2xl font-black text-ink dark:text-white">Sponsored, not endorsed.</h2>
-          <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-            Sponsored resource placements are paid listings or partner placements. ReviewIntel does not automatically endorse, guarantee, or certify the products shown. All sponsored resources should be relevant, transparent, and clearly labeled.
-          </p>
-        </section>
+        </div>
       </section>
+
+      <SponsoredResources
+        placement="landing"
+        compact
+        eyebrow="AI commerce resources"
+        title="Useful tools, kept quiet"
+        description="Partner resources stay below the product experience."
+      />
+      <FeaturedReviews />
     </main>
   );
 }

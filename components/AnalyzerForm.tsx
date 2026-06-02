@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { planLabel } from "@/lib/account";
-import { recordLocalScan } from "@/lib/adminLocalTelemetry";
 import { estimateReviewCount } from "@/lib/localAnalyzer";
 import { REVIEW_PLATFORMS } from "@/lib/platforms";
 import { accountHeaders, getClientAccount, getStoredQuota, quotaText, saveActiveMode, saveQuota } from "@/lib/clientAccount";
@@ -201,6 +200,7 @@ function AnalyzeCta({
   stats,
   images,
   quotaSummary,
+  requiresLogin,
   label = "Run AI Analysis",
   onAnalyze
 }: {
@@ -210,6 +210,7 @@ function AnalyzeCta({
   stats: { chars: number; estimatedReviews: number; sections: number; ratingBreakdown: Record<"1" | "2" | "3" | "4" | "5", number> };
   images: UploadedReviewImage[];
   quotaSummary: string;
+  requiresLogin: boolean;
   label?: string;
   onAnalyze: () => void;
 }) {
@@ -221,7 +222,7 @@ function AnalyzeCta({
       <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-cyan-100">{destination}</p>
-          <h4 className="mt-2 text-2xl font-black">Ready to scan this review set.</h4>
+          <h4 className="mt-2 text-2xl font-black">{requiresLogin ? "Create a free account to scan." : "Ready to scan this review set."}</h4>
         </div>
         <button
           type="button"
@@ -229,7 +230,7 @@ function AnalyzeCta({
           disabled={disabled}
           className="min-h-16 rounded-2xl bg-white px-8 py-4 text-base font-black text-ink shadow-[0_18px_60px_rgba(255,255,255,0.35)] transition hover:-translate-y-0.5 hover:scale-[1.02] disabled:cursor-not-allowed disabled:bg-white/45 disabled:text-slate-500"
         >
-          {isLoading ? "Scanning..." : label}
+          {requiresLogin ? "Sign up or log in to scan" : isLoading ? "Scanning..." : label}
         </button>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black uppercase text-white/90">
@@ -239,7 +240,9 @@ function AnalyzeCta({
         <span className="rounded-full bg-white/16 px-3 py-1">{images.length} screens</span>
         <span className="rounded-full bg-white/16 px-3 py-1">{ratingCount.toLocaleString()} ratings</span>
       </div>
-      <p className="mt-3 text-xs font-bold text-white/78">{quotaSummary}</p>
+      {!requiresLogin ? <p className="mt-3 text-xs font-bold text-white/78">{quotaSummary}</p> : (
+        <p className="mt-3 text-xs font-bold text-white/78">Free scans are saved to your account so your usage and results stay private.</p>
+      )}
     </div>
   );
 }
@@ -589,6 +592,13 @@ export function AnalyzerForm() {
 
   async function analyze() {
     setError("");
+
+    if (!getClientAccount()) {
+      setError("Please sign up or log in to use a free scan.");
+      router.push("/login");
+      return;
+    }
+
     setIsLoading(true);
     const scanStartedAt = performance.now();
 
@@ -632,9 +642,6 @@ export function AnalyzerForm() {
         setQuota(data.meta.quota);
       }
 
-      const activeAccountForTelemetry = getClientAccount();
-      recordLocalScan(activeAccountForTelemetry?.email, activeAccountForTelemetry?.role, activeAccountForTelemetry?.plan);
-
       saveSellerJournalScan(data as AnalyzeResponse, productName);
       if (selectedSellerProductId) {
         const updatedProduct = saveSellerProductScan(selectedSellerProductId, data as AnalyzeResponse);
@@ -653,11 +660,13 @@ export function AnalyzerForm() {
     }
   }
 
+  const account = getClientAccount();
+  const requiresLogin = !account;
   const canAnalyze = (stats.chars >= 80 && stats.chars <= MAX_BULK_REVIEW_CHARS) || images.length > 0;
   const isTooLarge = stats.chars > MAX_BULK_REVIEW_CHARS;
-  const quotaLocked = role !== "admin" && quota.limit !== null && (quota.remaining ?? 0) <= 0;
-  const quotaSummary = isHydrated ? quotaText(quota) : "3 of 3 free guest analyses left";
-  const analyzeDisabled = isLoading || !canAnalyze || isTooLarge || quotaLocked;
+  const quotaLocked = !requiresLogin && role !== "admin" && quota.limit !== null && (quota.remaining ?? 0) <= 0;
+  const quotaSummary = requiresLogin ? "Sign up or log in to use a free scan" : isHydrated ? quotaText(quota) : "";
+  const analyzeDisabled = isLoading || requiresLogin || !canAnalyze || isTooLarge || quotaLocked;
   const ctaStats = {
     chars: stats.chars,
     estimatedReviews: stats.estimatedReviews,
@@ -909,6 +918,8 @@ export function AnalyzerForm() {
               stats={ctaStats}
               images={images}
               quotaSummary={quotaSummary}
+                requiresLogin={requiresLogin}
+                requiresLogin={requiresLogin}
               onAnalyze={analyze}
             />
             {isTooLarge ? (
@@ -993,6 +1004,8 @@ export function AnalyzerForm() {
               stats={ctaStats}
               images={images}
               quotaSummary={quotaSummary}
+                requiresLogin={requiresLogin}
+                requiresLogin={requiresLogin}
               label="Run Screenshot Analysis"
               onAnalyze={analyze}
             />
