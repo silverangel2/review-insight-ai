@@ -1,123 +1,83 @@
 "use client";
 
 const platforms = [
-  { name: "Amazon", mark: "a", sub: "Marketplace", accent: "from-amber-300/35 to-orange-400/10" },
-  { name: "Walmart", mark: "✹", sub: "Retail", accent: "from-sky-300/35 to-blue-500/10" },
-  { name: "TikTok Shop", mark: "♪", sub: "Social commerce", accent: "from-cyan-300/35 to-fuchsia-500/10" },
-  { name: "Shopify", mark: "S", sub: "Storefront", accent: "from-emerald-300/35 to-lime-400/10" },
-  { name: "Etsy", mark: "E", sub: "Handmade", accent: "from-orange-300/35 to-rose-400/10" },
-  { name: "eBay", mark: "e", sub: "Resale", accent: "from-lime-300/35 to-sky-400/10" },
-  { name: "Best Buy", mark: "B", sub: "Electronics", accent: "from-yellow-300/35 to-blue-500/10" }
+  { name: "Amazon", mark: "a", sub: "Marketplace", accent: "from-amber-300/38 via-orange-300/16 to-white/8", shadow: "shadow-[0_30px_90px_rgba(255,178,56,0.22)]", delay: "-0.4s", shineDelay: "-1.2s", duration: "8.4s" },
+  { name: "Walmart", mark: "✹", sub: "Retail", accent: "from-sky-300/38 via-blue-400/16 to-white/8", shadow: "shadow-[0_30px_90px_rgba(56,189,248,0.22)]", delay: "-3.1s", shineDelay: "-4.6s", duration: "9.8s" },
+  { name: "TikTok Shop", mark: "♪", sub: "Social commerce", accent: "from-cyan-300/38 via-fuchsia-400/16 to-white/8", shadow: "shadow-[0_30px_90px_rgba(34,211,238,0.20)]", delay: "-6.8s", shineDelay: "-7.1s", duration: "10.6s" },
+  { name: "Shopify", mark: "S", sub: "Storefront", accent: "from-emerald-300/38 via-lime-300/16 to-white/8", shadow: "shadow-[0_30px_90px_rgba(52,211,153,0.22)]", delay: "-1.9s", shineDelay: "-9.3s", duration: "8.9s" },
+  { name: "Etsy", mark: "E", sub: "Handmade", accent: "from-orange-300/38 via-rose-300/16 to-white/8", shadow: "shadow-[0_30px_90px_rgba(251,146,60,0.22)]", delay: "-5.4s", shineDelay: "-2.7s", duration: "11.2s" },
+  { name: "eBay", mark: "e", sub: "Resale", accent: "from-lime-300/38 via-cyan-300/16 to-white/8", shadow: "shadow-[0_30px_90px_rgba(163,230,53,0.18)]", delay: "-8.2s", shineDelay: "-6.2s", duration: "9.3s" },
+  { name: "Best Buy", mark: "B", sub: "Electronics", accent: "from-yellow-300/38 via-blue-400/16 to-white/8", shadow: "shadow-[0_30px_90px_rgba(250,204,21,0.20)]", delay: "-2.6s", shineDelay: "-11.1s", duration: "10.1s" }
 ];
 
 const carouselItems = [...platforms, ...platforms];
 
 export function PlatformLogoOrbit() {
   return (
-    <section className="relative min-h-[560px] overflow-hidden rounded-[2.5rem] border border-white/25 bg-[radial-gradient(circle_at_18%_10%,rgba(20,184,166,0.42),transparent_28%),radial-gradient(circle_at_78%_12%,rgba(96,165,250,0.36),transparent_30%),radial-gradient(circle_at_50%_95%,rgba(251,191,36,0.34),transparent_30%),linear-gradient(135deg,#06111f_0%,#123b70_42%,#072033_100%)] px-6 py-10 text-white shadow-[0_40px_130px_rgba(15,23,42,0.34)]">
+    <section className="relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/25 bg-[radial-gradient(circle_at_18%_12%,rgba(20,184,166,0.42),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(96,165,250,0.36),transparent_32%),radial-gradient(circle_at_52%_95%,rgba(251,191,36,0.34),transparent_34%),linear-gradient(135deg,#06111f_0%,#123b70_42%,#072033_100%)] px-6 py-10 text-white shadow-[0_40px_130px_rgba(15,23,42,0.34)]">
       <style jsx>{`
-        @keyframes riCarouselPan {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
+        @keyframes riCarouselPan { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        @keyframes riRandomFlipA {
+          0%, 12%, 100% { transform: perspective(1050px) rotateY(-18deg) rotateX(5deg) translateY(0) scale(1); }
+          28% { transform: perspective(1050px) rotateY(8deg) rotateX(-2deg) translateY(-16px) scale(1.025); }
+          48% { transform: perspective(1050px) rotateY(178deg) rotateX(2deg) translateY(-6px) scale(1.01); }
+          66% { transform: perspective(1050px) rotateY(12deg) rotateX(-4deg) translateY(9px) scale(0.99); }
         }
-
-        @keyframes riCenterFloat {
-          0%, 100% {
-            transform: translate(-50%, -50%) translateY(0) scale(1);
-          }
-          50% {
-            transform: translate(-50%, -50%) translateY(-8px) scale(1.025);
-          }
+        @keyframes riRandomFlipB {
+          0%, 18%, 100% { transform: perspective(1050px) rotateY(16deg) rotateX(4deg) translateY(0) scale(1); }
+          36% { transform: perspective(1050px) rotateY(-10deg) rotateX(-3deg) translateY(12px) scale(0.995); }
+          57% { transform: perspective(1050px) rotateY(-178deg) rotateX(2deg) translateY(-18px) scale(1.025); }
+          78% { transform: perspective(1050px) rotateY(-8deg) rotateX(5deg) translateY(-5px) scale(1.01); }
         }
-
-        @keyframes riLightSweep {
-          0%, 45%, 100% {
-            transform: translateX(-130%) skewX(-18deg);
-            opacity: 0;
-          }
-          55% {
-            opacity: 0.85;
-          }
-          72% {
-            transform: translateX(135%) skewX(-18deg);
-            opacity: 0;
-          }
+        @keyframes riGlassSweep {
+          0%, 58%, 100% { transform: translateX(-150%) skewX(-18deg); opacity: 0; }
+          66% { opacity: 0.7; }
+          79% { transform: translateX(150%) skewX(-18deg); opacity: 0; }
         }
-
-        @keyframes riSoftPulse {
-          0%, 100% {
-            opacity: 0.55;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.95;
-            transform: scale(1.06);
-          }
-        }
-
-        .ri-carousel-track {
-          animation: riCarouselPan 26s linear infinite;
-          will-change: transform;
-        }
-
-        .ri-carousel-track:hover {
-          animation-play-state: paused;
-        }
-
-        .ri-glass-card {
-          transform-style: preserve-3d;
-          transform: perspective(1000px) rotateY(-16deg) rotateX(3deg);
-        }
-
-        .ri-glass-card:nth-child(even) {
-          transform: perspective(1000px) rotateY(16deg) rotateX(3deg);
-        }
-
-        .ri-glass-card::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: 2rem;
-          background: linear-gradient(115deg, transparent 12%, rgba(255,255,255,0.5) 34%, transparent 58%);
-          animation: riLightSweep 6s ease-in-out infinite;
-          pointer-events: none;
-        }
+        @keyframes riOrbFloatOne { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(80px,-45px,0) scale(1.12); } }
+        @keyframes riOrbFloatTwo { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-70px,60px,0) scale(1.08); } }
+        @keyframes riOrbFloatThree { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(40px,80px,0) scale(1.14); } }
+        @keyframes riCenterFloat { 0%, 100% { transform: translate(-50%, -50%) translateY(0) scale(1); } 50% { transform: translate(-50%, -50%) translateY(-8px) scale(1.025); } }
+        .ri-carousel-track { animation: riCarouselPan 30s linear infinite; will-change: transform; }
+        .ri-carousel-track:hover { animation-play-state: paused; }
+        .ri-glass-card { transform-style: preserve-3d; will-change: transform; }
+        .ri-glass-card:nth-child(odd) { animation-name: riRandomFlipA; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+        .ri-glass-card:nth-child(even) { animation-name: riRandomFlipB; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+        .ri-card-shine { animation-name: riGlassSweep; animation-duration: 9s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
       `}</style>
 
       <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,.36)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.36)_1px,transparent_1px)] [background-size:38px_38px]" />
-      <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/20 blur-3xl" />
-      <div className="absolute bottom-[-120px] left-[12%] h-72 w-72 rounded-full bg-amber/25 blur-3xl" />
-      <div className="absolute right-[8%] top-[8%] h-80 w-80 rounded-full bg-blue-400/20 blur-3xl" />
+      <div className="absolute left-[5%] top-[8%] h-80 w-80 rounded-full bg-cyan-300/30 blur-3xl" style={{ animation: "riOrbFloatOne 13s ease-in-out infinite" }} />
+      <div className="absolute right-[4%] top-[10%] h-96 w-96 rounded-full bg-blue-400/28 blur-3xl" style={{ animation: "riOrbFloatTwo 15s ease-in-out infinite" }} />
+      <div className="absolute bottom-[-14%] left-[20%] h-96 w-96 rounded-full bg-amber/26 blur-3xl" style={{ animation: "riOrbFloatThree 17s ease-in-out infinite" }} />
+      <div className="absolute bottom-[4%] right-[18%] h-72 w-72 rounded-full bg-fuchsia-400/18 blur-3xl" style={{ animation: "riOrbFloatOne 18s ease-in-out infinite reverse" }} />
 
       <div className="relative z-20 mx-auto max-w-3xl text-center">
         <p className="mx-auto inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-100 backdrop-blur-xl">
-          AI review source mesh
+          Marketplace intelligence
         </p>
         <h2 className="mt-5 text-4xl font-black tracking-tight sm:text-6xl">
-          Scan reviews from the places shoppers already trust.
+          Review sources move through one AI scan core.
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-100/85">
-          A premium AI layer that turns marketplace review text into fast buying decisions and seller intelligence.
+          Each card flips independently while ReviewIntel turns marketplace review text into buying signals and seller intelligence.
         </p>
       </div>
 
-      <div className="relative z-10 mt-12 overflow-hidden py-12">
+      <div className="relative z-10 mt-12 overflow-hidden py-16">
         <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-28 bg-gradient-to-r from-[#06111f] to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 z-20 h-full w-28 bg-gradient-to-l from-[#072033] to-transparent" />
-
-        <div className="ri-carousel-track flex w-max gap-7 px-8">
+        <div className="ri-carousel-track flex w-max gap-8 px-8">
           {carouselItems.map((platform, index) => (
             <article
               key={`${platform.name}-${index}`}
-              className={`ri-glass-card relative h-56 w-48 shrink-0 overflow-hidden rounded-[2rem] border border-white/25 bg-white/12 p-5 text-center shadow-[0_28px_90px_rgba(15,23,42,0.28)] backdrop-blur-2xl transition duration-500 hover:-translate-y-2 hover:scale-[1.03]`}
+              className={`ri-glass-card relative h-56 w-48 shrink-0 overflow-hidden rounded-[2rem] border border-white/25 bg-white/12 p-5 text-center ${platform.shadow} backdrop-blur-2xl transition duration-500 hover:-translate-y-2 hover:scale-[1.03]`}
+              style={{ animationDelay: platform.delay, animationDuration: platform.duration }}
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${platform.accent}`} />
-              <div className="absolute inset-[1px] rounded-[1.95rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.26),rgba(255,255,255,0.05)_48%,rgba(255,255,255,0.14))]" />
-              <div className="relative flex h-full flex-col items-center justify-center">
+              <div className="absolute inset-[1px] rounded-[1.95rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.05)_48%,rgba(255,255,255,0.14))]" />
+              <div className="ri-card-shine absolute inset-0 z-[3] rounded-[2rem] bg-[linear-gradient(115deg,transparent_10%,rgba(255,255,255,0.52)_33%,transparent_58%)]" style={{ animationDelay: platform.shineDelay }} />
+              <div className="relative z-[4] flex h-full flex-col items-center justify-center">
                 <div className="grid h-20 w-20 place-items-center rounded-3xl border border-white/30 bg-white/18 text-4xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_18px_60px_rgba(0,0,0,0.25)]">
                   {platform.mark}
                 </div>
@@ -128,11 +88,9 @@ export function PlatformLogoOrbit() {
           ))}
         </div>
 
-        <div className="pointer-events-none absolute left-1/2 top-1/2 z-30 flex h-48 w-48 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[2.25rem] border border-white/35 bg-white/16 text-center shadow-[0_0_100px_rgba(20,184,166,0.48)] backdrop-blur-2xl" style={{ animation: "riCenterFloat 5s ease-in-out infinite" }}>
+        <div className="pointer-events-none absolute left-1/2 top-1/2 z-30 flex h-48 w-48 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[2.25rem] border border-white/35 bg-white/16 text-center shadow-[0_0_110px_rgba(20,184,166,0.52)] backdrop-blur-2xl" style={{ animation: "riCenterFloat 5s ease-in-out infinite" }}>
           <div className="absolute inset-0 rounded-[2.25rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.34),rgba(255,255,255,0.06))]" />
-          <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_54%,#ffb238)] text-3xl font-black text-white shadow-glow" style={{ animation: "riSoftPulse 4s ease-in-out infinite" }}>
-            RI
-          </div>
+          <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_54%,#ffb238)] text-3xl font-black text-white shadow-glow">RI</div>
           <p className="relative mt-4 text-sm font-black tracking-[0.22em]">REVIEWINTEL</p>
           <p className="relative mt-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/80">AI scan core</p>
         </div>
