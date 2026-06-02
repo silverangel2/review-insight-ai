@@ -99,7 +99,7 @@ const carouselItems = [...platforms, ...platforms.map((platform) => ({
 
 export function PlatformLogoOrbit() {
   return (
-    <section className="relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/25 bg-[radial-gradient(circle_at_18%_12%,rgba(20,184,166,0.42),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(96,165,250,0.36),transparent_32%),radial-gradient(circle_at_52%_95%,rgba(251,191,36,0.34),transparent_34%),linear-gradient(135deg,#06111f_0%,#123b70_42%,#072033_100%)] px-6 py-10 text-white shadow-[0_40px_130px_rgba(15,23,42,0.34)]">
+    <section className="relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/25 bg-[radial-gradient(circle_at_18%_12%,rgba(20,184,166,0.50),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(96,165,250,0.44),transparent_32%),radial-gradient(circle_at_52%_95%,rgba(251,191,36,0.42),transparent_34%),linear-gradient(135deg,#06111f_0%,#174b8d_42%,#082233_100%)] px-6 py-10 text-white shadow-[0_40px_130px_rgba(15,23,42,0.34)]">
       <style jsx>{`
         @keyframes riCarouselPan { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         @keyframes riRandomFlipA {

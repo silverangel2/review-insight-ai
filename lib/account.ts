@@ -30,6 +30,8 @@ export type ClientAccount = {
   postalCode?: string;
   country?: string;
   website?: string;
+  preferredLanguage?: string;
+  preferredCurrency?: string;
   profileNotes?: string;
   marketingConsent?: boolean;
   passwordUpdatedAt?: string;

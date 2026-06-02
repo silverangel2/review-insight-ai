@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/Badge";
-import { SellerImprovementCalendar } from "@/components/SellerImprovementCalendar";
 import { FREE_DAILY_REVIEW_LIMIT, hasUnlimitedUsage, isAdminRole, makeQuotaInfo, planLabel, type ClientAccount } from "@/lib/account";
 import {
   accountHeaders,
@@ -69,6 +68,8 @@ type AccountProfileForm = {
   postalCode: string;
   country: string;
   website: string;
+  preferredLanguage: string;
+  preferredCurrency: string;
   profileNotes: string;
   marketingConsent: boolean;
 };
@@ -85,6 +86,8 @@ const emptyProfileForm: AccountProfileForm = {
   postalCode: "",
   country: "",
   website: "",
+  preferredLanguage: "en",
+  preferredCurrency: "CAD",
   profileNotes: "",
   marketingConsent: false
 };
@@ -103,6 +106,8 @@ function profileFromAccount(account: ClientAccount | null): AccountProfileForm {
     postalCode: account.postalCode ?? "",
     country: account.country ?? "",
     website: account.website ?? "",
+    preferredLanguage: account.preferredLanguage ?? "en",
+    preferredCurrency: account.preferredCurrency ?? "CAD",
     profileNotes: account.profileNotes ?? "",
     marketingConsent: Boolean(account.marketingConsent)
   };
@@ -376,6 +381,38 @@ export function AccountDashboard() {
             ))}
           </div>
 
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className="text-sm font-bold text-ink dark:text-white">Language</span>
+              <select
+                value={profileForm.preferredLanguage}
+                onChange={(event) => setProfileForm((current) => ({ ...current, preferredLanguage: event.target.value }))}
+                className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+              >
+                <option value="en">English</option>
+                <option value="fr">French</option>
+                <option value="es">Spanish</option>
+                <option value="fil">Filipino / Tagalog</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-bold text-ink dark:text-white">Preferred currency</span>
+              <select
+                value={profileForm.preferredCurrency}
+                onChange={(event) => setProfileForm((current) => ({ ...current, preferredCurrency: event.target.value }))}
+                className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+              >
+                <option value="CAD">CAD — Canadian Dollar</option>
+                <option value="USD">USD — US Dollar</option>
+                <option value="EUR">EUR — Euro</option>
+                <option value="GBP">GBP — British Pound</option>
+                <option value="PHP">PHP — Philippine Peso</option>
+                <option value="AUD">AUD — Australian Dollar</option>
+              </select>
+            </label>
+          </div>
+
           <label className="mt-4 block">
             <span className="text-sm font-bold text-ink dark:text-white">Notes / preferences</span>
             <textarea
@@ -478,22 +515,6 @@ export function AccountDashboard() {
           )}
         </div>
       </section>
-
-      {account.role === "seller" ? (
-        <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Seller scan calendar</p>
-              <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">Saved seller scan history</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                This reuses the existing Seller Pro calendar so seller accounts can review scan days, notes, complaint movement, and product improvement actions.
-              </p>
-            </div>
-            <Badge tone="info">Seller calendar</Badge>
-          </div>
-          <SellerImprovementCalendar />
-        </section>
-      ) : null}
 
       <section className="grid gap-5 md:grid-cols-3">
         {[
