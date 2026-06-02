@@ -62,14 +62,14 @@ export default function LandingPage() {
         <div className="relative z-10 mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
           <div>
             <Badge tone="good">AI shopping intelligence</Badge>
-            <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.98] tracking-tight text-slate-950 sm:text-6xl xl:text-7xl">
+            <h1 className="mt-5 max-w-4xl text-5xl font-black leading-[0.98] tracking-tight text-slate-950 sm:text-6xl xl:text-[5.9rem]">
               Know what product reviews are really saying.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700">
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-700">
               ReviewIntel scans messy product reviews and turns them into clear buying decisions, fake-review signals, complaint patterns, and seller opportunities.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link href="/signup" className="rounded-2xl bg-slate-950 px-7 py-4 text-center text-sm font-black text-white shadow-[0_22px_60px_rgba(15,23,42,0.20)] transition hover:-translate-y-0.5 hover:bg-ocean">
                 Create free account
               </Link>
@@ -78,20 +78,20 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="mt-6 grid max-w-xl gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid max-w-xl gap-3 sm:grid-cols-3">
               {heroPanels.map((panel) => (
-                <div key={panel.title} className="rounded-2xl border border-white/70 bg-white/70 p-3 shadow-soft backdrop-blur-xl">
+                <div key={panel.title} className="rounded-2xl border border-white/70 bg-white/75 p-3 shadow-soft backdrop-blur-xl">
                   <p className="text-xs font-black uppercase tracking-wide text-slate-500">{panel.title}</p>
-                  <p className="mt-2 text-2xl font-black text-slate-950">{panel.value}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">{panel.detail}</p>
+                  <p className="mt-1 text-2xl font-black text-slate-950">{panel.value}</p>
+                  <p className="mt-1 text-xs leading-4 text-slate-600">{panel.detail}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="relative min-h-[590px] lg:translate-x-5">
+          <div className="relative min-h-[565px] lg:translate-x-8 xl:translate-x-12">
             <div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20 blur-3xl" />
-            <div className="absolute inset-x-12 top-14 h-[460px] rounded-[3rem] border border-white/65 bg-white/28 shadow-[0_40px_130px_rgba(35,86,163,0.20)] backdrop-blur-2xl" style={{ animation: "riHeroPan 9s ease-in-out infinite" }}>
+            <div className="absolute left-20 right-4 top-16 h-[430px] rounded-[3rem] border border-white/65 bg-white/28 shadow-[0_40px_130px_rgba(35,86,163,0.20)] backdrop-blur-2xl" style={{ animation: "riHeroPan 9s ease-in-out infinite" }}>
               <div className="absolute inset-0 overflow-hidden rounded-[3rem]">
                 <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.55),rgba(255,255,255,0.10)_45%,rgba(8,183,168,0.16))]" />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(20,184,166,0.35),transparent_32%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.28),transparent_28%),radial-gradient(circle_at_50%_90%,rgba(251,191,36,0.24),transparent_32%)]" />
@@ -99,25 +99,25 @@ export default function LandingPage() {
                 <div className="absolute inset-y-0 left-0 w-1/2 bg-[linear-gradient(115deg,transparent,rgba(255,255,255,0.44),transparent)]" style={{ animation: "riHeroShine 8s ease-in-out infinite" }} />
               </div>
 
-              <div className="relative z-10 flex h-full flex-col justify-between p-8">
+              <div className="relative z-10 flex h-full flex-col justify-between p-7">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Live AI scan</p>
-                    <h2 className="mt-2 text-2xl font-black text-slate-950">Portable Blender</h2>
+                    <h2 className="mt-2 text-xl font-black text-slate-950">Portable Blender</h2>
                   </div>
-                  <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_54%,#ffb238)] text-2xl font-black text-white shadow-glow">RI</div>
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_54%,#ffb238)] text-xl font-black text-white shadow-glow">RI</div>
                 </div>
 
                 <div className="grid gap-5 md:grid-cols-[0.82fr_1fr]">
-                  <div className="rounded-[2rem] border border-white/70 bg-slate-950/85 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.26)] backdrop-blur-xl">
+                  <div className="rounded-[2rem] border border-white/70 bg-slate-950/85 p-5 text-white shadow-[0_24px_80px_rgba(15,23,42,0.26)] backdrop-blur-xl">
                     <p className="text-xs font-black uppercase text-cyan-100">Review score</p>
-                    <p className="mt-5 text-6xl font-black">87%</p>
+                    <p className="mt-4 text-5xl font-black">87%</p>
                     <p className="mt-3 text-sm font-bold text-cyan-100">Worth buying with durability caution</p>
                   </div>
-                  <div className="rounded-[2rem] border border-white/70 bg-white/72 p-6 shadow-soft backdrop-blur-xl">
+                  <div className="rounded-[2rem] border border-white/70 bg-white/74 p-5 shadow-soft backdrop-blur-xl">
                     <p className="text-xs font-black uppercase tracking-wide text-slate-500">AI verdict</p>
-                    <h3 className="mt-3 text-2xl font-black text-slate-950">Good product. Check leaking complaints first.</h3>
-                    <p className="mt-4 text-sm leading-6 text-slate-600">Shoppers like speed and cleanup. The repeated risk is lid leaks and short motor life.</p>
+                    <h3 className="mt-3 text-xl font-black leading-tight text-slate-950">Good product. Check leaking complaints first.</h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">Shoppers like speed and cleanup. The repeated risk is lid leaks and short motor life.</p>
                   </div>
                 </div>
 
@@ -135,11 +135,11 @@ export default function LandingPage() {
             </div>
 
             {[
-              ["Paste review", "Works great at first, but mine leaked after two weeks.", "left-10 top-2", "-3deg"],
-              ["Seller insight", "Top complaint: replacement parts and lid seal.", "right-8 bottom-28", "3deg"],
-              ["Buyer answer", "Best for casual smoothies, not heavy daily use.", "left-20 bottom-20", "2deg"]
+              ["Paste review", "Works great at first, but mine leaked after two weeks.", "right-14 top-2", "-2deg"],
+              ["Seller insight", "Top complaint: replacement parts and lid seal.", "right-4 bottom-24", "2deg"],
+              ["Buyer answer", "Best for casual smoothies, not heavy daily use.", "left-12 bottom-24", "1deg"]
             ].map(([title, text, pos, rotate], index) => (
-              <div key={title} className={`absolute ${pos} max-w-[210px] rounded-[1.7rem] border border-white/70 bg-white/64 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.16)] backdrop-blur-2xl`} style={{ "--rotate": rotate, animation: `riHeroPanelFloat ${7 + index}s ease-in-out infinite` } as React.CSSProperties}>
+              <div key={title} className={`absolute ${pos} max-w-[190px] rounded-[1.6rem] border border-white/70 bg-white/64 p-4 shadow-[0_20px_70px_rgba(15,23,42,0.14)] backdrop-blur-2xl`} style={{ "--rotate": rotate, animation: `riHeroPanelFloat ${7 + index}s ease-in-out infinite` } as React.CSSProperties}>
                 <p className="text-xs font-black uppercase tracking-wide text-ocean">{title}</p>
                 <p className="mt-2 text-sm font-bold leading-6 text-slate-700">{text}</p>
               </div>
