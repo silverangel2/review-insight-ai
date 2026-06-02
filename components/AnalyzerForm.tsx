@@ -919,7 +919,6 @@ export function AnalyzerForm() {
               images={images}
               quotaSummary={quotaSummary}
                 requiresLogin={requiresLogin}
-                requiresLogin={requiresLogin}
               onAnalyze={analyze}
             />
             {isTooLarge ? (
@@ -1004,7 +1003,6 @@ export function AnalyzerForm() {
               stats={ctaStats}
               images={images}
               quotaSummary={quotaSummary}
-                requiresLogin={requiresLogin}
                 requiresLogin={requiresLogin}
               label="Run Screenshot Analysis"
               onAnalyze={analyze}
