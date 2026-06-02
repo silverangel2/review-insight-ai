@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DashboardMetric, DashboardShell, MiniBarChart } from "@/components/DashboardShell";
+import { DashboardShell } from "@/components/DashboardShell";
 import { AdminUserSystem } from "@/components/AdminUserSystem";
+import { AdminDailyOpsTracker } from "@/components/AdminDailyOpsTracker";
 import { AdminReviewModeration } from "@/components/AdminReviewModeration";
-import { AdminUsageCostMonitor } from "@/components/AdminUsageCostMonitor";
 import { DeveloperControlCenter } from "@/components/DeveloperControlCenter";
 import { DeveloperQACenter } from "@/components/DeveloperQACenter";
-import { InsightList } from "@/components/InsightList";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionCookie } from "@/lib/adminAccess";
 
 export const metadata: Metadata = {
@@ -35,7 +34,7 @@ export default async function AdminPage() {
     >
       <DeveloperControlCenter serverDeveloperMode />
       <DeveloperQACenter />
-      <AdminUsageCostMonitor />
+      <AdminDailyOpsTracker />
       <AdminUserSystem />
       <AdminReviewModeration />
       <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
@@ -51,32 +50,6 @@ export default async function AdminPage() {
             Open SEO Manager
           </Link>
         </div>
-      </section>
-
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <DashboardMetric label="Developer Mode" value="Active" detail="Admin bypasses quotas, uploads, comparisons, AI limits, and feature gates." tone="good" />
-        <DashboardMetric label="Users" value="1,248" detail="User count placeholder." tone="info" />
-        <DashboardMetric label="Subscriptions" value="186" detail="Active paid subscription placeholder." tone="good" />
-        <DashboardMetric label="AI tokens" value="4.2M" detail="Monthly token usage placeholder." tone="warn" />
-      </section>
-      <section className="mt-6 grid gap-5 lg:grid-cols-2">
-        <MiniBarChart
-          items={[
-            { label: "Free usage", value: 82, tone: "warn" },
-            { label: "Pro conversion", value: 18, tone: "good" },
-            { label: "Flagged uploads", value: 6, tone: "bad" },
-            { label: "Webhook health", value: 96, tone: "info" }
-          ]}
-        />
-        <InsightList
-          title="Admin queue"
-          tone="warn"
-          items={[
-            "Review flagged uploads for unsupported file types or abuse patterns.",
-            "Monitor quota errors to tune upgrade prompts.",
-            "Track OpenAI request failures separately from local fallback analysis."
-          ]}
-        />
       </section>
       <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
