@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { InsightList } from "@/components/InsightList";
 import { ScoreCard } from "@/components/ScoreCard";
@@ -143,7 +144,7 @@ async function analyzeProduct(product: ProductDraft, mode: ComparisonMode) {
 export function CompareForm() {
   const [mode, setMode] = useState<ComparisonMode>("buyer");
   const [priorities, setPriorities] = useState<ComparisonPriority[]>(["best_quality", "fewest_complaints"]);
-  const [products, setProducts] = useState<ProductDraft[]>([newProduct(0, SAMPLE_A), newProduct(1, SAMPLE_B)]);
+  const [products, setProducts] = useState<ProductDraft[]>([newProduct(0), newProduct(1)]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [quota, setQuota] = useState<QuotaInfo>(INITIAL_QUOTA);
@@ -166,13 +167,15 @@ export function CompareForm() {
     saveActiveMode(mode);
   }, [mode]);
 
+  const requiresLogin = !account;
   const sellerModeAllowed = account ? canAccessSellerAnalytics(account.role, account.plan) : false;
   const developerMode = account?.role === "admin";
-  const unlimited = account ? hasUnlimitedUsage(account.role, account.plan) : quota.limit === null;
+  const unlimited = account ? hasUnlimitedUsage(account.role, account.plan) : false;
   const visibleModes: ComparisonMode[] = developerMode ? ["buyer", "seller"] : sellerModeAllowed ? ["seller"] : ["buyer"];
-  const quotaSummary = isHydrated ? quotaText(quota) : "3 of 3 free guest analyses left";
+  const quotaSummary = requiresLogin ? "Create a free account to use your 3 total free AI actions." : isHydrated ? quotaText(quota) : "";
   const analyzedProducts = products.filter((product) => product.result);
   const canCompare = products.length >= 2 && products.every((product) => product.name.trim() && product.reviews.trim().length >= 80);
+  const quotaLocked = !unlimited && !requiresLogin && quota.limit !== null && (quota.remaining ?? 0) <= 0;
   const winner = useMemo(() => pickWinner(products, mode, priorities), [mode, priorities, products]);
   const modeTitle = mode === "buyer" ? "Shopper mode: which product should I buy?" : "Seller mode: competitor/product intelligence";
   const modeDetail =
@@ -196,6 +199,12 @@ export function CompareForm() {
 
   async function compare() {
     setError("");
+
+    if (!getClientAccount()) {
+      setError("Please sign up or log in to use Compare.");
+      return;
+    }
+
     setIsLoading(true);
     setProducts((current) => current.map((product) => ({ ...product, result: undefined })));
 
@@ -205,16 +214,25 @@ export function CompareForm() {
       }
 
       const latestQuota = getStoredQuota();
-      if (!unlimited && latestQuota.limit !== null && (latestQuota.remaining ?? 0) < products.length) {
-        throw new Error(`Comparison needs ${products.length} remaining product analyses. Upgrade or wait for the daily reset.`);
+      if (!unlimited && latestQuota.limit !== null && (latestQuota.remaining ?? 0) < 1) {
+        throw new Error("Comparison needs 1 remaining AI action. Upgrade or wait for the daily reset.");
       }
 
+      const startingQuota = getStoredQuota();
       const nextProducts: ProductDraft[] = [];
       for (const product of products) {
         const result = await analyzeProduct(product, mode);
-        saveQuota(result.meta.quota);
-        setQuota(result.meta.quota);
         nextProducts.push({ ...product, result });
+      }
+
+      if (!unlimited && startingQuota.limit !== null) {
+        const adjustedQuota = {
+          ...startingQuota,
+          used: Math.min(startingQuota.limit, startingQuota.used + 1),
+          remaining: Math.max(0, (startingQuota.remaining ?? startingQuota.limit) - 1)
+        };
+        saveQuota(adjustedQuota);
+        setQuota(adjustedQuota);
       }
 
       setProducts(nextProducts);
@@ -256,6 +274,39 @@ export function CompareForm() {
   const quality = strongestBy(products, (product) => product.result?.analysis.product_score ?? 0);
   const durability = strongestBy(products, (product) => -(product.result?.analysis.durability_issues.length ?? 0));
   const avoid = weakest(products);
+
+  if (requiresLogin) {
+    return (
+      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,#050816_0%,#2356a3_38%,#08b7a8_74%,#ffb238_100%)] p-8 text-white shadow-[0_34px_120px_rgba(35,86,163,0.30)]">
+        <div className="ri-scan-grid absolute inset-0 opacity-25" />
+        <div className="relative z-10 grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+          <div>
+            <Badge tone="good">Free account required</Badge>
+            <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight md:text-6xl">Create a free account before comparing products.</h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-100">
+              Free users get 3 total AI actions across Analyze and Compare combined. Sign up first so your usage and results stay attached to your account.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/signup" className="rounded-2xl bg-white px-7 py-4 text-center text-sm font-black text-ink shadow-glow transition hover:-translate-y-0.5 hover:bg-cyan-100">
+                Create free account
+              </Link>
+              <Link href="/login" className="rounded-2xl border border-white/20 bg-white/10 px-7 py-4 text-center text-sm font-black text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15">
+                Log in
+              </Link>
+            </div>
+          </div>
+          <div className="rounded-[2rem] border border-white/15 bg-white/10 p-6 backdrop-blur-xl">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Shared free limit</p>
+            <div className="mt-5 grid gap-3">
+              {["Analyze one product = 1 AI action", "Compare products = 1 AI action", "Free account total = 3 AI actions", "Premium plans unlock more usage"].map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-white/10 p-4 text-sm font-black">{item}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-8">
@@ -327,18 +378,18 @@ export function CompareForm() {
         ))}
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
           onClick={addProduct}
           disabled={products.length >= 5}
-          className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-slate-600 transition hover:border-ocean hover:text-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+          className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-white"
         >
           Add Product
         </button>
         <button
           onClick={compare}
-          disabled={!canCompare || isLoading}
-          className="min-h-16 rounded-2xl bg-[linear-gradient(135deg,#2356a3,#08b7a8_48%,#ffb238)] px-10 py-4 text-base font-black text-white shadow-[0_18px_60px_rgba(8,183,168,0.28)] transition hover:-translate-y-0.5 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!canCompare || isLoading || quotaLocked}
+          className="rounded-xl bg-ink px-6 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-white dark:text-ink"
         >
           {isLoading ? "Comparing..." : "Run AI Comparison"}
         </button>
@@ -440,7 +491,7 @@ function ProductInput({
   onChange: (patch: Partial<ProductDraft>) => void;
 }) {
   return (
-    <article className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-black uppercase text-ocean dark:text-cyan-300">{label}</p>
         {canRemove ? (
@@ -456,7 +507,7 @@ function ProductInput({
         <Field label="Product URL" value={product.url ?? ""} onChange={(value) => onChange({ url: value })} placeholder="Optional" />
       </div>
       <label className="mt-4 block">
-        <span className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">Reviews</span>
+        <span className="text-sm font-bold text-ink dark:text-white">Paste reviews</span>
         <textarea
           value={product.reviews}
           placeholder="Paste reviews here"
