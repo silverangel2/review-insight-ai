@@ -19,11 +19,13 @@ const sellerWins = ["Complaint clusters", "Keyword intelligence", "Pain points",
 
 export default function LandingPage() {
   return (
-    <main className="bg-ink text-white">
+    <main className="bg-[radial-gradient(circle_at_top_left,rgba(8,183,168,0.18),transparent_32%),radial-gradient(circle_at_top_right,rgba(255,178,56,0.16),transparent_28%),linear-gradient(180deg,#08111f_0%,#102a56_42%,#eefcff_72%,#fff7ed_100%)] text-white">
       <SponsorAnalytics placement="landing" />
 
       <section className="relative isolate min-h-[calc(100vh-73px)] overflow-hidden">
         <div className="ri-hero-aurora absolute inset-0" />
+        <div className="ri-home-warm-blob absolute right-[-8%] top-[10%] h-72 w-72 rounded-full bg-amber/25 blur-3xl" />
+        <div className="absolute bottom-[10%] left-[-8%] h-80 w-80 rounded-full bg-teal/25 blur-3xl" />
         <div className="ri-pixie-field absolute inset-0 opacity-85" aria-hidden="true">
           {Array.from({ length: 18 }).map((_, index) => (
             <span

@@ -1,135 +1,117 @@
 "use client";
 
 const platforms = [
-  {
-    name: "Amazon",
-    short: "a",
-    angle: 205,
-    glow: "shadow-[0_0_36px_rgba(255,153,0,0.34)]",
-    badge: "bg-[#ff9900] text-white",
-    border: "border-[#ff9900]/55"
-  },
-  {
-    name: "Walmart",
-    short: "✹",
-    angle: 335,
-    glow: "shadow-[0_0_36px_rgba(0,113,206,0.36)]",
-    badge: "bg-[#0071ce] text-white",
-    border: "border-[#0071ce]/55"
-  },
-  {
-    name: "TikTok Shop",
-    short: "♪",
-    angle: 160,
-    glow: "shadow-[0_0_34px_rgba(37,244,238,0.32)]",
-    badge: "bg-[#111827] text-white",
-    border: "border-cyan-300/45"
-  },
-  {
-    name: "Etsy",
-    short: "E",
-    angle: 25,
-    glow: "shadow-[0_0_34px_rgba(241,100,30,0.3)]",
-    badge: "bg-[#f1641e] text-white",
-    border: "border-[#f1641e]/55"
-  },
-  {
-    name: "Shopify",
-    short: "S",
-    angle: 75,
-    glow: "shadow-[0_0_34px_rgba(149,191,71,0.32)]",
-    badge: "bg-[#95bf47] text-white",
-    border: "border-[#95bf47]/55"
-  },
-  {
-    name: "eBay",
-    short: "e",
-    angle: 55,
-    glow: "shadow-[0_0_34px_rgba(134,184,23,0.26)]",
-    badge: "bg-[#86b817] text-white",
-    border: "border-[#86b817]/55"
-  },
-  {
-    name: "Best Buy",
-    short: "B",
-    angle: 130,
-    glow: "shadow-[0_0_34px_rgba(255,224,0,0.28)]",
-    badge: "bg-[#ffe000] text-slate-950",
-    border: "border-[#ffe000]/55"
-  },
-  {
-    name: "AliExpress",
-    short: "A",
-    angle: 105,
-    glow: "shadow-[0_0_34px_rgba(230,46,45,0.28)]",
-    badge: "bg-[#e62e2d] text-white",
-    border: "border-[#e62e2d]/55"
-  },
-  {
-    name: "Temu",
-    short: "T",
-    angle: 275,
-    glow: "shadow-[0_0_34px_rgba(255,106,0,0.28)]",
-    badge: "bg-[#fb7701] text-white",
-    border: "border-[#fb7701]/55"
-  },
-  {
-    name: "Shein",
-    short: "S",
-    angle: 245,
-    glow: "shadow-[0_0_30px_rgba(255,255,255,0.16)]",
-    badge: "bg-black text-white",
-    border: "border-white/30"
-  }
+  { name: "Amazon", mark: "a", sub: "Marketplace", delay: "0s", ring: "ring-amber-300/40", glow: "shadow-[0_0_45px_rgba(255,178,56,0.28)]", position: "left-[8%] top-[48%] -rotate-[10deg] scale-[0.82]" },
+  { name: "Walmart", mark: "✹", sub: "Retail", delay: "-1.2s", ring: "ring-sky-300/40", glow: "shadow-[0_0_45px_rgba(56,189,248,0.26)]", position: "left-[22%] top-[23%] -rotate-[6deg] scale-[0.92]" },
+  { name: "TikTok Shop", mark: "♪", sub: "Social commerce", delay: "-2.4s", ring: "ring-cyan-300/40", glow: "shadow-[0_0_45px_rgba(34,211,238,0.24)]", position: "left-[43%] top-[10%] rotate-[2deg] scale-[0.95]" },
+  { name: "Shopify", mark: "S", sub: "Storefront", delay: "-3.6s", ring: "ring-emerald-300/40", glow: "shadow-[0_0_45px_rgba(52,211,153,0.24)]", position: "right-[21%] top-[23%] rotate-[7deg] scale-[0.92]" },
+  { name: "Etsy", mark: "E", sub: "Handmade", delay: "-4.8s", ring: "ring-orange-300/40", glow: "shadow-[0_0_45px_rgba(251,146,60,0.24)]", position: "right-[8%] top-[48%] rotate-[10deg] scale-[0.82]" },
+  { name: "eBay", mark: "e", sub: "Resale", delay: "-6s", ring: "ring-lime-300/40", glow: "shadow-[0_0_45px_rgba(163,230,53,0.20)]", position: "right-[22%] bottom-[10%] rotate-[5deg] scale-[0.88]" },
+  { name: "Best Buy", mark: "B", sub: "Electronics", delay: "-7.2s", ring: "ring-yellow-300/40", glow: "shadow-[0_0_45px_rgba(250,204,21,0.22)]", position: "left-[22%] bottom-[10%] -rotate-[5deg] scale-[0.88]" }
 ];
-
-function positionFromAngle(angle: number) {
-  const radiusX = 41;
-  const radiusY = 34;
-  const radians = (angle * Math.PI) / 180;
-  const x = 50 + Math.cos(radians) * radiusX;
-  const y = 50 + Math.sin(radians) * radiusY;
-  return { left: `${x}%`, top: `${y}%` };
-}
 
 export function PlatformLogoOrbit() {
   return (
-    <section className="relative min-h-[500px] overflow-hidden rounded-[2rem] border border-white/10 bg-[#080f1f] p-5 text-white shadow-[0_24px_90px_rgba(8,15,31,0.25)]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(8,183,168,0.30),transparent_28%),radial-gradient(circle_at_70%_18%,rgba(255,178,56,0.20),transparent_22%),radial-gradient(circle_at_25%_75%,rgba(35,86,163,0.30),transparent_28%)]" />
-      <div className="absolute inset-0 opacity-[0.13] [background-image:linear-gradient(rgba(255,255,255,.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.35)_1px,transparent_1px)] [background-size:34px_34px]" />
-      <div className="absolute left-1/2 top-1/2 h-[78%] w-[78%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/10" />
-      <div className="absolute left-1/2 top-1/2 h-[60%] w-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/10" />
-      <div className="absolute left-1/2 top-1/2 h-[42%] w-[42%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/10" />
-      <div className="absolute left-1/2 top-1/2 h-[86%] w-[86%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 border-t-cyan-300/40 border-r-amber/25 animate-[spin_18s_linear_infinite]" />
-      <div className="absolute left-1/2 top-1/2 h-[65%] w-[65%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 border-b-ocean/35 border-l-teal/35 animate-[spin_13s_linear_infinite_reverse]" />
+    <section className="relative min-h-[560px] overflow-hidden rounded-[2.5rem] border border-white/20 bg-[radial-gradient(circle_at_20%_15%,rgba(45,212,191,0.35),transparent_30%),radial-gradient(circle_at_75%_12%,rgba(96,165,250,0.35),transparent_28%),radial-gradient(circle_at_50%_88%,rgba(251,191,36,0.28),transparent_32%),linear-gradient(135deg,#07111f,#102a56_42%,#07111f)] p-6 text-white shadow-[0_34px_120px_rgba(15,23,42,0.32)]">
+      <style jsx>{`
+        @keyframes riFlipFloat {
+          0%, 100% {
+            transform: translateY(0) rotateY(-14deg) rotateX(4deg);
+          }
+          45% {
+            transform: translateY(-12px) rotateY(14deg) rotateX(-4deg);
+          }
+          70% {
+            transform: translateY(4px) rotateY(180deg) rotateX(0deg);
+          }
+        }
 
-      <div className="absolute left-1/2 top-1/2 z-20 flex h-44 w-44 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-cyan-200/25 bg-[radial-gradient(circle_at_35%_28%,rgba(255,255,255,0.55),rgba(8,183,168,0.35)_18%,rgba(35,86,163,0.72)_52%,rgba(8,15,31,0.98)_100%)] shadow-[0_0_80px_rgba(8,183,168,0.42)]">
-        <span className="absolute inset-4 rounded-full border border-white/10" />
-        <span className="rounded-2xl bg-white/10 px-4 py-3 text-2xl font-black backdrop-blur">RI</span>
-        <span className="mt-3 text-sm font-black tracking-[0.22em]">REVIEWINTEL</span>
-        <span className="mt-1 text-[10px] font-black uppercase tracking-[0.28em] text-cyan-100/70">AI source mesh</span>
+        @keyframes riSlowTurn {
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes riReverseTurn {
+          from { transform: translate(-50%, -50%) rotate(360deg); }
+          to { transform: translate(-50%, -50%) rotate(0deg); }
+        }
+
+        @keyframes riGlowPulse {
+          0%, 100% { opacity: 0.55; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.08); }
+        }
+
+        .ri-flip-card {
+          transform-style: preserve-3d;
+          animation: riFlipFloat 7.5s ease-in-out infinite;
+        }
+
+        .ri-card-face {
+          backface-visibility: hidden;
+        }
+
+        .ri-card-back {
+          transform: rotateY(180deg);
+        }
+
+        .ri-glass-shine::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(120deg, transparent 12%, rgba(255,255,255,0.38) 32%, transparent 54%);
+          transform: translateX(-130%);
+          animation: shine 5.5s ease-in-out infinite;
+        }
+
+        @keyframes shine {
+          0%, 48%, 100% { transform: translateX(-130%); }
+          62% { transform: translateX(130%); }
+        }
+      `}</style>
+
+      <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,.38)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.38)_1px,transparent_1px)] [background-size:36px_36px]" />
+      <div className="absolute left-1/2 top-1/2 h-[76%] w-[76%] rounded-full border border-cyan-200/15" style={{ animation: "riSlowTurn 28s linear infinite" }} />
+      <div className="absolute left-1/2 top-1/2 h-[55%] w-[55%] rounded-full border border-amber-200/15" style={{ animation: "riReverseTurn 20s linear infinite" }} />
+      <div className="absolute left-1/2 top-1/2 h-[34%] w-[34%] rounded-full border border-white/10" style={{ animation: "riSlowTurn 16s linear infinite" }} />
+
+      <div className="absolute left-1/2 top-1/2 z-20 flex h-44 w-44 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[2.25rem] border border-white/30 bg-white/12 shadow-[0_0_90px_rgba(45,212,191,0.40)] backdrop-blur-2xl">
+        <div className="absolute inset-0 rounded-[2.25rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.32),rgba(255,255,255,0.04))]" />
+        <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_52%,#ffb238)] text-3xl font-black text-white shadow-glow" style={{ animation: "riGlowPulse 4s ease-in-out infinite" }}>
+          RI
+        </div>
+        <p className="relative mt-4 text-sm font-black tracking-[0.22em]">REVIEWINTEL</p>
+        <p className="relative mt-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/80">AI review source mesh</p>
       </div>
 
-      <div className="absolute inset-0 z-10 animate-[pulse_5s_ease-in-out_infinite]">
-        {platforms.map((platform) => {
-          const style = positionFromAngle(platform.angle);
-          return (
-            <div
-              key={platform.name}
-              className={`absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-2xl border ${platform.border} bg-white/[0.07] px-4 py-3 backdrop-blur-xl ${platform.glow} transition duration-500 hover:scale-105 hover:bg-white/[0.12]`}
-              style={style}
-              aria-label={`${platform.name} review source example`}
-            >
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-black ${platform.badge}`}>
-                {platform.short}
-              </span>
-              <span className="whitespace-nowrap text-sm font-black">{platform.name}</span>
+      {platforms.map((platform) => (
+        <div
+          key={platform.name}
+          className={`absolute z-10 h-36 w-36 sm:h-40 sm:w-40 ${platform.position}`}
+          style={{ perspective: "900px" }}
+        >
+          <div className={`ri-flip-card relative h-full w-full ${platform.glow}`} style={{ animationDelay: platform.delay }}>
+            <div className={`ri-card-face ri-glass-shine absolute inset-0 overflow-hidden rounded-[2rem] border border-white/25 bg-white/12 p-4 backdrop-blur-2xl ring-1 ${platform.ring}`}>
+              <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.30),rgba(255,255,255,0.04)_45%,rgba(255,255,255,0.12))]" />
+              <div className="relative flex h-full flex-col items-center justify-center text-center">
+                <div className="grid h-14 w-14 place-items-center rounded-2xl border border-white/25 bg-white/18 text-3xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
+                  {platform.mark}
+                </div>
+                <p className="mt-3 text-sm font-black">{platform.name}</p>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-100/70">{platform.sub}</p>
+              </div>
             </div>
-          );
-        })}
-      </div>
 
-      <div className="absolute bottom-5 left-5 right-5 z-30 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-[11px] font-bold uppercase leading-5 tracking-[0.14em] text-slate-300 backdrop-blur">
+            <div className={`ri-card-face ri-card-back absolute inset-0 overflow-hidden rounded-[2rem] border border-white/25 bg-white/10 p-4 backdrop-blur-2xl ring-1 ${platform.ring}`}>
+              <div className="flex h-full flex-col items-center justify-center text-center">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Review source</p>
+                <p className="mt-3 text-sm font-bold leading-5 text-white/90">Paste review text from {platform.name} and let AI find the real buying signals.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <div className="absolute bottom-5 left-5 right-5 z-30 rounded-2xl border border-white/15 bg-slate-950/48 px-4 py-3 text-[10px] font-bold uppercase leading-5 tracking-[0.13em] text-slate-200 backdrop-blur-xl">
         Marketplace names are examples of review sources only. ReviewIntel is not affiliated with, sponsored by, endorsed by, or officially partnered with these marketplaces.
       </div>
     </section>
