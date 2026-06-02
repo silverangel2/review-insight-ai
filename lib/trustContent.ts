@@ -26,6 +26,7 @@ export const footerLinkGroups = [
     links: [
       { label: "Analyzer", href: "/analyze" },
       { label: "Pricing", href: "/pricing" },
+      { label: "Advertise", href: "/advertise" },
       { label: "User Reviews", href: "/reviews" },
       { label: "Seller dashboard", href: "/dashboard/seller" },
       { label: "Shopper dashboard", href: "/dashboard/customer" }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { sponsorCategoryLabels, sponsorHref, sponsorsForPlacement, type SponsorPlacement } from "@/lib/sponsors";
 
@@ -33,9 +34,17 @@ export function SponsoredResources({
               {title}
             </h2>
           </div>
-          <p className={`${compact ? "max-w-xl" : "max-w-2xl"} text-sm leading-6 text-slate-600 dark:text-slate-300`}>
-            {description}
-          </p>
+          <div className={`${compact ? "max-w-xl" : "max-w-2xl"} space-y-3`}>
+            <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {description}
+            </p>
+            <Link
+              href="/advertise"
+              className="inline-flex rounded-xl border border-line bg-white px-4 py-2 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-white/5 dark:text-white"
+            >
+              Advertise with ReviewIntel
+            </Link>
+          </div>
         </div>
 
         <div className={`${compact ? "mt-5 grid gap-3" : "mt-8 grid gap-5 md:grid-cols-3"}`}>

@@ -7,6 +7,7 @@ const navItems = [
   { href: "/compare", label: "Compare" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/advertise", label: "Advertise" },
   { href: "/reviews", label: "Reviews" },
   { href: "/about", label: "About" }
 ];
