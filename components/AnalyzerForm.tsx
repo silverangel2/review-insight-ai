@@ -674,6 +674,48 @@ export function AnalyzerForm() {
     ratingBreakdown: stats.ratingBreakdown
   };
 
+  if (requiresLogin) {
+    return (
+      <section className="space-y-6">
+        <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,#10133b_0%,#164bcd_38%,#10c6a3_72%,#ffb238_100%)] p-8 text-white shadow-[0_34px_120px_rgba(35,86,163,0.30)]">
+          <div className="ri-scan-grid absolute inset-0 opacity-30" />
+          <div className="ri-scan-beam absolute inset-x-0 top-0 h-24" />
+          <div className="relative z-10 grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Free scan requires account</p>
+              <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight md:text-6xl">
+                Create a free account before you paste reviews.
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-100">
+                ReviewIntel saves your scans, tracks your usage, and keeps your results attached to your account. Sign up first, then run your free scan.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href="/signup" className="rounded-2xl bg-white px-7 py-4 text-center text-sm font-black text-ink shadow-glow transition hover:-translate-y-0.5 hover:bg-cyan-100">
+                  Create free account
+                </Link>
+                <Link href="/login" className="rounded-2xl border border-white/20 bg-white/10 px-7 py-4 text-center text-sm font-black text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15">
+                  Log in
+                </Link>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/15 bg-white/10 p-6 backdrop-blur-xl">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">How scanning works</p>
+              <div className="mt-5 grid gap-3">
+                {["Create free account", "Paste reviews inside Analyzer", "Run AI scan", "Save result to your account"].map((step, index) => (
+                  <div key={step} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 p-4">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-white text-sm font-black text-ink">{index + 1}</span>
+                    <span className="text-sm font-black">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-6">
       {isLoading ? <AnalysisOverlay activeStep={loadingStep} /> : null}
