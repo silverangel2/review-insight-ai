@@ -147,9 +147,6 @@ export function PlatformLogoOrbit() {
         <h2 className="mt-5 text-4xl font-black tracking-tight sm:text-6xl">
           Review sources move through one AI scan core.
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-100/85">
-          Each glass card flips on its own rhythm and reveals sample review signals from different products.
-        </p>
       </div>
 
       <div className="relative z-10 mt-12 overflow-hidden py-16">
@@ -179,8 +176,7 @@ export function PlatformLogoOrbit() {
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(45,212,191,0.30),transparent_34%),radial-gradient(circle_at_80%_85%,rgba(251,191,36,0.20),transparent_30%)]" />
                   <div className="relative z-[4] flex h-full flex-col justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Example review signal</p>
-                      <p className="mt-4 text-sm font-black leading-6 text-white">{platform.review}</p>
+                      <p className="text-sm font-black leading-6 text-white">{platform.review}</p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
                       AI extracts risk + buyer signal
@@ -200,9 +196,6 @@ export function PlatformLogoOrbit() {
         </div>
       </div>
 
-      <div className="relative z-30 mx-auto mt-2 max-w-6xl rounded-2xl border border-white/15 bg-slate-950/42 px-4 py-3 text-center text-[10px] font-bold uppercase leading-5 tracking-[0.13em] text-slate-200 backdrop-blur-xl">
-        Marketplace names are examples of review sources only. ReviewIntel is not affiliated with, sponsored by, endorsed by, or officially partnered with these marketplaces.
-      </div>
     </section>
   );
 }
