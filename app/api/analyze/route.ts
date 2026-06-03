@@ -264,6 +264,38 @@ function rollbackQuota(key: string, plan: SubscriptionPlan, consumed: boolean) {
   usageStore.set(key, existing);
 }
 
+
+function uniqueStrings(items: string[] | undefined, fallback: string[] = []) {
+  const seen = new Set<string>();
+  const source = items?.length ? items : fallback;
+  return source
+    .map((item) => String(item ?? "").trim())
+    .filter((item) => {
+      if (!item) return false;
+      const key = item.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+}
+
+function uniqueKeywordAnalysis<T extends { keyword?: string; context?: string }>(items: T[] | undefined) {
+  const seen = new Set<string>();
+  return (items ?? []).filter((item) => {
+    const key = String(item.keyword || item.context || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 12);
+}
+
+function normalizeKeywordSentiment(value: unknown): "positive" | "neutral" | "negative" {
+  const raw = String(value ?? "neutral").toLowerCase();
+  if (raw === "positive" || raw === "negative" || raw === "neutral") return raw;
+  return "neutral";
+}
+
 function normalizeAnalysis(analysis: ReviewAnalysis, reviewCountEstimate = 0): ReviewAnalysis {
   const recommendation = analysis.buyer_recommendation ?? analysis.customer_recommendation;
   const qualityConcerns = analysis.quality_concerns ?? analysis.product_quality_concerns ?? [];
@@ -276,24 +308,35 @@ function normalizeAnalysis(analysis: ReviewAnalysis, reviewCountEstimate = 0): R
     buyer_recommendation: recommendation,
     customer_recommendation: recommendation,
     product_score: productScore,
-    fake_review_indicators: analysis.fake_review_indicators ?? ["No clear fake-review warning indicators were found."],
-    quality_concerns: qualityConcerns,
-    product_quality_concerns: analysis.product_quality_concerns ?? qualityConcerns,
-    feature_requests: featureRequests,
-    packaging_issues: packagingIssues,
-    durability_issues: analysis.durability_issues ?? [],
-    support_issues: analysis.support_issues ?? [],
+    fake_review_indicators: uniqueStrings(analysis.fake_review_indicators, ["No clear fake-review warning indicators were found."]),
+    quality_concerns: uniqueStrings(qualityConcerns),
+    product_quality_concerns: uniqueStrings(analysis.product_quality_concerns ?? qualityConcerns),
+    feature_requests: uniqueStrings(featureRequests),
+    packaging_issues: uniqueStrings(packagingIssues),
+    durability_issues: uniqueStrings(analysis.durability_issues ?? []),
+    support_issues: uniqueStrings(analysis.support_issues ?? []),
     confidence_score: normalizeConfidenceScore(analysis.confidence_score, reviewCountEstimate),
     keyword_analysis:
-      analysis.keyword_analysis ??
-      analysis.keywords.map((keyword) => ({ keyword, mentions: 1, sentiment: "neutral", context: "Mentioned in reviews." })),
+      uniqueKeywordAnalysis(analysis.keyword_analysis).length > 0
+        ? uniqueKeywordAnalysis(analysis.keyword_analysis).map((item) => ({
+            ...item,
+            sentiment: normalizeKeywordSentiment(item.sentiment)
+          }))
+        : uniqueKeywordAnalysis(
+            analysis.keywords.map((keyword) => ({
+              keyword,
+              mentions: 1,
+              sentiment: normalizeKeywordSentiment("neutral"),
+              context: "Mentioned in reviews."
+            }))
+          ),
     seller_insights: {
       ...analysis.seller_insights,
-      complaint_clusters: analysis.seller_insights.complaint_clusters ?? analysis.common_complaints,
-      product_improvement_recommendations: analysis.seller_insights.product_improvement_recommendations ?? analysis.improvement_suggestions,
-      shipping_complaint_detection: analysis.seller_insights.shipping_complaint_detection ?? analysis.seller_insights.packaging_shipping_issues,
-      sentiment_trends: analysis.seller_insights.sentiment_trends ?? ["Trend analysis needs multiple dated review batches."],
-      seller_recommendations: analysis.seller_insights.seller_recommendations ?? analysis.improvement_suggestions,
+      complaint_clusters: uniqueStrings(analysis.seller_insights.complaint_clusters ?? analysis.common_complaints),
+      product_improvement_recommendations: uniqueStrings(analysis.seller_insights.product_improvement_recommendations ?? analysis.improvement_suggestions),
+      shipping_complaint_detection: uniqueStrings(analysis.seller_insights.shipping_complaint_detection ?? analysis.seller_insights.packaging_shipping_issues),
+      sentiment_trends: uniqueStrings(analysis.seller_insights.sentiment_trends, ["Trend analysis needs multiple dated review batches."]),
+      seller_recommendations: uniqueStrings(analysis.seller_insights.seller_recommendations ?? analysis.improvement_suggestions),
       customer_satisfaction_score: analysis.seller_insights.customer_satisfaction_score ?? productScore
     }
   };
