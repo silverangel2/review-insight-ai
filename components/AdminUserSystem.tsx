@@ -13,6 +13,8 @@ type AdminUserRow = {
   marketingConsent: boolean;
 };
 
+const fallbackUsers: AdminUserRow[] = [];
+
 function csvEscape(value: string | boolean) {
   const text = String(value);
   return `"${text.replace(/"/g, '""')}"`;
@@ -30,7 +32,7 @@ function displayRole(role: string) {
 }
 
 export function AdminUserSystem() {
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<AdminUserRow[]>(fallbackUsers);
   const [status, setStatus] = useState("No live users yet");
 
   useEffect(() => {
@@ -38,24 +40,16 @@ export function AdminUserSystem() {
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "User lookup failed.");
-
-        if (Array.isArray(data.users) && data.users.length > 0) {
+        if (Array.isArray(data.users) && data.users.length) {
           setUsers(data.users as AdminUserRow[]);
           setStatus(data.source === "supabase" ? "Live Supabase customers" : "Local customers");
-          return;
         }
-
-        setUsers([]);
-        setStatus("No live users yet");
       })
-      .catch(() => {
-        setUsers([]);
-        setStatus("No live users yet");
-      });
+      .catch(() => { setUsers([]); setStatus("No live users yet"); });
   }, []);
 
   const summary = useMemo(() => {
-    const paid = users.filter((user) => user.plan !== "Shopper Free" && user.plan !== "free_buyer").length;
+    const paid = users.filter((user) => user.plan !== "Shopper Free").length;
     const consent = users.filter((user) => user.marketingConsent).length;
     return { paid, consent };
   }, [users]);
@@ -86,18 +80,17 @@ export function AdminUserSystem() {
         <div>
           <div className="flex flex-wrap gap-2">
             <Badge tone="info">Admin user system</Badge>
-            <Badge tone={users.length ? "good" : "neutral"}>{status}</Badge>
+            <Badge tone={status.includes("Live") ? "good" : "warn"}>{status}</Badge>
           </div>
-          <h2 className="mt-4 text-2xl font-black text-ink dark:text-white">Customer list</h2>
+          <h2 className="mt-4 text-2xl font-black text-ink dark:text-white">Customer list for future email integration</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-            No demo users are shown here. This starts at zero and will only show real users from the connected account backend.
+            Tracks customer email, role, plan, signup date, last activity, and marketing consent. Export is ready for email tools.
           </p>
         </div>
         <button
           type="button"
           onClick={exportCsv}
-          disabled={!users.length}
-          className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-ink"
+          className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean dark:bg-white dark:text-ink"
         >
           Export CSV
         </button>
@@ -119,37 +112,31 @@ export function AdminUserSystem() {
       </div>
 
       <div className="mt-5 overflow-hidden rounded-2xl border border-line dark:border-white/10">
-        {users.length ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-line text-sm dark:divide-white/10">
-              <thead className="bg-mist text-xs font-black uppercase text-slate-500 dark:bg-white/[0.04] dark:text-slate-400">
-                <tr>
-                  {["Email", "Role", "Plan", "Signup date", "Last login", "Consent"].map((heading) => (
-                    <th key={heading} className="px-4 py-3 text-left">{heading}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line dark:divide-white/10">
-                {users.map((user) => (
-                  <tr key={user.id} className="bg-white dark:bg-slate-950">
-                    <td className="px-4 py-4 font-black text-ink dark:text-white">{user.email}</td>
-                    <td className="px-4 py-4 capitalize text-slate-600 dark:text-slate-300">{displayRole(user.role)}</td>
-                    <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{user.plan}</td>
-                    <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{formatDate(user.signupDate)}</td>
-                    <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{formatDate(user.lastLogin)}</td>
-                    <td className="px-4 py-4">
-                      <Badge tone={user.marketingConsent ? "good" : "warn"}>{user.marketingConsent ? "Yes" : "No"}</Badge>
-                    </td>
-                  </tr>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-line text-sm dark:divide-white/10">
+            <thead className="bg-mist text-xs font-black uppercase text-slate-500 dark:bg-white/[0.04] dark:text-slate-400">
+              <tr>
+                {["Email", "Role", "Plan", "Signup date", "Last login", "Consent"].map((heading) => (
+                  <th key={heading} className="px-4 py-3 text-left">{heading}</th>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="px-5 py-8 text-sm font-bold text-slate-500 dark:text-slate-400">
-            No real users yet.
-          </div>
-        )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line dark:divide-white/10">
+              {users.map((user) => (
+                <tr key={user.id} className="bg-white dark:bg-slate-950">
+                  <td className="px-4 py-4 font-black text-ink dark:text-white">{user.email}</td>
+                  <td className="px-4 py-4 capitalize text-slate-600 dark:text-slate-300">{displayRole(user.role)}</td>
+                  <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{user.plan}</td>
+                  <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{formatDate(user.signupDate)}</td>
+                  <td className="px-4 py-4 text-slate-600 dark:text-slate-300">{formatDate(user.lastLogin)}</td>
+                  <td className="px-4 py-4">
+                    <Badge tone={user.marketingConsent ? "good" : "warn"}>{user.marketingConsent ? "Yes" : "No"}</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );

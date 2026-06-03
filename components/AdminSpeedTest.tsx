@@ -36,19 +36,11 @@ export function AdminSpeedTest() {
   async function runSpeedTest() {
     setIsRunning(true);
     setResults([]);
-
     const checks: SpeedResult[] = [];
+
     checks.push(await measure("Homepage fetch", async () => {
       const response = await fetch("/", { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    }));
-
-    checks.push(await measure("Analyze API ping", async () => {
-      const response = await fetch("/api/analyze", {
-        method: "OPTIONS",
-        cache: "no-store"
-      });
-      if (!response.ok && response.status !== 405) throw new Error(`HTTP ${response.status}`);
     }));
 
     checks.push(await measure("Admin users API", async () => {
@@ -56,7 +48,7 @@ export function AdminSpeedTest() {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
     }));
 
-    checks.push(await measure("Local browser storage", async () => {
+    checks.push(await measure("Local storage", async () => {
       const key = "reviewintel:speed-test";
       window.localStorage.setItem(key, String(Date.now()));
       window.localStorage.removeItem(key);
@@ -76,15 +68,10 @@ export function AdminSpeedTest() {
           <Badge tone="info">Admin speed test</Badge>
           <h2 className="mt-4 text-2xl font-black text-ink dark:text-white">Site performance check</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Quick owner-side test for homepage response, API response, admin user API, and browser storage speed.
+            Quick owner-side test for homepage response, admin API response, and browser storage speed.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={runSpeedTest}
-          disabled={isRunning}
-          className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
-        >
+        <button type="button" onClick={runSpeedTest} disabled={isRunning} className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink">
           {isRunning ? "Testing..." : "Run speed test"}
         </button>
       </div>

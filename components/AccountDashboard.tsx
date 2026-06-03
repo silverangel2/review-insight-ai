@@ -381,38 +381,6 @@ export function AccountDashboard() {
             ))}
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-bold text-ink dark:text-white">Language</span>
-              <select
-                value={profileForm.preferredLanguage}
-                onChange={(event) => setProfileForm((current) => ({ ...current, preferredLanguage: event.target.value }))}
-                className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="en">English</option>
-                <option value="fr">French</option>
-                <option value="es">Spanish</option>
-                <option value="fil">Filipino / Tagalog</option>
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-bold text-ink dark:text-white">Preferred currency</span>
-              <select
-                value={profileForm.preferredCurrency}
-                onChange={(event) => setProfileForm((current) => ({ ...current, preferredCurrency: event.target.value }))}
-                className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="CAD">CAD — Canadian Dollar</option>
-                <option value="USD">USD — US Dollar</option>
-                <option value="EUR">EUR — Euro</option>
-                <option value="GBP">GBP — British Pound</option>
-                <option value="PHP">PHP — Philippine Peso</option>
-                <option value="AUD">AUD — Australian Dollar</option>
-              </select>
-            </label>
-          </div>
-
           <label className="mt-4 block">
             <span className="text-sm font-bold text-ink dark:text-white">Notes / preferences</span>
             <textarea

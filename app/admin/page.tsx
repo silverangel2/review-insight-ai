@@ -55,9 +55,9 @@ export default async function AdminPage() {
 
       <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         <DashboardMetric label="Developer Mode" value="Active" detail="Admin bypasses quotas, uploads, comparisons, AI limits, and feature gates." tone="good" />
-        <DashboardMetric label="Users" value="1,248" detail="User count placeholder." tone="info" />
-        <DashboardMetric label="Subscriptions" value="186" detail="Active paid subscription placeholder." tone="good" />
-        <DashboardMetric label="AI tokens" value="4.2M" detail="Monthly token usage placeholder." tone="warn" />
+        <DashboardMetric label="Users" value="0" detail="Live user count starts at zero." tone="info" />
+        <DashboardMetric label="Subscriptions" value="0" detail="Live paid subscription count starts at zero." tone="good" />
+        <DashboardMetric label="AI tokens" value="0" detail="Token usage starts at zero until tracked." tone="warn" />
       </section>
       <section className="mt-6 grid gap-5 lg:grid-cols-2">
         <MiniBarChart
