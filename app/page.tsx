@@ -19,14 +19,11 @@ const sellerWins = ["Complaint clusters", "Keyword intelligence", "Pain points",
 
 export default function LandingPage() {
   return (
-    <main className="bg-[radial-gradient(circle_at_8%_12%,rgba(45,212,191,0.42),transparent_30%),radial-gradient(circle_at_86%_10%,rgba(96,165,250,0.40),transparent_32%),radial-gradient(circle_at_50%_54%,rgba(255,178,56,0.28),transparent_36%),radial-gradient(circle_at_86%_78%,rgba(236,72,153,0.24),transparent_30%),linear-gradient(180deg,#07111f_0%,#123b70_42%,#dffbff_74%,#fff3db_100%)] text-white">
+    <main className="bg-[radial-gradient(circle_at_top_left,rgba(8,183,168,0.18),transparent_32%),radial-gradient(circle_at_top_right,rgba(255,178,56,0.14),transparent_28%),linear-gradient(180deg,#08111f_0%,#102a56_44%,#eefcff_76%,#fff7ed_100%)] text-white">
       <SponsorAnalytics placement="landing" />
 
       <section className="relative isolate min-h-[calc(100vh-73px)] overflow-hidden">
         <div className="ri-hero-aurora absolute inset-0" />
-        <div className="pointer-events-none absolute right-[-10%] top-[4%] h-[34rem] w-[34rem] rounded-full bg-amber/30 blur-3xl" />
-        <div className="pointer-events-none absolute left-[-12%] bottom-[6%] h-[34rem] w-[34rem] rounded-full bg-teal/35 blur-3xl" />
-        <div className="pointer-events-none absolute right-[18%] bottom-[0%] h-[28rem] w-[28rem] rounded-full bg-fuchsia-400/20 blur-3xl" />
         <div className="ri-home-warm-blob absolute right-[-8%] top-[10%] h-72 w-72 rounded-full bg-amber/20 blur-3xl" />
         <div className="absolute bottom-[10%] left-[-8%] h-80 w-80 rounded-full bg-teal/20 blur-3xl" />
         <div className="ri-pixie-field absolute inset-0 opacity-85" aria-hidden="true">
