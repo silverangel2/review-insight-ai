@@ -25,7 +25,7 @@ import {
   rollbackPersistentQuota,
   saveAnalysisRecord
 } from "@/lib/supabaseServer";
-import type { AnalysisAudience, AnalyzeRequest, AnalyzeResponse, QuotaInfo, ReviewAnalysis, ReviewTextSection, SubscriptionPlan, UploadedReviewImage } from "@/lib/types";
+import type { AnalysisAudience, AnalyzeRequest, AnalyzeResponse, QuotaInfo, ReviewAnalysis, ReviewTextSection, SubscriptionPlan, UploadedReviewImage, UserRole } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -146,8 +146,12 @@ function normalizeAudience(value: string | null | undefined): AnalysisAudience {
 }
 
 function enforceAudienceForAccount(requested: AnalysisAudience, account: Awaited<ReturnType<typeof accountFromRequest>>): AnalysisAudience {
-  if (account.role === "admin") return requested;
-  if (account.role === "seller" || isSellerPlan(account.plan)) return "seller";
+  if (!account) return "buyer";
+  const accountPlan = account.plan as SubscriptionPlan;
+  const accountRole = account.role as UserRole;
+
+  if (accountRole === "admin") return requested;
+  if (accountRole === "seller" || isSellerPlan(accountPlan)) return "seller";
   return "buyer";
 }
 
@@ -230,8 +234,18 @@ function currentMemoryUsage(key: string, plan: SubscriptionPlan, guest = false) 
 }
 
 function consumeMemoryQuota(request: Request, account: Awaited<ReturnType<typeof accountFromRequest>>) {
-  const plan = account.plan;
-  const guest = account.role === "guest";
+  if (!account) {
+    return {
+      allowed: true,
+      remaining: null,
+      used: 0,
+      limit: null,
+      key: requestUserKey(request)
+    };
+  }
+  const plan = account.plan as SubscriptionPlan;
+  const role = account.role as UserRole;
+  const guest = role === "guest";
   const day = guest ? "guest-total" : utcDayKey();
   const key = `${day}:${requestUserKey(request)}`;
 
@@ -444,9 +458,19 @@ async function analyzeWithOpenAI(
 }
 
 export async function POST(request: Request) {
-  const account = await accountFromRequest(request);
-  const unlimited = hasUnlimitedUsage(account.role, account.plan);
-  const adminBypass = account.role === "admin";
+  const account =
+    (await accountFromRequest(request)) ?? {
+      email: "guest@reviewintel.local",
+      name: "",
+      plan: "free_buyer" as SubscriptionPlan,
+      role: "guest" as UserRole,
+      trusted: false
+    };
+
+  const accountPlan = account.plan as SubscriptionPlan;
+  const accountRole = account.role as UserRole;
+  const unlimited = hasUnlimitedUsage(accountRole, accountPlan);
+  const adminBypass = accountRole === "admin";
   const contentLength = Number(request.headers.get("content-length") ?? "0");
 
   if (!adminBypass && contentLength > MAX_REQUEST_BYTES) {
@@ -487,7 +511,7 @@ export async function POST(request: Request) {
     return jsonError("AI analysis is currently paused while ReviewIntel is updating. Please try again shortly.", 503);
   }
 
-  const imageError = validateImages(body.images, plan, unlimited);
+  const imageError = validateImages(body.images, accountPlan, unlimited);
   if (imageError) {
     return jsonError(imageError);
   }
@@ -501,9 +525,18 @@ export async function POST(request: Request) {
     return jsonError(`Review text is too large. Keep it under ${maxChars.toLocaleString()} characters for one bulk analysis.`);
   }
 
-  const persistentQuotaGate = await consumePersistentQuota(account, request, body.images?.length ?? 0);
-  const memoryQuotaGate = persistentQuotaGate ? null : consumeMemoryQuota(request, account);
-  const quotaGate = persistentQuotaGate ?? memoryQuotaGate!;
+  const persistentQuotaGate = await consumePersistentQuota(account, { imageCount: body.images?.length ?? 0 });
+  const memoryQuotaGate = persistentQuotaGate?.mode === "supabase" ? null : consumeMemoryQuota(request, account);
+  const quotaGate =
+    persistentQuotaGate?.mode === "supabase"
+      ? {
+          allowed: persistentQuotaGate.ok,
+          remaining: persistentQuotaGate.quota?.remaining ?? null,
+          used: persistentQuotaGate.quota?.used ?? 0,
+          limit: persistentQuotaGate.quota?.limit ?? null,
+          key: account.email
+        }
+      : memoryQuotaGate!;
 
   if (!quotaGate.allowed) {
     const limitMessage =
@@ -513,7 +546,15 @@ export async function POST(request: Request) {
     return jsonError(
       limitMessage,
       429,
-      quotaGate.quota
+      "quota" in quotaGate
+        ? quotaGate.quota
+        : {
+            plan: accountPlan,
+            used: quotaGate.used ?? 0,
+            remaining: quotaGate.remaining ?? null,
+            limit: quotaGate.limit ?? null,
+            resets_at: new Date().toISOString()
+          }
     );
   }
 
@@ -557,7 +598,16 @@ export async function POST(request: Request) {
         mode: result.mode,
         model: result.model,
         review_count_estimate: reviewCountEstimate,
-        quota: quotaGate.quota,
+        quota:
+          "quota" in quotaGate
+            ? quotaGate.quota
+            : {
+                plan: accountPlan,
+                used: quotaGate.used ?? 0,
+                remaining: quotaGate.remaining ?? null,
+                limit: quotaGate.limit ?? null,
+                resets_at: new Date().toISOString()
+              },
         platform,
         audience,
         image_count: body.images?.length ?? 0,
@@ -568,22 +618,40 @@ export async function POST(request: Request) {
         chunk_count: preparedReviews.chunkCount,
         model_review_chars: preparedReviews.modelChars,
         rating_breakdown: ratingBreakdown,
-        analysis_id: analysisId ?? undefined
+        analysis_id:
+          typeof analysisId === "string"
+            ? analysisId
+            : analysisId && typeof analysisId === "object" && "id" in analysisId
+              ? String(analysisId.id)
+              : undefined
       }
     };
 
     return NextResponse.json(payload);
   } catch (error) {
     if (persistentQuotaGate) {
-      await rollbackPersistentQuota(persistentQuotaGate.usageId);
+      await rollbackPersistentQuota(persistentQuotaGate.row);
     } else if (memoryQuotaGate) {
-      rollbackQuota(memoryQuotaGate.key, memoryQuotaGate.plan, memoryQuotaGate.consumed);
+      rollbackQuota(memoryQuotaGate.key, memoryQuotaGate.plan ?? accountPlan, Boolean(memoryQuotaGate.consumed));
     }
     const publicError = publicAnalysisError(error);
     console.error("ReviewIntel analysis failed:", error);
-    const quota = hasSupabaseServiceEnv()
-      ? await readPersistentQuota(account, request)
-      : currentMemoryUsage(memoryQuotaGate?.key ?? requestUserKey(request), memoryQuotaGate?.plan ?? plan, account.role === "guest");
+    const rawQuota = hasSupabaseServiceEnv()
+      ? await readPersistentQuota(account)
+      : currentMemoryUsage(memoryQuotaGate?.key ?? requestUserKey(request), memoryQuotaGate?.plan ?? accountPlan, accountRole === "guest");
+
+    const quota = rawQuota
+      ? {
+          ...rawQuota,
+          plan: accountPlan,
+          resets_at: "resets_at" in rawQuota
+            ? rawQuota.resets_at
+            : "resetAt" in rawQuota
+              ? rawQuota.resetAt
+              : new Date().toISOString()
+        }
+      : undefined;
+
     return jsonError(publicError.message, publicError.status, quota, publicError.code);
   }
 }

@@ -36,7 +36,7 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const account = await accountFromRequest(request);
-  if (!canManageAppSettings(account)) {
+  if (!account || !canManageAppSettings(account)) {
     return NextResponse.json({ error: "Admin access required." }, { status: 403 });
   }
 

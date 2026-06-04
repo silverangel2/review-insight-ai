@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/Badge";
-import { accountHeaders, getClientAccount, setClientPlan } from "@/lib/clientAccount";
+import { setClientPlan } from "@/lib/clientAccount";
 import { CURRENCY_LABELS, SUPPORTED_CURRENCIES, isPlanCurrencyConfigured, localizedPriceNote, pricingLabelForPlan, type SupportedCurrency } from "@/lib/pricing";
 import type { SubscriptionPlan } from "@/lib/types";
 
@@ -44,17 +44,18 @@ const tiers: Array<{
   }
 ];
 
+const paymentLinks: Partial<Record<SubscriptionPlan, string>> = {
+  buyer_pro: "https://buy.stripe.com/9B66oHekM10YcKI3Jugfu01",
+  seller_starter: "https://buy.stripe.com/6oU9AT0tWdNKcKI1Bmgfu02",
+  seller_pro: "https://buy.stripe.com/eVqdR95OgfVS8us4Nygfu03"
+};
+
 export function PricingCards() {
   const [error, setError] = useState("");
-  const [currency, setCurrency] = useState<SupportedCurrency>("USD");
+  const [currency, setCurrency] = useState<SupportedCurrency>("CAD");
 
   async function choosePlan(plan: SubscriptionPlan) {
     setError("");
-
-    if (!isPlanCurrencyConfigured(plan, currency)) {
-      setError(`${currency} checkout for this plan needs a matching Stripe price before it can be shown to customers.`);
-      return;
-    }
 
     if (plan === "free_buyer") {
       setClientPlan("free_buyer");
@@ -62,21 +63,14 @@ export function PricingCards() {
       return;
     }
 
-    const account = getClientAccount();
-    const response = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...accountHeaders() },
-      body: JSON.stringify({ plan, email: account?.email, currency })
-    });
-    const data = await response.json();
+    const paymentLink = paymentLinks[plan];
 
-    if (!response.ok) {
-      setError(data.error || "Checkout failed.");
+    if (!paymentLink) {
+      setError("Payment link is not configured for this plan yet.");
       return;
     }
 
-    if (data.mode === "local-demo" || data.mode === "developer-simulated") setClientPlan(plan);
-    window.location.href = data.url;
+    window.location.href = paymentLink;
   }
 
   return (
@@ -103,7 +97,7 @@ export function PricingCards() {
       {error ? <p className="mb-5 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {tiers.map((tier) => {
-          const currencyReady = isPlanCurrencyConfigured(tier.plan, currency);
+          const currencyReady = tier.plan === "free_buyer" || Boolean(paymentLinks[tier.plan]);
           return (
           <article key={tier.name} className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
             <Badge tone={tier.plan === "seller_pro" ? "good" : tier.plan === "free_buyer" ? "neutral" : "info"}>
@@ -111,7 +105,7 @@ export function PricingCards() {
             </Badge>
             <h2 className="mt-5 text-xl font-black text-ink dark:text-white">{tier.name}</h2>
             <p className="mt-4 text-4xl font-black text-ocean dark:text-cyan-300">{pricingLabelForPlan(tier.plan, currency)}</p>
-            {!currencyReady ? <p className="mt-2 text-xs font-bold text-amber">Hidden from checkout until the matching Stripe price ID is configured.</p> : null}
+            {!currencyReady ? <p className="mt-2 text-xs font-bold text-amber">Payment link coming soon.</p> : null}
             <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">{tier.description}</p>
             <ul className="mt-6 space-y-3 text-sm text-slate-700 dark:text-slate-300">
               {tier.features.map((feature) => (
@@ -125,7 +119,7 @@ export function PricingCards() {
               disabled={!currencyReady}
               className="mt-6 inline-flex w-full justify-center rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink"
             >
-              {currencyReady ? tier.cta : "Configure Stripe price"}
+              {currencyReady ? tier.cta : "Payment link coming soon"}
             </button>
           </article>
         );

@@ -92,34 +92,8 @@ const emptyProfileForm: AccountProfileForm = {
   marketingConsent: false
 };
 
-function isPrivateTestAccount(account: ClientAccount | null | undefined) {
-  return Boolean(account?.email?.endsWith("@reviewintel.test"));
-}
-
-function displayAccountName(account: ClientAccount | null, activePlan: SubscriptionPlan) {
-  if (!account) return "ReviewIntel account";
-  if (isPrivateTestAccount(account)) return planLabel(activePlan);
-  return account.name || "ReviewIntel account";
-}
-
-function displayAccountEmail(account: ClientAccount | null) {
-  if (!account) return "Local account";
-  if (isPrivateTestAccount(account)) return "Private owner access";
-  return account.email || "Local account";
-}
-
 function profileFromAccount(account: ClientAccount | null): AccountProfileForm {
   if (!account) return emptyProfileForm;
-
-  if (isPrivateTestAccount(account)) {
-    return {
-      ...emptyProfileForm,
-      preferredLanguage: account.preferredLanguage ?? "en",
-      preferredCurrency: account.preferredCurrency ?? "CAD",
-      marketingConsent: Boolean(account.marketingConsent)
-    };
-  }
-
   return {
     name: account.name ?? "",
     profileId: account.profileId ?? "",
@@ -145,13 +119,6 @@ function roleLabel(role: ClientAccount["role"] | undefined) {
   if (role === "guest") return "Guest";
   return "Shopper";
 }
-
-
-function isPrivateTestEmail(email: string | undefined | null) {
-  return Boolean(email?.endsWith("@reviewintel.test"));
-}
-
-
 
 export function AccountDashboard() {
   const router = useRouter();
@@ -229,8 +196,6 @@ export function AccountDashboard() {
         postalCode: serverTrusted ? (serverAccount.postalCode ?? existing?.postalCode) : existing?.postalCode,
         country: serverTrusted ? (serverAccount.country ?? existing?.country) : existing?.country,
         website: serverTrusted ? (serverAccount.website ?? existing?.website) : existing?.website,
-        preferredLanguage: serverTrusted ? (serverAccount.preferredLanguage ?? existing?.preferredLanguage ?? "en") : (existing?.preferredLanguage ?? "en"),
-        preferredCurrency: serverTrusted ? (serverAccount.preferredCurrency ?? existing?.preferredCurrency ?? "CAD") : (existing?.preferredCurrency ?? "CAD"),
         profileNotes: serverTrusted ? (serverAccount.profileNotes ?? existing?.profileNotes) : existing?.profileNotes,
         marketingConsent: serverTrusted ? (serverAccount.marketingConsent ?? existing?.marketingConsent) : existing?.marketingConsent,
         passwordUpdatedAt: existing?.passwordUpdatedAt
@@ -313,7 +278,7 @@ export function AccountDashboard() {
     const nextAccount: ClientAccount = {
       ...account,
       ...profileForm,
-      name: profileForm.name.trim() || (isPrivateTestAccount(account) ? planLabel(account.plan) : account.name)
+      name: profileForm.name.trim() || account.name
     };
     saveClientAccount(nextAccount);
     setAccount(nextAccount);
@@ -366,9 +331,9 @@ export function AccountDashboard() {
             <div className="flex flex-wrap gap-2">
               <Badge tone={planTone}>{planLabel(activePlan)}</Badge>
             </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">{displayAccountName(account, activePlan)}</h1>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">{account?.name || "ReviewIntel account"}</h1>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-              {displayAccountEmail(account)} · {roleLabel(account?.role)}
+              {account?.email || "Local account"} · {roleLabel(account?.role)}
             </p>
           </div>
           <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/5">
@@ -414,38 +379,6 @@ export function AccountDashboard() {
                 />
               </label>
             ))}
-          </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="text-sm font-bold text-ink dark:text-white">Language</span>
-              <select
-                value={profileForm.preferredLanguage}
-                onChange={(event) => setProfileForm((current) => ({ ...current, preferredLanguage: event.target.value }))}
-                className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="en">English</option>
-                <option value="fr">French</option>
-                <option value="es">Spanish</option>
-                <option value="fil">Filipino / Tagalog</option>
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-bold text-ink dark:text-white">Preferred currency</span>
-              <select
-                value={profileForm.preferredCurrency}
-                onChange={(event) => setProfileForm((current) => ({ ...current, preferredCurrency: event.target.value }))}
-                className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-              >
-                <option value="CAD">CAD — Canadian Dollar</option>
-                <option value="USD">USD — US Dollar</option>
-                <option value="EUR">EUR — Euro</option>
-                <option value="GBP">GBP — British Pound</option>
-                <option value="PHP">PHP — Philippine Peso</option>
-                <option value="AUD">AUD — Australian Dollar</option>
-              </select>
-            </label>
           </div>
 
           <label className="mt-4 block">

@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const account = await accountFromRequest(request);
     const appSettings = getRuntimeAppSettings();
 
-    if (account.role === "admin") {
+    if (account?.role === "admin") {
       return NextResponse.json({ url: `/account?plan=${plan}&mode=developer`, mode: "developer-simulated" });
     }
 
@@ -24,15 +24,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Payments are temporarily disabled by the admin." }, { status: 503 });
     }
 
-    if (hasSupabaseServiceEnv() && plan !== "free_buyer" && !account.userId) {
+    if (hasSupabaseServiceEnv() && plan !== "free_buyer" && !account?.email) {
       return NextResponse.json({ error: "Log in before upgrading to Pro." }, { status: 401 });
     }
 
     const session = await createCheckoutSession(
       plan,
-      account.email !== "guest" ? account.email : body.email,
-      account.userId,
-      account.stripeCustomerId,
+      account?.email && account.email !== "guest" ? account.email : body.email,
+      undefined,
+      undefined,
       body.currency
     );
     return NextResponse.json(session);

@@ -1,59 +1,58 @@
 import { NextResponse } from "next/server";
-import { adminSessionFromRequest } from "@/lib/adminAccess";
-import { planLabel, normalizePlan } from "@/lib/account";
-import { adminCustomerRows } from "@/lib/supabaseServer";
+import { isSupabaseConfigured, supabaseSelect } from "@/lib/supabaseServer";
 
-export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const demoUsers = [
-  {
-    id: "demo-shopper-1",
-    email: "mia.shopper@example.com",
-    plan: "Shopper Free",
-    role: "shopper",
-    signupDate: "2026-05-18",
-    lastLogin: "2026-05-30",
-    marketingConsent: true
-  },
-  {
-    id: "demo-shopper-premium",
-    email: "alex.pro@example.com",
-    plan: "Shopper Premium",
-    role: "shopper",
-    signupDate: "2026-05-21",
-    lastLogin: "2026-05-31",
-    marketingConsent: true
-  },
-  {
-    id: "demo-seller-pro",
-    email: "ops@solarasupply.example",
-    plan: "Seller Pro",
-    role: "seller",
-    signupDate: "2026-05-23",
-    lastLogin: "2026-05-31",
-    marketingConsent: false
-  }
-];
+type ProfileRow = {
+  email: string;
+  name?: string | null;
+  role?: string | null;
+  plan?: string | null;
+  created_at?: string | null;
+  last_login?: string | null;
+  marketing_consent?: boolean | null;
+};
 
-export async function GET(request: Request) {
-  const adminSession = adminSessionFromRequest(request);
+function planLabel(plan?: string | null) {
+  if (plan === "seller_pro") return "Seller Pro";
+  if (plan === "seller_starter") return "Seller Premium";
+  if (plan === "buyer_pro") return "Shopper Premium";
+  return "Shopper Free";
+}
 
-  if (!adminSession) {
-    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-  }
+function roleLabel(role?: string | null) {
+  if (role === "admin") return "Admin";
+  if (role === "seller") return "Seller";
+  return "Shopper";
+}
 
-  try {
-    const users = await adminCustomerRows();
-    if (!users.length) return NextResponse.json({ source: "demo", users: demoUsers });
-
+export async function GET() {
+  if (!isSupabaseConfigured()) {
     return NextResponse.json({
-      source: "supabase",
-      users: users.map((user) => ({
-        ...user,
-        plan: planLabel(normalizePlan(user.plan))
-      }))
+      users: [],
+      source: "local",
+      message: "Supabase is not configured yet."
     });
-  } catch {
-    return NextResponse.json({ source: "demo", users: demoUsers });
   }
+
+  const profiles = await supabaseSelect<ProfileRow>(
+    "profiles",
+    "select=email,name,role,plan,created_at,last_login,marketing_consent&order=created_at.desc"
+  );
+
+  const users = profiles.map((profile, index) => ({
+    id: profile.email || `profile-${index}`,
+    email: profile.email,
+    name: profile.name ?? "",
+    role: roleLabel(profile.role),
+    plan: planLabel(profile.plan),
+    signupDate: profile.created_at ? profile.created_at.slice(0, 10) : "",
+    lastLogin: profile.last_login ? profile.last_login.slice(0, 10) : "",
+    marketingConsent: Boolean(profile.marketing_consent)
+  }));
+
+  return NextResponse.json({
+    users,
+    source: "supabase"
+  });
 }

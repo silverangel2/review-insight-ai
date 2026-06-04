@@ -210,9 +210,9 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
 
   return {
     overall_summary:
-      "The supplied reviews show a " +
+      "Local fallback analysis found a " +
       (sentiment > 0.25 ? "mostly positive" : sentiment < -0.25 ? "mostly negative" : "mixed") +
-      " customer pattern. ReviewIntel detected the strongest praise, complaint, value, refund-risk, and seller action signals from the provided text.",
+      " review pattern. Add an OpenAI API key for deeper theme extraction and better seller insights.",
     positive_points: positives,
     negative_points: negatives,
     common_complaints: pick(sentences, complaintHints, "No strong repeated complaint pattern was detected in the pasted sample."),
@@ -231,14 +231,13 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
       main_customer_pain_points: pick(sentences, NEGATIVE_TERMS, "Collect more reviews to identify repeatable pain points."),
       complaint_clusters: pick(sentences, complaintHints, "No strong complaint cluster was detected."),
       product_improvement_recommendations: [
-        "Fix the highest-frequency defect or expectation mismatch before increasing ad spend.",
-        "Add a listing section that directly answers the most repeated setup, size, quality, or compatibility concern.",
-        "Create a support macro for the top refund-risk complaint so customer replies stay consistent."
+        "Prioritize the most repeated defect, setup, or expectation mismatch first.",
+        "Turn recurring support questions into listing content and onboarding inserts."
       ],
       listing_improvement_suggestions: [
-        "Turn the top praise theme into the first benefit bullet, using customer wording rather than generic claims.",
-        "Add a before-you-buy note for the strongest limitation found in complaints.",
-        "Show size, material, compatibility, and what-is-included details near the top of the listing."
+        "Clarify size, materials, compatibility, and what is included in the box.",
+        "Add expectation-setting bullets around limitations mentioned by customers.",
+        "Use review language to rewrite benefits in customer terms."
       ],
       packaging_shipping_issues: packagingIssues,
       shipping_complaint_detection: packagingIssues,
@@ -246,14 +245,12 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
       refund_risk_issues: pick(sentences, refundHints, "Refund risk appears low or unclear from this sample."),
       feature_requests: featureRequests,
       competitor_opportunity_insights: [
-        "Position against competitors by owning the praised strength and directly answering the most repeated objection.",
-        "If competitors hide the same weakness, make your fix or warranty promise visible in images and bullets.",
-        "Use praise themes as ad copy only when the product consistently delivers them across reviews."
+        "Compare complaints against competitor listings and address the top recurring weakness first.",
+        "Use praised features as ad copy only when the product reliably delivers them."
       ],
       seller_recommendations: [
-        "Start a weekly review operations loop: complaint owner, fix status, listing update, and follow-up metric.",
-        "Escalate refund-risk language to product and support before increasing paid traffic.",
-        "Track whether the next review batch mentions the same defect after the listing or product fix."
+        "Create a weekly review operations loop: cluster complaints, assign owners, and update listing copy after fixes.",
+        "Escalate refund-risk language to product and support teams before paid traffic is increased."
       ],
       customer_satisfaction_score: productScore
     },

@@ -5,9 +5,9 @@ import { accountFromRequest } from "@/lib/supabaseServer";
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const account = await accountFromRequest(request);
-  const customerId = account.stripeCustomerId ?? body.customerId;
+  const customerId = body.customerId;
 
-  if (account.role === "admin") {
+  if (account?.role === "admin") {
     return NextResponse.json({ url: "/admin?billing=developer", mode: "developer-simulated" });
   }
 

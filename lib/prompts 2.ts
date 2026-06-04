@@ -23,11 +23,8 @@ Rules:
 - Treat screenshots as user-supplied evidence and extract visible review text from them when possible.
 - Mention "not enough evidence" when the pasted reviews do not support a category.
 - If Primary audience is buyer, make the shopper verdict decisive and easy to understand.
-- If Primary audience is seller, seller_insights must feel worth paying for: concrete diagnosis, unique non-repeating bullets, prioritized actions, listing copy angles, product fix ideas, refund-risk notes, positioning opportunities, and what to monitor next.
+- If Primary audience is seller, make seller_insights much deeper than the shopper recommendation: complaint clusters, comment source themes, sentiment trends, feature requests, positioning, fixes, and customer-satisfaction actions.
 - Do not mix shopper and seller language as the main output. Shopper mode is purchase advice. Seller mode is business intelligence.
-- Do not repeat the same statement across fields. Each array item must add a new idea.
-- Avoid generic filler like "monitor reviews" unless paired with a specific metric, complaint, or action.
-- For seller reports, write like a senior ecommerce operator: concise, specific, practical, and commercially useful.
 `.trim();
 
 export function buildReviewPrompt({
@@ -80,15 +77,7 @@ Server chunk count: ${chunkCount}
 Original review characters: ${originalCharCount}
 Model review characters supplied: ${modelCharCount}
 
-Analyze the manually supplied reviews and screenshots. Treat pasted review text as the strongest evidence for deep analysis. Treat screenshots as quick-analysis evidence unless combined with pasted review batches. Produce a platform-neutral ecommerce review intelligence report.
-
-Seller-mode quality bar:
-- Use specific phrases from the review evidence when possible.
-- Make complaint_clusters distinct from main_customer_pain_points.
-- Make product_improvement_recommendations operational, not vague.
-- Make listing_improvement_suggestions usable as seller copy direction.
-- Make competitor_opportunity_insights explain what competitors could beat or what this product can own.
-- Remove duplicate wording before returning JSON.
+Analyze the manually supplied reviews and screenshots. Treat pasted review text as the strongest evidence for deep analysis. Treat screenshots as quick-analysis evidence unless combined with pasted review batches. Produce a platform-neutral ecommerce review intelligence report:
 
 ${reviews}
 `.trim();
