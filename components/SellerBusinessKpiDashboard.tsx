@@ -127,13 +127,13 @@ function KpiCard({
   impact: string;
 }) {
   return (
-    <article className="group relative min-h-[260px] [perspective:1200px]">
-      <div className="relative h-full min-h-[260px] rounded-[1.75rem] transition duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+    <article className="group relative min-h-[320px] [perspective:1200px]">
+      <div className="relative h-full min-h-[320px] rounded-[1.75rem] transition duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
         <div className={`absolute inset-0 rounded-[1.75rem] border border-white/70 bg-gradient-to-br ${tone} p-5 shadow-soft [backface-visibility:hidden] dark:border-white/10`}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{title}</p>
-              <p className="mt-4 text-4xl font-black text-slate-950">{metric}</p>
+              <p className="mt-4 text-4xl font-black break-words text-slate-950">{metric}</p>
             </div>
             <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/70 text-3xl shadow-inner">
               {icon}
@@ -146,14 +146,14 @@ function KpiCard({
           <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-slate-500">Hover / tap for business action</p>
         </div>
 
-        <div className="absolute inset-0 rounded-[1.75rem] border border-white/70 bg-white p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] dark:border-white/10 dark:bg-slate-950">
+        <div className="absolute inset-0 overflow-y-auto rounded-[1.75rem] border border-white/70 bg-white p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] dark:border-white/10 dark:bg-slate-950">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Seller action</p>
-          <h3 className="mt-3 text-xl font-black text-ink dark:text-white">{title}</h3>
+          <h3 className="mt-3 text-xl font-black break-words text-ink dark:text-white">{title}</h3>
           <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            <span className="font-black text-ink dark:text-white">Action: </span>{action}
+            <span className="font-black break-words text-ink dark:text-white">Action: </span>{action}
           </p>
           <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            <span className="font-black text-ink dark:text-white">Business impact: </span>{impact}
+            <span className="font-black break-words text-ink dark:text-white">Business impact: </span>{impact}
           </p>
         </div>
       </div>
@@ -199,7 +199,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
     },
     {
       title: "Buyer Trust Gap",
-      metric: `${score}/100`,
+      metric: `${Math.round(Number(score) || 0)}%`,
       icon: "🛡️",
       tone: "from-sky-100 via-white to-blue-200/40",
       insight: "Customers are checking whether the product feels authentic, reliable, worth the money, and supported after purchase.",
@@ -249,14 +249,14 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Seller money intelligence</p>
-          <h2 className="mt-3 text-3xl font-black text-ink dark:text-white">
+          <h2 className="mt-3 text-3xl font-black break-words text-ink dark:text-white">
             What review patterns mean for sales
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
             {sampleWarning} This section translates review signals into buyer psychology, conversion risk, and revenue-focused actions.
           </p>
         </div>
-        <div className="rounded-2xl border border-line bg-mist px-5 py-4 text-sm font-black text-ink dark:border-white/10 dark:bg-white/[0.04] dark:text-white">
+        <div className="rounded-2xl border border-line bg-mist px-5 py-4 text-sm font-black break-words text-ink dark:border-white/10 dark:bg-white/[0.04] dark:text-white">
           {plan?.includes("pro") ? "Seller Pro depth" : "Seller Premium snapshot"}
         </div>
       </div>
@@ -269,7 +269,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
         <article className="rounded-[1.75rem] border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
-          <h3 className="text-xl font-black text-ink dark:text-white">Money Opportunity</h3>
+          <h3 className="text-xl font-black break-words text-ink dark:text-white">Money Opportunity</h3>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
             <li><span className="font-black">What may be costing sales:</span> {topComplaint}</li>
             <li><span className="font-black">What to highlight more:</span> {topPraise}</li>
@@ -279,7 +279,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
         </article>
 
         <article className="rounded-[1.75rem] border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
-          <h3 className="text-xl font-black text-ink dark:text-white">Buyer Psychology</h3>
+          <h3 className="text-xl font-black break-words text-ink dark:text-white">Buyer Psychology</h3>
           <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
             <p><span className="font-black">Can I trust this?</span> Show authentic review proof and balanced pros/cons.</p>
             <p><span className="font-black">Will it last?</span> Address reliability doubts and product limits.</p>

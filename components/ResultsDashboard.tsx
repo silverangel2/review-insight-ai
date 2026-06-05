@@ -93,7 +93,7 @@ function RatingBreakdown({ breakdown }: { breakdown: AnalyzeResponse["meta"]["ra
           const width = total ? Math.max(4, (count / total) * 100) : 4;
           return (
             <div key={rating} className="grid grid-cols-[32px_minmax(0,1fr)_36px] items-center gap-3 text-sm">
-              <span className="font-black text-ink dark:text-white">{rating}</span>
+              <span className="font-black break-words text-ink dark:text-white">{rating}</span>
               <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
                 <div className="h-full rounded-full bg-amber" style={{ width: `${width}%` }} />
               </div>
@@ -170,7 +170,7 @@ function SellerDonutCard({
     .map((item) => {
       const start = cursor;
       cursor += (item.value / total) * 100;
-      return `${item.color} ${start.toFixed(1)}% ${cursor.toFixed(1)}%`;
+      return `${item.color} ${start.toFixed(0)}% ${cursor.toFixed(0)}%`;
     })
     .join(", ");
 
@@ -181,7 +181,7 @@ function SellerDonutCard({
       <div className="mt-6 grid gap-6 md:grid-cols-[180px_1fr] md:items-center">
         <div className="relative mx-auto grid size-44 place-items-center rounded-full shadow-[0_24px_70px_rgba(23,32,51,0.12)]" style={{ background: `conic-gradient(${gradient})` }}>
           <div className="grid size-24 place-items-center rounded-full bg-white text-center shadow-soft dark:bg-slate-950">
-            <span className="text-2xl font-black text-ink dark:text-white">{total}</span>
+            <span className="text-2xl font-black break-words text-ink dark:text-white">{total}</span>
           </div>
         </div>
         <div className="grid gap-3">
@@ -539,7 +539,7 @@ function TrustMetricVisual({ criterion }: { criterion: TrustCriterion }) {
         style={{ background: `conic-gradient(${style.hex} ${score * 3.6}deg, #e2e8f0 0deg)` }}
       >
         <div className="grid size-24 place-items-center rounded-full bg-white dark:bg-slate-950">
-          <span className={`text-4xl font-black ${style.text}`}>{score}</span>
+          <span className={`text-4xl font-black ${style.text}`}>{Math.round(Number(score) || 0)}</span>
         </div>
       </div>
     </div>
@@ -556,7 +556,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
           <article className={`absolute inset-0 overflow-hidden rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft [backface-visibility:hidden] dark:bg-slate-950`}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-black text-ink dark:text-white">{criterion.title}</p>
+                <p className="text-sm font-black break-words text-ink dark:text-white">{criterion.title}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">{criterion.subtitle}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${style.soft} ${style.text}`}>{criterion.status}</span>
@@ -564,7 +564,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
             <TrustMetricVisual criterion={criterion} />
             <div className="mt-3 flex items-end justify-between gap-4">
               <div>
-                <p className={`text-6xl font-black leading-none ${style.text}`}>{criterion.score}</p>
+                <p className={`text-5xl font-black leading-none ${style.text}`}>{criterion.score}</p>
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Trust score</p>
               </div>
               <span className={`rounded-full px-3 py-2 text-xs font-black ${style.bg} text-white`}>{criterion.priority}</span>
@@ -624,7 +624,7 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
           <div className="rounded-[1.75rem] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Overall Trust Score</p>
             <div className="mt-4 flex items-end justify-between gap-4">
-              <p className={`text-7xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
+              <p className={`text-5xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
               <span className={`rounded-full px-4 py-2 text-xs font-black uppercase ${overallStyle.bg} text-white`}>{trustStatus(diagnosis.overallTrustScore).status}</span>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">{diagnosis.buyerConfidenceSummary}</p>
@@ -642,16 +642,16 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
         <div className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Seller Trust Diagnosis</p>
-            <h3 className="mt-3 text-3xl font-black text-ink dark:text-white">Fix the weakest trust signal first.</h3>
+            <h3 className="mt-3 text-3xl font-black break-words text-ink dark:text-white">Fix the weakest trust signal first.</h3>
             <div className="mt-5 grid gap-3">
               <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
                 <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Biggest trust blocker</p>
-                <p className="mt-2 text-lg font-black text-ink dark:text-white">{diagnosis.biggestBlocker.title}: {diagnosis.biggestBlocker.status}</p>
+                <p className="mt-2 text-lg font-black break-words text-ink dark:text-white">{diagnosis.biggestBlocker.title}: {diagnosis.biggestBlocker.status}</p>
                 <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{diagnosis.biggestBlocker.summary}</p>
               </div>
               <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
                 <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Biggest conversion opportunity</p>
-                <p className="mt-2 text-lg font-black text-ink dark:text-white">{diagnosis.biggestOpportunity.title}: {diagnosis.biggestOpportunity.status}</p>
+                <p className="mt-2 text-lg font-black break-words text-ink dark:text-white">{diagnosis.biggestOpportunity.title}: {diagnosis.biggestOpportunity.status}</p>
                 <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{diagnosis.biggestOpportunity.trusted[0]}</p>
               </div>
             </div>
@@ -701,7 +701,7 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
           <div className="mt-5 rounded-2xl border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Overall trust</p>
             <div className="mt-3 flex items-end justify-between gap-4">
-              <p className={`text-6xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
+              <p className={`text-5xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
               <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${overallStyle.bg} text-white`}>{trustStatus(diagnosis.overallTrustScore).status}</span>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-300">{diagnosis.buyerConfidenceSummary}</p>
@@ -750,7 +750,7 @@ function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; i
       <div className="relative grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
         <div>
           <Badge tone={isSellerPro ? "warn" : "info"}>{isSellerPro ? "Seller Pro magic moment" : "Seller Premium insight"}</Badge>
-          <h2 className="mt-5 text-4xl font-black leading-tight lg:text-6xl">Turn review pain into product revenue moves.</h2>
+          <h2 className="mt-5 text-4xl font-black leading-tight lg:text-5xl">Turn review pain into product revenue moves.</h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
             This report is not a shopper verdict. It is a {isSellerPro ? "seller operating map" : "seller review snapshot"} built from {meta.review_count_estimate} valid reviews.
           </p>
@@ -764,7 +764,7 @@ function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; i
             <div key={label} className="rounded-3xl border border-white/15 bg-white/[0.12] p-5 backdrop-blur-xl">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">{label}</p>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-ink">{tag}</span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black break-words text-ink">{tag}</span>
               </div>
               <p className="mt-3 text-lg font-black leading-7">{value}</p>
             </div>
@@ -881,7 +881,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{card.title} details</p>
-                <h3 className="mt-2 text-xl font-black text-ink dark:text-white">{card.recommendation}</h3>
+                <h3 className="mt-2 text-xl font-black break-words text-ink dark:text-white">{card.recommendation}</h3>
               </div>
               <span className="rounded-full border border-line px-3 py-2 text-xs font-black uppercase text-slate-500 dark:border-white/10 dark:text-slate-300">Back</span>
             </div>
@@ -1018,16 +1018,16 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
             <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-300">Buyer verdict</p>
             <div className="mt-8 flex items-end justify-between gap-4">
               <div>
-                <h1 className="text-6xl font-black leading-none text-ink dark:text-white lg:text-7xl">{verdictLabel}</h1>
+                <h1 className="text-5xl font-black leading-none text-ink dark:text-white lg:text-5xl">{verdictLabel}</h1>
                 <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">Buyer confidence</p>
               </div>
               <div className="text-right">
-                <p className={`text-7xl font-black leading-none ${TRUST_TONE_STYLE[verdictTone].text}`}>{score}</p>
+                <p className={`text-5xl font-black leading-none ${TRUST_TONE_STYLE[verdictTone].text}`}>{Math.round(Number(score) || 0)}</p>
                 <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">/100</p>
               </div>
             </div>
             <div className="mt-8 h-4 overflow-hidden rounded-full bg-white shadow-inner dark:bg-white/10">
-              <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: `${score}%` }} />
+              <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: `${Math.round(Number(score) || 0)}%` }} />
             </div>
             <p className="mt-5 text-lg font-black leading-7 text-ink dark:text-white">{buyerRecommendationLine(recommendation.verdict, riskLevel)}</p>
           </div>
@@ -1050,7 +1050,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
               <Link href="/analyze" className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean">
                 Test another product
               </Link>
-              <Link href="/compare" className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+              <Link href="/compare" className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black break-words text-ink transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
                 Compare products
               </Link>
             </div>
@@ -1101,11 +1101,11 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
               <Badge tone={confidenceTone(confidenceLabel)}>{confidenceLabel} evidence</Badge>
               <Badge>{platformLabel(meta.platform ?? "other")}</Badge>
             </div>
-            <h1 className="mt-6 max-w-4xl text-4xl font-black lg:text-6xl">Enterprise review intelligence.</h1>
+            <h1 className="mt-6 max-w-4xl text-4xl font-black lg:text-5xl">Enterprise review intelligence.</h1>
             <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300">{analysis.overall_summary}</p>
             {analysis.score_alignment_note ? <p className="mt-4 max-w-3xl rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold leading-6 text-cyan-100">{analysis.score_alignment_note}</p> : null}
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/pricing" className="rounded-xl bg-white px-5 py-3 text-sm font-black text-ink transition hover:bg-cyan-100">
+              <Link href="/pricing" className="rounded-xl bg-white px-5 py-3 text-sm font-black break-words text-ink transition hover:bg-cyan-100">
                 Unlock exports
               </Link>
               <Link href="/compare" className="rounded-xl border border-white/15 px-5 py-3 text-sm font-black text-white transition hover:border-teal">
@@ -1177,7 +1177,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
         />
         <article className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Subscription-worthy insight</p>
-          <h3 className="mt-3 text-3xl font-black text-ink dark:text-white">What to fix, what to advertise, what to stop promising.</h3>
+          <h3 className="mt-3 text-3xl font-black break-words text-ink dark:text-white">What to fix, what to advertise, what to stop promising.</h3>
           <div className="mt-5 grid gap-3">
             {[
               ["Fix", analysis.seller_insights.product_improvement_recommendations[0] ?? analysis.improvement_suggestions[0] ?? "Prioritize the top repeated product complaint."],
@@ -1202,7 +1202,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
               <Badge>Export-ready report</Badge>
               <Badge>Operational intelligence</Badge>
             </div>
-            <h2 className="mt-5 max-w-4xl text-3xl font-black text-ink dark:text-white">Strategic insight layers</h2>
+            <h2 className="mt-5 max-w-4xl text-3xl font-black break-words text-ink dark:text-white">Strategic insight layers</h2>
             <p className="mt-4 max-w-4xl text-base leading-7 text-slate-600 dark:text-slate-300">The seller workspace converts review language into product, listing, support, and positioning actions.</p>
           </div>
           <SellerReportActions result={result} />
