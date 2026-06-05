@@ -15,6 +15,13 @@ import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
 import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
 
+function displayPercent(value: unknown, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return `${fallback}%`;
+  return `${Math.round(Math.max(0, Math.min(100, number)))}%`;
+}
+
+
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
 }
@@ -1027,7 +1034,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
               </div>
             </div>
             <div className="mt-8 h-4 overflow-hidden rounded-full bg-white shadow-inner dark:bg-white/10">
-              <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: `${Math.round(Number(score) || 0)}%` }} />
+              <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: `${displayPercent(score)}` }} />
             </div>
             <p className="mt-5 text-lg font-black leading-7 text-ink dark:text-white">{buyerRecommendationLine(recommendation.verdict, riskLevel)}</p>
           </div>
