@@ -15,6 +15,13 @@ import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
 import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
 
+function safeDisplayPercent(value: unknown, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return `${fallback}%`;
+  return `${Math.round(Math.max(0, Math.min(100, number)))}%`;
+}
+
+
 function formatResultPercent(value: unknown, fallback = 0) {
   const number = Number(value);
   if (!Number.isFinite(number)) return `${fallback}%`;
@@ -572,8 +579,8 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
   return (
     <details className="group min-h-[520px] [perspective:1600px]">
       <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
-        <div className="relative min-h-[520px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)] overflow-y-auto">
-          <article className={`absolute inset-0 overflow-hidden rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft [backface-visibility:hidden] dark:bg-slate-950`}>
+        <div className="relative min-h-[520px] transition-transform duration-700  group-open: overflow-y-auto">
+          <article className={`relative overflow-hidden rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft  dark:bg-slate-950`}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-black break-words text-ink dark:text-white">{criterion.title}</p>
@@ -593,7 +600,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
             <p className="mt-4 inline-flex rounded-full border border-line px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-ocean dark:border-white/10 dark:text-cyan-300">See seller proof</p>
           </article>
 
-          <article className={`absolute inset-0 overflow-y-auto rounded-[1.75rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f7fbff)] p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
+          <article className={`relative overflow-y-auto rounded-[1.75rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f7fbff)] p-5 shadow-soft   overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{criterion.title} proof</p>
@@ -765,7 +772,7 @@ function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; i
 
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(125deg,#12091f,#2e1568_38%,#1168d8_68%,#10c6a3)] p-6 text-white shadow-[0_32px_110px_rgba(118,87,184,0.34)]">
-      <div className="ri-scan-grid absolute inset-0 opacity-20" />
+      <div className="ri-scan-grid relative opacity-20" />
       <div className="ri-result-firework absolute right-12 top-8 hidden md:block" />
       <div className="relative grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
         <div>
@@ -873,8 +880,8 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
   return (
     <details className="group min-h-[430px] [perspective:1600px]">
       <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
-        <div className="relative min-h-[430px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)] overflow-y-auto">
-          <article className={`absolute inset-0 overflow-hidden rounded-[2rem] border ${style.border} bg-white p-6 shadow-soft [backface-visibility:hidden] dark:bg-slate-950`}>
+        <div className="relative min-h-[430px] transition-transform duration-700  group-open: overflow-y-auto">
+          <article className={`relative overflow-hidden rounded-[2rem] border ${style.border} bg-white p-6 shadow-soft  dark:bg-slate-950`}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.title}</p>
@@ -897,7 +904,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
             </div>
           </article>
 
-          <article className={`absolute inset-0 overflow-hidden rounded-[2rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f3fbff)] p-6 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
+          <article className={`relative overflow-hidden rounded-[2rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f3fbff)] p-6 shadow-soft   overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{card.title} details</p>
@@ -1113,7 +1120,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
       {isSellerPro ? <SellerTrustCriteriaDashboard result={result} /> : <SellerTrustCriteriaSnapshot result={result} accountPlan={accountPlan} />}
 
       <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-ink text-white shadow-soft dark:bg-slate-950">
-        <div className="ri-scan-grid absolute inset-0 opacity-20" />
+        <div className="ri-scan-grid relative opacity-20" />
         <div className="relative grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-8">
           <div>
             <div className="flex flex-wrap gap-2">
