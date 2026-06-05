@@ -13,6 +13,7 @@ import {
 } from "@/lib/analysisScoring";
 import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
+import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -1245,6 +1246,10 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
           </div>
         </article>
       </section>
+
+      {(result as Record<string, unknown>)?.seller_insights ? (
+        <SellerBusinessKpiDashboard analysis={analysis ?? result ?? {}} plan="seller" />
+      ) : null}
 
       <SponsoredResources
         placement="results"
