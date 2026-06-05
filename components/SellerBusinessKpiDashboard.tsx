@@ -1,5 +1,18 @@
 "use client";
 
+function formatResultPercent(value: unknown, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return `${fallback}%`;
+  return `${Math.round(Math.max(0, Math.min(100, number)))}%`;
+}
+
+function formatResultNumber(value: unknown, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(fallback);
+  return String(Math.round(Math.max(0, Math.min(100, number))));
+}
+
+
 type AnyRecord = Record<string, unknown>;
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -152,7 +165,7 @@ function MiniArc({ score, tone = "teal" }: { score: number; tone?: "teal" | "amb
   return (
     <div className="relative h-24 w-24 rounded-full border-[12px] border-slate-100">
       <div className={`absolute inset-[-12px] rounded-full border-[12px] border-transparent ${border}`} />
-      <div className="absolute inset-0 grid place-items-center text-xl font-black text-ink">{score}%</div>
+      <div className="absolute inset-0 grid place-items-center text-xl font-black text-ink">{formatResultPercent(score)}%</div>
     </div>
   );
 }
@@ -179,13 +192,13 @@ function KpiCard({
   const numeric = Number(metric.replace(/[^0-9]/g, "")) || 72;
 
   return (
-    <article className="group relative min-h-[340px] [perspective:1200px]">
-      <div className="relative h-full min-h-[340px] rounded-[1.75rem] transition duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+    <article className="group relative min-h-[400px] [perspective:1200px]">
+      <div className="relative h-full min-h-[400px] rounded-[1.75rem] transition duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)] overflow-y-auto">
         <div className={`absolute inset-0 overflow-hidden rounded-[1.75rem] border border-white/70 bg-gradient-to-br ${tone} p-5 shadow-soft [backface-visibility:hidden] dark:border-white/10`}>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{title}</p>
-              <p className="mt-3 max-w-[220px] break-words text-4xl font-black leading-none text-slate-950">{metric}</p>
+              <p className="mt-3 max-w-full break-words text-4xl font-black leading-none text-slate-950">{metric}</p>
             </div>
             <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/75 text-3xl shadow-inner">{icon}</div>
           </div>
@@ -207,7 +220,7 @@ function KpiCard({
           <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-slate-500">Tap / hover for seller action</p>
         </div>
 
-        <div className="absolute inset-0 overflow-y-auto rounded-[1.75rem] border border-white/70 bg-white p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] dark:border-white/10 dark:bg-slate-950">
+        <div className="absolute inset-0 overflow-y-auto rounded-[1.75rem] border border-white/70 bg-white p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-y-auto dark:border-white/10 dark:bg-slate-950">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Seller action</p>
           <h3 className="mt-3 text-xl font-black text-ink dark:text-white">{title}</h3>
           <div className="mt-4 space-y-4 text-sm leading-6 text-slate-600 dark:text-slate-300">

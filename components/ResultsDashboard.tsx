@@ -15,6 +15,19 @@ import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
 import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
 
+function formatResultPercent(value: unknown, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return `${fallback}%`;
+  return `${Math.round(Math.max(0, Math.min(100, number)))}%`;
+}
+
+function formatResultNumber(value: unknown, fallback = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(fallback);
+  return String(Math.round(Math.max(0, Math.min(100, number))));
+}
+
+
 function displayPercent(value: unknown, fallback = 0) {
   const number = Number(value);
   if (!Number.isFinite(number)) return `${fallback}%`;
@@ -546,7 +559,7 @@ function TrustMetricVisual({ criterion }: { criterion: TrustCriterion }) {
         style={{ background: `conic-gradient(${style.hex} ${score * 3.6}deg, #e2e8f0 0deg)` }}
       >
         <div className="grid size-24 place-items-center rounded-full bg-white dark:bg-slate-950">
-          <span className={`text-4xl font-black ${style.text}`}>{Math.round(Number(score) || 0)}</span>
+          <span className={`text-3xl font-black ${style.text}`}>{Math.round(Number(score) || 0)}</span>
         </div>
       </div>
     </div>
@@ -559,7 +572,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
   return (
     <details className="group min-h-[520px] [perspective:1600px]">
       <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
-        <div className="relative min-h-[520px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)]">
+        <div className="relative min-h-[520px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)] overflow-y-auto">
           <article className={`absolute inset-0 overflow-hidden rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft [backface-visibility:hidden] dark:bg-slate-950`}>
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -571,7 +584,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
             <TrustMetricVisual criterion={criterion} />
             <div className="mt-3 flex items-end justify-between gap-4">
               <div>
-                <p className={`text-5xl font-black leading-none ${style.text}`}>{criterion.score}</p>
+                <p className={`text-3xl font-black leading-none ${style.text}`}>{formatResultPercent(criterion.score)}</p>
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Trust score</p>
               </div>
               <span className={`rounded-full px-3 py-2 text-xs font-black ${style.bg} text-white`}>{criterion.priority}</span>
@@ -580,7 +593,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
             <p className="mt-4 inline-flex rounded-full border border-line px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-ocean dark:border-white/10 dark:text-cyan-300">See seller proof</p>
           </article>
 
-          <article className={`absolute inset-0 overflow-y-auto rounded-[1.75rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f7fbff)] p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] dark:bg-slate-950 dark:bg-none`}>
+          <article className={`absolute inset-0 overflow-y-auto rounded-[1.75rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f7fbff)] p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{criterion.title} proof</p>
@@ -623,7 +636,7 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <Badge tone="info">Seller Pro Trust Criteria</Badge>
-            <h2 className="mt-4 max-w-3xl text-4xl font-black leading-tight text-ink dark:text-white">Do these reviews prove buyers can trust this product?</h2>
+            <h2 className="mt-4 max-w-3xl text-3xl font-black leading-tight text-ink dark:text-white">Do these reviews prove buyers can trust this product?</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
               ReviewIntel grades the scan across authenticity, reliability, value, and customer care so sellers can see the exact trust blocker before spending more on traffic.
             </p>
@@ -631,7 +644,7 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
           <div className="rounded-[1.75rem] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Overall Trust Score</p>
             <div className="mt-4 flex items-end justify-between gap-4">
-              <p className={`text-5xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
+              <p className={`text-3xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
               <span className={`rounded-full px-4 py-2 text-xs font-black uppercase ${overallStyle.bg} text-white`}>{trustStatus(diagnosis.overallTrustScore).status}</span>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">{diagnosis.buyerConfidenceSummary}</p>
@@ -708,7 +721,7 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
           <div className="mt-5 rounded-2xl border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Overall trust</p>
             <div className="mt-3 flex items-end justify-between gap-4">
-              <p className={`text-5xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
+              <p className={`text-3xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
               <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${overallStyle.bg} text-white`}>{trustStatus(diagnosis.overallTrustScore).status}</span>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-300">{diagnosis.buyerConfidenceSummary}</p>
@@ -729,10 +742,10 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{criterion.title}</p>
                     <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">{status.status}</p>
                   </div>
-                  <p className={`text-3xl font-black ${style.text}`}>{criterion.score}</p>
+                  <p className={`text-3xl font-black ${style.text}`}>{formatResultPercent(criterion.score)}</p>
                 </div>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white dark:bg-white/10">
-                  <div className={`h-full rounded-full ${style.bg}`} style={{ width: `${criterion.score}%` }} />
+                  <div className={`h-full rounded-full ${style.bg}`} style={{ width: `${formatResultPercent(criterion.score)}%` }} />
                 </div>
                 <p className="mt-4 line-clamp-3 text-sm leading-6 text-slate-700 dark:text-slate-300">{criterion.summary}</p>
               </article>
@@ -757,7 +770,7 @@ function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; i
       <div className="relative grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
         <div>
           <Badge tone={isSellerPro ? "warn" : "info"}>{isSellerPro ? "Seller Pro magic moment" : "Seller Premium insight"}</Badge>
-          <h2 className="mt-5 text-4xl font-black leading-tight lg:text-5xl">Turn review pain into product revenue moves.</h2>
+          <h2 className="mt-5 text-3xl font-black leading-tight lg:text-3xl">Turn review pain into product revenue moves.</h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
             This report is not a shopper verdict. It is a {isSellerPro ? "seller operating map" : "seller review snapshot"} built from {meta.review_count_estimate} valid reviews.
           </p>
@@ -847,7 +860,7 @@ function ShopperVisual({ card }: { card: ShopperCard }) {
         ))}
         <div className="mt-4 flex items-center justify-between">
           <span className={`grid size-12 place-items-center rounded-2xl ${style.bg} text-xl font-black text-white`}>{card.icon}</span>
-          <span className={`text-4xl font-black ${style.text}`}>{card.metric}</span>
+          <span className={`text-3xl font-black ${style.text}`}>{card.metric}</span>
         </div>
       </div>
     </div>
@@ -860,7 +873,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
   return (
     <details className="group min-h-[430px] [perspective:1600px]">
       <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
-        <div className="relative min-h-[430px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)]">
+        <div className="relative min-h-[430px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)] overflow-y-auto">
           <article className={`absolute inset-0 overflow-hidden rounded-[2rem] border ${style.border} bg-white p-6 shadow-soft [backface-visibility:hidden] dark:bg-slate-950`}>
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -872,7 +885,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
             <ShopperVisual card={card} />
             <div className="mt-1 flex items-end justify-between gap-4">
               <div>
-                <p className={`text-5xl font-black leading-none ${style.text}`}>{card.metric}</p>
+                <p className={`text-3xl font-black leading-none ${style.text}`}>{card.metric}</p>
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{card.status}</p>
               </div>
               <span className={`grid size-14 place-items-center rounded-2xl ${style.bg} text-2xl font-black text-white shadow-soft`}>{card.icon}</span>
@@ -884,7 +897,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
             </div>
           </article>
 
-          <article className={`absolute inset-0 overflow-hidden rounded-[2rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f3fbff)] p-6 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] dark:bg-slate-950 dark:bg-none`}>
+          <article className={`absolute inset-0 overflow-hidden rounded-[2rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f3fbff)] p-6 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{card.title} details</p>
@@ -1025,11 +1038,11 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
             <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-300">Buyer verdict</p>
             <div className="mt-8 flex items-end justify-between gap-4">
               <div>
-                <h1 className="text-5xl font-black leading-none text-ink dark:text-white lg:text-5xl">{verdictLabel}</h1>
+                <h1 className="text-3xl font-black leading-none text-ink dark:text-white lg:text-3xl">{verdictLabel}</h1>
                 <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">Buyer confidence</p>
               </div>
               <div className="text-right">
-                <p className={`text-5xl font-black leading-none ${TRUST_TONE_STYLE[verdictTone].text}`}>{Math.round(Number(score) || 0)}</p>
+                <p className={`text-3xl font-black leading-none ${TRUST_TONE_STYLE[verdictTone].text}`}>{Math.round(Number(score) || 0)}</p>
                 <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">/100</p>
               </div>
             </div>
@@ -1108,7 +1121,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
               <Badge tone={confidenceTone(confidenceLabel)}>{confidenceLabel} evidence</Badge>
               <Badge>{platformLabel(meta.platform ?? "other")}</Badge>
             </div>
-            <h1 className="mt-6 max-w-4xl text-4xl font-black lg:text-5xl">Enterprise review intelligence.</h1>
+            <h1 className="mt-6 max-w-4xl text-3xl font-black lg:text-3xl">Enterprise review intelligence.</h1>
             <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300">{analysis.overall_summary}</p>
             {analysis.score_alignment_note ? <p className="mt-4 max-w-3xl rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold leading-6 text-cyan-100">{analysis.score_alignment_note}</p> : null}
             <div className="mt-6 flex flex-wrap gap-3">
@@ -1123,19 +1136,19 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-xs font-black uppercase text-slate-400">Reviews mined</p>
-              <p className="mt-4 text-4xl font-black">{meta.review_count_estimate}</p>
+              <p className="mt-4 text-3xl font-black">{meta.review_count_estimate}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-xs font-black uppercase text-slate-400">Satisfaction</p>
-              <p className="mt-4 text-4xl font-black">{formatPercent(analysis.seller_insights.customer_satisfaction_score)}</p>
+              <p className="mt-4 text-3xl font-black">{formatPercent(analysis.seller_insights.customer_satisfaction_score)}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-xs font-black uppercase text-slate-400">Complaint pressure</p>
-              <p className="mt-4 text-4xl font-black">{formatPercent(complaintPressure)}</p>
+              <p className="mt-4 text-3xl font-black">{formatPercent(complaintPressure)}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-xs font-black uppercase text-slate-400">Opportunity</p>
-              <p className="mt-4 text-4xl font-black">{formatPercent(opportunityScore)}</p>
+              <p className="mt-4 text-3xl font-black">{formatPercent(opportunityScore)}</p>
             </div>
           </div>
         </div>
