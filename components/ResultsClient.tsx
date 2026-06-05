@@ -6,7 +6,7 @@ import { Badge } from "@/components/Badge";
 import { ResultsDashboard } from "@/components/ResultsDashboard";
 import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
-import type { AnalyzeResponse } from "@/lib/types";
+import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 
 function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
   return {
@@ -17,6 +17,7 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
 
 export function ResultsClient() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
+  const [accountPlan, setAccountPlan] = useState<SubscriptionPlan | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("reviewintel:last-result");
@@ -25,8 +26,10 @@ export function ResultsClient() {
     try {
       const parsed = JSON.parse(stored) as AnalyzeResponse;
       const account = getClientAccount();
+      setAccountPlan(account?.plan ?? null);
       const accountAudience = account?.role === "seller" ? "seller" : account?.role === "buyer" ? "buyer" : null;
-      if (accountAudience && parsed.meta.audience !== accountAudience) {
+      const resultMatchesAccount = !accountAudience || parsed.meta.audience === accountAudience || parsed.meta.audience === "both";
+      if (!resultMatchesAccount) {
         sessionStorage.removeItem("reviewintel:last-result");
         saveActiveMode(accountAudience);
         return;
@@ -57,6 +60,10 @@ export function ResultsClient() {
     );
   }
 
+  const isSellerAudience = result.meta.audience === "seller" || result.meta.audience === "both";
+  const sellerPlanLabel = accountPlan === "seller_pro" ? "Seller Pro" : accountPlan === "seller_starter" ? "Seller Starter" : "Seller Premium";
+  const resultHeading = isSellerAudience ? `${sellerPlanLabel} intelligence` : "Shopper quick answer";
+
   return (
     <div className="space-y-5">
       <section className="ri-reveal-pop relative overflow-hidden rounded-[1.6rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
@@ -67,7 +74,7 @@ export function ResultsClient() {
               Your latest scan
             </p>
             <h1 className="mt-2 text-2xl font-black text-ink dark:text-white">
-              {result.meta.audience === "seller" ? "Seller Pro intelligence" : "Shopper quick answer"}
+              {resultHeading}
             </h1>
           </div>
           <div className="grid gap-2 sm:grid-cols-1 lg:min-w-48">
@@ -78,7 +85,7 @@ export function ResultsClient() {
         </div>
       </section>
 
-      <ResultsDashboard result={result} />
+      <ResultsDashboard result={result} accountPlan={accountPlan} />
     </div>
   );
 }
