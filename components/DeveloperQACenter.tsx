@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { makeQuotaInfo, planLabel, type ClientAccount } from "@/lib/account";
 import { getClientAccount, getStoredQuota, quotaText, saveActiveMode, saveClientAccount, saveQuota } from "@/lib/clientAccount";
+import { clearLatestResult } from "@/lib/resultStorage";
 import type { AnalysisAudience, QuotaInfo, SubscriptionPlan, UserRole } from "@/lib/types";
 
 type Diagnostics = {
@@ -140,7 +141,7 @@ export function DeveloperQACenter() {
       createdAt: new Date().toISOString()
     };
     const nextQuota = makeQuotaInfo(mode.plan, 0);
-    sessionStorage.removeItem("reviewintel:last-result");
+    clearLatestResult();
     if (mode.role !== "admin") {
       await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
     }

@@ -147,6 +147,7 @@ export function accountHeaders() {
   const account = getClientAccount();
   const headers: Record<string, string> = {
     "x-reviewintel-user": account?.email || "guest",
+    "x-reviewintel-email": account?.email || "guest",
     "x-reviewintel-plan": account?.plan || "free_buyer",
     "x-reviewintel-role": account?.role || "guest",
     "x-reviewintel-guest-id": getGuestId()

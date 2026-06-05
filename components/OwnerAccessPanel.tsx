@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/Badge";
 import { makeQuotaInfo } from "@/lib/account";
 import { clearClientAccount, saveActiveMode, saveClientAccount, saveQuota } from "@/lib/clientAccount";
+import { clearLatestResult } from "@/lib/resultStorage";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 
 type OwnerAccount = {
@@ -92,7 +93,7 @@ export function OwnerAccessPanel() {
     clearClientAccount();
     window.localStorage.removeItem("reviewintel:active-mode");
     window.localStorage.removeItem("reviewintel:quota");
-    window.sessionStorage.removeItem("reviewintel:last-result");
+    clearLatestResult();
     await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
 
     saveClientAccount({

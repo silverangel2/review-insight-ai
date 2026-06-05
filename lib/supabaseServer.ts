@@ -10,6 +10,7 @@ export type ServerAccount = {
 };
 
 import { NextRequest } from "next/server";
+import { normalizePlan, normalizeRole } from "@/lib/account";
 
 type SupabaseRow = Record<string, unknown>;
 
@@ -118,15 +119,16 @@ export function accountFromRequest(request: NextRequest | Request) {
 
   const email =
     headers.get("x-reviewintel-email") ||
+    headers.get("x-reviewintel-user") ||
     headers.get("x-user-email") ||
     headers.get("x-customer-email") ||
     "";
 
-  const plan = headers.get("x-reviewintel-plan") || "free_buyer";
-  const role = headers.get("x-reviewintel-role") || (plan.includes("seller") ? "seller" : "buyer");
+  const plan = normalizePlan(headers.get("x-reviewintel-plan"));
+  const role = normalizeRole(headers.get("x-reviewintel-role") || (plan.includes("seller") ? "seller" : "buyer"));
   const name = headers.get("x-reviewintel-name") || "";
 
-  if (!email) return null;
+  if (!email || email === "guest") return null;
 
   return {
     email,

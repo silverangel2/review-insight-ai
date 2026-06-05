@@ -6,6 +6,7 @@ import { Badge } from "@/components/Badge";
 import { ResultsDashboard } from "@/components/ResultsDashboard";
 import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
+import { clearLatestResult, readLatestResult, saveLatestResult } from "@/lib/resultStorage";
 import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 
 function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
@@ -20,27 +21,18 @@ export function ResultsClient() {
   const [accountPlan, setAccountPlan] = useState<SubscriptionPlan | null>(null);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("reviewintel:last-result");
-    if (!stored) return;
-
     try {
-      const parsed = JSON.parse(stored) as AnalyzeResponse;
       const account = getClientAccount();
       setAccountPlan(account?.plan ?? null);
-      const accountAudience = account?.role === "seller" ? "seller" : account?.role === "buyer" ? "buyer" : null;
-      const resultMatchesAccount = !accountAudience || parsed.meta.audience === accountAudience || parsed.meta.audience === "both";
-      if (!resultMatchesAccount) {
-        sessionStorage.removeItem("reviewintel:last-result");
-        saveActiveMode(accountAudience);
-        return;
-      }
+      const parsed = readLatestResult(account);
+      if (!parsed) return;
 
       const reconciled = reconcileResponse(parsed);
-      sessionStorage.setItem("reviewintel:last-result", JSON.stringify(reconciled));
+      saveLatestResult(reconciled, account);
       setResult(reconciled);
-      saveActiveMode(parsed.meta.audience);
+      saveActiveMode(account?.role === "seller" && parsed.meta.audience === "both" ? "seller" : parsed.meta.audience);
     } catch {
-      sessionStorage.removeItem("reviewintel:last-result");
+      clearLatestResult();
     }
   }, []);
 

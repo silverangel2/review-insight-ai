@@ -8,6 +8,7 @@ import {
   getStoredActiveMode
 } from "@/lib/clientAccount";
 import { planLabel, type ClientAccount } from "@/lib/account";
+import { clearLatestResult } from "@/lib/resultStorage";
 import type { AnalysisAudience } from "@/lib/types";
 
 function roleLabel(role: ClientAccount["role"]) {
@@ -55,7 +56,7 @@ export function AccountNav() {
     clearClientAccount();
     window.localStorage.removeItem("reviewintel:active-mode");
     window.localStorage.removeItem("reviewintel:quota");
-    window.sessionStorage.removeItem("reviewintel:last-result");
+    clearLatestResult();
     window.dispatchEvent(new CustomEvent("reviewintel:account"));
     window.dispatchEvent(new CustomEvent("reviewintel:active-mode"));
     window.dispatchEvent(new CustomEvent("reviewintel:quota"));

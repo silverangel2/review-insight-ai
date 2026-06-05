@@ -5,7 +5,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { type ClientAccount } from "@/lib/account";
 import { saveActiveMode, saveClientAccount } from "@/lib/clientAccount";
-import type { SubscriptionPlan, UserRole } from "@/lib/types";
+import { clearLatestResult } from "@/lib/resultStorage";
+import type { UserRole } from "@/lib/types";
 
 type AuthMode = "login" | "signup" | "reset";
 type SignupRole = Extract<UserRole, "buyer" | "seller">;
@@ -96,7 +97,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
 
     const nextRole = savedRole;
     await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
-    sessionStorage.removeItem("reviewintel:last-result");
+    clearLatestResult();
     saveActiveMode(nextRole === "seller" ? "seller" : "buyer");
     router.push(nextRole === "seller" ? "/dashboard/seller" : "/dashboard/customer");
   }

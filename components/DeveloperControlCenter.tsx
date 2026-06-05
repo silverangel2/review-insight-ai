@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { makeQuotaInfo, planLabel, roleForPlan, type ClientAccount } from "@/lib/account";
 import { accountHeaders, clearClientAccount, getClientAccount, saveActiveMode, saveClientAccount, saveQuota } from "@/lib/clientAccount";
+import { clearLatestResult } from "@/lib/resultStorage";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 
 const settingDefaults = {
@@ -97,7 +98,7 @@ export function DeveloperControlCenter({ serverDeveloperMode = false }: { server
   async function simulatePlan(plan: SubscriptionPlan) {
     const next = simulatedAccount(plan);
     await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
-    sessionStorage.removeItem("reviewintel:last-result");
+    clearLatestResult();
     saveClientAccount(next);
     saveActiveMode(next.role === "seller" ? "seller" : "buyer");
     saveQuota(makeQuotaInfo(plan, 0));

@@ -63,6 +63,23 @@ function shortShopperPhrase(value: string | undefined, fallback: string, maxWord
   return `${words.slice(0, maxWords).join(" ")}...`;
 }
 
+function cleanOneLine(value: string | undefined, fallback: string, maxChars = 44) {
+  const text = (value ?? fallback).replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
+  if (!text) return fallback;
+  if (text.toLowerCase().includes("no strong repeated complaint")) return "No repeated complaint";
+  if (text.toLowerCase().includes("no repeated complaint")) return "No repeated complaint";
+  if (text.length <= maxChars) return text;
+
+  const cut = text.slice(0, maxChars).replace(/\s+\S*$/, "").replace(/[,;:]+$/, "").trim();
+  return cut || fallback;
+}
+
+function buyerRecommendationLine(verdict: CustomerRecommendation, riskLevel: string) {
+  if (verdict === "Buy") return riskLevel === "High" ? "Buy only after checking the warning." : "Worth it for the right buyer.";
+  if (verdict === "Maybe") return "Compare first before buying.";
+  return "Skip unless the issue is fixed.";
+}
+
 function RatingBreakdown({ breakdown }: { breakdown: AnalyzeResponse["meta"]["rating_breakdown"] }) {
   const total = ratingTotal(breakdown);
 
@@ -532,47 +549,57 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
   const style = TRUST_TONE_STYLE[criterion.tone];
 
   return (
-    <details className={`group overflow-hidden rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft transition hover:-translate-y-0.5 dark:bg-slate-950`}>
-      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-black text-ink dark:text-white">{criterion.title}</p>
-            <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">{criterion.subtitle}</p>
-          </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${style.soft} ${style.text}`}>{criterion.status}</span>
-        </div>
-        <TrustMetricVisual criterion={criterion} />
-        <div className="mt-3 flex items-end justify-between gap-4">
-          <div>
-            <p className={`text-6xl font-black leading-none ${style.text}`}>{criterion.score}</p>
-            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Trust score</p>
-          </div>
-          <span className={`rounded-full px-3 py-2 text-xs font-black ${style.bg} text-white`}>{criterion.priority}</span>
-        </div>
-        <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">{criterion.summary}</p>
-        <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-ocean group-open:hidden dark:text-cyan-300">Click for details</p>
-      </summary>
-
-      <div className="mt-5 border-t border-line pt-5 dark:border-white/10">
-        <p className="text-sm font-bold leading-6 text-ink dark:text-white">{criterion.why}</p>
-        <div className="mt-5 grid gap-4">
-          {[
-            ["Evidence from review patterns", criterion.evidence],
-            ["What customers are worried about", criterion.worries],
-            ["What customers trust", criterion.trusted],
-            ["Seller action plan", criterion.actions]
-          ].map(([title, items]) => (
-            <div key={title as string} className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
-              <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{title as string}</p>
-              <ul className="mt-3 grid gap-2">
-                {(items as string[]).map((item) => (
-                  <li key={item} className="text-sm leading-6 text-slate-700 dark:text-slate-300">{item}</li>
-                ))}
-              </ul>
+    <details className="group min-h-[520px] [perspective:1600px]">
+      <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
+        <div className="relative min-h-[520px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)]">
+          <article className={`absolute inset-0 overflow-hidden rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft [backface-visibility:hidden] dark:bg-slate-950`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-black text-ink dark:text-white">{criterion.title}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">{criterion.subtitle}</p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${style.soft} ${style.text}`}>{criterion.status}</span>
             </div>
-          ))}
+            <TrustMetricVisual criterion={criterion} />
+            <div className="mt-3 flex items-end justify-between gap-4">
+              <div>
+                <p className={`text-6xl font-black leading-none ${style.text}`}>{criterion.score}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Trust score</p>
+              </div>
+              <span className={`rounded-full px-3 py-2 text-xs font-black ${style.bg} text-white`}>{criterion.priority}</span>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">{cleanOneLine(criterion.summary, criterion.status, 92)}</p>
+            <p className="mt-4 inline-flex rounded-full border border-line px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-ocean dark:border-white/10 dark:text-cyan-300">See seller proof</p>
+          </article>
+
+          <article className={`absolute inset-0 overflow-y-auto rounded-[1.75rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f7fbff)] p-5 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] dark:bg-slate-950 dark:bg-none`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{criterion.title} proof</p>
+                <h3 className="mt-2 text-xl font-black leading-tight text-ink dark:text-white">{criterion.why}</h3>
+              </div>
+              <span className="rounded-full border border-line px-3 py-2 text-xs font-black uppercase text-slate-500 dark:border-white/10 dark:text-slate-300">Back</span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {[
+                ["Evidence", criterion.evidence],
+                ["Worries", criterion.worries],
+                ["Trusted", criterion.trusted],
+                ["Action", criterion.actions]
+              ].map(([title, items]) => (
+                <div key={title as string} className="rounded-2xl border border-line bg-white p-3 dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{title as string}</p>
+                  <ul className="mt-2 grid gap-1">
+                    {(items as string[]).slice(0, 2).map((item) => (
+                      <li key={item} className="text-xs font-semibold leading-5 text-slate-700 dark:text-slate-300">{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </article>
         </div>
-      </div>
+      </summary>
     </details>
   );
 }
@@ -747,6 +774,143 @@ function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; i
   );
 }
 
+type ShopperCard = {
+  title: string;
+  question: string;
+  score: number;
+  metric: string;
+  status: string;
+  tone: TrustTone;
+  visual: "radar" | "slider" | "alert";
+  icon: string;
+  frontLines: string[];
+  details: string[];
+  checks: string[];
+  avoid: string;
+  recommendation: string;
+};
+
+function ShopperVisual({ card }: { card: ShopperCard }) {
+  const style = TRUST_TONE_STYLE[card.tone];
+  const score = clamp(card.score);
+
+  if (card.visual === "radar") {
+    return (
+      <div className="grid h-36 place-items-center">
+        <div className="relative grid size-32 place-items-center rounded-full border border-slate-200 bg-[radial-gradient(circle,#ffffff_0%,#eef8ff_54%,#e8f6f4_100%)] shadow-inner dark:border-white/10 dark:bg-none">
+          {[1, 0.72, 0.44].map((scale) => (
+            <span key={scale} className="absolute rounded-full border border-ocean/20" style={{ width: `${scale * 100}%`, height: `${scale * 100}%` }} />
+          ))}
+          <span className="absolute h-px w-28 bg-ocean/20" />
+          <span className="absolute h-28 w-px bg-ocean/20" />
+          <span className="absolute h-1 w-14 origin-left rounded-full bg-gradient-to-r from-transparent to-teal" style={{ transform: `rotate(${score * 2.6}deg) translateX(8px)` }} />
+          <span className={`grid size-16 place-items-center rounded-full ${style.bg} text-2xl font-black text-white shadow-[0_14px_38px_rgba(15,23,42,0.24)]`}>{card.icon}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (card.visual === "slider") {
+    return (
+      <div className="grid h-36 place-items-center">
+        <div className="w-full max-w-[260px]">
+          <svg viewBox="0 0 280 94" className="h-24 w-full" role="img" aria-label={`${card.title} performance meter`}>
+            <path d="M18 56 C72 20 118 82 170 38 C206 8 246 26 262 56" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeLinecap="round" />
+            <path d="M18 56 C72 20 118 82 170 38 C206 8 246 26 262 56" fill="none" stroke={style.hex} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${score * 2.5} 320`} />
+            <circle cx={Math.min(258, 24 + score * 2.35)} cy={score > 70 ? 38 : score > 45 ? 52 : 62} r="14" fill={style.hex} stroke="white" strokeWidth="7" />
+          </svg>
+          <div className="grid grid-cols-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+            <span>Weak</span>
+            <span>Realistic</span>
+            <span>Strong</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid h-36 place-items-center">
+      <div className="w-full max-w-[250px] rounded-3xl border border-line bg-white/80 p-4 shadow-inner dark:border-white/10 dark:bg-white/[0.04]">
+        {[0.35, 0.52, 0.7, 0.88, 1].map((scale, index) => (
+          <div key={scale} className="mb-3 h-3 overflow-hidden rounded-full bg-slate-100 last:mb-0 dark:bg-white/10">
+            <div className={`h-full rounded-full ${index < 2 ? "bg-amber" : style.bg}`} style={{ width: `${Math.max(18, score * scale)}%` }} />
+          </div>
+        ))}
+        <div className="mt-4 flex items-center justify-between">
+          <span className={`grid size-12 place-items-center rounded-2xl ${style.bg} text-xl font-black text-white`}>{card.icon}</span>
+          <span className={`text-4xl font-black ${style.text}`}>{card.metric}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShopperFlipCard({ card }: { card: ShopperCard }) {
+  const style = TRUST_TONE_STYLE[card.tone];
+
+  return (
+    <details className="group min-h-[430px] [perspective:1600px]">
+      <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
+        <div className="relative min-h-[430px] transition-transform duration-700 [transform-style:preserve-3d] group-open:[transform:rotateY(180deg)]">
+          <article className={`absolute inset-0 overflow-hidden rounded-[2rem] border ${style.border} bg-white p-6 shadow-soft [backface-visibility:hidden] dark:bg-slate-950`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.title}</p>
+                <h2 className="mt-2 text-2xl font-black leading-tight text-ink dark:text-white">{card.question}</h2>
+              </div>
+              <span className={`rounded-full px-3 py-2 text-xs font-black uppercase ${style.soft} ${style.text}`}>See why</span>
+            </div>
+            <ShopperVisual card={card} />
+            <div className="mt-1 flex items-end justify-between gap-4">
+              <div>
+                <p className={`text-5xl font-black leading-none ${style.text}`}>{card.metric}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{card.status}</p>
+              </div>
+              <span className={`grid size-14 place-items-center rounded-2xl ${style.bg} text-2xl font-black text-white shadow-soft`}>{card.icon}</span>
+            </div>
+            <div className="mt-5 grid gap-2">
+              {card.frontLines.map((line) => (
+                <p key={line} className="text-sm font-bold leading-6 text-slate-700 dark:text-slate-300">{line}</p>
+              ))}
+            </div>
+          </article>
+
+          <article className={`absolute inset-0 overflow-hidden rounded-[2rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f3fbff)] p-6 shadow-soft [backface-visibility:hidden] [transform:rotateY(180deg)] dark:bg-slate-950 dark:bg-none`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{card.title} details</p>
+                <h3 className="mt-2 text-xl font-black text-ink dark:text-white">{card.recommendation}</h3>
+              </div>
+              <span className="rounded-full border border-line px-3 py-2 text-xs font-black uppercase text-slate-500 dark:border-white/10 dark:text-slate-300">Back</span>
+            </div>
+            <div className="mt-5 grid gap-4">
+              <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Evidence</p>
+                <ul className="mt-2 grid gap-2">
+                  {card.details.slice(0, 3).map((item) => (
+                    <li key={item} className="text-sm leading-6 text-slate-700 dark:text-slate-300">{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Check before buying</p>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-700 dark:text-slate-300">{card.checks[0]}</p>
+                </div>
+                <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Avoid if</p>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-700 dark:text-slate-300">{card.avoid}</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </summary>
+    </details>
+  );
+}
+
 function BuyerResults({ result }: { result: AnalyzeResponse }) {
   const { analysis, meta } = result;
   const recommendation = analysis.buyer_recommendation ?? analysis.customer_recommendation;
@@ -762,150 +926,139 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
   const buyerWorry = riskScore >= 65 ? "Yes" : riskScore >= 35 ? "Maybe" : "No";
   const fullComplaint = topComplaint(analysis);
   const fullStrength = analysis.praised_features[0] ?? analysis.positive_points[0] ?? "useful for the right buyer";
-  const biggestComplaint = shortShopperPhrase(fullComplaint, "No big warning");
-  const mainStrength = shortShopperPhrase(fullStrength, "Useful for the right buyer");
+  const biggestComplaint = cleanOneLine(fullComplaint, "No repeated complaint", 44);
+  const mainStrength = cleanOneLine(fullStrength, "Useful for the right buyer", 44);
   const bestForPhrase = shortShopperPhrase(bestFor(analysis), "Careful shoppers", 5);
   const valueVerdict = valueScore >= 72 ? "Great" : valueScore >= 48 ? "Fair" : "Poor";
   const fakeRiskShort = fakeRisk >= 65 ? "High" : fakeRisk >= 35 ? "Medium" : "Low";
   const verdictLabel = recommendation.verdict.toUpperCase();
+  const score = Math.round(clamp(analysis.product_score));
+  const trustScoreRounded = Math.round(trustScore);
+  const realityScoreRounded = Math.round(realityScore);
+  const safeRiskScore = Math.round(100 - riskScore);
   const verdictStyle = {
+    good: "from-[#effffb] via-[#e9f6ff] to-[#fff7e7] text-teal",
+    warn: "from-[#fff8e8] via-[#eff7ff] to-[#fff0f0] text-amber",
+    bad: "from-[#fff0f0] via-[#eef5ff] to-[#f8fbff] text-coral"
+  }[verdictTone];
+  const verdictAccent = {
     good: "from-teal via-ocean to-cyan-400",
     warn: "from-amber via-orange-400 to-coral",
     bad: "from-coral via-rose-500 to-slate-900"
   }[verdictTone];
-  const quickCards = [
+  const quickCards: ShopperCard[] = [
     {
       title: "Trust",
       question: "Can I trust these reviews?",
       score: trustScore,
       tone: fakeRisk >= 65 ? "bad" as const : fakeRisk >= 35 ? "warn" as const : "good" as const,
-      metric: `${trustScore}/100`,
-      lines: [`Fake risk: ${fakeRiskShort}`, fakeRisk >= 65 ? "Too many pattern signals" : fakeRisk >= 35 ? "Some wording patterns to check" : "Reviews look natural"],
+      visual: "radar",
+      icon: "S",
+      metric: `${trustScoreRounded}`,
+      status: `${fakeRiskShort} fake risk`,
+      frontLines: [`Fake risk: ${fakeRiskShort}`, fakeRisk >= 65 ? "Pattern signals need checking." : fakeRisk >= 35 ? "Some wording feels patterned." : "Reviews look natural."],
       details: uniqueSellerItems(
         [...analysis.fake_review_indicators, meta.confidence_detail, `${meta.review_count_estimate} valid reviews analyzed.`],
         ["Trust is based on fake-review pressure, review volume, and evidence quality."],
         3
-      )
+      ),
+      checks: ["Look for verified use, photos, dates, and balanced praise/complaints."],
+      avoid: fakeRisk >= 65 ? "You see repeated generic wording or suspicious review timing." : "You need very high proof before buying.",
+      recommendation: fakeRisk >= 65 ? "Check review authenticity first." : "Review signal is usable."
     },
     {
       title: "Product Reality",
       question: "Does it match the promise?",
       score: realityScore,
       tone: realityScore >= 70 ? "good" as const : realityScore >= 45 ? "warn" as const : "bad" as const,
-      metric: `${realityScore}/100`,
-      lines: [`Strength: ${mainStrength}`, `Complaint: ${biggestComplaint}`],
+      visual: "slider",
+      icon: "P",
+      metric: `${realityScoreRounded}`,
+      status: "Promise match",
+      frontLines: [`Strength: ${mainStrength}`, `Complaint: ${biggestComplaint}`],
       details: uniqueSellerItems(
         [analysis.overall_summary, fullStrength, fullComplaint, ...analysis.praised_features, ...analysis.common_complaints],
         ["Reality score compares confirmed strengths against repeated complaints."],
         3
-      )
+      ),
+      checks: ["Confirm size, material, compatibility, and the exact version you will receive."],
+      avoid: realityScore < 45 ? "The product promise does not match repeated customer reality." : "The top complaint is a dealbreaker for you.",
+      recommendation: realityScore >= 70 ? "Product promise looks believable." : "Compare the promise against reviews."
     },
     {
       title: "Risk",
       question: "What could go wrong?",
       score: 100 - riskScore,
       tone: riskScore >= 65 ? "bad" as const : riskScore >= 35 ? "warn" as const : "good" as const,
+      visual: "alert",
+      icon: "!",
       metric: riskLevel,
-      lines: [`Biggest issue: ${biggestComplaint}`, `Should buyer worry? ${buyerWorry}`],
+      status: `${safeRiskScore} safety score`,
+      frontLines: [`Biggest issue: ${biggestComplaint}`, `Should buyer worry? ${buyerWorry}`],
       details: uniqueSellerItems(
         [fullComplaint, ...analysis.quality_concerns, ...analysis.durability_issues, ...analysis.support_issues, ...analysis.negative_points],
         ["Risk combines complaints, product concerns, support issues, and fake-review pressure."],
         3
-      )
+      ),
+      checks: ["Check returns, warranty, seller support, shipping, and the repeated complaint."],
+      avoid: riskScore >= 65 ? "The warning affects your main reason for buying." : "You cannot return it easily.",
+      recommendation: buyerRecommendationLine(recommendation.verdict, riskLevel)
     }
   ];
 
   return (
-    <div className="space-y-5">
-      <section className={`ri-reveal-pop relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br ${verdictStyle} p-5 text-white shadow-[0_34px_110px_rgba(35,86,163,0.24)] lg:p-7`}>
-        <div className="ri-scan-grid absolute inset-0 opacity-20" />
-        <div className="relative grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-          <div className="rounded-[1.75rem] border border-white/20 bg-slate-950/45 p-5 text-center shadow-[0_20px_80px_rgba(0,0,0,0.2)] backdrop-blur-xl">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-100">Buyer verdict</p>
-            <div className="mt-5 grid place-items-center">
-              <div
-                className="grid size-44 place-items-center rounded-full p-3"
-                style={{ background: `conic-gradient(rgba(255,255,255,0.95) ${clamp(analysis.product_score) * 3.6}deg, rgba(255,255,255,0.2) 0deg)` }}
-              >
-                <div className="grid size-36 place-items-center rounded-full bg-slate-950/70">
-                  <div>
-                    <p className="text-6xl font-black leading-none">{clamp(analysis.product_score)}</p>
-                    <p className="text-xs font-black uppercase text-cyan-100">/100</p>
-                  </div>
-                </div>
+    <div className="space-y-6">
+      <section className={`ri-reveal-pop relative overflow-hidden rounded-[2.25rem] border border-white/70 bg-gradient-to-br ${verdictStyle} p-5 shadow-[0_34px_110px_rgba(35,86,163,0.18)] lg:p-7`}>
+        <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${verdictAccent}`} />
+        <div className="absolute -right-20 -top-24 size-72 rounded-full bg-white/55 blur-3xl" />
+        <div className="relative grid gap-5 lg:grid-cols-[0.72fr_1.28fr] lg:items-stretch">
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.05]">
+            <div className={`absolute -right-16 -top-16 size-44 rounded-full bg-gradient-to-br ${verdictAccent} opacity-25 blur-2xl`} />
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-300">Buyer verdict</p>
+            <div className="mt-8 flex items-end justify-between gap-4">
+              <div>
+                <h1 className="text-6xl font-black leading-none text-ink dark:text-white lg:text-7xl">{verdictLabel}</h1>
+                <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">Buyer confidence</p>
+              </div>
+              <div className="text-right">
+                <p className={`text-7xl font-black leading-none ${TRUST_TONE_STYLE[verdictTone].text}`}>{score}</p>
+                <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">/100</p>
               </div>
             </div>
-            <h1 className="mt-5 text-6xl font-black leading-none">{verdictLabel}</h1>
-            <p className="mt-2 text-sm font-black uppercase tracking-wide text-cyan-100">Buyer confidence</p>
+            <div className="mt-8 h-4 overflow-hidden rounded-full bg-white shadow-inner dark:bg-white/10">
+              <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: `${score}%` }} />
+            </div>
+            <p className="mt-5 text-lg font-black leading-7 text-ink dark:text-white">{buyerRecommendationLine(recommendation.verdict, riskLevel)}</p>
           </div>
 
-          <div className="grid gap-4">
-            <div className="rounded-[1.75rem] border border-white/20 bg-white/90 p-5 text-ink shadow-soft backdrop-blur-xl">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ["Fake Review Risk", fakeRiskShort],
-                  ["Value", valueVerdict],
-                  ["Main Warning", biggestComplaint],
-                  ["Best For", bestForPhrase]
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-2xl border border-line bg-white p-4">
-                    <p className="text-xs font-black uppercase text-slate-500">{label}</p>
-                    <p className="mt-2 break-words text-xl font-black leading-tight text-ink">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Link href="/analyze" className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean">
-                  Test another product
-                </Link>
-                <Link href="/compare" className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean">
-                  Compare products
-                </Link>
-              </div>
+          <div className="rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                ["Fake Review Risk", fakeRiskShort, fakeRisk >= 65 ? "text-coral" : fakeRisk >= 35 ? "text-amber" : "text-teal"],
+                ["Value", valueVerdict, valueScore >= 72 ? "text-teal" : valueScore >= 48 ? "text-amber" : "text-coral"],
+                ["Main Warning", biggestComplaint, "text-coral"],
+                ["Best For", bestForPhrase, "text-ocean"]
+              ].map(([label, value, color]) => (
+                <div key={label} className="min-h-28 rounded-[1.4rem] border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+                  <p className={`mt-3 text-2xl font-black leading-tight ${color}`}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href="/analyze" className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean">
+                Test another product
+              </Link>
+              <Link href="/compare" className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+                Compare products
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
-        {quickCards.map((card) => {
-          const style = TRUST_TONE_STYLE[card.tone];
-          return (
-            <details key={card.title} className={`rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft dark:bg-slate-950`}>
-              <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{card.title}</p>
-                    <h2 className="mt-2 text-xl font-black text-ink dark:text-white">{card.question}</h2>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${style.soft} ${style.text}`}>See why</span>
-                </div>
-                <div className="mt-5 grid place-items-center">
-                  <div
-                    className="grid size-28 place-items-center rounded-full p-2"
-                    style={{ background: `conic-gradient(${style.hex} ${clamp(card.score) * 3.6}deg, #e2e8f0 0deg)` }}
-                  >
-                    <div className="grid size-20 place-items-center rounded-full bg-white text-center dark:bg-slate-950">
-                      <span className={`text-2xl font-black ${style.text}`}>{card.metric}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-5 grid gap-2">
-                  {card.lines.map((line) => (
-                    <p key={line} className="line-clamp-2 text-sm font-bold leading-6 text-slate-700 dark:text-slate-300">{line}</p>
-                  ))}
-                </div>
-              </summary>
-              <div className="mt-5 border-t border-line pt-4 dark:border-white/10">
-                <ul className="grid gap-2">
-                  {card.details.map((item) => (
-                    <li key={item} className="text-sm leading-6 text-slate-600 dark:text-slate-300">{item}</li>
-                  ))}
-                </ul>
-              </div>
-            </details>
-          );
-        })}
+        {quickCards.map((card) => <ShopperFlipCard key={card.title} card={card} />)}
       </section>
     </div>
   );

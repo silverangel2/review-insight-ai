@@ -9,6 +9,7 @@ import { estimateReviewCount } from "@/lib/localAnalyzer";
 import { REVIEW_PLATFORMS } from "@/lib/platforms";
 import { accountHeaders, getClientAccount, getStoredQuota, quotaText, saveActiveMode, saveQuota } from "@/lib/clientAccount";
 import { saveSellerJournalScan } from "@/lib/sellerJournal";
+import { saveLatestResult } from "@/lib/resultStorage";
 import {
   activeSellerProductId,
   createSellerProduct,
@@ -650,7 +651,7 @@ export function AnalyzerForm() {
           setProductSaveNotice(`Saved scan to ${updatedProduct.name}.`);
         }
       }
-      sessionStorage.setItem("reviewintel:last-result", JSON.stringify(data as AnalyzeResponse));
+      saveLatestResult(data as AnalyzeResponse, getClientAccount());
       await wait(Math.max(0, 5000 - (performance.now() - scanStartedAt)));
       router.push("/results");
     } catch (caught) {
