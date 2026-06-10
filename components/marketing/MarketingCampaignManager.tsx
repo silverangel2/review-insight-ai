@@ -1,120 +1,207 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { buildCampaignUrl, reviewIntelCampaigns } from "@/lib/marketingCampaigns";
+import { useState } from "react";
+
+const premiumDraft = {
+  subject: "ReviewIntel Premium is ready for smarter product decisions",
+  message: `ReviewIntel helps shoppers and sellers understand product reviews faster.
+
+For shoppers, it gives fast buying confidence, fake-review risk, complaints, value signals, and product comparison insights before they buy.
+
+For sellers, it turns review comments into product intelligence, complaint patterns, customer pain points, and improvement ideas.
+
+Try your next product scan and see what ReviewIntel finds before you decide.`
+};
+
+const advertiserDraft = {
+  subject: "Advertise beside ReviewIntel AI product scans",
+  message: `ReviewIntel now offers premium sponsor placements beside AI product scans.
+
+Your brand can appear while shoppers are actively checking reviews, comparing products, and deciding what to buy.
+
+Premium Analyze Spots are designed for brands, ecommerce tools, product services, and sellers who want attention at buyer decision time.`
+};
+
+const shopperDraft = {
+  subject: "Before you buy, scan the reviews with ReviewIntel",
+  message: `Product reviews can be messy, emotional, fake, or hard to compare.
+
+ReviewIntel helps turn those reviews into a clear buying answer:
+worth buying, fake-review risk, common complaints, value signals, and best-fit insights.
+
+Use ReviewIntel before your next purchase and make the decision with more confidence.`
+};
 
 export function MarketingCampaignManager() {
-  const [origin, setOrigin] = useState("https://getreviewintel.com");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [subject, setSubject] = useState(premiumDraft.subject);
+  const [message, setMessage] = useState(premiumDraft.message);
+  const [sending, setSending] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
 
-  const campaignLinks = useMemo(
-    () =>
-      reviewIntelCampaigns.map((campaign) => ({
-        ...campaign,
-        url: buildCampaignUrl(origin, campaign),
-      })),
-    [origin],
-  );
+  function applyDraft(draft: typeof premiumDraft) {
+    setSubject(draft.subject);
+    setMessage(draft.message);
+    setNotice("");
+    setError("");
+  }
 
-  async function copyLink(id: string, url: string) {
+  async function sendCampaign() {
+    setSending(true);
+    setNotice("");
+    setError("");
+
     try {
-      await navigator.clipboard.writeText(url);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 1600);
-    } catch {
-      setCopiedId(null);
+      const response = await fetch("/api/admin/marketing/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, message })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(data?.error ?? "Campaign failed.");
+        return;
+      }
+
+      setNotice(`Campaign sent to ${data.sent ?? 0} of ${data.attempted ?? 0} consented subscribers.`);
+    } finally {
+      setSending(false);
     }
   }
 
   return (
-    <div className="grid gap-8">
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-cyan-200/15 dark:bg-cyan-300/[0.06]">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-ocean dark:text-cyan-200">
-          External Advertising
+    <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
+          Auto email campaign
         </p>
-        <h2 className="mt-2 text-2xl font-black">ReviewIntel campaign link generator</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700 dark:text-slate-300">
-          Use these links when you advertise ReviewIntel on Google, TikTok, Facebook,
-          Reddit, YouTube, newsletters, or affiliate pages. Each link includes UTM tracking
-          so you can identify where traffic came from.
+        <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">
+          Send to marketing-consent users
+        </h2>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          This sends only to profiles where marketing consent is Yes. Every email includes an unsubscribe link.
         </p>
 
-        <label className="mt-5 grid gap-2 text-sm">
-          Live website domain
-          <input
-            value={origin}
-            onChange={(event) => setOrigin(event.target.value)}
-            className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white dark:focus:border-cyan-300"
-            placeholder="https://getreviewintel.com"
-          />
-        </label>
-      </section>
-
-      <section className="grid gap-4">
-        {campaignLinks.map((campaign) => (
-          <article
-            key={campaign.id}
-            className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-white/[0.04]"
+        <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => applyDraft(premiumDraft)}
+            className="rounded-2xl border border-line bg-mist px-4 py-3 text-left text-xs font-black uppercase text-ink transition hover:border-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
           >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <div className="mb-3 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-100">
-                  {campaign.channel}
-                </div>
+            Premium launch
+          </button>
+          <button
+            type="button"
+            onClick={() => applyDraft(shopperDraft)}
+            className="rounded-2xl border border-line bg-mist px-4 py-3 text-left text-xs font-black uppercase text-ink transition hover:border-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+          >
+            Shopper promo
+          </button>
+          <button
+            type="button"
+            onClick={() => applyDraft(advertiserDraft)}
+            className="rounded-2xl border border-line bg-mist px-4 py-3 text-left text-xs font-black uppercase text-ink transition hover:border-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+          >
+            Advertiser spot
+          </button>
+        </div>
 
-                <h3 className="text-xl font-black">{campaign.name}</h3>
-                <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{campaign.description}</p>
+        {notice ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
+            {notice}
+          </div>
+        ) : null}
 
-                <div className="mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-400 md:grid-cols-2">
-                  <p>
-                    <span className="font-semibold text-ink dark:text-slate-200">Audience:</span>{" "}
-                    {campaign.audience}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-ink dark:text-slate-200">Landing page:</span>{" "}
-                    {campaign.landingPath}
-                  </p>
-                </div>
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">
+            {error}
+          </div>
+        ) : null}
 
-                <div className="mt-4 rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/70">
-                  <p className="break-all text-xs font-semibold leading-6 text-ocean dark:text-cyan-100">{campaign.url}</p>
-                </div>
-              </div>
+        <div className="mt-5 grid gap-4">
+          <label className="grid gap-2">
+            <span className="text-xs font-black uppercase text-slate-500">Subject</span>
+            <input
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              className="rounded-2xl border border-line bg-mist px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+            />
+          </label>
 
-              <button
-                type="button"
-                onClick={() => copyLink(campaign.id, campaign.url)}
-                className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950 transition hover:bg-cyan-200"
-              >
-                {copiedId === campaign.id ? "Copied" : "Copy link"}
-              </button>
-            </div>
-          </article>
-        ))}
+          <label className="grid gap-2">
+            <span className="text-xs font-black uppercase text-slate-500">Campaign draft</span>
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              rows={10}
+              className="rounded-2xl border border-line bg-mist px-4 py-3 text-sm font-bold leading-6 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => void sendCampaign()}
+            disabled={sending || subject.trim().length < 4 || message.trim().length < 10}
+            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+          >
+            {sending ? "Sending campaign..." : "Send Campaign"}
+          </button>
+        </div>
       </section>
 
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900/80">
-        <h2 className="text-2xl font-black">How to use these links</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-slate-950/70">
-            <p className="text-sm font-bold text-cyan-100">1. Pick a campaign</p>
-            <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-              Choose Google, TikTok, Reddit, YouTube, or another platform.
+      <section className="rounded-[2rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <div className="overflow-hidden rounded-[1.75rem] bg-[#07111f] shadow-[0_24px_70px_rgba(7,17,31,0.25)]">
+          <div className="bg-gradient-to-br from-[#07111f] via-[#0f766e] to-[#22d3ee] p-7 text-white">
+            <div className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-4 py-3">
+              <span className="size-5 rounded-md bg-gradient-to-br from-cyan-300 to-amber shadow-[0_0_24px_rgba(34,211,238,0.55)]" />
+              <span className="text-sm font-black tracking-wide">ReviewIntel</span>
+            </div>
+            <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-emerald-100">
+              Email preview
             </p>
+            <h3 className="mt-3 text-3xl font-black leading-tight">
+              {subject || "ReviewIntel campaign subject"}
+            </h3>
           </div>
 
-          <div className="rounded-2xl border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-slate-950/70">
-            <p className="text-sm font-bold text-cyan-100">2. Copy the link</p>
-            <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-              Paste it as the destination URL inside the ad platform.
+          <div className="rounded-t-[1.75rem] bg-white p-6">
+            <p className="text-base font-bold leading-7 text-ink">Hi there,</p>
+            <div className="mt-4 grid gap-3">
+              {message
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .map((line, index) => (
+                  <p key={`${line}-${index}`} className="text-sm font-semibold leading-7 text-slate-700">
+                    {line}
+                  </p>
+                ))}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-line bg-mist p-4">
+              <p className="text-xs font-bold leading-6 text-slate-600">
+                You are receiving this because you said yes to ReviewIntel marketing or product updates.
+                You can unsubscribe anytime.
+              </p>
+            </div>
+
+            <p className="mt-5 text-xs font-black text-ocean">
+              Unsubscribe from ReviewIntel marketing emails
             </p>
           </div>
+        </div>
 
-          <div className="rounded-2xl border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-slate-950/70">
-            <p className="text-sm font-bold text-cyan-100">3. Track results</p>
-            <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-              Later we can add analytics to show visits, signups, and conversions by campaign.
-            </p>
+        <div className="mt-5 rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
+            Safety rules
+          </p>
+          <div className="mt-3 grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+            <p>Only sends to users who said Yes to marketing consent.</p>
+            <p>Skips missing or invalid emails.</p>
+            <p>Uses support@getreviewintel.com as the verified sender.</p>
+            <p>Includes unsubscribe link in every email.</p>
           </div>
         </div>
       </section>
