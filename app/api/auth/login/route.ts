@@ -87,7 +87,7 @@ export async function POST(request: Request) {
             addressLine1: qaAccount.addressLine1,
             city: qaAccount.city,
             country: qaAccount.country,
-            marketingConsent: true
+            marketingConsent: false
           }
         }
       });
