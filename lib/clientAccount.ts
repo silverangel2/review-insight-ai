@@ -16,6 +16,11 @@ import {
 } from "@/lib/account";
 import type { AnalysisAudience, QuotaInfo, SubscriptionPlan, UserRole } from "@/lib/types";
 
+const SCAN_TALLY_STORAGE_KEY = "reviewintel_scan_tally";
+
+export const ACCOUNT_LAST_ACTIVE_KEY = "reviewintel:account-last-active";
+export const ACCOUNT_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -49,12 +54,23 @@ export function getGuestId() {
   return guestId;
 }
 
+function hasRealLoginIdentity(value: unknown) {
+  const record = value as Record<string, unknown>;
+  return typeof record?.email === "string" && record.email.includes("@");
+}
+
 export function getClientAccount(): ClientAccount | null {
   if (!canUseStorage()) return null;
 
   try {
     const stored = window.localStorage.getItem(ACCOUNT_STORAGE_KEY);
     if (!stored) return null;
+
+    const lastActive = Number(window.localStorage.getItem(ACCOUNT_LAST_ACTIVE_KEY) ?? "0");
+    if (lastActive && Date.now() - lastActive > ACCOUNT_IDLE_TIMEOUT_MS) {
+      clearClientAccount({ manual: true });
+      return null;
+    }
 
     const parsed = JSON.parse(stored) as Partial<ClientAccount>;
     if (!parsed.email) return null;
@@ -97,8 +113,9 @@ export function saveClientAccount(account: ClientAccount) {
     role: normalizeRole(account.role),
     plan: normalizePlan(account.plan)
   };
+  window.localStorage.setItem(ACCOUNT_LAST_ACTIVE_KEY, String(Date.now()));
   window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(normalized));
-  if (!previous || previous.email !== normalized.email || previous.plan !== normalized.plan || previous.role !== normalized.role) {
+  if (!previous || previous.email !== normalized.email) {
     window.localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(makeQuotaInfo(normalized.plan, 0)));
   }
   setCookie("reviewintel_account_role", normalized.role);
@@ -106,14 +123,41 @@ export function saveClientAccount(account: ClientAccount) {
   window.dispatchEvent(new CustomEvent("reviewintel:account", { detail: normalized }));
 }
 
-export function clearClientAccount() {
-  if (!canUseStorage()) return;
-  window.localStorage.removeItem(ACCOUNT_STORAGE_KEY);
-  window.localStorage.removeItem(QUOTA_STORAGE_KEY);
+export function clearClientAccount(_options: { manual?: boolean } = {}) {
+  if (canUseStorage()) {
+    window.localStorage.removeItem(ACCOUNT_STORAGE_KEY);
+    window.localStorage.removeItem(QUOTA_STORAGE_KEY);
+    window.localStorage.removeItem(ACTIVE_MODE_STORAGE_KEY);
+    window.localStorage.removeItem(ACCOUNT_LAST_ACTIVE_KEY);
+  }
+
+  if (typeof window !== "undefined" && typeof window.sessionStorage !== "undefined") {
+    window.sessionStorage.removeItem("reviewintel:owner-unlocked");
+    window.sessionStorage.removeItem("reviewintel:owner-last-active");
+  }
+
   deleteCookie("reviewintel_account_role");
   deleteCookie("reviewintel_account_plan");
   window.dispatchEvent(new CustomEvent("reviewintel:account"));
   window.dispatchEvent(new CustomEvent("reviewintel:quota"));
+}
+
+export function touchClientAccountActivity() {
+  if (!canUseStorage()) return;
+  if (!getClientAccount()) return;
+  window.localStorage.setItem(ACCOUNT_LAST_ACTIVE_KEY, String(Date.now()));
+}
+
+export async function logoutEverywhere() {
+  clearClientAccount({ manual: true });
+
+  await Promise.allSettled([
+    fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }),
+    fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" }),
+    fetch("/api/owner/logout", { method: "POST", credentials: "same-origin" })
+  ]);
+
+  window.location.href = "/login";
 }
 
 export function setClientPlan(plan: SubscriptionPlan) {
@@ -135,7 +179,7 @@ export function setClientRole(role: ClientAccount["role"]) {
   const account: ClientAccount = existing ?? {
     email: "local@reviewintel.local",
     name: "Local user",
-    plan: safeRole === "seller" ? "seller_starter" : "free_buyer",
+    plan: "free_buyer",
     role: safeRole,
     createdAt: new Date().toISOString()
   };
@@ -172,10 +216,16 @@ export function getStoredQuota(): QuotaInfo {
 
     const quota = JSON.parse(stored) as QuotaInfo;
     const normalizedPlan = normalizePlan(quota.plan);
+
     if (normalizedPlan !== accountPlan) return makeQuotaInfo(accountPlan, 0);
-    if (hasUnlimitedUsage(accountRole, accountPlan) && quota.limit !== null) return makeQuotaInfo(accountPlan, 0);
-    if (normalizedPlan === "free_buyer" && quota.limit !== FREE_DAILY_REVIEW_LIMIT) return makeQuotaInfo("free_buyer", 0);
-    return { ...quota, plan: normalizedPlan };
+    if (hasUnlimitedUsage(accountRole, accountPlan)) return makeQuotaInfo(accountPlan, 0);
+
+    if (normalizedPlan === "free_buyer") {
+      const used = Math.max(0, Math.min(FREE_DAILY_REVIEW_LIMIT, Number(quota.used ?? 0)));
+      return makeQuotaInfo("free_buyer", used);
+    }
+
+    return makeQuotaInfo(accountPlan, 0);
   } catch {
     return makeQuotaInfo(accountPlan, 0);
   }
@@ -183,8 +233,79 @@ export function getStoredQuota(): QuotaInfo {
 
 export function saveQuota(quota: QuotaInfo) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(quota));
-  window.dispatchEvent(new CustomEvent("reviewintel:quota", { detail: quota }));
+
+  const account = getClientAccount();
+  const accountPlan = account?.plan || "free_buyer";
+  const accountRole = account?.role || "guest";
+
+  let normalizedQuota = quota;
+
+  if (hasUnlimitedUsage(accountRole, accountPlan)) {
+    normalizedQuota = makeQuotaInfo(accountPlan, 0);
+  } else if (accountPlan === "free_buyer") {
+    const used = Math.max(0, Math.min(FREE_DAILY_REVIEW_LIMIT, Number(quota.used ?? 0)));
+    normalizedQuota = makeQuotaInfo("free_buyer", used);
+  }
+
+  window.localStorage.setItem(QUOTA_STORAGE_KEY, JSON.stringify(normalizedQuota));
+  window.dispatchEvent(new CustomEvent("reviewintel:quota", { detail: normalizedQuota }));
+}
+
+export type ScanTallyInfo = {
+  total: number;
+  updatedAt?: string;
+};
+
+export function getStoredScanTally(): ScanTallyInfo {
+  if (!canUseStorage()) return { total: 0 };
+
+  try {
+    const stored = window.localStorage.getItem(SCAN_TALLY_STORAGE_KEY);
+    if (!stored) return { total: 0 };
+
+    const tally = JSON.parse(stored) as ScanTallyInfo;
+    const total = Math.max(0, Number(tally.total ?? 0));
+
+    return {
+      total,
+      updatedAt: typeof tally.updatedAt === "string" ? tally.updatedAt : undefined
+    };
+  } catch {
+    return { total: 0 };
+  }
+}
+
+export function saveStoredScanTally(tally: ScanTallyInfo) {
+  if (!canUseStorage()) return;
+
+  const normalizedTally: ScanTallyInfo = {
+    total: Math.max(0, Number(tally.total ?? 0)),
+    updatedAt: tally.updatedAt || new Date().toISOString()
+  };
+
+  window.localStorage.setItem(SCAN_TALLY_STORAGE_KEY, JSON.stringify(normalizedTally));
+  window.dispatchEvent(new CustomEvent("reviewintel:scan-tally", { detail: normalizedTally }));
+}
+
+export function incrementStoredScanTally(amount = 1): ScanTallyInfo {
+  const current = getStoredScanTally();
+  const next: ScanTallyInfo = {
+    total: current.total + Math.max(1, Number(amount || 1)),
+    updatedAt: new Date().toISOString()
+  };
+
+  saveStoredScanTally(next);
+  return next;
+}
+
+export function clearStoredScanTally(): ScanTallyInfo {
+  const cleared: ScanTallyInfo = {
+    total: 0,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveStoredScanTally(cleared);
+  return cleared;
 }
 
 export function quotaText(quota: QuotaInfo) {

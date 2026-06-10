@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardMetric, DashboardShell, MiniBarChart } from "@/components/DashboardShell";
 import { AdminUserSystem } from "@/components/AdminUserSystem";
+import { AdminDailyCheckCenter } from "@/components/AdminDailyCheckCenter";
 import { AdminSpeedTest } from "@/components/AdminSpeedTest";
 import { AdminReviewModeration } from "@/components/AdminReviewModeration";
 import { DeveloperControlCenter } from "@/components/DeveloperControlCenter";
@@ -30,13 +31,44 @@ export default async function AdminPage() {
   return (
     <DashboardShell
       title="Admin panel"
-      subtitle="Operational metrics for users, subscriptions, analysis usage, token usage, flagged uploads, and revenue placeholders."
+      subtitle="Owner tools for live users, SEO, QA, diagnostics, moderation, and product operations. Placeholder metrics are hidden until connected to real database or Stripe data."
       experience="admin"
     >
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <Link href="/admin/email" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Email System
+        </Link>
+        <Link href="/admin/customers" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Signed Customers
+        </Link>
+        <Link href="/admin/finance" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Finance / Tax
+        </Link>
+        <Link href="/admin/calendar" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Business Calendar
+        </Link>
+        <Link href="/admin/security" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Security Center
+        </Link>
+        <Link href="/admin/notifications" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Notifications
+        </Link>
+
+        <Link href="/admin/advertising" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Advertising Control
+        </Link>
+
+        <Link href="/admin/marketing" className="rounded-2xl border border-line bg-white p-5 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+          Marketing Campaigns
+        </Link>
+      </div>
+
+      <AdminUserSystem />
+      <AdminDailyCheckCenter />
       <DeveloperControlCenter serverDeveloperMode />
       <DeveloperQACenter />
       <AdminSpeedTest />
-      <AdminUserSystem />
       <AdminReviewModeration />
       <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -81,14 +113,14 @@ export default async function AdminPage() {
       <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Monetization controls</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Future monetization controls</p>
             <h2 className="mt-3 text-xl font-black tracking-tight text-ink dark:text-white">Sponsored resources</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Future admin CRUD connects to the sponsors table for adding, pausing, editing, and measuring partner placements.
+              Not live yet. Sponsor controls should stay disabled until a real sponsors database table and admin CRUD are connected.
             </p>
           </div>
           <div className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink dark:border-white/10 dark:text-white">
-            Toggle via NEXT_PUBLIC_SPONSORS_ENABLED
+            Disabled until connected
           </div>
         </div>
       </section>

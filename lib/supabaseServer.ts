@@ -97,6 +97,40 @@ export async function supabaseUpsert<T = SupabaseRow>(table: string, rows: Supab
   return data[0] ?? null;
 }
 
+
+function supabaseHeaders(): Record<string, string> {
+  const key = SUPABASE_SERVICE_ROLE_KEY || "";
+
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/json",
+    Prefer: "return=representation"
+  };
+}
+
+export async function supabaseUpdate<T = SupabaseRow>(
+  table: string,
+  query: string,
+  rows: SupabaseRow
+) {
+  if (!isSupabaseConfigured()) return null;
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: "PATCH",
+    headers: supabaseHeaders(),
+    body: JSON.stringify(rows),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    console.error(`Supabase update failed for ${table}:`, await response.text());
+    return null;
+  }
+
+  return (await response.json().catch(() => null)) as T | null;
+}
+
 export async function supabaseCount(table: string, query = "select=*") {
   if (!isSupabaseConfigured()) return 0;
   const response = await fetch(tableUrl(table, query), {
@@ -194,6 +228,19 @@ export function accountFromAuthUser(user: unknown) {
 
 export async function readPersistentQuota(emailOrAccount?: string | { email?: string; plan?: string } | null) {
   const email = typeof emailOrAccount === "string" ? emailOrAccount : emailOrAccount?.email;
+  const plan = typeof emailOrAccount === "string" ? "free_buyer" : emailOrAccount?.plan ?? "free_buyer";
+
+  // Only Shopper Free / guest-style usage should use the 3-scan daily quota.
+  // Paid shopper, seller, and admin flows should not be limited here.
+  if (plan !== "free_buyer") {
+    return {
+      used: 0,
+      remaining: null,
+      limit: null,
+      resetAt: null
+    };
+  }
+
   if (!email || !isSupabaseConfigured()) return null;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -212,6 +259,21 @@ export async function readPersistentQuota(emailOrAccount?: string | { email?: st
 
 export async function consumePersistentQuota(emailOrAccount?: string | { email?: string; plan?: string } | null, metadata: SupabaseRow = {}) {
   const email = typeof emailOrAccount === "string" ? emailOrAccount : emailOrAccount?.email;
+  const plan = typeof emailOrAccount === "string" ? "free_buyer" : emailOrAccount?.plan ?? "free_buyer";
+
+  // Paid accounts should not consume the Shopper Free 3-scan quota.
+  if (plan !== "free_buyer") {
+    return {
+      ok: true,
+      mode: "supabase",
+      quota: {
+        used: 0,
+        remaining: null,
+        limit: null,
+        resetAt: null
+      }
+    };
+  }
 
   if (!email || !isSupabaseConfigured()) {
     return {
@@ -250,14 +312,23 @@ export async function rollbackPersistentQuota(eventIdOrRow?: string | { id?: str
 export async function saveAnalysisRecord(input: SupabaseRow) {
   if (!isSupabaseConfigured()) return null;
 
+  const account = input.account && typeof input.account === "object" ? (input.account as SupabaseRow) : null;
+  const analysis = input.analysis && typeof input.analysis === "object" ? (input.analysis as SupabaseRow) : null;
+
+  const profileEmail =
+    input.profile_email ??
+    input.email ??
+    account?.email ??
+    "unknown@reviewintel.local";
+
   return supabaseInsert("analyses", {
-    profile_email: input.profile_email ?? input.email ?? "unknown@reviewintel.local",
+    profile_email: profileEmail,
     mode: input.mode ?? input.audience ?? "buyer",
     product_name: input.product_name ?? input.productName ?? null,
     platform: input.platform ?? "other",
-    product_score: input.product_score ?? input.productScore ?? null,
-    recommendation: input.recommendation ?? null,
-    summary: input.summary ?? input.overall_summary ?? null,
+    product_score: input.product_score ?? input.productScore ?? analysis?.product_score ?? null,
+    recommendation: input.recommendation ?? analysis?.buyer_recommendation ?? null,
+    summary: input.summary ?? input.overall_summary ?? analysis?.overall_summary ?? null,
     analysis_json: input.analysis_json ?? input.analysis ?? input,
     created_at: new Date().toISOString()
   });
@@ -324,5 +395,22 @@ export async function recordBillingEvent(input: SupabaseRow) {
     currency: input.currency ?? "CAD",
     status: input.status ?? input.type ?? "recorded",
     created_at: new Date().toISOString()
+  });
+}
+
+export async function supabaseFetch(path: string, init: RequestInit = {}) {
+  if (!SUPABASE_URL) {
+    throw new Error("SUPABASE_URL is not configured.");
+  }
+
+  const baseUrl = SUPABASE_URL.replace(/\/$/, "");
+  const endpoint = path.startsWith("http") ? path : `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+
+  return fetch(endpoint, {
+    ...init,
+    headers: {
+      ...supabaseHeaders(),
+      ...(init.headers ?? {}),
+    },
   });
 }

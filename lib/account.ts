@@ -51,7 +51,7 @@ export function normalizeRole(role: string | null | undefined): UserRole {
 
 export function planLabel(plan: SubscriptionPlan) {
   if (plan === "buyer_pro") return "Shopper Premium";
-  if (plan === "seller_starter") return "Seller Starter";
+  if (plan === "seller_starter") return "Seller Premium";
   if (plan === "seller_pro") return "Seller Pro";
   return "Shopper Free";
 }
@@ -93,9 +93,9 @@ export function canAccessSellerAnalytics(role: UserRole, plan: SubscriptionPlan)
 }
 
 export function quotaLabel(role: UserRole, quota: QuotaInfo) {
-  if (quota.limit === null) return "Unlimited product analyses";
+  if (quota.limit === null) return "Unlimited product scans";
   if (role === "guest") return `${quota.remaining ?? 0} of ${quota.limit} free guest analyses left`;
-  return `${quota.remaining ?? 0} of ${quota.limit} free shopper analyses left today`;
+  return `${quota.remaining ?? 0} of ${quota.limit} free scans left today`;
 }
 
 export function nextUtcResetIso(now = new Date()) {

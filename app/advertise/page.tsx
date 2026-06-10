@@ -21,7 +21,7 @@ const adPlans = [
 export default function AdvertisePage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-14">
-      <Badge tone="warn">Advertise with ReviewIntel</Badge>
+      <Badge tone="warn">Partner with ReviewIntel</Badge>
       <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-ink dark:text-white">
         Feature your ecommerce tool, product service, or seller resource.
       </h1>

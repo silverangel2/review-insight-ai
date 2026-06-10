@@ -42,7 +42,7 @@ export function SponsoredResources({
               href="/advertise"
               className="inline-flex rounded-xl border border-line bg-white px-4 py-2 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-white/5 dark:text-white"
             >
-              Advertise with ReviewIntel
+              Partner with ReviewIntel
             </Link>
           </div>
         </div>

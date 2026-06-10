@@ -1,65 +1,545 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { DashboardMetric, DashboardShell, MiniBarChart } from "@/components/DashboardShell";
 import { InsightList } from "@/components/InsightList";
 import { ProOnlyGate } from "@/components/ProOnlyGate";
 import { SellerImprovementCalendar } from "@/components/SellerImprovementCalendar";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
-import { SponsoredResources } from "@/components/SponsoredResources";
+import { readSellerProducts, type SellerProduct } from "@/lib/sellerProducts";
+import { readSellerJournal } from "@/lib/sellerJournal";
+import { getClientAccount } from "@/lib/clientAccount";
+import { QuickNav } from "@/components/QuickNav";
+import { AdSlot } from "@/components/advertising/AdSlot";
+
+function uniqueTop(items: string[], limit = 6) {
+  const seen = new Set<string>();
+  return items
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+function average(items: number[]) {
+  const valid = items.filter((value) => Number.isFinite(value));
+  if (!valid.length) return null;
+  return Math.round(valid.reduce((sum, value) => sum + value, 0) / valid.length);
+}
+
+
+function scanArray(scan: unknown, keys: string[]) {
+  const record = scan as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item)).filter(Boolean);
+    }
+    if (typeof value === "string" && value.trim()) {
+      return [value.trim()];
+    }
+  }
+  return [];
+}
+
+function scanText(scan: unknown, keys: string[], fallback = "") {
+  const record = scan as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (Array.isArray(value) && value.length) return String(value[0]);
+  }
+  return fallback;
+}
+
+function scanNumber(scan: unknown, keys: string[], fallback = 0) {
+  const record = scan as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && Number.isFinite(Number(value))) return Number(value);
+  }
+  return fallback;
+}
+
+
+function productHealthRows(scans: unknown[]) {
+  const groups = new Map<string, {
+    scores: number[];
+    concerns: string[];
+    positives: string[];
+    actions: string[];
+    scanCount: number;
+  }>();
+
+  for (const scan of scans) {
+    const name = scanText(scan, ["productName", "name", "title"], "Unnamed product");
+    const score = scanNumber(scan, ["productScore", "score", "rating", "confidenceScore"], 0);
+    const current = groups.get(name) ?? {
+      scores: [],
+      concerns: [],
+      positives: [],
+      actions: [],
+      scanCount: 0
+    };
+
+    current.scanCount += 1;
+    if (score > 0) current.scores.push(score);
+    current.concerns.push(...scanArray(scan, ["mainComplaint", "complaints", "topComplaints", "issues", "painPoints"]));
+    current.positives.push(...scanArray(scan, ["praises", "positiveSignals", "topPositiveFeedback", "praisedFeatures", "strengths", "positivePoints"]));
+    current.actions.push(...scanArray(scan, ["actionPlan", "actions", "recommendations", "sellerActions", "improvementSuggestions"]));
+
+    groups.set(name, current);
+  }
+
+  return Array.from(groups.entries())
+    .map(([name, value]) => {
+      const avgScore = value.scores.length
+        ? Math.round(value.scores.reduce((sum, score) => sum + score, 0) / value.scores.length)
+        : 0;
+
+      return {
+        name,
+        avgScore,
+        scanCount: value.scanCount,
+        mainConcern: uniqueTop(value.concerns, 1)[0] ?? "No clear concern detected",
+        topPositive: uniqueTop(value.positives, 1)[0] ?? "No strong positive signal yet",
+        nextAction: uniqueTop(value.actions, 1)[0] ?? "Run another scan to confirm the next improvement",
+        priority:
+          avgScore >= 85 ? "Strong" :
+          avgScore >= 70 ? "Watch" :
+          avgScore >= 50 ? "Improve" :
+          "Fix first"
+      };
+    })
+    .sort((a, b) => a.avgScore - b.avgScore);
+}
+
+function priorityTone(priority: string) {
+  if (priority === "Strong") return "text-teal";
+  if (priority === "Watch") return "text-ocean";
+  if (priority === "Improve") return "text-amber-600";
+  return "text-coral";
+}
+
+function dashboardAdvisor(rows: ReturnType<typeof productHealthRows>, concerns: string[]) {
+  const weakest = rows[0];
+  const strongest = [...rows].sort((a, b) => b.avgScore - a.avgScore)[0];
+
+  if (weakest && weakest.avgScore < 70) {
+    return `Focus first on ${weakest.name}. Its current average is ${weakest.avgScore}%, and the main buyer concern is: ${weakest.mainConcern}. Fixing this can improve trust before you send more traffic.`;
+  }
+
+  if (strongest && strongest.avgScore >= 85) {
+    return `${strongest.name} is your strongest product signal right now. Use its best buyer feedback as proof in your listing, ads, and product positioning.`;
+  }
+
+  if (concerns.length) {
+    return `The strongest repeated buyer concern is ${concerns[0]}. Turn that into one visible listing improvement and one product/support action.`;
+  }
+
+  return "Run more seller scans to build a clearer product improvement map. The dashboard becomes more useful as your saved scan history grows.";
+}
 
 export default function SellerDashboardPage() {
+  const [products, setProducts] = useState<SellerProduct[]>([]);
+  const [journalScans, setJournalScans] = useState<unknown[]>([]);
+  const [account, setAccount] = useState<ReturnType<typeof getClientAccount> | null>(null);
+
+  useEffect(() => {
+    setAccount(getClientAccount());
+    setProducts(readSellerProducts());
+    setJournalScans(readSellerJournal());
+
+    const refresh = () => {
+      setAccount(getClientAccount());
+      setProducts(readSellerProducts());
+    setJournalScans(readSellerJournal());
+    };
+
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  const isSeller = account?.role === "seller";
+  const isSellerPro = account?.plan === "seller_pro";
+
+  const dashboard = useMemo(() => {
+    const productScans = products.flatMap((product) => product.scans ?? []);
+    const scans = [...journalScans, ...productScans];
+    const latestScans = scans.slice(0, 30);
+
+    const painPoints = uniqueTop(
+      latestScans.flatMap((scan) =>
+        scanArray(scan, ["complaints", "topComplaints", "painPoints", "issues", "mainComplaint"])
+      )
+    );
+
+    const featureRequests = uniqueTop(
+      latestScans.flatMap((scan) =>
+        scanArray(scan, ["featureRequests", "recommendations", "improvementSuggestions", "listingSuggestions", "opportunities"])
+      )
+    );
+
+    const positiveSignals = uniqueTop(
+      latestScans.flatMap((scan) =>
+        scanArray(scan, ["praises", "positiveSignals", "topPositiveFeedback", "praisedFeatures", "strengths", "positivePoints"])
+      )
+    );
+
+    const actionItems = uniqueTop(
+      latestScans.flatMap((scan) =>
+        scanArray(scan, ["actionPlan", "actions", "recommendations", "sellerActions", "improvementSuggestions"])
+      )
+    );
+
+    const satisfaction = average(latestScans.map((scan) => scanNumber(scan, ["sentimentScore", "satisfactionScore", "sentiment"], 0)));
+    const productScore = average(latestScans.map((scan) => scanNumber(scan, ["productScore", "score", "rating", "confidenceScore"], 0)));
+    const reviewCount = latestScans.reduce<number>((sum, scan) => sum + scanNumber(scan, ["reviewCount", "reviewsAnalyzed", "review_count", "validReviewCount"], 0), 0);
+
+    const productRows = productHealthRows(latestScans);
+    const weakestProduct = productRows[0] ?? null;
+    const strongestProduct = [...productRows].sort((a, b) => b.avgScore - a.avgScore)[0] ?? null;
+
+    return {
+      scans,
+      latestScans,
+      painPoints,
+      featureRequests,
+      positiveSignals,
+      actionItems,
+      satisfaction,
+      productScore,
+      reviewCount,
+      productRows,
+      weakestProduct,
+      strongestProduct,
+      advisorNote: dashboardAdvisor(productRows, painPoints)
+    };
+  }, [products, journalScans]);
+
+  if (account && !isSeller) {
+    return (
+      <ProOnlyGate>
+        <DashboardShell
+          title="Seller dashboard"
+          subtitle="This dashboard is for Seller Premium and Seller Pro accounts only."
+          experience="seller"
+        >
+        <QuickNav mode="seller" current="/dashboard/seller" />
+
+          <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <h2 className="text-2xl font-black text-ink dark:text-white">Seller dashboard is not available on shopper accounts.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Shopper accounts are for buying decisions. Seller dashboards are for product review intelligence, complaint tracking, and listing improvement.
+            </p>
+            <Link href="/analyze" className="mt-5 inline-flex rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
+              Go to Shopper Analysis
+            </Link>
+          </section>
+        </DashboardShell>
+      </ProOnlyGate>
+    );
+  }
+
+  const hasData = dashboard.scans.length > 0;
+  const safeSatisfaction = typeof dashboard.satisfaction === "number" ? dashboard.satisfaction : null;
+  const safeProductScore = typeof dashboard.productScore === "number" ? dashboard.productScore : null;
+  const satisfactionTone = safeSatisfaction === null ? "warn" : safeSatisfaction >= 70 ? "good" : "warn";
+  const productScoreTone = safeProductScore === null ? "warn" : safeProductScore >= 75 ? "good" : "warn";
+
   return (
     <ProOnlyGate>
       <DashboardShell
         title="Seller dashboard"
-        subtitle="Your seller workspace starts empty. Complaint clusters, feature requests, satisfaction, exports, and calendar records appear only after real seller scans."
+        subtitle={
+          isSellerPro
+            ? "Your Seller Pro workspace for product health, review signals, and improvement tracking."
+            : hasData
+              ? "A clean view of your saved seller scans, product scores, buyer concerns, and next improvement moves."
+              : "Run a seller analysis to start building your seller intelligence dashboard."
+        }
         experience="seller"
       >
         <SponsorAnalytics placement="seller_dashboard" />
 
-        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <DashboardMetric label="Pain points" value="0" detail="Real complaint clusters will appear here." tone="good" />
-          <DashboardMetric label="Feature requests" value="0" detail="Customer-requested improvements appear after scans." tone="info" />
-          <DashboardMetric label="Satisfaction" value="—" detail="Calculated after real seller scans." tone="warn" />
-          <DashboardMetric label="Exports" value="0" detail="CSV/PDF exports created from real reports." tone="info" />
+        <section className="mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro summary</p>
+          <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Your product improvement command center.</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+            {dashboard.advisorNote}
+          </p>
         </section>
 
+        <section className="mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <DashboardMetric
+            label="Products tracked"
+            value={String(dashboard.productRows.length)}
+            detail={dashboard.productRows.length ? "Products with saved seller scan history." : "Run seller scans to start tracking products."}
+            tone="info"
+          />
+          <DashboardMetric
+            label="Scans this month"
+            value={String(dashboard.latestScans.length)}
+            detail="Normal saved seller scans used for product improvement."
+            tone="info"
+          />
+          <DashboardMetric
+            label="Avg product score"
+            value={safeProductScore === null ? "—" : `${safeProductScore}%`}
+            detail="Average score from saved seller product scans."
+            tone={productScoreTone}
+          />
+          <DashboardMetric
+            label="Improvement focus"
+            value={dashboard.weakestProduct ? dashboard.weakestProduct.priority : "—"}
+            detail={dashboard.weakestProduct ? dashboard.weakestProduct.name : "No product focus yet."}
+            tone={dashboard.weakestProduct && dashboard.weakestProduct.avgScore < 70 ? "bad" : "warn"}
+          />
+        </section>
+
+        {dashboard.productRows.length ? (
+          <section className="mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Product health ranking</p>
+                <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">See which product needs attention first.</h2>
+              </div>
+              <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Priority order</p>
+            </div>
+
+            <div className="mt-5 overflow-hidden rounded-2xl border border-line dark:border-white/10">
+              <div className="grid grid-cols-[1.2fr_0.6fr_1.5fr_0.8fr] bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/5 dark:text-slate-400">
+                <span>Product</span>
+                <span>Avg score</span>
+                <span>Main buyer concern</span>
+                <span>Priority</span>
+              </div>
+              {dashboard.productRows.slice(0, 8).map((product) => (
+                <div key={product.name} className="grid grid-cols-[1.2fr_0.6fr_1.5fr_0.8fr] gap-3 border-t border-line px-4 py-4 text-sm dark:border-white/10">
+                  <div>
+                    <p className="font-black text-ink dark:text-white">{product.name}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-500">{product.scanCount} scan{product.scanCount === 1 ? "" : "s"}</p>
+                  </div>
+                  <p className="font-black text-ocean">{product.avgScore ? `${product.avgScore}%` : "—"}</p>
+                  <p className="font-semibold leading-6 text-slate-600 dark:text-slate-300">{product.mainConcern}</p>
+                  <p className={`font-black ${priorityTone(product.priority)}`}>{product.priority}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="mb-6 grid gap-5 lg:grid-cols-2">
+          <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-coral">Focus first</p>
+            <h3 className="mt-3 text-2xl font-black text-ink dark:text-white">
+              {dashboard.weakestProduct ? dashboard.weakestProduct.name : "No product selected yet"}
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              {dashboard.weakestProduct
+                ? `${dashboard.weakestProduct.avgScore}% average. Main concern: ${dashboard.weakestProduct.mainConcern}`
+                : "Run seller scans to identify the product that needs the most improvement."}
+            </p>
+          </article>
+
+          <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Best performer</p>
+            <h3 className="mt-3 text-2xl font-black text-ink dark:text-white">
+              {dashboard.strongestProduct ? dashboard.strongestProduct.name : "No strong product signal yet"}
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              {dashboard.strongestProduct
+                ? `${dashboard.strongestProduct.avgScore}% average. Best signal: ${dashboard.strongestProduct.topPositive}`
+                : "Your strongest product will appear once seller scans are saved."}
+            </p>
+          </article>
+        </section>
+
+        <section className="mb-6 grid gap-5 lg:grid-cols-3">
+          <InsightList
+            title="Buyer concerns"
+            tone="bad"
+            items={dashboard.painPoints.length ? dashboard.painPoints : ["Buyer concerns will appear after saved seller scans."]}
+          />
+          <InsightList
+            title="Next moves"
+            tone="info"
+            items={dashboard.actionItems.length ? dashboard.actionItems : ["Seller actions will appear after saved seller scans."]}
+          />
+          <InsightList
+            title="Winning signals"
+            tone="good"
+            items={dashboard.positiveSignals.length ? dashboard.positiveSignals : ["Positive buyer signals will appear after saved seller scans."]}
+          />
+        </section>
+
+        <section className="mb-6 grid gap-5 lg:grid-cols-2">
+          <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-700 dark:text-violet-300">Compare intelligence</p>
+            <h3 className="mt-3 text-2xl font-black text-ink dark:text-white">Compare results guide strategy, but do not affect product health averages.</h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Use compare scans to find positioning opportunities, competitor weaknesses, and product advantages. They should guide strategy but not change normal product health averages.
+            </p>
+          </article>
+
+          <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Report center</p>
+            <h3 className="mt-3 text-2xl font-black text-ink dark:text-white">Export-ready seller insights.</h3>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-slate-200">Health report</span>
+              <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-slate-200">Concern summary</span>
+              <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-slate-200">Action plan</span>
+            </div>
+          </article>
+        </section>
+
+        {isSellerPro ? (
+          <section className="mb-6 rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <div className="mb-5">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro workspace</p>
+              <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Improvement calendar</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Track scan history, product score movement, buyer concerns, and notes in one clean calendar view.
+              </p>
+            </div>
+            <SellerImprovementCalendar />
+          </section>
+        ) : null}
+
+        {false && hasData ? (
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <DashboardMetric
+            label="Pain points"
+            value={String(dashboard.painPoints.length)}
+            detail={hasData ? "Unique complaint themes found from saved scans." : "Real complaint clusters will appear here."}
+            tone={dashboard.painPoints.length ? "warn" : "good"}
+          />
+          <DashboardMetric
+            label="Feature requests"
+            value={String(dashboard.featureRequests.length)}
+            detail={hasData ? "Improvement opportunities detected from reviews." : "Customer-requested improvements appear after scans."}
+            tone="info"
+          />
+          <DashboardMetric
+            label="Satisfaction"
+            value={safeSatisfaction === null ? "—" : `${safeSatisfaction}%`}
+            detail={hasData ? "Average sentiment from saved seller scans." : "Calculated after real seller scans."}
+            tone={satisfactionTone}
+          />
+          <DashboardMetric
+            label="Reviews tracked"
+            value={String(dashboard.reviewCount)}
+            detail={hasData ? "Estimated reviews included across saved scans." : "Review volume appears after scans."}
+            tone="info"
+          />
+        </section>
+        ) : null}
+
+        {false && hasData ? (
         <section className="mt-6 grid gap-5 lg:grid-cols-2">
           <InsightList
-            title="Seller recommendations"
+            title={hasData ? "Seller recommendations" : "Seller recommendations"}
             tone="info"
-            items={[
-              "No seller scan data yet.",
-              "Run a seller analysis to generate complaint clusters, feature requests, keyword intelligence, and improvement priorities.",
-              "Seller Pro calendar entries should come from saved real scan summaries."
-            ]}
+            items={
+              hasData
+                ? dashboard.actionItems.length
+                  ? dashboard.actionItems
+                  : ["Saved scans exist, but no strong action cluster was detected yet."]
+                : [
+                    "No seller scan data yet.",
+                    "Run a seller analysis to generate complaint clusters, feature requests, keyword intelligence, and improvement priorities.",
+                    "Seller Pro calendar entries should come from saved real scan summaries."
+                  ]
+            }
           />
+
           <MiniBarChart
             items={[
-              { label: "Complaints", value: 0, tone: "bad" },
-              { label: "Feature requests", value: 0, tone: "info" },
-              { label: "Positive signals", value: 0, tone: "good" },
-              { label: "Exported reports", value: 0, tone: "warn" }
+              { label: "Complaints", value: Math.min(100, dashboard.painPoints.length * 18), tone: "bad" },
+              { label: "Feature requests", value: Math.min(100, dashboard.featureRequests.length * 18), tone: "info" },
+              { label: "Positive signals", value: Math.min(100, dashboard.positiveSignals.length * 18), tone: "good" },
+              { label: "Product score", value: dashboard.productScore ?? 0, tone: "warn" }
             ]}
           />
         </section>
+        ) : null}
 
-        <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <h2 className="text-2xl font-black text-ink dark:text-white">Start your seller data</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-            This seller dashboard is now zeroed. It will no longer show fake pain points, fake feature requests, fake satisfaction, or fake export readiness.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link href="/analyze" className="rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
-              Run Seller Analysis
-            </Link>
-            <Link href="/compare" className="rounded-xl border border-line px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:text-white">
-              Competitor Compare
-            </Link>
-          </div>
+        {false && hasData ? (
+        <section className="mt-6 grid gap-5 lg:grid-cols-3">
+          <InsightList
+            title="Top pain points"
+            tone="bad"
+            items={hasData && dashboard.painPoints.length ? dashboard.painPoints : ["Pain points will appear after real seller scans."]}
+          />
+          <InsightList
+            title="Positive buyer signals"
+            tone="good"
+            items={hasData && dashboard.positiveSignals.length ? dashboard.positiveSignals : ["Positive signals will appear after real seller scans."]}
+          />
+          <InsightList
+            title="Feature and listing opportunities"
+            tone="info"
+            items={hasData && dashboard.featureRequests.length ? dashboard.featureRequests : ["Feature requests and listing opportunities will appear after scans."]}
+          />
         </section>
+        ) : null}
 
-        <SellerImprovementCalendar />
-        <SponsoredResources placement="seller_dashboard" />
+        {!hasData && !isSellerPro ? (
+          <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <h2 className="text-2xl font-black text-ink dark:text-white">Start your seller data</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              This dashboard no longer uses fake metrics. Run a seller analysis and saved scan data will populate this page.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href="/analyze" className="rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
+                Run Seller Analysis
+              </Link>
+              <Link href="/compare" className="rounded-xl border border-line px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:text-white">
+                Competitor Compare
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <h2 className="text-2xl font-black text-ink dark:text-white">Latest saved seller scans</h2>
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+              {dashboard.latestScans.slice(0, 6).map((scan, index) => (
+                <article key={scanText(scan, ["id"], `scan-${index}`)} className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{scanText(scan, ["date", "createdAt"], "Saved scan")}</p>
+                  <h3 className="mt-2 text-lg font-black text-ink dark:text-white">{scanText(scan, ["productName", "name", "title"], "Saved product scan")}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{scanText(scan, ["mainComplaint", "complaints", "topComplaints", "issues"], "No main complaint recorded")}</p>
+                  <div className="mt-3 flex gap-2 text-xs font-black">
+                    <span className="rounded-full bg-white px-3 py-2 text-slate-700 dark:bg-black/20 dark:text-slate-200">Score {scanNumber(scan, ["productScore", "score", "rating"], 0)}</span>
+                    <span className="rounded-full bg-white px-3 py-2 text-slate-700 dark:bg-black/20 dark:text-slate-200">Sentiment {scanNumber(scan, ["sentimentScore", "sentiment", "satisfactionScore"], 0)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!isSellerPro ? (
+          <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <h2 className="text-2xl font-black text-ink dark:text-white">Seller Pro unlocks the improvement calendar.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Seller Premium gets the seller intelligence dashboard. Seller Pro adds the saved improvement calendar, notes, scan momentum, and deeper tracking tools.
+            </p>
+          </section>
+        ) : null}
+
+        <AdSlot placement="seller_dashboard" compact className="mt-6" />
       </DashboardShell>
     </ProOnlyGate>
   );

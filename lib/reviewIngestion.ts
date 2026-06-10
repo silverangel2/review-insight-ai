@@ -1,4 +1,5 @@
 import type { AnalyzeRequest, ReviewIngestionMode, ReviewTextSection } from "@/lib/types";
+import { cleanReviewInsightText, isLowQualityReviewInsight, sanitizeModelReviewText } from "@/lib/insightSanitizer";
 
 export const MAX_BULK_REVIEW_CHARS = 120000;
 export const MAX_MODEL_REVIEW_CHARS = 60000;
@@ -115,12 +116,14 @@ function parseCsvRows(csv: string) {
 }
 
 function normalizeReviewText(value: string) {
-  return value
+  const clean = value
     .replace(/<[^>]*>/g, " ")
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/\b(?:verified purchase|verified buyer|vine customer review|helpful votes?|report abuse)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+  return cleanReviewInsightText(clean, clean);
 }
 
 function isLikelyMetadata(value: string) {
@@ -131,6 +134,7 @@ function isLikelyMetadata(value: string) {
   if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(clean)) return true;
   if (/^(yes|no|true|false|null|n\/a|na)$/i.test(clean)) return true;
   if (/^[\d\s.,$%:/#-]+$/.test(clean) && clean.length < 28) return true;
+  if (isLowQualityReviewInsight(value)) return true;
   return clean.length < 18;
 }
 
@@ -363,7 +367,7 @@ export function chunkReviewText(text: string, chunkSize = REVIEW_CHUNK_CHARS) {
 }
 
 export function prepareReviewTextForModel(text: string) {
-  const clean = text.trim();
+  const clean = sanitizeModelReviewText(text) || text.trim();
   if (clean.length <= MAX_MODEL_REVIEW_CHARS) {
     return {
       text: clean,

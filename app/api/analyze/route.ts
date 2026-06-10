@@ -3,6 +3,7 @@ import { analyzeReviewsLocally, estimateReviewCount } from "@/lib/localAnalyzer"
 import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { normalizePlatform, platformLabel } from "@/lib/platforms";
 import { buildReviewPrompt, REVIEW_ANALYZER_SYSTEM_PROMPT } from "@/lib/prompts";
+import { cleanReviewInsightText, sanitizeInsightList, sanitizeSellerInsightList, sellerFriendlyTheme } from "@/lib/insightSanitizer";
 import { openAiTextFormat } from "@/lib/reviewSchema";
 import { FREE_DAILY_REVIEW_LIMIT, GUEST_TOTAL_REVIEW_LIMIT, hasUnlimitedUsage, isSellerPlan, makeQuotaInfo } from "@/lib/account";
 import { getRuntimeAppSettings } from "@/lib/appSettings";
@@ -26,6 +27,8 @@ import {
   saveAnalysisRecord
 } from "@/lib/supabaseServer";
 import type { AnalysisAudience, AnalyzeRequest, AnalyzeResponse, QuotaInfo, ReviewAnalysis, ReviewTextSection, SubscriptionPlan, UploadedReviewImage, UserRole } from "@/lib/types";
+import { supabaseInsert, supabaseSelect, supabaseUpsert } from "@/lib/supabaseServer";
+import { rateLimitRequest } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -281,9 +284,12 @@ function rollbackQuota(key: string, plan: SubscriptionPlan, consumed: boolean) {
 
 function uniqueStrings(items: string[] | undefined, fallback: string[] = []) {
   const seen = new Set<string>();
-  const source = items?.length ? items : fallback;
-  return source
-    .map((item) => String(item ?? "").trim())
+  const source = sanitizeInsightList(items ?? [], fallback, 12);
+  const usefulSource = source.filter((item) => !/^not enough review data/i.test(item));
+  const usableSource = usefulSource.length ? usefulSource : source;
+
+  return usableSource
+    .map((item) => cleanReviewInsightText(String(item ?? "")))
     .filter((item) => {
       if (!item) return false;
       const key = item.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -294,10 +300,29 @@ function uniqueStrings(items: string[] | undefined, fallback: string[] = []) {
     .slice(0, 8);
 }
 
+function uniqueSellerStrings(items: string[] | undefined, fallback: string[] = []) {
+  const seen = new Set<string>();
+  const source = sanitizeSellerInsightList(items ?? [], fallback, 12);
+
+  return source
+    .map((item) => sellerFriendlyTheme(String(item ?? ""), ""))
+    .filter((item) => {
+      if (!item || /^not enough clean review evidence/i.test(item)) return false;
+      const key = item.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+}
+
 function uniqueKeywordAnalysis<T extends { keyword?: string; context?: string }>(items: T[] | undefined) {
   const seen = new Set<string>();
-  return (items ?? []).filter((item) => {
-    const key = String(item.keyword || item.context || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return (items ?? []).map((item) => ({
+    ...item,
+    context: cleanReviewInsightText(item.context, sellerFriendlyTheme(item.context, "Mentioned in reviews."))
+  })).filter((item) => {
+    const key = cleanReviewInsightText(String(item.keyword || item.context || "")).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -312,6 +337,10 @@ function normalizeKeywordSentiment(value: unknown): "positive" | "neutral" | "ne
 
 function normalizeAnalysis(analysis: ReviewAnalysis, reviewCountEstimate = 0): ReviewAnalysis {
   const recommendation = analysis.buyer_recommendation ?? analysis.customer_recommendation;
+  const normalizedRecommendation = {
+    verdict: recommendation?.verdict ?? "Maybe",
+    rationale: cleanReviewInsightText(recommendation?.rationale, "Review signal needs more clean evidence.")
+  };
   const qualityConcerns = analysis.quality_concerns ?? analysis.product_quality_concerns ?? [];
   const featureRequests = analysis.feature_requests ?? analysis.seller_insights?.feature_requests ?? [];
   const packagingIssues = analysis.packaging_issues ?? analysis.seller_insights?.packaging_shipping_issues ?? [];
@@ -319,9 +348,21 @@ function normalizeAnalysis(analysis: ReviewAnalysis, reviewCountEstimate = 0): R
 
   const normalized = {
     ...analysis,
-    buyer_recommendation: recommendation,
-    customer_recommendation: recommendation,
+    overall_summary: cleanReviewInsightText(
+      analysis.overall_summary,
+      "ReviewIntel found usable review signals in the supplied sample."
+    ),
+    buyer_recommendation: normalizedRecommendation,
+    customer_recommendation: normalizedRecommendation,
     product_score: productScore,
+    positive_points: uniqueStrings(analysis.positive_points),
+    negative_points: uniqueStrings(analysis.negative_points),
+    common_complaints: uniqueStrings(analysis.common_complaints, ["No strong repeated complaint pattern was detected in the pasted sample."]),
+    praised_features: uniqueStrings(analysis.praised_features),
+    value_for_money_opinion: cleanReviewInsightText(
+      analysis.value_for_money_opinion,
+      "Value signal needs more clean review evidence."
+    ),
     fake_review_indicators: uniqueStrings(analysis.fake_review_indicators, ["No clear fake-review warning indicators were found."]),
     quality_concerns: uniqueStrings(qualityConcerns),
     product_quality_concerns: uniqueStrings(analysis.product_quality_concerns ?? qualityConcerns),
@@ -329,7 +370,9 @@ function normalizeAnalysis(analysis: ReviewAnalysis, reviewCountEstimate = 0): R
     packaging_issues: uniqueStrings(packagingIssues),
     durability_issues: uniqueStrings(analysis.durability_issues ?? []),
     support_issues: uniqueStrings(analysis.support_issues ?? []),
+    improvement_suggestions: uniqueStrings(analysis.improvement_suggestions ?? []),
     confidence_score: normalizeConfidenceScore(analysis.confidence_score, reviewCountEstimate),
+    keywords: uniqueStrings(analysis.keywords ?? []),
     keyword_analysis:
       uniqueKeywordAnalysis(analysis.keyword_analysis).length > 0
         ? uniqueKeywordAnalysis(analysis.keyword_analysis).map((item) => ({
@@ -346,11 +389,18 @@ function normalizeAnalysis(analysis: ReviewAnalysis, reviewCountEstimate = 0): R
           ),
     seller_insights: {
       ...analysis.seller_insights,
-      complaint_clusters: uniqueStrings(analysis.seller_insights.complaint_clusters ?? analysis.common_complaints),
-      product_improvement_recommendations: uniqueStrings(analysis.seller_insights.product_improvement_recommendations ?? analysis.improvement_suggestions),
-      shipping_complaint_detection: uniqueStrings(analysis.seller_insights.shipping_complaint_detection ?? analysis.seller_insights.packaging_shipping_issues),
-      sentiment_trends: uniqueStrings(analysis.seller_insights.sentiment_trends, ["Trend analysis needs multiple dated review batches."]),
-      seller_recommendations: uniqueStrings(analysis.seller_insights.seller_recommendations ?? analysis.improvement_suggestions),
+      main_customer_pain_points: uniqueSellerStrings([...(analysis.seller_insights.main_customer_pain_points ?? []), ...(analysis.negative_points ?? [])]),
+      complaint_clusters: uniqueSellerStrings([...(analysis.seller_insights.complaint_clusters ?? []), ...(analysis.common_complaints ?? [])]),
+      product_improvement_recommendations: uniqueSellerStrings([...(analysis.seller_insights.product_improvement_recommendations ?? []), ...(analysis.improvement_suggestions ?? [])]),
+      listing_improvement_suggestions: uniqueSellerStrings([...(analysis.seller_insights.listing_improvement_suggestions ?? []), ...(analysis.improvement_suggestions ?? [])]),
+      packaging_shipping_issues: uniqueSellerStrings([...(analysis.seller_insights.packaging_shipping_issues ?? []), ...packagingIssues]),
+      shipping_complaint_detection: uniqueSellerStrings([...(analysis.seller_insights.shipping_complaint_detection ?? []), ...(analysis.seller_insights.packaging_shipping_issues ?? [])]),
+      sentiment_trends: uniqueSellerStrings(analysis.seller_insights.sentiment_trends, ["Trend analysis needs multiple dated review batches."]),
+      refund_risk_issues: uniqueSellerStrings([...(analysis.seller_insights.refund_risk_issues ?? []), ...(analysis.support_issues ?? [])]),
+      feature_requests: uniqueSellerStrings([...(analysis.seller_insights.feature_requests ?? []), ...featureRequests]),
+      competitor_opportunity_insights: uniqueSellerStrings(analysis.seller_insights.competitor_opportunity_insights ?? []),
+      seller_recommendations: uniqueSellerStrings(analysis.seller_insights.seller_recommendations ?? analysis.improvement_suggestions),
+      seller_action_cards: analysis.seller_insights.seller_action_cards ?? [],
       customer_satisfaction_score: analysis.seller_insights.customer_satisfaction_score ?? productScore
     }
   };
@@ -434,7 +484,7 @@ async function analyzeWithOpenAI(
       text: {
         format: openAiTextFormat
       },
-      max_output_tokens: 2500
+      max_output_tokens: audience === "seller" || audience === "both" ? 9000 : 5000
     })
   });
 
@@ -457,7 +507,51 @@ async function analyzeWithOpenAI(
   };
 }
 
-export async function POST(request: Request) {
+
+async function incrementProfileScanCounters(email?: string | null) {
+  const normalizedEmail = String(email || "").toLowerCase().trim();
+
+  if (!normalizedEmail) return;
+
+  const existing = await supabaseSelect<{
+    email: string;
+    daily_scan_count?: number | null;
+    monthly_scan_count?: number | null;
+  }>(
+    "profiles",
+    `select=email,daily_scan_count,monthly_scan_count&email=eq.${encodeURIComponent(normalizedEmail)}&limit=1`
+  );
+
+  const current = existing[0];
+
+  await supabaseUpsert("profiles", {
+    email: normalizedEmail,
+    daily_scan_count: Number(current?.daily_scan_count ?? 0) + 1,
+    monthly_scan_count: Number(current?.monthly_scan_count ?? 0) + 1,
+    last_scan_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  });
+}
+
+
+export async function POST(request: Request): Promise<Response> {
+  const limit = await rateLimitRequest(request, {
+    key: "analyze_api_request",
+    limit: 20,
+    windowMs: 60 * 60 * 1000,
+    eventType: "analyze_api_rate_limited"
+  });
+
+  if (!limit.allowed) {
+    return (
+      limit.response ??
+      NextResponse.json(
+        { error: "Daily scan limit reached. Please upgrade or try again tomorrow." },
+        { status: 429 },
+      )
+    );
+  }
+
   const account =
     (await accountFromRequest(request)) ?? {
       email: "guest@reviewintel.local",
@@ -515,8 +609,12 @@ export async function POST(request: Request) {
     return jsonError(imageError);
   }
 
-  if (reviews.length < MIN_REVIEW_CHARS && !(body.images?.length)) {
-    return jsonError("Add a larger review sample or upload at least one review screenshot before analyzing.");
+  const hasProductLookupInput =
+    typeof body.productUrl === "string" && body.productUrl.trim().length >= 8 ||
+    typeof body.productName === "string" && body.productName.trim().length >= 2;
+
+  if (reviews.length < MIN_REVIEW_CHARS && !(body.images?.length) && !hasProductLookupInput) {
+    return jsonError("Add a product name, product URL, larger review sample, or at least one review screenshot before analyzing.");
   }
 
   const maxChars = adminBypass ? MAX_ADMIN_BULK_CHARS : MAX_BULK_CHARS;
@@ -562,7 +660,16 @@ export async function POST(request: Request) {
     const reviewCountEstimate = reviewEvidence.validReviewCount || estimateReviewCount(reviews);
     const ratingBreakdown = reviewEvidence.ratingBreakdown;
     const evidenceConfidence = confidenceFromReviewCount(reviewCountEstimate);
-    const evidenceReviews = reviewEvidence.validReviewCount > 0 ? reviewEvidence.text : reviews;
+    const evidenceReviews =
+      reviewEvidence.validReviewCount > 0
+        ? reviewEvidence.text
+        : reviews ||
+          [
+            body.productName ? `Product name: ${body.productName}` : "",
+            body.productUrl ? `Product URL: ${body.productUrl}` : "",
+            `Analysis requested for ${platform}. No pasted review text or screenshot evidence was supplied. Generate a buyer-focused preliminary product confidence report from the available product lookup input.`
+          ].filter(Boolean).join("\n");
+
     const preparedReviews = prepareReviewTextForModel(evidenceReviews);
     const result = await analyzeWithOpenAI(
       { ...body, reviewSections, reviews: evidenceReviews, platform, audience, ingestionMode },
@@ -590,6 +697,34 @@ export async function POST(request: Request) {
       sectionCount: reviewSections.length,
       ingestionMode
     });
+
+    await supabaseInsert("usage_events", {
+      profile_email: account.email ?? null,
+      event_type: "analysis_scan",
+      plan: accountPlan,
+      estimated_cost: 0,
+      metadata: {
+        role: accountRole,
+        platform,
+        audience,
+        product_name: body.productName ?? null,
+        analysis_id:
+          typeof analysisId === "string"
+            ? analysisId
+            : analysisId && typeof analysisId === "object" && "id" in analysisId
+              ? String(analysisId.id)
+              : null,
+        mode: result.mode,
+        model: result.model,
+        review_count_estimate: reviewCountEstimate,
+        image_count: body.images?.length ?? 0,
+        section_count: reviewSections.length,
+        ingestion_mode: ingestionMode
+      },
+      created_at: new Date().toISOString()
+    });
+
+    await incrementProfileScanCounters(account.email);
 
     const payload: AnalyzeResponse = {
       analysis: result.analysis,
@@ -633,8 +768,24 @@ export async function POST(request: Request) {
     } else if (memoryQuotaGate) {
       rollbackQuota(memoryQuotaGate.key, memoryQuotaGate.plan ?? accountPlan, Boolean(memoryQuotaGate.consumed));
     }
-    const publicError = publicAnalysisError(error);
-    console.error("ReviewIntel analysis failed:", error);
+    console.error("ReviewIntel analysis failed raw:", error);
+    console.error("[ReviewIntel analyze debug BEFORE publicAnalysisError]", {
+      name: error instanceof Error ? error.name : typeof error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : null
+    });
+
+    let publicError;
+    try {
+      publicError = publicAnalysisError(error);
+    } catch (publicErrorCrash) {
+      console.error("[ReviewIntel publicAnalysisError crashed]", publicErrorCrash);
+      publicError = {
+        message: error instanceof Error ? error.message : "Analysis failed. Please try again.",
+        status: 500,
+        code: "analysis_failed"
+      };
+    }
     const rawQuota = hasSupabaseServiceEnv()
       ? await readPersistentQuota(account)
       : currentMemoryUsage(memoryQuotaGate?.key ?? requestUserKey(request), memoryQuotaGate?.plan ?? accountPlan, accountRole === "guest");
@@ -644,9 +795,9 @@ export async function POST(request: Request) {
           ...rawQuota,
           plan: accountPlan,
           resets_at: "resets_at" in rawQuota
-            ? rawQuota.resets_at
+            ? rawQuota.resets_at ?? new Date().toISOString()
             : "resetAt" in rawQuota
-              ? rawQuota.resetAt
+              ? rawQuota.resetAt ?? new Date().toISOString()
               : new Date().toISOString()
         }
       : undefined;

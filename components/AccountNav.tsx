@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   clearClientAccount,
   getClientAccount,
@@ -10,6 +10,9 @@ import {
 import { planLabel, type ClientAccount } from "@/lib/account";
 import { clearLatestResult } from "@/lib/resultStorage";
 import type { AnalysisAudience } from "@/lib/types";
+
+const ACCOUNT_LAST_ACTIVE_KEY = "reviewintel:account-last-active";
+const ACCOUNT_IDLE_LIMIT_MS = 60 * 60 * 1000;
 
 function roleLabel(role: ClientAccount["role"]) {
   if (role === "admin") return "Admin";
@@ -22,6 +25,28 @@ function modeLabel(mode: AnalysisAudience) {
   if (mode === "seller") return "Seller Mode";
   if (mode === "both") return "Dual Mode";
   return "Shopper Mode";
+}
+
+function clearPrivateBrowserSessions() {
+  window.sessionStorage.removeItem("reviewintel:owner-unlocked");
+  window.sessionStorage.removeItem("reviewintel:owner-last-active");
+}
+
+function markAccountActivity() {
+  window.localStorage.setItem(ACCOUNT_LAST_ACTIVE_KEY, String(Date.now()));
+}
+
+function handleLogout() {
+  try {
+    localStorage.removeItem("reviewintel_user");
+    localStorage.removeItem("reviewintel_account");
+    localStorage.removeItem("reviewintel_plan");
+    sessionStorage.clear();
+  } catch {
+    // Ignore storage errors.
+  }
+
+  window.location.href = "/";
 }
 
 export function AccountNav() {
@@ -52,21 +77,52 @@ export function AccountNav() {
     };
   }, []);
 
-  function logout() {
+  const logout = useCallback(async () => {
     clearClientAccount();
     window.localStorage.removeItem("reviewintel:active-mode");
     window.localStorage.removeItem("reviewintel:quota");
+    window.localStorage.removeItem(ACCOUNT_LAST_ACTIVE_KEY);
+    clearPrivateBrowserSessions();
     clearLatestResult();
     window.dispatchEvent(new CustomEvent("reviewintel:account"));
     window.dispatchEvent(new CustomEvent("reviewintel:active-mode"));
     window.dispatchEvent(new CustomEvent("reviewintel:quota"));
 
-    // Fire-and-forget admin/session logout. Do not wait before redirecting.
-    fetch("/api/admin/logout", { method: "POST", keepalive: true }).catch(() => null);
+    await Promise.allSettled([
+      fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" }),
+      fetch("/api/owner/logout", { method: "POST", credentials: "same-origin" })
+    ]);
 
     // Force every account type back to the login page.
     window.location.replace("/login");
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!account) return;
+
+    const expireIfIdle = () => {
+      const lastActive = Number(window.localStorage.getItem(ACCOUNT_LAST_ACTIVE_KEY) ?? "0");
+      if (!lastActive || Date.now() - lastActive >= ACCOUNT_IDLE_LIMIT_MS) {
+        void logout();
+        return true;
+      }
+      return false;
+    };
+
+    const recordActivity = () => {
+      if (!expireIfIdle()) markAccountActivity();
+    };
+
+    markAccountActivity();
+    const interval = window.setInterval(expireIfIdle, 60 * 1000);
+    const activityEvents = ["click", "keydown", "mousemove", "scroll", "touchstart"] as const;
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, recordActivity, { passive: true }));
+
+    return () => {
+      window.clearInterval(interval);
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, recordActivity));
+    };
+  }, [account, logout]);
 
   if (!account) {
     return (
@@ -116,7 +172,7 @@ export function AccountNav() {
       </Link>
       <button
         type="button"
-        onClick={logout}
+        onClick={() => void handleLogout()}
         className="rounded-xl bg-ink px-3 py-2 text-xs font-black text-white transition hover:bg-coral dark:bg-white dark:text-ink sm:px-4"
       >
         Log out

@@ -23,6 +23,22 @@ export type QuotaInfo = {
   resets_at: string;
 };
 
+export type SellerActionCard = {
+  card_type:
+    | "competitor_edge"
+    | "your_product_risk"
+    | "attack_opportunity"
+    | "fix_first"
+    | "advertise_this"
+    | "next_seller_move";
+  title: string;
+  finding: string;
+  review_evidence_theme: string;
+  seller_meaning: string;
+  recommended_action: string;
+  confidence: number;
+};
+
 export type SellerInsights = {
   main_customer_pain_points: string[];
   complaint_clusters: string[];
@@ -35,6 +51,7 @@ export type SellerInsights = {
   feature_requests: string[];
   competitor_opportunity_insights: string[];
   seller_recommendations: string[];
+  seller_action_cards: SellerActionCard[];
   customer_satisfaction_score: number;
 };
 

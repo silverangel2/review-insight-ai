@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatPercent } from "@/lib/analysisScoring";
+import { sellerFriendlyTheme } from "@/lib/insightSanitizer";
 import type { AnalyzeResponse } from "@/lib/types";
 
 type TabKey = "clusters" | "keywords" | "risks";
@@ -23,7 +24,7 @@ export function SellerIntelligenceTabs({ result }: { result: AnalyzeResponse }) 
     if (active === "keywords") {
       return result.analysis.keyword_analysis.slice(0, 8).map((item) => ({
         label: item.keyword,
-        detail: item.context,
+        detail: sellerFriendlyTheme(item.context, "Mentioned in reviews."),
         value: Math.min(100, Math.max(16, item.mentions * 14))
       }));
     }

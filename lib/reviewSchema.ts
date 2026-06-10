@@ -109,6 +109,7 @@ export const reviewAnalysisJsonSchema = {
         "feature_requests",
         "competitor_opportunity_insights",
         "seller_recommendations",
+        "seller_action_cards",
         "customer_satisfaction_score"
       ],
       properties: {
@@ -155,6 +156,64 @@ export const reviewAnalysisJsonSchema = {
         seller_recommendations: {
           type: "array",
           items: { type: "string" }
+        },
+        seller_action_cards: {
+          type: "array",
+          minItems: 6,
+          maxItems: 6,
+          description: "Six seller action cards based only on the supplied review evidence. These cards must not be generic or stored answers.",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "card_type",
+              "title",
+              "finding",
+              "review_evidence_theme",
+              "seller_meaning",
+              "recommended_action",
+              "confidence"
+            ],
+            properties: {
+              card_type: {
+                type: "string",
+                enum: [
+                  "competitor_edge",
+                  "your_product_risk",
+                  "attack_opportunity",
+                  "fix_first",
+                  "advertise_this",
+                  "next_seller_move"
+                ]
+              },
+              title: {
+                type: "string",
+                description: "Short seller-facing title. Example: What To Fix First, What To Advertise, Competitor Weakness To Attack."
+              },
+              finding: {
+                type: "string",
+                description: "What the reviews actually show. Must be specific to the supplied reviews."
+              },
+              review_evidence_theme: {
+                type: "string",
+                description: "The customer wording or theme behind the finding, translated into business meaning. Do not paste marketplace metadata."
+              },
+              seller_meaning: {
+                type: "string",
+                description: "Why this matters for conversion, trust, refund risk, positioning, or revenue."
+              },
+              recommended_action: {
+                type: "string",
+                description: "Specific seller action based on the evidence. If evidence is weak, say Not enough clean review evidence."
+              },
+              confidence: {
+                type: "number",
+                minimum: 0,
+                maximum: 100,
+                description: "Confidence score for this card based on review volume and clarity."
+              }
+            }
+          }
         },
         customer_satisfaction_score: {
           type: "number",

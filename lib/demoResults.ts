@@ -49,6 +49,62 @@ const buyerAnalysis: ReviewAnalysis = {
     feature_requests: ["Longer charging cable"],
     competitor_opportunity_insights: ["Position as a student and office lamp if reliability is improved."],
     seller_recommendations: ["Fix flicker risk first, then use premium design language more aggressively in listing copy."],
+    seller_action_cards: [
+      {
+        card_type: "competitor_edge",
+        title: "Review-based competitor edge",
+        finding: "Demo reviews show clearer buyer confidence signals.",
+        review_evidence_theme: "Positive buyer themes are more consistent in the demo sample.",
+        seller_meaning: "Clearer trust signals can improve conversion.",
+        recommended_action: "Use stronger proof in the listing and product images.",
+        confidence: 72
+      },
+      {
+        card_type: "your_product_risk",
+        title: "What may hurt conversion",
+        finding: "Demo reviews mention quality and support concerns.",
+        review_evidence_theme: "Repeated concerns around durability, packaging, or support.",
+        seller_meaning: "These issues can reduce buyer trust and increase refund risk.",
+        recommended_action: "Fix the repeated issue before scaling ads.",
+        confidence: 70
+      },
+      {
+        card_type: "attack_opportunity",
+        title: "Competitor weakness to attack",
+        finding: "Demo review evidence shows possible complaint gaps.",
+        review_evidence_theme: "Buyer frustration themes appear in the demo sample.",
+        seller_meaning: "Competitor complaints can become positioning opportunities.",
+        recommended_action: "Highlight only the advantages your product truly solves.",
+        confidence: 68
+      },
+      {
+        card_type: "fix_first",
+        title: "Fix first",
+        finding: "The strongest negative review theme should be addressed first.",
+        review_evidence_theme: "Repeated complaint theme from the demo reviews.",
+        seller_meaning: "Fixing the biggest trust blocker can improve ratings and conversion.",
+        recommended_action: "Prioritize the issue that appears most often in reviews.",
+        confidence: 74
+      },
+      {
+        card_type: "advertise_this",
+        title: "What to advertise",
+        finding: "Demo positive review themes can become listing and ad angles.",
+        review_evidence_theme: "Repeated praise from buyers in the demo sample.",
+        seller_meaning: "Buyer-approved language is stronger than generic claims.",
+        recommended_action: "Use repeated praise in bullets, images, and ads.",
+        confidence: 76
+      },
+      {
+        card_type: "next_seller_move",
+        title: "Next seller move",
+        finding: "Use review evidence to improve the offer before pushing more traffic.",
+        review_evidence_theme: "Demo reviews show both trust drivers and trust blockers.",
+        seller_meaning: "Improving the product/listing gap first can make ads more efficient.",
+        recommended_action: "Fix the top complaint, then advertise the strongest repeated praise.",
+        confidence: 75
+      }
+    ],
     customer_satisfaction_score: 86
   },
   improvement_suggestions: ["Improve packaging", "Test for flickering", "Add clearer support policy"],
@@ -114,6 +170,62 @@ const sellerAnalysis: ReviewAnalysis = {
       "Pause aggressive ad scaling until leakage and motor complaints are reduced.",
       "Build a weekly complaint dashboard for lid, motor, support, and parts mentions.",
       "Use improved packaging and replacement-parts messaging as conversion assets."
+    ],
+    seller_action_cards: [
+      {
+        card_type: "competitor_edge",
+        title: "Review-based competitor edge",
+        finding: "Demo reviews show clearer buyer confidence signals.",
+        review_evidence_theme: "Positive buyer themes are more consistent in the demo sample.",
+        seller_meaning: "Clearer trust signals can improve conversion.",
+        recommended_action: "Use stronger proof in the listing and product images.",
+        confidence: 72
+      },
+      {
+        card_type: "your_product_risk",
+        title: "What may hurt conversion",
+        finding: "Demo reviews mention quality and support concerns.",
+        review_evidence_theme: "Repeated concerns around durability, packaging, or support.",
+        seller_meaning: "These issues can reduce buyer trust and increase refund risk.",
+        recommended_action: "Fix the repeated issue before scaling ads.",
+        confidence: 70
+      },
+      {
+        card_type: "attack_opportunity",
+        title: "Competitor weakness to attack",
+        finding: "Demo review evidence shows possible complaint gaps.",
+        review_evidence_theme: "Buyer frustration themes appear in the demo sample.",
+        seller_meaning: "Competitor complaints can become positioning opportunities.",
+        recommended_action: "Highlight only the advantages your product truly solves.",
+        confidence: 68
+      },
+      {
+        card_type: "fix_first",
+        title: "Fix first",
+        finding: "The strongest negative review theme should be addressed first.",
+        review_evidence_theme: "Repeated complaint theme from the demo reviews.",
+        seller_meaning: "Fixing the biggest trust blocker can improve ratings and conversion.",
+        recommended_action: "Prioritize the issue that appears most often in reviews.",
+        confidence: 74
+      },
+      {
+        card_type: "advertise_this",
+        title: "What to advertise",
+        finding: "Demo positive review themes can become listing and ad angles.",
+        review_evidence_theme: "Repeated praise from buyers in the demo sample.",
+        seller_meaning: "Buyer-approved language is stronger than generic claims.",
+        recommended_action: "Use repeated praise in bullets, images, and ads.",
+        confidence: 76
+      },
+      {
+        card_type: "next_seller_move",
+        title: "Next seller move",
+        finding: "Use review evidence to improve the offer before pushing more traffic.",
+        review_evidence_theme: "Demo reviews show both trust drivers and trust blockers.",
+        seller_meaning: "Improving the product/listing gap first can make ads more efficient.",
+        recommended_action: "Fix the top complaint, then advertise the strongest repeated praise.",
+        confidence: 75
+      }
     ],
     customer_satisfaction_score: 64
   },

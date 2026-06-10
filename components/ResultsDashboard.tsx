@@ -1,46 +1,65 @@
+import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
-import { InsightList } from "@/components/InsightList";
-import { SellerIntelligenceTabs } from "@/components/SellerIntelligenceTabs";
-import { SellerReportActions } from "@/components/SellerReportActions";
+import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
-import { SponsoredResources } from "@/components/SponsoredResources";
 import {
   fakeRiskFromIndicators,
   formatPercent,
   riskLabel,
   sentimentToPercent
 } from "@/lib/analysisScoring";
+import {
+  cleanReviewInsightText,
+  sanitizeInsightList,
+  sanitizeSellerInsightList,
+  sellerFriendlyTheme
+} from "@/lib/insightSanitizer";
 import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
-import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
+import { makeSellerAdvice, makeSellerAction, makeSellerHeadline } from "@/lib/sellerAdviceEngine";
+import { AdSlot } from "@/components/advertising/AdSlot";
 
-function safeDisplayPercent(value: unknown, fallback = 0) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return `${fallback}%`;
-  return `${Math.round(Math.max(0, Math.min(100, number)))}%`;
+
+type TrustCriterion = {
+  id: string;
+  title: string;
+  subtitle: string;
+  visual: string;
+  score: number;
+  status: string;
+  tone: TrustTone;
+  priority: string;
+  summary: string;
+  why: string;
+  evidence: string[];
+  worries: string[];
+  trusted: string[];
+  actions: string[];
+};
+
+
+function trustStatus(score: number): { status: string; tone: TrustTone } {
+  if (score >= 85) return { status: "Excellent", tone: "good" };
+  if (score >= 70) return { status: "Strong", tone: "info" };
+  if (score >= 55) return { status: "Watch", tone: "warn" };
+  if (score >= 40) return { status: "Concern", tone: "bad" };
+  return { status: "Critical", tone: "bad" };
 }
 
-
-function formatResultPercent(value: unknown, fallback = 0) {
+function scoreNumber(value: unknown, fallback = 0) {
   const number = Number(value);
-  if (!Number.isFinite(number)) return `${fallback}%`;
-  return `${Math.round(Math.max(0, Math.min(100, number)))}%`;
+  if (!Number.isFinite(number)) return Math.round(clamp(fallback));
+  return Math.round(clamp(number));
 }
 
-function formatResultNumber(value: unknown, fallback = 0) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return String(fallback);
-  return String(Math.round(Math.max(0, Math.min(100, number))));
+function scorePercent(value: unknown, fallback = 0) {
+  return `${scoreNumber(value, fallback)}%`;
 }
 
-
-function displayPercent(value: unknown, fallback = 0) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return `${fallback}%`;
-  return `${Math.round(Math.max(0, Math.min(100, number)))}%`;
+function widthPercent(value: unknown, fallback = 0) {
+  return `${scoreNumber(value, fallback)}%`;
 }
-
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -63,27 +82,39 @@ function ratingTotal(breakdown: AnalyzeResponse["meta"]["rating_breakdown"]) {
   return Object.values(breakdown).reduce((sum, value) => sum + value, 0);
 }
 
-function bestFor(analysis: AnalyzeResponse["analysis"]) {
-  const source = [...analysis.praised_features, ...analysis.positive_points, ...analysis.keywords].join(" ").toLowerCase();
-  if (source.includes("student") || source.includes("school")) return "students";
-  if (source.includes("office") || source.includes("work")) return "office use";
-  if (source.includes("travel") || source.includes("portable")) return "travel";
-  if (source.includes("daily") || source.includes("every day")) return "daily use";
-  if (source.includes("gift")) return "gifting";
-  return analysis.praised_features[0]?.split(/[,.]/)[0]?.slice(0, 42) || "careful shoppers";
+function buyingNotes(analysis: AnalyzeResponse["analysis"]) {
+  const scanBasedNotes = sanitizeInsightList(
+    [
+      analysis.common_complaints[0],
+      analysis.quality_concerns[0],
+      analysis.durability_issues[0],
+      analysis.support_issues[0],
+      analysis.fake_review_indicators[0],
+      analysis.value_for_money_opinion,
+      analysis.overall_summary
+    ],
+    [],
+    1
+  );
+
+  return cleanReviewInsightText(
+    scanBasedNotes[0],
+    "No major buying concern stood out in this scan."
+  ).split(/[.!?]/)[0]?.slice(0, 64) || "No major buying concern stood out in this scan";
 }
 
 function topComplaint(analysis: AnalyzeResponse["analysis"]) {
-  return (
+  return cleanReviewInsightText(
     analysis.common_complaints[0] ??
-    analysis.negative_points[0] ??
-    analysis.quality_concerns[0] ??
+      analysis.negative_points[0] ??
+      analysis.quality_concerns[0] ??
+      "No repeated complaint stood out.",
     "No repeated complaint stood out."
   );
 }
 
 function shortShopperPhrase(value: string | undefined, fallback: string, maxWords = 6) {
-  const text = (value ?? fallback).replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
+  const text = cleanReviewInsightText(value, fallback).replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
   const firstClause = text.split(/[.;:]/)[0]?.trim() || fallback;
   const words = firstClause.split(" ").filter(Boolean);
 
@@ -92,7 +123,7 @@ function shortShopperPhrase(value: string | undefined, fallback: string, maxWord
 }
 
 function cleanOneLine(value: string | undefined, fallback: string, maxChars = 44) {
-  const text = (value ?? fallback).replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
+  const text = cleanReviewInsightText(value, fallback).replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
   if (!text) return fallback;
   if (text.toLowerCase().includes("no strong repeated complaint")) return "No repeated complaint";
   if (text.toLowerCase().includes("no repeated complaint")) return "No repeated complaint";
@@ -182,92 +213,15 @@ function SellerSignalBar({ label, value, tone }: { label: string; value: number;
   );
 }
 
-function SellerDonutCard({
-  items,
-  title,
-  subtitle
-}: {
-  items: Array<{ label: string; value: number; color: string; className: string }>;
-  title: string;
-  subtitle: string;
-}) {
-  const total = Math.max(1, items.reduce((sum, item) => sum + item.value, 0));
-  let cursor = 0;
-  const gradient = items
-    .map((item) => {
-      const start = cursor;
-      cursor += (item.value / total) * 100;
-      return `${item.color} ${start.toFixed(0)}% ${cursor.toFixed(0)}%`;
-    })
-    .join(", ");
-
-  return (
-    <article className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-      <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{title}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{subtitle}</p>
-      <div className="mt-6 grid gap-6 md:grid-cols-[180px_1fr] md:items-center">
-        <div className="relative mx-auto grid size-44 place-items-center rounded-full shadow-[0_24px_70px_rgba(23,32,51,0.12)]" style={{ background: `conic-gradient(${gradient})` }}>
-          <div className="grid size-24 place-items-center rounded-full bg-white text-center shadow-soft dark:bg-slate-950">
-            <span className="text-2xl font-black break-words text-ink dark:text-white">{total}</span>
-          </div>
-        </div>
-        <div className="grid gap-3">
-          {items.map((item) => (
-            <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3 dark:border-white/10">
-              <div className="flex items-center gap-3">
-                <span className={`size-3 rounded-full ${item.className}`} />
-                <span className="text-sm font-bold text-ink dark:text-white">{item.label}</span>
-              </div>
-              <span className="text-sm font-black text-slate-500 dark:text-slate-400">{Math.round((item.value / total) * 100)}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-type TrustTone = "good" | "warn" | "bad" | "info";
-type TrustVisual = "radar" | "curve" | "ring" | "bars";
-
-type TrustCriterion = {
-  id: string;
-  title: string;
-  subtitle: string;
-  score: number;
-  status: string;
-  tone: TrustTone;
-  visual: TrustVisual;
-  summary: string;
-  why: string;
-  evidence: string[];
-  worries: string[];
-  trusted: string[];
-  actions: string[];
-  priority: string;
-};
-
-const TRUST_TONE_STYLE: Record<TrustTone, { text: string; bg: string; border: string; hex: string; soft: string }> = {
-  good: { text: "text-teal", bg: "bg-teal", border: "border-teal/30", hex: "#0f9f9a", soft: "bg-teal/10" },
-  warn: { text: "text-amber", bg: "bg-amber", border: "border-amber/30", hex: "#d68b1f", soft: "bg-amber/10" },
-  bad: { text: "text-coral", bg: "bg-coral", border: "border-coral/30", hex: "#d95d5d", soft: "bg-coral/10" },
-  info: { text: "text-ocean", bg: "bg-ocean", border: "border-ocean/30", hex: "#2356a3", soft: "bg-ocean/10" }
-};
-
-function trustStatus(score: number) {
-  const value = clamp(score);
-  if (value >= 80) return { status: "Strong", tone: "good" as const };
-  if (value >= 65) return { status: "Watch", tone: "info" as const };
-  if (value >= 45) return { status: "Weak", tone: "warn" as const };
-  return { status: "Critical", tone: "bad" as const };
-}
 
 function uniqueSellerItems(items: Array<string | undefined>, fallback: string[] = [], limit = 4) {
   const seen = new Set<string>();
   const cleaned: string[] = [];
 
-  for (const item of [...items, ...fallback]) {
-    const text = item?.trim().replace(/\s+/g, " ");
+  for (const item of sanitizeSellerInsightList(items, fallback, limit * 3)) {
+    const fullText = cleanReviewInsightText(item, "")?.trim().replace(/\s+/g, " ");
+    const themeText = sellerFriendlyTheme(item, "")?.trim().replace(/\s+/g, " ");
+    const text = fullText && fullText.split(/\s+/).length > 4 ? fullText : themeText;
     if (!text || text.length < 8) continue;
     const key = text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     if (!key || seen.has(key)) continue;
@@ -284,9 +238,127 @@ function countTextSignals(text: string, words: string[]) {
   return words.reduce((count, word) => count + (lower.includes(word) ? 1 : 0), 0);
 }
 
-function firstSpecific(items: Array<string | undefined>, fallback: string) {
-  return uniqueSellerItems(items, [fallback], 1)[0] ?? fallback;
+type SellerLane = "authenticity" | "reliability" | "value" | "care";
+
+function normalizeTopicKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
+
+function laneInsight(lane: SellerLane, value: string | undefined, fallback: string) {
+  const clean = cleanReviewInsightText(value, "");
+  const theme = sellerFriendlyTheme(clean || value, "");
+  const text = `${clean} ${theme}`.toLowerCase();
+
+  if (!text.trim()) return fallback;
+
+  if (lane === "authenticity") {
+    if (/fake|generic|template|polished|repeat|suspicious|incentiv/i.test(text)) {
+      return "Review wording needs authenticity checking before sellers use it as proof.";
+    }
+    if (/verified|photo|image|video|specific|detail|usage|use case|balanced/i.test(text)) {
+      return "Specific usage details make the review set easier for buyers to trust.";
+    }
+    if (/confidence|valid review|evidence|sample|review count/i.test(text)) {
+      return "Evidence quality depends on review volume, specific use cases, and balanced pros and cons.";
+    }
+    return fallback;
+  }
+
+  if (lane === "reliability") {
+    if (/fit|size|model|compatible|compatibility|macbook|case|cutout/i.test(text)) {
+      return "Reliability risk is expectation match: buyers need exact model, size, and compatibility proof.";
+    }
+    if (/durab|broken|defect|stopped|weak|scratch|leak|seal|lid|motor/i.test(text)) {
+      return "Long-term reliability should be proven with durability, defect, and after-use evidence.";
+    }
+    if (/quality|material|shell|finish|premium|cheap|performance|works/i.test(text)) {
+      return "Buyers need stronger proof that the product performs well after delivery, not just in the listing photos.";
+    }
+    return fallback;
+  }
+
+  if (lane === "value") {
+    if (/price|value|worth|budget|affordable|expensive|cost|quality/i.test(text)) {
+      return makeSellerAdvice({ category: "value", score: 62, complaint: text });
+    }
+    if (/included|bundle|accessor|keyboard|adapter|template/i.test(text)) {
+      return "Bundle clarity affects value because shoppers judge whether everything expected is included.";
+    }
+    if (/positive|praise|benefit|daily|useful|protect|easy/i.test(text)) {
+      return "Use clean customer proof to show the practical payoff buyers get for the price.";
+    }
+    return fallback;
+  }
+
+  if (/packag|plastic|wrap|box|unboxing/i.test(text)) {
+    return "Packaging and unboxing expectations need clear control before checkout.";
+  }
+  if (/shipping|delivery|arrived|late|carrier/i.test(text)) {
+    return "Delivery reliability can affect trust even when the product itself is liked.";
+  }
+  if (/support|service|refund|return|replacement|warranty|seller/i.test(text)) {
+    return "Support, returns, replacement, and warranty promises should be visible before checkout.";
+  }
+  return fallback;
+}
+
+function laneItems(lane: SellerLane, items: Array<string | undefined>, fallback: string[], limit = 3) {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const item of [...items, ...fallback]) {
+    const text = laneInsight(lane, item, fallback[0] ?? "Not enough clean evidence yet.");
+    const key = normalizeTopicKey(text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(text);
+    if (output.length >= limit) break;
+  }
+
+  return output.length ? output : fallback.slice(0, limit);
+}
+
+function actionForTheme(value: string | undefined) {
+  const theme = sellerFriendlyTheme(value, "").toLowerCase();
+
+  if (/fit|compat|model|size|cutout/.test(theme)) {
+    return makeSellerAction("compatibility", 48);
+  }
+  if (/price|value|quality/.test(theme)) {
+    return makeSellerAction("value", 56);
+  }
+  if (/durability|reliability|defect|leak|seal|lid|motor/.test(theme)) {
+    return "Show real-use durability proof and be honest about what the product is not designed to handle.";
+  }
+  if (/packaging|unboxing|shipping|delivery/.test(theme)) {
+    return "Reduce packaging friction and explain what arrives in the box before checkout.";
+  }
+  if (/support|returns|warranty|refund|replacement/.test(theme)) {
+    return "Add a short support promise near the buy button: returns, warranty, replacement, and how customers get help.";
+  }
+  if (/instruction|setup|install/.test(theme)) {
+    return "Add setup photos, steps, and common mistakes so customers can use the product correctly.";
+  }
+
+  return makeSellerAction("opportunity", 68);
+}
+
+function sellerActionItems(items: Array<string | undefined>, fallback: string[], limit = 4) {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const item of [...items, ...fallback]) {
+    const text = actionForTheme(item);
+    const key = normalizeTopicKey(text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(text);
+    if (output.length >= limit) break;
+  }
+
+  return output.length ? output : fallback.slice(0, limit);
+}
+
 
 function buildTrustCriteria(result: AnalyzeResponse) {
   const { analysis, meta } = result;
@@ -370,22 +442,25 @@ function buildTrustCriteria(result: AnalyzeResponse) {
       why: hasPositiveAndNegative
         ? "The score rewards balanced positive and negative language, review detail, and lower fake-review pressure."
         : "The score is limited because the review pattern does not show enough balanced positive and negative evidence.",
-      evidence: uniqueSellerItems(
+      evidence: laneItems(
+        "authenticity",
         [...analysis.praised_features, ...analysis.positive_points, ...analysis.fake_review_indicators],
         [
-          `ReviewIntel found ${meta.review_count_estimate} valid reviews for this scan.`,
+          `${meta.review_count_estimate} valid reviews were available for this scan.`,
           "Look for verified purchase language, usage context, and specific product details in future scans."
         ]
       ),
-      worries: uniqueSellerItems(
+      worries: laneItems(
+        "authenticity",
         [...analysis.fake_review_indicators, ...(analysis.consistency_warnings ?? [])],
-        ["No strong fake-review weakness was detected, but keep monitoring repetition and overly polished language."]
+        ["No strong fake-review weakness was detected, but repetition and overly polished language should still be monitored."]
       ),
-      trusted: uniqueSellerItems(
+      trusted: laneItems(
+        "authenticity",
         [...analysis.positive_points, ...analysis.praised_features],
         ["Customers trust the review set most when real use cases and mixed feedback are visible."]
       ),
-      actions: uniqueSellerItems(
+      actions: sellerActionItems(
         [
           analysis.seller_insights.listing_improvement_suggestions[0],
           "Encourage buyers to mention use case, model/size, photos, and verified purchase context in review follow-ups.",
@@ -400,15 +475,21 @@ function buildTrustCriteria(result: AnalyzeResponse) {
       subtitle: "Performance, durability, and product promise",
       score: reliabilityRaw,
       visual: "curve" as const,
-      summary: `${firstSpecific([...analysis.quality_concerns, ...analysis.durability_issues, ...analysis.common_complaints], "No major reliability risk dominated the supplied reviews.")}`,
+      summary: laneItems(
+        "reliability",
+        [...analysis.quality_concerns, ...analysis.durability_issues, ...analysis.common_complaints],
+        ["No major reliability risk dominated the supplied reviews."],
+        1
+      )[0],
       why: "The score compares praise about product performance against repeated quality, defect, durability, and description-match concerns.",
-      evidence: uniqueSellerItems([...analysis.praised_features, ...analysis.positive_points], ["Positive proof is strongest when customers mention real-life performance after use."]),
-      worries: uniqueSellerItems(
+      evidence: laneItems("reliability", [...analysis.praised_features, ...analysis.positive_points], ["Positive proof is strongest when customers mention real-life performance after use."]),
+      worries: laneItems(
+        "reliability",
         [...analysis.durability_issues, ...analysis.quality_concerns, ...analysis.common_complaints],
         ["No repeated reliability defect was isolated from this review batch."]
       ),
-      trusted: uniqueSellerItems([...analysis.praised_features, ...analysis.positive_points], ["Customers appear to trust product reliability when the product performs as described."]),
-      actions: uniqueSellerItems(
+      trusted: laneItems("reliability", [...analysis.praised_features, ...analysis.positive_points], ["Customers appear to trust product reliability when the product performs as described."]),
+      actions: sellerActionItems(
         [
           ...analysis.seller_insights.product_improvement_recommendations,
           "Add product photos, sizing notes, materials, and durability proof that directly answer the top reliability worry."
@@ -422,15 +503,16 @@ function buildTrustCriteria(result: AnalyzeResponse) {
       subtitle: "Price fairness and buyer payoff",
       score: valueRaw,
       visual: "ring" as const,
-      summary: analysis.value_for_money_opinion || "Value perception depends on whether customers connect price to quality and daily usefulness.",
+      summary: laneItems("value", [analysis.value_for_money_opinion, ...analysis.praised_features, ...analysis.positive_points], ["Value perception depends on whether customers connect price to quality and daily usefulness."], 1)[0],
       why: "The value score weighs price language, usefulness, material quality, expectation match, and overall sentiment.",
-      evidence: uniqueSellerItems([...analysis.praised_features, ...analysis.positive_points], ["Value proof is strongest when customers say the product is worth the price."]),
-      worries: uniqueSellerItems(
+      evidence: laneItems("value", [...analysis.praised_features, ...analysis.positive_points], ["Value proof is strongest when customers say the product is worth the price."]),
+      worries: laneItems(
+        "value",
         [...analysis.negative_points, ...analysis.common_complaints].filter((item) => /price|value|cheap|expensive|worth|quality/i.test(item)),
         ["No repeated price objection stood out in the supplied reviews."]
       ),
-      trusted: uniqueSellerItems([...analysis.praised_features, ...analysis.positive_points], ["Customers trust the value story when quality, utility, and expectations line up."]),
-      actions: uniqueSellerItems(
+      trusted: laneItems("value", [...analysis.praised_features, ...analysis.positive_points], ["Customers trust the value story when quality, utility, and expectations line up."]),
+      actions: sellerActionItems(
         [
           analysis.seller_insights.listing_improvement_suggestions[0],
           "Clarify what the buyer gets for the price: materials, fit, use case, included items, and expected lifespan.",
@@ -445,15 +527,16 @@ function buildTrustCriteria(result: AnalyzeResponse) {
       subtitle: "Shipping, support, refunds, and recovery trust",
       score: careRaw,
       visual: "bars" as const,
-      summary: `${firstSpecific([...analysis.support_issues, ...analysis.seller_insights.packaging_shipping_issues, ...analysis.seller_insights.refund_risk_issues], "No major customer-care complaint dominated this scan.")}`,
+      summary: laneItems("care", [...analysis.support_issues, ...analysis.seller_insights.packaging_shipping_issues, ...analysis.seller_insights.refund_risk_issues], ["No major customer-care complaint dominated this scan."], 1)[0],
       why: "The score checks whether post-purchase issues are handled clearly: delivery, packaging, refunds, replacement, service, and recovery after problems.",
-      evidence: uniqueSellerItems([...analysis.seller_insights.packaging_shipping_issues, ...analysis.support_issues], ["Customer-care evidence is limited unless reviews mention shipping, support, replacement, or returns."]),
-      worries: uniqueSellerItems(
+      evidence: laneItems("care", [...analysis.seller_insights.packaging_shipping_issues, ...analysis.support_issues], ["Customer-care evidence is limited unless reviews mention shipping, support, replacement, or returns."]),
+      worries: laneItems(
+        "care",
         [...analysis.support_issues, ...analysis.seller_insights.refund_risk_issues, ...analysis.seller_insights.packaging_shipping_issues],
         ["No repeated service or fulfillment complaint was isolated from this review batch."]
       ),
-      trusted: uniqueSellerItems([...analysis.positive_points, ...analysis.praised_features], ["Customers trust the seller more when reviews show quick resolution and clean delivery."]),
-      actions: uniqueSellerItems(
+      trusted: laneItems("care", [...analysis.positive_points, ...analysis.praised_features], ["Customers trust the seller more when reviews show quick resolution and clean delivery."]),
+      actions: sellerActionItems(
         [
           ...analysis.seller_insights.seller_recommendations,
           "Add visible support promises, replacement rules, packaging expectations, and return guidance where buyers decide."
@@ -464,19 +547,21 @@ function buildTrustCriteria(result: AnalyzeResponse) {
   ];
 
   const criteria: TrustCriterion[] = criteriaSeeds.map((item) => {
-    const status = trustStatus(item.score);
+    const roundedScore = scoreNumber(item.score);
+    const status = trustStatus(roundedScore);
     return {
       ...item,
+      score: roundedScore,
       status: status.status,
       tone: status.tone,
-      priority: item.score < 45 ? "Immediate fix" : item.score < 65 ? "High priority" : item.score < 80 ? "Monitor closely" : "Maintain"
+      priority: roundedScore < 45 ? "Immediate fix" : roundedScore < 65 ? "High priority" : roundedScore < 80 ? "Monitor closely" : "Maintain"
     };
   });
 
-  const overallTrustScore = clamp(criteria.reduce((sum, item) => sum + item.score, 0) / criteria.length);
+  const overallTrustScore = scoreNumber(criteria.reduce((sum, item) => sum + item.score, 0) / criteria.length);
   const biggestBlocker = [...criteria].sort((left, right) => left.score - right.score)[0];
   const biggestOpportunity = [...criteria].sort((left, right) => right.score - left.score)[0];
-  const topActions = uniqueSellerItems(
+  const topActions = sellerActionItems(
     [
       biggestBlocker.actions[0],
       ...analysis.seller_insights.product_improvement_recommendations,
@@ -490,7 +575,7 @@ function buildTrustCriteria(result: AnalyzeResponse) {
     ],
     3
   );
-  const listingRecommendations = uniqueSellerItems(
+  const listingRecommendations = sellerActionItems(
     analysis.seller_insights.listing_improvement_suggestions,
     [
       "Update listing bullets to answer the biggest buyer worry before checkout.",
@@ -516,6 +601,71 @@ function buildTrustCriteria(result: AnalyzeResponse) {
     listingRecommendations
   };
 }
+
+
+type TrustTone = "good" | "info" | "warn" | "bad";
+
+const TRUST_TONE_STYLE: Record<TrustTone, {
+  ring: string;
+  fill: string;
+  bg: string;
+  text: string;
+  hex: string;
+  soft: string;
+  border: string;
+  shell: string;
+  badge: string;
+  bar: string;
+}> = {
+  good: {
+    ring: "border-emerald-200 dark:border-emerald-400/30",
+    fill: "bg-emerald-500",
+    bg: "bg-emerald-500",
+    text: "text-emerald-700 dark:text-emerald-300",
+    hex: "#10b981",
+    soft: "bg-emerald-100/80 dark:bg-emerald-500/15",
+    border: "border-emerald-200 dark:border-emerald-400/30",
+    shell: "from-emerald-50 via-white to-teal-50 dark:from-emerald-950/30 dark:via-slate-950 dark:to-teal-950/20",
+    badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200",
+    bar: "from-emerald-400 to-teal-500",
+  },
+  info: {
+    ring: "border-sky-200 dark:border-sky-400/30",
+    fill: "bg-sky-500",
+    bg: "bg-sky-500",
+    text: "text-sky-700 dark:text-sky-300",
+    hex: "#0ea5e9",
+    soft: "bg-sky-100/80 dark:bg-sky-500/15",
+    border: "border-sky-200 dark:border-sky-400/30",
+    shell: "from-sky-50 via-white to-cyan-50 dark:from-sky-950/30 dark:via-slate-950 dark:to-cyan-950/20",
+    badge: "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200",
+    bar: "from-sky-400 to-cyan-500",
+  },
+  warn: {
+    ring: "border-amber-200 dark:border-amber-400/30",
+    fill: "bg-amber-500",
+    bg: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+    hex: "#f59e0b",
+    soft: "bg-amber-100/80 dark:bg-amber-500/15",
+    border: "border-amber-200 dark:border-amber-400/30",
+    shell: "from-amber-50 via-white to-orange-50 dark:from-amber-950/30 dark:via-slate-950 dark:to-orange-950/20",
+    badge: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200",
+    bar: "from-amber-400 to-orange-500",
+  },
+  bad: {
+    ring: "border-rose-200 dark:border-rose-400/30",
+    fill: "bg-rose-500",
+    bg: "bg-rose-500",
+    text: "text-rose-700 dark:text-rose-300",
+    hex: "#f43f5e",
+    soft: "bg-rose-100/80 dark:bg-rose-500/15",
+    border: "border-rose-200 dark:border-rose-400/30",
+    shell: "from-rose-50 via-white to-red-50 dark:from-rose-950/30 dark:via-slate-950 dark:to-red-950/20",
+    badge: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-200",
+    bar: "from-rose-400 to-red-500",
+  },
+};
 
 function TrustMetricVisual({ criterion }: { criterion: TrustCriterion }) {
   const style = TRUST_TONE_STYLE[criterion.tone];
@@ -574,61 +724,71 @@ function TrustMetricVisual({ criterion }: { criterion: TrustCriterion }) {
 }
 
 function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
+  const [open, setOpen] = useState(false);
   const style = TRUST_TONE_STYLE[criterion.tone];
 
   return (
-    <details className="group min-h-[520px] [perspective:1600px]">
-      <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
-        <div className="relative min-h-[520px] transition-transform duration-700  group-open: overflow-y-auto">
-          <article className={`relative overflow-hidden rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft  dark:bg-slate-950`}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-black break-words text-ink dark:text-white">{criterion.title}</p>
-                <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">{criterion.subtitle}</p>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${style.soft} ${style.text}`}>{criterion.status}</span>
-            </div>
-            <TrustMetricVisual criterion={criterion} />
-            <div className="mt-3 flex items-end justify-between gap-4">
-              <div>
-                <p className={`text-3xl font-black leading-none ${style.text}`}>{formatResultPercent(criterion.score)}</p>
-                <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Trust score</p>
-              </div>
-              <span className={`rounded-full px-3 py-2 text-xs font-black ${style.bg} text-white`}>{criterion.priority}</span>
-            </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">{cleanOneLine(criterion.summary, criterion.status, 92)}</p>
-            <p className="mt-4 inline-flex rounded-full border border-line px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-ocean dark:border-white/10 dark:text-cyan-300">See seller proof</p>
-          </article>
-
-          <article className={`relative overflow-y-auto rounded-[1.75rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f7fbff)] p-5 shadow-soft   overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{criterion.title} proof</p>
-                <h3 className="mt-2 text-xl font-black leading-tight text-ink dark:text-white">{criterion.why}</h3>
-              </div>
-              <span className="rounded-full border border-line px-3 py-2 text-xs font-black uppercase text-slate-500 dark:border-white/10 dark:text-slate-300">Back</span>
-            </div>
-            <div className="mt-4 grid gap-3">
-              {[
-                ["Evidence", criterion.evidence],
-                ["Worries", criterion.worries],
-                ["Trusted", criterion.trusted],
-                ["Action", criterion.actions]
-              ].map(([title, items]) => (
-                <div key={title as string} className="rounded-2xl border border-line bg-white p-3 dark:border-white/10 dark:bg-white/[0.04]">
-                  <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{title as string}</p>
-                  <ul className="mt-2 grid gap-1">
-                    {(items as string[]).slice(0, 2).map((item) => (
-                      <li key={item} className="text-xs font-semibold leading-5 text-slate-700 dark:text-slate-300">{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </article>
+    <article className={`min-h-[520px] rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft dark:bg-slate-950`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-base font-black leading-tight text-ink dark:text-white">{criterion.title}</p>
+          <p className="mt-1 text-xs font-bold leading-5 text-slate-500 dark:text-slate-400">{criterion.subtitle}</p>
         </div>
-      </summary>
-    </details>
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black uppercase ${style.soft} ${style.text}`}>{criterion.status}</span>
+      </div>
+
+      <TrustMetricVisual criterion={criterion} />
+
+      <div className="mt-3 grid gap-3">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className={`text-4xl font-black leading-none ${style.text}`}>{scorePercent(criterion.score)}</p>
+            <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Trust score</p>
+          </div>
+          <span className={`rounded-full px-3 py-2 text-xs font-black ${style.bg} text-white`}>{criterion.priority}</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+          <div className={`h-full rounded-full ${style.bg}`} style={{ width: widthPercent(criterion.score) }} />
+        </div>
+      </div>
+
+      <p className="mt-4 min-h-[72px] text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+        {criterion.summary}
+      </p>
+
+      {open ? (
+        <div className="mt-4 max-h-[380px] overflow-y-auto rounded-[1.4rem] border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+          <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{criterion.title} proof</p>
+          <p className="mt-2 text-sm font-black leading-6 text-ink dark:text-white">{criterion.why}</p>
+          <div className="mt-4 grid gap-3">
+            {[
+              ["Evidence", criterion.evidence],
+              ["Worry", criterion.worries],
+              ["Action", criterion.actions]
+            ].map(([title, items]) => (
+              <div key={title as string} className="rounded-2xl bg-white p-3 dark:bg-slate-950">
+                <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{title as string}</p>
+                <ul className="mt-2 grid gap-2">
+                  {(items as string[]).slice(0, 3).map((item, index) => (
+                    <li key={`${item}-${index}`} className="text-xs font-semibold leading-5 text-slate-700 dark:text-slate-300">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="mt-4 rounded-2xl border border-line px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-ocean transition hover:border-ocean hover:bg-ocean hover:text-white dark:border-white/10 dark:text-cyan-300"
+      >
+        {open ? "Hide proof" : "See seller proof"}
+      </button>
+    </article>
   );
 }
 
@@ -651,7 +811,7 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
           <div className="rounded-[1.75rem] border border-white/70 bg-white/80 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Overall Trust Score</p>
             <div className="mt-4 flex items-end justify-between gap-4">
-              <p className={`text-3xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
+              <p className={`text-4xl font-black leading-none ${overallStyle.text}`}>{scorePercent(diagnosis.overallTrustScore)}</p>
               <span className={`rounded-full px-4 py-2 text-xs font-black uppercase ${overallStyle.bg} text-white`}>{trustStatus(diagnosis.overallTrustScore).status}</span>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">{diagnosis.buyerConfidenceSummary}</p>
@@ -669,10 +829,10 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
         <div className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Seller Trust Diagnosis</p>
-            <h3 className="mt-3 text-3xl font-black break-words text-ink dark:text-white">Fix the weakest trust signal first.</h3>
+            <h3 className="mt-3 text-3xl font-black break-words text-ink dark:text-white">Here is what is stopping more buyers from trusting this product.</h3>
             <div className="mt-5 grid gap-3">
               <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Biggest trust blocker</p>
+                <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{makeSellerHeadline("trust", 42)}</p>
                 <p className="mt-2 text-lg font-black break-words text-ink dark:text-white">{diagnosis.biggestBlocker.title}: {diagnosis.biggestBlocker.status}</p>
                 <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{diagnosis.biggestBlocker.summary}</p>
               </div>
@@ -714,7 +874,7 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
   const diagnosis = buildTrustCriteria(result);
   const overallTone = trustStatus(diagnosis.overallTrustScore).tone;
   const overallStyle = TRUST_TONE_STYLE[overallTone];
-  const sellerPlanLabel = accountPlan === "seller_starter" ? "Seller Starter" : "Seller Premium";
+  const sellerPlanLabel = accountPlan === "seller_pro" ? "Seller Pro" : accountPlan === "seller_starter" ? "Seller Premium" : "Seller Premium";
 
   return (
     <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
@@ -723,12 +883,12 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
           <Badge tone="info">{sellerPlanLabel} trust snapshot</Badge>
           <h2 className="mt-4 text-3xl font-black leading-tight text-ink dark:text-white">Core seller trust read.</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Starter and Premium accounts get the high-level trust diagnosis. Seller Pro unlocks expandable evidence, blockers, action sequencing, and full criteria detail.
+            Seller Premium gets the growth diagnosis and buyer confidence summary. Seller Pro unlocks deeper evidence, blockers, action sequencing, command tools, and full criteria detail.
           </p>
           <div className="mt-5 rounded-2xl border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Overall trust</p>
             <div className="mt-3 flex items-end justify-between gap-4">
-              <p className={`text-3xl font-black leading-none ${overallStyle.text}`}>{diagnosis.overallTrustScore}</p>
+              <p className={`text-4xl font-black leading-none ${overallStyle.text}`}>{scorePercent(diagnosis.overallTrustScore)}</p>
               <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${overallStyle.bg} text-white`}>{trustStatus(diagnosis.overallTrustScore).status}</span>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-300">{diagnosis.buyerConfidenceSummary}</p>
@@ -749,12 +909,12 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{criterion.title}</p>
                     <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">{status.status}</p>
                   </div>
-                  <p className={`text-3xl font-black ${style.text}`}>{formatResultPercent(criterion.score)}</p>
+                  <p className={`text-3xl font-black ${style.text}`}>{scorePercent(criterion.score)}</p>
                 </div>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-white dark:bg-white/10">
-                  <div className={`h-full rounded-full ${style.bg}`} style={{ width: `${formatResultPercent(criterion.score)}%` }} />
+                  <div className={`h-full rounded-full ${style.bg}`} style={{ width: widthPercent(criterion.score) }} />
                 </div>
-                <p className="mt-4 line-clamp-3 text-sm leading-6 text-slate-700 dark:text-slate-300">{criterion.summary}</p>
+                <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-300">{criterion.summary}</p>
               </article>
             );
           })}
@@ -766,9 +926,15 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
 
 function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; isSellerPro: boolean }) {
   const { analysis, meta } = result;
-  const firstComplaint = topComplaint(analysis);
-  const firstFix = analysis.seller_insights.product_improvement_recommendations[0] ?? analysis.improvement_suggestions[0] ?? "Fix the most repeated complaint before scaling ads.";
-  const firstCopy = analysis.seller_insights.listing_improvement_suggestions[0] ?? "Rewrite listing copy around the clearest customer expectation gap.";
+  const firstComplaint = sellerFriendlyTheme(topComplaint(analysis), "the leading buyer objection needs clearer evidence");
+  const firstFix = sellerFriendlyTheme(
+    analysis.seller_insights.product_improvement_recommendations[0] ?? analysis.improvement_suggestions[0],
+    "Fix the most repeated complaint before scaling ads."
+  );
+  const firstCopy = sellerFriendlyTheme(
+    analysis.seller_insights.listing_improvement_suggestions[0],
+    "Rewrite listing copy around the clearest customer expectation gap."
+  );
 
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(125deg,#12091f,#2e1568_38%,#1168d8_68%,#10c6a3)] p-6 text-white shadow-[0_32px_110px_rgba(118,87,184,0.34)]">
@@ -818,162 +984,174 @@ type ShopperCard = {
   recommendation: string;
 };
 
-function ShopperVisual({ card }: { card: ShopperCard }) {
-  const style = TRUST_TONE_STYLE[card.tone];
-  const score = clamp(card.score);
-
-  if (card.visual === "radar") {
-    return (
-      <div className="grid h-36 place-items-center">
-        <div className="relative grid size-32 place-items-center rounded-full border border-slate-200 bg-[radial-gradient(circle,#ffffff_0%,#eef8ff_54%,#e8f6f4_100%)] shadow-inner dark:border-white/10 dark:bg-none">
-          {[1, 0.72, 0.44].map((scale) => (
-            <span key={scale} className="absolute rounded-full border border-ocean/20" style={{ width: `${scale * 100}%`, height: `${scale * 100}%` }} />
-          ))}
-          <span className="absolute h-px w-28 bg-ocean/20" />
-          <span className="absolute h-28 w-px bg-ocean/20" />
-          <span className="absolute h-1 w-14 origin-left rounded-full bg-gradient-to-r from-transparent to-teal" style={{ transform: `rotate(${score * 2.6}deg) translateX(8px)` }} />
-          <span className={`grid size-16 place-items-center rounded-full ${style.bg} text-2xl font-black text-white shadow-[0_14px_38px_rgba(15,23,42,0.24)]`}>{card.icon}</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (card.visual === "slider") {
-    return (
-      <div className="grid h-36 place-items-center">
-        <div className="w-full max-w-[260px]">
-          <svg viewBox="0 0 280 94" className="h-24 w-full" role="img" aria-label={`${card.title} performance meter`}>
-            <path d="M18 56 C72 20 118 82 170 38 C206 8 246 26 262 56" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeLinecap="round" />
-            <path d="M18 56 C72 20 118 82 170 38 C206 8 246 26 262 56" fill="none" stroke={style.hex} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${score * 2.5} 320`} />
-            <circle cx={Math.min(258, 24 + score * 2.35)} cy={score > 70 ? 38 : score > 45 ? 52 : 62} r="14" fill={style.hex} stroke="white" strokeWidth="7" />
-          </svg>
-          <div className="grid grid-cols-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
-            <span>Weak</span>
-            <span>Realistic</span>
-            <span>Strong</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid h-36 place-items-center">
-      <div className="w-full max-w-[250px] rounded-3xl border border-line bg-white/80 p-4 shadow-inner dark:border-white/10 dark:bg-white/[0.04]">
-        {[0.35, 0.52, 0.7, 0.88, 1].map((scale, index) => (
-          <div key={scale} className="mb-3 h-3 overflow-hidden rounded-full bg-slate-100 last:mb-0 dark:bg-white/10">
-            <div className={`h-full rounded-full ${index < 2 ? "bg-amber" : style.bg}`} style={{ width: `${Math.max(18, score * scale)}%` }} />
-          </div>
-        ))}
-        <div className="mt-4 flex items-center justify-between">
-          <span className={`grid size-12 place-items-center rounded-2xl ${style.bg} text-xl font-black text-white`}>{card.icon}</span>
-          <span className={`text-3xl font-black ${style.text}`}>{card.metric}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ShopperFlipCard({ card }: { card: ShopperCard }) {
-  const style = TRUST_TONE_STYLE[card.tone];
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  const style =
+    card.tone === "good"
+      ? {
+          shell: "from-teal/10 via-white to-cyan-100/70",
+          badge: "bg-teal/12 text-teal",
+          bar: "from-teal to-ocean",
+          border: "border-teal/20"
+        }
+      : card.tone === "warn"
+        ? {
+            shell: "from-amber/15 via-white to-orange-100/80",
+            badge: "bg-amber/15 text-amber",
+            bar: "from-amber to-orange-400",
+            border: "border-amber/25"
+          }
+        : {
+            shell: "from-coral/12 via-white to-rose-100/80",
+            badge: "bg-coral/12 text-coral",
+            bar: "from-coral to-rose-500",
+            border: "border-coral/25"
+          };
+
+  const numericScore = Math.max(0, Math.min(100, Math.round(Number(card.score) || 0)));
+  const displayMetric = card.metric || `${numericScore}%`;
 
   return (
-    <details className="group min-h-[430px] [perspective:1600px]">
-      <summary className="block cursor-pointer list-none outline-none [&::-webkit-details-marker]:hidden">
-        <div className="relative min-h-[430px] transition-transform duration-700  group-open: overflow-y-auto">
-          <article className={`relative overflow-hidden rounded-[2rem] border ${style.border} bg-white p-6 shadow-soft  dark:bg-slate-950`}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.title}</p>
-                <h2 className="mt-2 text-2xl font-black leading-tight text-ink dark:text-white">{card.question}</h2>
-              </div>
-              <span className={`rounded-full px-3 py-2 text-xs font-black uppercase ${style.soft} ${style.text}`}>See why</span>
+    <article className={`min-h-[460px] overflow-hidden rounded-[2rem] border ${style.border} bg-gradient-to-br ${style.shell} p-5 shadow-soft dark:border-white/10 dark:bg-slate-950`}>
+      <div className="flex h-full min-h-[420px] flex-col">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.title}</p>
+            <h3 className="mt-2 text-2xl font-black leading-tight text-ink dark:text-white">{card.question}</h3>
+          </div>
+          <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${style.badge} text-xl font-black shadow-inner`}>
+            {card.icon}
+          </div>
+        </div>
+
+        {!detailsOpen ? (
+          <>
+            <div className="mt-6 rounded-[1.5rem] border border-white/70 bg-white/75 p-4 shadow-inner dark:border-white/10 dark:bg-white/[0.04]">
+              {card.visual === "radar" ? (
+                <div className="grid place-items-center">
+                  <div className="relative grid h-28 w-28 place-items-center rounded-full border border-slate-200 bg-[radial-gradient(circle,rgba(255,255,255,0.95),rgba(226,247,247,0.55))]">
+                    <div className="absolute h-20 w-20 rounded-full border border-slate-300" />
+                    <div className="absolute h-12 w-12 rounded-full border border-slate-300" />
+                    <div className={`absolute h-1 w-20 rounded-full bg-gradient-to-r ${style.bar}`} />
+                    <div className={`absolute h-20 w-1 rounded-full bg-gradient-to-b ${style.bar}`} />
+                    <span className="relative rounded-full bg-white px-3 py-2 text-lg font-black text-ink shadow-sm">{displayMetric}</span>
+                  </div>
+                </div>
+              ) : card.visual === "slider" ? (
+                <div>
+                  <div className="flex items-end justify-between gap-4">
+                    <span className="text-4xl font-black leading-none text-ink dark:text-white">{displayMetric}</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${style.badge}`}>{card.status}</span>
+                  </div>
+                  <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                    <div className={`h-full rounded-full bg-gradient-to-r ${style.bar}`} style={{ width: `${numericScore}%` }} />
+                  </div>
+                  <div className="mt-2 flex justify-between text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">
+                    <span>Weak</span><span>Watch</span><span>Strong</span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Risk level</p>
+                      <p className="mt-2 text-4xl font-black leading-none text-ink dark:text-white">{displayMetric}</p>
+                    </div>
+                    <div className={`rounded-2xl px-4 py-3 text-sm font-black uppercase ${style.badge}`}>{card.status}</div>
+                  </div>
+                  <div className="mt-5 grid grid-cols-5 gap-2">
+                    {[35, 48, 62, 78, 92].map((height, index) => (
+                      <span
+                        key={index}
+                        className={`rounded-full bg-gradient-to-t ${style.bar}`}
+                        style={{ height: `${height}px`, opacity: 0.45 + index * 0.1 }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <ShopperVisual card={card} />
-            <div className="mt-1 flex items-end justify-between gap-4">
-              <div>
-                <p className={`text-3xl font-black leading-none ${style.text}`}>{card.metric}</p>
-                <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{card.status}</p>
-              </div>
-              <span className={`grid size-14 place-items-center rounded-2xl ${style.bg} text-2xl font-black text-white shadow-soft`}>{card.icon}</span>
-            </div>
-            <div className="mt-5 grid gap-2">
-              {card.frontLines.map((line) => (
-                <p key={line} className="text-sm font-bold leading-6 text-slate-700 dark:text-slate-300">{line}</p>
+
+            <div className="mt-5 space-y-3">
+              {card.frontLines.slice(0, 2).map((line) => (
+                <p key={line} className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 text-sm font-bold leading-6 text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+                  {line}
+                </p>
               ))}
             </div>
-          </article>
+          </>
+        ) : (
+          <div className="mt-6 rounded-[1.5rem] border border-white/70 bg-white/85 p-4 shadow-inner dark:border-white/10 dark:bg-white/[0.04]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Why this score</p>
+            <p className="mt-3 text-lg font-black leading-7 text-ink dark:text-white">{card.recommendation}</p>
+            <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              {card.details.slice(0, 3).map((detail) => (
+                <p key={detail} className="rounded-xl bg-mist px-3 py-2 dark:bg-slate-950">{detail}</p>
+              ))}
+              <p><span className="font-black text-ink dark:text-white">Check before buying: </span>{card.checks[0]}</p>
+              <p><span className="font-black text-ink dark:text-white">Avoid if: </span>{card.avoid}</p>
+            </div>
+          </div>
+        )}
 
-          <article className={`relative overflow-hidden rounded-[2rem] border ${style.border} bg-[linear-gradient(135deg,#ffffff,#f3fbff)] p-6 shadow-soft   overflow-y-auto dark:bg-slate-950 dark:bg-none`}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className={`text-xs font-black uppercase tracking-[0.18em] ${style.text}`}>{card.title} details</p>
-                <h3 className="mt-2 text-xl font-black break-words text-ink dark:text-white">{card.recommendation}</h3>
-              </div>
-              <span className="rounded-full border border-line px-3 py-2 text-xs font-black uppercase text-slate-500 dark:border-white/10 dark:text-slate-300">Back</span>
-            </div>
-            <div className="mt-5 grid gap-4">
-              <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Evidence</p>
-                <ul className="mt-2 grid gap-2">
-                  {card.details.slice(0, 3).map((item) => (
-                    <li key={item} className="text-sm leading-6 text-slate-700 dark:text-slate-300">{item}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                  <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Check before buying</p>
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-700 dark:text-slate-300">{card.checks[0]}</p>
-                </div>
-                <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                  <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Avoid if</p>
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-700 dark:text-slate-300">{card.avoid}</p>
-                </div>
-              </div>
-            </div>
-          </article>
-        </div>
-      </summary>
-    </details>
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((value) => !value)}
+          className="mt-auto rounded-2xl bg-ink px-4 py-3 text-sm font-black uppercase tracking-[0.14em] text-white transition hover:bg-ocean dark:bg-white dark:text-ink"
+        >
+          {detailsOpen ? "Back" : "See why"}
+        </button>
+      </div>
+    </article>
   );
 }
 
 function BuyerResults({ result }: { result: AnalyzeResponse }) {
   const { analysis, meta } = result;
-  const recommendation = analysis.buyer_recommendation ?? analysis.customer_recommendation;
+  const recommendation = analysis.buyer_recommendation ?? analysis.customer_recommendation ?? { verdict: "Maybe" as CustomerRecommendation, rationale: "Compare the strongest praise against the main warning before buying." };
   const verdictTone = recommendationTone(recommendation.verdict);
-  const fakeRisk = analysis.fake_review_risk_score ?? fakeRiskFromIndicators(analysis.fake_review_indicators);
+  const fakeRisk = scoreNumber(analysis.fake_review_risk_score ?? fakeRiskFromIndicators(analysis.fake_review_indicators));
   const sentimentPercentScore = analysis.sentiment_percentage ?? sentimentToPercent(analysis.sentiment_score);
   const complaintPressure = analysis.complaint_severity_score ?? clamp(analysis.common_complaints.length * 14 + analysis.negative_points.length * 8);
-  const trustScore = clamp(analysis.product_score * 0.45 + (100 - fakeRisk) * 0.35 + analysis.confidence_score * 20);
-  const valueScore = analysis.value_score ?? clamp(analysis.product_score * 0.7 + sentimentPercentScore * 0.3);
-  const realityScore = clamp(analysis.product_score * 0.55 + sentimentPercentScore * 0.2 + Math.max(0, 100 - complaintPressure) * 0.25);
-  const riskScore = clamp(fakeRisk * 0.35 + complaintPressure * 0.45 + (100 - analysis.product_score) * 0.2);
-  const riskLevel = riskScore >= 65 ? "High" : riskScore >= 35 ? "Medium" : "Low";
-  const buyerWorry = riskScore >= 65 ? "Yes" : riskScore >= 35 ? "Maybe" : "No";
-  const fullComplaint = topComplaint(analysis);
-  const fullStrength = analysis.praised_features[0] ?? analysis.positive_points[0] ?? "useful for the right buyer";
-  const biggestComplaint = cleanOneLine(fullComplaint, "No repeated complaint", 44);
-  const mainStrength = cleanOneLine(fullStrength, "Useful for the right buyer", 44);
-  const bestForPhrase = shortShopperPhrase(bestFor(analysis), "Careful shoppers", 5);
-  const valueVerdict = valueScore >= 72 ? "Great" : valueScore >= 48 ? "Fair" : "Poor";
+  const score = scoreNumber(analysis.product_score);
+  const trustScore = scoreNumber(analysis.product_score * 0.42 + (100 - fakeRisk) * 0.36 + analysis.confidence_score * 22);
+  const valueScore = scoreNumber(analysis.value_score ?? clamp(analysis.product_score * 0.68 + sentimentPercentScore * 0.32));
+  const productRealityScore = scoreNumber(analysis.product_score * 0.55 + sentimentPercentScore * 0.2 + Math.max(0, 100 - complaintPressure) * 0.25);
+  const riskScore = scoreNumber(fakeRisk * 0.35 + complaintPressure * 0.45 + (100 - analysis.product_score) * 0.2);
   const fakeRiskShort = fakeRisk >= 65 ? "High" : fakeRisk >= 35 ? "Medium" : "Low";
+  const safeRiskScore = scoreNumber(100 - riskScore);
+  const riskLevel = safeRiskScore >= 75 ? "Low" : safeRiskScore >= 45 ? "Medium" : "High";
+  const valueVerdict = valueScore >= 72 ? "Great" : valueScore >= 48 ? "Fair" : "Poor";
   const verdictLabel = recommendation.verdict.toUpperCase();
-  const score = Math.round(clamp(analysis.product_score));
-  const trustScoreRounded = Math.round(trustScore);
-  const realityScoreRounded = Math.round(realityScore);
-  const safeRiskScore = Math.round(100 - riskScore);
+  const fullStrength = cleanReviewInsightText(
+    analysis.praised_features[0] ?? analysis.positive_points[0],
+    "Most buyers liked the product."
+  );
+  const fullComplaint = topComplaint(analysis);
+  const mainStrength = cleanOneLine(fullStrength, "Most buyers liked it", 64);
+  const biggestComplaint = cleanOneLine(fullComplaint, "No repeated complaint", 64);
+  const buyingNotesPhrase = shortShopperPhrase(buyingNotes(analysis), "No major buying concern", 7);
+  const buyerWorry = riskLevel === "Low" ? "No" : riskLevel === "Medium" ? "Maybe" : "Yes";
+  const signalBase = Math.max(analysis.common_complaints.length + analysis.negative_points.length + analysis.praised_features.length + analysis.positive_points.length, 1);
+  const complaintRatio = Math.round(((analysis.common_complaints.length + analysis.negative_points.length) / signalBase) * 10);
+  const shopperRiskPhrase =
+    meta.review_count_estimate < 10
+      ? "Small sample: check more reviews."
+      : complaintRatio > 0
+        ? `Roughly ${Math.max(1, complaintRatio)} out of 10 signals mention a concern.`
+        : "Most buyers liked the product.";
   const verdictStyle = {
-    good: "from-[#effffb] via-[#e9f6ff] to-[#fff7e7] text-teal",
-    warn: "from-[#fff8e8] via-[#eff7ff] to-[#fff0f0] text-amber",
-    bad: "from-[#fff0f0] via-[#eef5ff] to-[#f8fbff] text-coral"
+    good: "from-[#effffb] via-[#e9f6ff] to-[#fff7e7]",
+    warn: "from-[#fff8e8] via-[#eff7ff] to-[#fff0f0]",
+    bad: "from-[#fff0f0] via-[#eef5ff] to-[#f8fbff]"
   }[verdictTone];
   const verdictAccent = {
     good: "from-teal via-ocean to-cyan-400",
     warn: "from-amber via-orange-400 to-coral",
     bad: "from-coral via-rose-500 to-slate-900"
   }[verdictTone];
+
   const quickCards: ShopperCard[] = [
     {
       title: "Trust",
@@ -982,11 +1160,15 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
       tone: fakeRisk >= 65 ? "bad" as const : fakeRisk >= 35 ? "warn" as const : "good" as const,
       visual: "radar",
       icon: "S",
-      metric: `${trustScoreRounded}`,
+      metric: scorePercent(trustScore),
       status: `${fakeRiskShort} fake risk`,
       frontLines: [`Fake risk: ${fakeRiskShort}`, fakeRisk >= 65 ? "Pattern signals need checking." : fakeRisk >= 35 ? "Some wording feels patterned." : "Reviews look natural."],
       details: uniqueSellerItems(
-        [...analysis.fake_review_indicators, meta.confidence_detail, `${meta.review_count_estimate} valid reviews analyzed.`],
+        [
+          ...analysis.fake_review_indicators,
+          meta.confidence_detail,
+          `${meta.review_count_estimate} valid reviews analyzed.`
+        ],
         ["Trust is based on fake-review pressure, review volume, and evidence quality."],
         3
       ),
@@ -997,11 +1179,11 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
     {
       title: "Product Reality",
       question: "Does it match the promise?",
-      score: realityScore,
-      tone: realityScore >= 70 ? "good" as const : realityScore >= 45 ? "warn" as const : "bad" as const,
+      score: productRealityScore,
+      tone: productRealityScore >= 70 ? "good" as const : productRealityScore >= 45 ? "warn" as const : "bad" as const,
       visual: "slider",
       icon: "P",
-      metric: `${realityScoreRounded}`,
+      metric: scorePercent(productRealityScore),
       status: "Promise match",
       frontLines: [`Strength: ${mainStrength}`, `Complaint: ${biggestComplaint}`],
       details: uniqueSellerItems(
@@ -1010,8 +1192,8 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
         3
       ),
       checks: ["Confirm size, material, compatibility, and the exact version you will receive."],
-      avoid: realityScore < 45 ? "The product promise does not match repeated customer reality." : "The top complaint is a dealbreaker for you.",
-      recommendation: realityScore >= 70 ? "Product promise looks believable." : "Compare the promise against reviews."
+      avoid: productRealityScore < 45 ? "The product promise does not match repeated customer reality." : "The top complaint is a dealbreaker for you.",
+      recommendation: productRealityScore >= 70 ? "Product promise looks believable." : "Compare the promise against reviews."
     },
     {
       title: "Risk",
@@ -1021,7 +1203,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
       visual: "alert",
       icon: "!",
       metric: riskLevel,
-      status: `${safeRiskScore} safety score`,
+      status: `${safeRiskScore}% safety`,
       frontLines: [`Biggest issue: ${biggestComplaint}`, `Should buyer worry? ${buyerWorry}`],
       details: uniqueSellerItems(
         [fullComplaint, ...analysis.quality_concerns, ...analysis.durability_issues, ...analysis.support_issues, ...analysis.negative_points],
@@ -1049,14 +1231,15 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
                 <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">Buyer confidence</p>
               </div>
               <div className="text-right">
-                <p className={`text-3xl font-black leading-none ${TRUST_TONE_STYLE[verdictTone].text}`}>{Math.round(Number(score) || 0)}</p>
+                <p className={`text-4xl font-black leading-none ${TRUST_TONE_STYLE[verdictTone].text}`}>{score}</p>
                 <p className="text-sm font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">/100</p>
               </div>
             </div>
             <div className="mt-8 h-4 overflow-hidden rounded-full bg-white shadow-inner dark:bg-white/10">
-              <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: `${displayPercent(score)}` }} />
+              <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: widthPercent(score) }} />
             </div>
             <p className="mt-5 text-lg font-black leading-7 text-ink dark:text-white">{buyerRecommendationLine(recommendation.verdict, riskLevel)}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{shopperRiskPhrase}</p>
           </div>
 
           <div className="rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
@@ -1065,7 +1248,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
                 ["Fake Review Risk", fakeRiskShort, fakeRisk >= 65 ? "text-coral" : fakeRisk >= 35 ? "text-amber" : "text-teal"],
                 ["Value", valueVerdict, valueScore >= 72 ? "text-teal" : valueScore >= 48 ? "text-amber" : "text-coral"],
                 ["Main Warning", biggestComplaint, "text-coral"],
-                ["Best For", bestForPhrase, "text-ocean"]
+                ["Buying Notes", buyingNotesPhrase, "text-ocean"]
               ].map(([label, value, color]) => (
                 <div key={label} className="min-h-28 rounded-[1.4rem] border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
@@ -1082,6 +1265,18 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Before you buy</p>
+        <h3 className="mt-2 text-2xl font-black text-ink dark:text-white">What to check before checkout</h3>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          {buildBuyerChecklist(analysis as unknown as Record<string, unknown>).map((item) => (
+            <div key={item} className="rounded-2xl border border-line bg-slate-50 p-4 text-sm font-bold leading-6 text-ink dark:border-white/10 dark:bg-white/5 dark:text-white">
+              {item}
+            </div>
+          ))}
         </div>
       </section>
 
@@ -1106,17 +1301,12 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
       : satisfactionGap <= -10
         ? "Buying appeal is stronger than post-purchase satisfaction, so seller fixes still matter."
         : "Aligned with the Shopper score from the same evidence model.";
-  const sourceItems = [
-    { label: "Complaints", value: Math.max(1, analysis.common_complaints.length + analysis.negative_points.length), color: "#d95d5d", className: "bg-coral" },
-    { label: "Feature requests", value: Math.max(1, analysis.seller_insights.feature_requests.length), color: "#2356a3", className: "bg-ocean" },
-    { label: "Packaging/support", value: Math.max(1, analysis.seller_insights.packaging_shipping_issues.length + analysis.support_issues.length), color: "#d68b1f", className: "bg-amber" },
-    { label: "Praise/positioning", value: Math.max(1, analysis.praised_features.length + analysis.seller_insights.competitor_opportunity_insights.length), color: "#0f9f9a", className: "bg-teal" }
-  ];
 
   return (
     <div className="space-y-8">
       <SponsorAnalytics placement="results_seller" />
       <SellerMagicMoment result={result} isSellerPro={isSellerPro} />
+      <SellerBusinessKpiDashboard analysis={analysis} plan={accountPlan ?? undefined} />
       {isSellerPro ? <SellerTrustCriteriaDashboard result={result} /> : <SellerTrustCriteriaSnapshot result={result} accountPlan={accountPlan} />}
 
       <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-ink text-white shadow-soft dark:bg-slate-950">
@@ -1124,12 +1314,14 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
         <div className="relative grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-8">
           <div>
             <div className="flex flex-wrap gap-2">
-              <Badge tone="info">Seller command center</Badge>
+              <Badge tone="info">Seller growth diagnosis</Badge>
               <Badge tone={confidenceTone(confidenceLabel)}>{confidenceLabel} evidence</Badge>
               <Badge>{platformLabel(meta.platform ?? "other")}</Badge>
             </div>
-            <h1 className="mt-6 max-w-4xl text-3xl font-black lg:text-3xl">Enterprise review intelligence.</h1>
-            <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300">{analysis.overall_summary}</p>
+            <h1 className="mt-6 max-w-4xl text-3xl font-black lg:text-3xl">Turn buyer feedback into the next product, listing, and trust move.</h1>
+            <p className="mt-5 max-w-3xl text-base leading-7 text-slate-300">
+              {cleanReviewInsightText(analysis.overall_summary, "ReviewIntel found patterns that can guide what to fix, what to advertise, and what buyers need to trust before checkout.")}
+            </p>
             {analysis.score_alignment_note ? <p className="mt-4 max-w-3xl rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold leading-6 text-cyan-100">{analysis.score_alignment_note}</p> : null}
             <div className="mt-6 flex flex-wrap gap-3">
               <Link href="/pricing" className="rounded-xl bg-white px-5 py-3 text-sm font-black break-words text-ink transition hover:bg-cyan-100">
@@ -1167,127 +1359,287 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
         <SellerKpi label="Improvement upside" value={formatPercent(opportunityScore)} detail="Visible product, listing, and feature opportunities." tone="info" />
         <SellerKpi label="Evidence quality" value={formatPercent(evidenceScore)} detail={meta.confidence_detail ?? "Evidence confidence from valid reviews."} tone={confidenceTone(confidenceLabel)} />
       </section>
+      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Seller growth moves</p>
+        <h3 className="mt-2 text-2xl font-black text-ink dark:text-white">Fix first, advertise better, and stop overpromising.</h3>
 
-      <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-        <article className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Operational pressure map</p>
-          <div className="mt-5 grid gap-5">
-            <SellerSignalBar label="Complaint pressure" value={complaintPressure} tone={complaintPressure >= 65 ? "bad" : complaintPressure >= 35 ? "warn" : "good"} />
-            <SellerSignalBar label="Refund risk" value={clamp(analysis.seller_insights.refund_risk_issues.length * 22 + analysis.quality_concerns.length * 10)} tone="bad" />
-            <SellerSignalBar label="Packaging friction" value={clamp(analysis.seller_insights.packaging_shipping_issues.length * 24)} tone="warn" />
-            <SellerSignalBar label="Feature demand" value={clamp(analysis.seller_insights.feature_requests.length * 20)} tone="info" />
-            <SellerSignalBar label="Review evidence" value={evidenceScore} tone={confidenceTone(confidenceLabel)} />
-          </div>
-        </article>
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <article className="rounded-2xl border border-coral/20 bg-coral/10 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-coral">Fix first</p>
+            <p className="mt-3 text-sm font-bold leading-6 text-ink dark:text-white">
+              {buildSellerGrowthMoves(analysis).fixFirst}
+            </p>
+          </article>
 
-        <article className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Executive action queue</p>
-          <div className="mt-5 grid gap-3">
-            {[...analysis.seller_insights.product_improvement_recommendations, ...analysis.seller_insights.listing_improvement_suggestions]
-              .slice(0, 6)
-              .map((item, index) => (
-                <div key={`${item}-${index}`} className="grid gap-3 rounded-2xl border border-line p-4 dark:border-white/10 md:grid-cols-[auto_1fr_auto] md:items-center">
-                  <span className="grid size-9 place-items-center rounded-full bg-ink text-sm font-black text-white dark:bg-white dark:text-ink">{index + 1}</span>
-                  <span className="text-sm leading-6 text-slate-700 dark:text-slate-300">{item}</span>
-                  <span className="rounded-full bg-teal/10 px-3 py-1 text-xs font-black uppercase text-teal">Action</span>
-                </div>
-              ))}
-          </div>
-        </article>
-      </section>
+          <article className="rounded-2xl border border-teal/20 bg-teal/10 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-teal">Advertise this</p>
+            <p className="mt-3 text-sm font-bold leading-6 text-ink dark:text-white">
+              {buildSellerGrowthMoves(analysis).advertiseThis}
+            </p>
+          </article>
 
-      <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <SellerDonutCard
-          title="Where the comments are coming from"
-          subtitle="Theme mix from complaints, requests, packaging/support, and positive positioning signals."
-          items={sourceItems}
-        />
-        <article className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Subscription-worthy insight</p>
-          <h3 className="mt-3 text-3xl font-black break-words text-ink dark:text-white">What to fix, what to advertise, what to stop promising.</h3>
-          <div className="mt-5 grid gap-3">
-            {[
-              ["Fix", analysis.seller_insights.product_improvement_recommendations[0] ?? analysis.improvement_suggestions[0] ?? "Prioritize the top repeated product complaint."],
-              ["Advertise", analysis.praised_features[0] ?? analysis.positive_points[0] ?? "Use the strongest repeated praise as ad copy only when the product reliably delivers it."],
-              ["Clarify", analysis.seller_insights.listing_improvement_suggestions[0] ?? "Set expectations in photos, bullets, sizing, materials, and what's in the box."],
-              ["Protect", analysis.seller_insights.refund_risk_issues[0] ?? "Watch refund-risk language before increasing paid traffic."]
-            ].map(([label, text], index) => (
-              <div key={label} className="grid gap-3 rounded-2xl border border-line p-4 dark:border-white/10 sm:grid-cols-[90px_1fr] sm:items-start">
-                <span className={`rounded-full px-3 py-1 text-center text-xs font-black uppercase text-white ${["bg-coral", "bg-teal", "bg-ocean", "bg-amber"][index]}`}>{label}</span>
-                <p className="text-sm font-semibold leading-6 text-slate-700 dark:text-slate-300">{text}</p>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
-
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="flex flex-wrap gap-2">
-              <Badge>{meta.mode === "openai" ? meta.model : "Local fallback"}</Badge>
-              <Badge>Export-ready report</Badge>
-              <Badge>Operational intelligence</Badge>
-            </div>
-            <h2 className="mt-5 max-w-4xl text-3xl font-black break-words text-ink dark:text-white">Strategic insight layers</h2>
-            <p className="mt-4 max-w-4xl text-base leading-7 text-slate-600 dark:text-slate-300">The seller workspace converts review language into product, listing, support, and positioning actions.</p>
-          </div>
-          <SellerReportActions result={result} />
+          <article className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-400/20 dark:bg-amber-500/10">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Stop promising this</p>
+            <p className="mt-3 text-sm font-bold leading-6 text-ink dark:text-white">
+              {buildSellerGrowthMoves(analysis).stopPromising}
+            </p>
+          </article>
         </div>
       </section>
 
-      <SellerIntelligenceTabs result={result} />
-
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        <InsightList title="Customer pain points" items={analysis.seller_insights.main_customer_pain_points} tone="bad" />
-        <InsightList title="Complaint clusters" items={analysis.seller_insights.complaint_clusters} tone="warn" />
-        <InsightList title="Product improvements" items={analysis.seller_insights.product_improvement_recommendations} tone="good" />
-        <InsightList title="Listing improvements" items={analysis.seller_insights.listing_improvement_suggestions} tone="info" />
-        <InsightList title="Packaging and shipping" items={analysis.seller_insights.packaging_shipping_issues} tone="warn" />
-        <InsightList title="Feature requests" items={analysis.seller_insights.feature_requests} tone="info" />
-        <InsightList title="Support issues" items={analysis.support_issues} tone="warn" />
-        <InsightList title="Refund risk" items={analysis.seller_insights.refund_risk_issues} tone="bad" />
-        <InsightList title="Positioning intelligence" items={analysis.seller_insights.competitor_opportunity_insights} tone="good" />
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-        <RatingBreakdown breakdown={meta.rating_breakdown} />
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Keyword intelligence</p>
-          <div className="mt-5 grid gap-3">
-            {analysis.keyword_analysis.slice(0, 10).map((item) => (
-              <div key={item.keyword}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-ink dark:text-white">{item.keyword}</span>
-                  <span className="text-slate-500 dark:text-slate-400">{item.mentions} mentions</span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
-                  <div
-                    className={`h-full rounded-full ${item.sentiment === "negative" ? "bg-coral" : item.sentiment === "positive" ? "bg-teal" : "bg-ocean"}`}
-                    style={{ width: `${Math.min(100, Math.max(12, item.mentions * 14))}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.context}</p>
-              </div>
-            ))}
+      <section className="rounded-[2.5rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950 lg:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Seller intelligence map</p>
+            <h3 className="mt-3 max-w-4xl text-3xl font-black leading-tight text-ink dark:text-white">
+              One clear view of what moves buyers closer to checkout — or pushes them away.
+            </h3>
+            <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              This view turns scattered buyer comments into one clear map: what creates confidence, what causes hesitation, and what should be fixed first.
+            </p>
           </div>
-        </article>
+
+          <div className="rounded-2xl border border-line bg-slate-50 px-6 py-4 text-center dark:border-white/10 dark:bg-white/5">
+            <p className="text-4xl font-black text-ink dark:text-white">{meta.review_count_estimate}</p>
+            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">reviews scanned</p>
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-black/20">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Buyer confidence graph</p>
+                <h4 className="mt-2 text-xl font-black text-ink dark:text-white">See the strongest risks and growth signals in one place</h4>
+              </div>
+              <span className="rounded-full bg-ocean/10 px-4 py-2 text-xs font-black uppercase text-ocean">
+                Pro summary
+              </span>
+            </div>
+
+            <div className="mt-6 space-y-5">
+              <SellerSignalBar
+                label="Complaint pressure"
+                value={complaintPressure}
+                tone={complaintPressure >= 65 ? "bad" : complaintPressure >= 35 ? "warn" : "good"}
+              />
+              <SellerSignalBar
+                label="Refund safety"
+                value={clamp(100 - (analysis.seller_insights.refund_risk_issues.length * 22 + analysis.quality_concerns.length * 10))}
+                tone="bad"
+              />
+              <SellerSignalBar
+                label="Packaging confidence"
+                value={clamp(100 - analysis.seller_insights.packaging_shipping_issues.length * 24)}
+                tone="warn"
+              />
+              <SellerSignalBar
+                label="Support confidence"
+                value={clamp(100 - analysis.support_issues.length * 22)}
+                tone="warn"
+              />
+              <SellerSignalBar
+                label="Feature demand"
+                value={clamp(analysis.seller_insights.feature_requests.length * 20)}
+                tone="info"
+              />
+              <SellerSignalBar
+                label="Positive positioning"
+                value={clamp(analysis.praised_features.length * 16 + analysis.positive_points.length * 10)}
+                tone="good"
+              />
+              <SellerSignalBar
+                label="Review evidence quality"
+                value={evidenceScore}
+                tone={confidenceTone(confidenceLabel)}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-5">
+            <article className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">What this means</p>
+              <h4 className="mt-4 text-2xl font-black leading-tight text-ink dark:text-white">
+                {analysis.seller_insights.refund_risk_issues.length || analysis.support_issues.length
+                  ? "Make the offer feel safer before sending more people to it."
+                  : complaintPressure >= 55
+                    ? "Correct the concern buyers may remember most."
+                    : analysis.praised_features.length
+                      ? "Lead with the strength customers already believe."
+                      : "Make the promise specific enough that buyers do not need to guess."}
+              </h4>
+              <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                {analysis.seller_insights.refund_risk_issues.length || analysis.support_issues.length
+                  ? "Interest is not enough if the buyer still feels risk. Put warranty, replacement, return, and support details where shoppers can see them before they hesitate."
+                  : complaintPressure >= 55
+                    ? "The feedback is showing one concern that can slow sales. Answer it directly with clearer listing copy, better proof, or a visible support promise."
+                    : analysis.praised_features.length
+                      ? "Customers are telling you what matters. Bring that proof higher on the page so a new shopper understands the value in seconds."
+                      : "The scan found useful direction, but the offer needs sharper proof. Clarify expectations, show honest limits, and use benefits that came from real customer language."}
+              </p>
+            </article>
+
+            <article className="rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-black/20">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Fix first</p>
+              <p className="mt-3 text-base font-bold leading-7 text-ink dark:text-white">
+                {analysis.seller_insights.refund_risk_issues.length
+                  ? "Fix refund-risk language first. Buyers need to know what happens if the product fails, arrives wrong, or does not meet expectations."
+                  : analysis.support_issues.length
+                    ? "Clarify warranty, replacement, returns, and support response expectations before checkout."
+                    : complaintPressure >= 55
+                      ? "Address the strongest repeated complaint with one visible listing change and one practical product or support action."
+                      : "Move the strongest positive customer proof higher on the page and make it visually obvious."}
+              </p>
+            </article>
+
+            <article className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Words buyers keep using</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {analysis.keyword_analysis.slice(0, 8).map((item) => (
+                  <span key={item.keyword} className="rounded-full border border-line bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                    {item.keyword} · {item.mentions}
+                  </span>
+                ))}
+                {!analysis.keyword_analysis.length ? (
+                  <span className="rounded-full border border-line bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                    No strong keyword cluster detected
+                  </span>
+                ) : null}
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-black/20">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Rating background</p>
+          <div className="mt-4">
+            <RatingBreakdown breakdown={meta.rating_breakdown} />
+          </div>
+        </div>
       </section>
 
-      {(result as Record<string, unknown>)?.seller_insights ? (
-        <SellerBusinessKpiDashboard analysis={analysis ?? result ?? {}} plan="seller" />
-      ) : null}
-
-      <SponsoredResources
-        placement="results"
+      <AdSlot
+        placement="results_below_verdict"
         compact
-        eyebrow="Seller resources"
-        title="Operational tools for the next fix"
-        description="Optional partner resources stay below the intelligence report."
+        className="mt-6"
       />
     </div>
   );
 }
+
+
+
+
+function cleanFirst(items: Array<string | undefined | null>, fallback: string) {
+  const found = items.find((item) => typeof item === "string" && item.trim().length > 0);
+  return found?.trim() || fallback;
+}
+
+function textField(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+
+  return "";
+}
+
+function firstFromArray(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+
+  if (Array.isArray(value)) {
+    const first = value.find((item) => typeof item === "string" && item.trim());
+    return typeof first === "string" ? first.trim() : "";
+  }
+
+  return "";
+}
+
+function objectField(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function buildBuyerChecklist(analysis: Record<string, unknown>) {
+  const complaint = cleanFirst(
+    [
+      textField(analysis, "biggest_complaint"),
+      textField(analysis, "mainComplaint"),
+      firstFromArray(analysis, "common_complaints"),
+      firstFromArray(analysis, "complaints"),
+      firstFromArray(analysis, "quality_concerns"),
+    ],
+    "Check the most recent low-star reviews before buying."
+  );
+
+  const fakeRisk = cleanFirst(
+    [
+      textField(analysis, "fake_review_risk_level"),
+      textField(analysis, "fakeReviewRisk"),
+      textField(analysis, "risk_level"),
+    ],
+    "Review the wording pattern and avoid relying only on perfect 5-star reviews."
+  );
+
+  const value = cleanFirst(
+    [
+      textField(analysis, "value_summary"),
+      textField(analysis, "price_value_summary"),
+      textField(analysis, "valueScore") ? `Value score: ${textField(analysis, "valueScore")}` : "",
+    ],
+    "Compare the price against similar products before checkout."
+  );
+
+  return [
+    `Confirm this concern is acceptable: ${complaint}`,
+    `Check fake-review risk: ${fakeRisk}`,
+    value,
+    "Confirm return policy, warranty, size, compatibility, and included items before buying.",
+  ];
+}
+
+function buildSellerGrowthMoves(analysis: Record<string, unknown>) {
+  const sellerInsights = objectField(analysis, "seller_insights");
+
+  const complaint = cleanFirst(
+    [
+      firstFromArray(sellerInsights, "refund_risk_issues"),
+      firstFromArray(analysis, "support_issues"),
+      firstFromArray(analysis, "quality_concerns"),
+      firstFromArray(analysis, "common_complaints"),
+      firstFromArray(analysis, "complaints"),
+    ],
+    "Find the repeated buyer concern and make it visible in the listing or product improvement plan."
+  );
+
+  const praise = cleanFirst(
+    [
+      firstFromArray(analysis, "praised_features"),
+      firstFromArray(analysis, "positive_points"),
+      firstFromArray(sellerInsights, "positioning_intelligence"),
+    ],
+    "Use the strongest positive buyer signal as proof in the headline, images, or first bullet."
+  );
+
+  const overpromise = cleanFirst(
+    [
+      firstFromArray(sellerInsights, "listing_improvement_suggestions"),
+      firstFromArray(analysis, "improvement_suggestions"),
+      firstFromArray(sellerInsights, "refund_risk_issues"),
+    ],
+    "Avoid making claims that the reviews do not strongly support."
+  );
+
+  return {
+    fixFirst: complaint,
+    advertiseThis: praise,
+    stopPromising: overpromise,
+  };
+}
+
 
 export function ResultsDashboard({ result, accountPlan }: { result: AnalyzeResponse; accountPlan?: SubscriptionPlan | null }) {
   if (result.meta.audience === "seller" || result.meta.audience === "both") {

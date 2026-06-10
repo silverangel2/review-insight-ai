@@ -1,5 +1,7 @@
 "use client";
 
+import { AnalyzeAdSlot } from "@/components/AnalyzeAdSlot";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -7,7 +9,9 @@ import { Badge } from "@/components/Badge";
 import { planLabel } from "@/lib/account";
 import { estimateReviewCount } from "@/lib/localAnalyzer";
 import { REVIEW_PLATFORMS } from "@/lib/platforms";
-import { accountHeaders, getClientAccount, getStoredQuota, quotaText, saveActiveMode, saveQuota } from "@/lib/clientAccount";
+import { accountHeaders, getClientAccount, getStoredQuota, quotaText, saveActiveMode, saveQuota,
+  incrementStoredScanTally
+} from "@/lib/clientAccount";
 import { saveSellerJournalScan } from "@/lib/sellerJournal";
 import { saveLatestResult } from "@/lib/resultStorage";
 import {
@@ -249,6 +253,27 @@ function AnalyzeCta({
 }
 
 function AnalysisOverlay({ activeStep }: { activeStep: number }) {
+  const totalWatchBars = 32;
+  const watchRevealDurationMs = 65000;
+  const [visibleWatchBars, setVisibleWatchBars] = useState(0);
+  const scanProgressPercent = Math.min(100, Math.round((visibleWatchBars / totalWatchBars) * 100));
+
+  useEffect(() => {
+    const startedAt = Date.now();
+
+    const revealTimer = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const nextVisibleBars = Math.min(
+        totalWatchBars,
+        Math.floor((elapsed / watchRevealDurationMs) * totalWatchBars)
+      );
+
+      setVisibleWatchBars(nextVisibleBars);
+    }, 250);
+
+    return () => window.clearInterval(revealTimer);
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 px-5 py-8 backdrop-blur-xl" role="status" aria-live="polite">
       <div className="ri-scan-grid absolute inset-0 opacity-20" />
@@ -277,17 +302,23 @@ function AnalysisOverlay({ activeStep }: { activeStep: number }) {
         <div className="relative z-10">
           <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-200">ReviewIntel scan</p>
           <div className="relative mx-auto mt-8 grid size-56 place-items-center">
-            <div className="ri-progress-ring absolute inset-0">
-              {Array.from({ length: 32 }).map((_, index) => (
-                <span
-                  key={index}
-                  className="ri-progress-segment"
-                  style={{
-                    transform: `rotate(${index * 11.25}deg) translateY(-104px)`,
-                    animationDelay: `${index * 0.09}s`
-                  }}
-                />
-              ))}
+            <div className="ri-progress-ring ri-watch-progress-controlled absolute inset-0">
+              {Array.from({ length: totalWatchBars }).map((_, index) => {
+                const isVisible = index < visibleWatchBars;
+
+                return (
+                  <span
+                    key={index}
+                    className={`ri-progress-segment ri-watch-progress-segment ${
+                      isVisible ? "ri-watch-progress-segment-visible" : "ri-watch-progress-segment-hidden"
+                    }`}
+                    style={{
+                      transform: `rotate(${index * (360 / totalWatchBars)}deg) translateY(-104px)`,
+                      animationDelay: `${index * 0.09}s`
+                    }}
+                  />
+                );
+              })}
             </div>
             <div className="ri-ai-orb">
               <span className="ri-ai-orb-core" />
@@ -298,15 +329,37 @@ function AnalysisOverlay({ activeStep }: { activeStep: number }) {
           <h3 className="mt-8 text-3xl font-black">Analyzing review intelligence</h3>
           <p className="mt-3 text-lg font-black text-teal">{scanSteps[activeStep]}</p>
           <div className="mt-6 grid gap-2">
-            {scanSteps.map((step, index) => (
-              <div key={step} className={`rounded-2xl border px-4 py-3 text-left text-xs font-black transition ${
-                index <= activeStep
-                  ? "border-teal/50 bg-teal/15 text-cyan-50"
-                  : "border-white/10 bg-white/5 text-slate-300"
-              }`}>
-                {String(index + 1).padStart(2, "0")} / {step}
-              </div>
-            ))}
+              {scanSteps.map((step, index) => {
+                const stepStart = (index / scanSteps.length) * 100;
+                const stepEnd = ((index + 1) / scanSteps.length) * 100;
+                const stepFillPercent = Math.max(
+                  0,
+                  Math.min(100, ((scanProgressPercent - stepStart) / (stepEnd - stepStart)) * 100)
+                );
+                const isStarted = stepFillPercent > 0;
+
+                return (
+                  <div
+                    key={step}
+                    className={`relative overflow-hidden rounded-2xl border px-4 py-3 transition ${
+                      isStarted
+                        ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-50"
+                        : "border-white/10 bg-white/5 text-white/45"
+                    }`}
+                  >
+                    <span
+                      className="pointer-events-none absolute inset-y-0 left-0 rounded-2xl bg-cyan-300/15 transition-[width] duration-700 ease-out"
+                      style={{ width: `${stepFillPercent}%` }}
+                    />
+                    <div className="relative z-10">
+                      <span className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">
+                        0{index + 1}
+                      </span>
+                      <p className="mt-1 text-xs font-bold">{step}</p>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
           <p className="mt-6 text-sm font-semibold text-slate-300">Preparing a clean result page. Please keep this tab open.</p>
         </div>
@@ -462,7 +515,7 @@ export function AnalyzerForm() {
 
     const timer = window.setInterval(() => {
       setLoadingStep((current) => Math.min(scanSteps.length - 1, current + 1));
-    }, 1000);
+    }, Math.ceil(65000 / Math.max(1, scanSteps.length - 1)));
 
     return () => window.clearInterval(timer);
   }, [isLoading]);
@@ -643,6 +696,8 @@ export function AnalyzerForm() {
         setQuota(data.meta.quota);
       }
 
+      incrementStoredScanTally();
+
       saveSellerJournalScan(data as AnalyzeResponse, productName);
       if (selectedSellerProductId) {
         const updatedProduct = saveSellerProductScan(selectedSellerProductId, data as AnalyzeResponse);
@@ -731,22 +786,7 @@ export function AnalyzerForm() {
               Shopper mode stays fast and decisive. Seller mode becomes a deeper Pro report with complaints, fixes, charts, and positioning moves.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              ["Shopper", "Score + verdict", audience === "buyer" ? "Active" : "Fast"],
-              ["Seller", "Graphs + fixes", audience === "seller" ? "Active" : "Pro"],
-              ["Quick", "Screenshot beta", entryMode === "quick" ? "Active" : "Mobile"]
-            ].map(([title, detail, state]) => (
-              <article key={title} className="rounded-2xl border border-white/10 bg-white/10 p-4 shadow-[0_18px_55px_rgba(255,255,255,0.08)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15">
-                <p className="text-2xl font-black">{title}</p>
-                <p className="mt-2 text-sm font-semibold text-slate-200">{detail}</p>
-                <p className="mt-4 inline-flex items-center gap-2 text-xs font-black uppercase text-cyan-100">
-                  <span className="size-2 rounded-full bg-amber shadow-[0_0_18px_rgba(255,178,56,0.9)]" />
-                  {state}
-                </p>
-              </article>
-            ))}
-          </div>
+          <AnalyzeAdSlot placement="analyze-hero" />
         </div>
       </div>
 
@@ -1130,38 +1170,9 @@ export function AnalyzerForm() {
             </article>
           ) : null}
 
-          <article className="rounded-3xl border border-line bg-ink p-6 text-white shadow-soft dark:border-white/10">
-            <p className="text-xs font-black uppercase text-teal">What happens next</p>
-            <div className="mt-5 grid gap-3">
-              {(audience === "buyer"
-                ? ["Product score", "Worth buying verdict", "Fake review risk", "Best-for match"]
-                : ["Complaint clusters", "Customer pain map", "Keyword intelligence", "Business recommendations"]
-              ).map((item) => (
-                <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <span className="text-sm font-bold">{item}</span>
-                  <span className="text-xs font-black uppercase text-teal">ready</span>
-                </div>
-              ))}
-            </div>
-          </article>
+          <AnalyzeAdSlot placement="analyze-sidebar-top" />
 
-          <article className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-            <h2 className="text-lg font-black text-ink dark:text-white">Future imports</h2>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {REVIEW_INGESTION_METHODS.map((item) => (
-                <span
-                  key={item.key}
-                  className={`rounded-full border px-3 py-2 text-xs font-black uppercase ${
-                    item.availability === "live"
-                      ? "border-teal/20 bg-teal/10 text-teal"
-                      : "border-line bg-mist text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              ))}
-            </div>
-          </article>
+          <AnalyzeAdSlot placement="analyze-sidebar-bottom" />
         </aside>
       </div>
 

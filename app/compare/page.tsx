@@ -1,8 +1,11 @@
 import { CompareForm } from "@/components/CompareForm";
+import { QuickNav } from "@/components/QuickNav";
 
 export default function ComparePage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
+        <QuickNav mode="seller" current="/compare" />
+
       <div className="mb-8 max-w-3xl">
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">Product comparison</p>
         <h1 className="mt-3 text-4xl font-black tracking-tight text-ink dark:text-white">Compare two products by review evidence</h1>

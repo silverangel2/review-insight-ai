@@ -52,6 +52,8 @@ const sampleDatasets = [
 
 const testModes: Array<{
   label: string;
+  email: string;
+  profileId: string;
   role: UserRole;
   plan: SubscriptionPlan;
   audience: AnalysisAudience;
@@ -59,6 +61,8 @@ const testModes: Array<{
 }> = [
   {
     label: "Shopper Free",
+    email: "shopper.free@reviewintel.test",
+    profileId: "SHOP-FREE-001",
     role: "buyer",
     plan: "free_buyer",
     audience: "buyer",
@@ -66,6 +70,8 @@ const testModes: Array<{
   },
   {
     label: "Shopper Premium",
+    email: "shopper.premium@reviewintel.test",
+    profileId: "SHOP-PREMIUM-001",
     role: "buyer",
     plan: "buyer_pro",
     audience: "buyer",
@@ -73,6 +79,8 @@ const testModes: Array<{
   },
   {
     label: "Seller Starter",
+    email: "seller.premium@reviewintel.test",
+    profileId: "SELL-PREMIUM-001",
     role: "seller",
     plan: "seller_starter",
     audience: "seller",
@@ -80,6 +88,8 @@ const testModes: Array<{
   },
   {
     label: "Seller Pro",
+    email: "seller.pro@reviewintel.test",
+    profileId: "SELL-PRO-001",
     role: "seller",
     plan: "seller_pro",
     audience: "seller",
@@ -87,6 +97,8 @@ const testModes: Array<{
   },
   {
     label: "Admin",
+    email: "admin@reviewintel.test",
+    profileId: "ADMIN-001",
     role: "admin",
     plan: "seller_pro",
     audience: "both",
@@ -132,13 +144,17 @@ export function DeveloperQACenter() {
 
   async function activateTestMode(mode: (typeof testModes)[number]) {
     const nextAccount: ClientAccount = {
-      email: `${mode.plan}@reviewintel.local`,
+      userId: `owner-${mode.email}`,
+      authUserId: `owner-auth-${mode.email}`,
+      email: mode.email,
       name: mode.label,
       role: mode.role,
       plan: mode.plan,
       subscriptionStatus: mode.role === "admin" ? "developer" : "active",
       stripeCustomerId: mode.plan === "free_buyer" ? null : `cus_demo_${mode.plan}`,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      profileId: mode.profileId,
+      marketingConsent: false
     };
     const nextQuota = makeQuotaInfo(mode.plan, 0);
     clearLatestResult();
@@ -150,7 +166,9 @@ export function DeveloperQACenter() {
     saveQuota(nextQuota);
     setAccount(nextAccount);
     setQuota(nextQuota);
-    if (mode.role !== "admin") {
+    if (mode.role === "admin") {
+      window.location.href = "/owner-access";
+    } else {
       window.location.href = mode.role === "seller" ? "/dashboard/seller" : "/dashboard/customer";
     }
   }
@@ -256,6 +274,9 @@ export function DeveloperQACenter() {
             </Link>
             <Link href="/dashboard/seller" className="rounded-xl border border-line p-4 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white">
               Inspect Seller UI
+            </Link>
+            <Link href="/owner-access" className="rounded-xl border border-line p-4 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white">
+              Open Owner Access
             </Link>
           </div>
         </article>

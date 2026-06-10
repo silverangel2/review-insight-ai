@@ -91,10 +91,28 @@ export async function resetPasswordWithSupabase(email: string) {
   });
 }
 
-export function googleAuthUrl() {
+export async function accountFromOAuthAccessToken(accessToken: string) {
   if (!hasSupabaseEnv()) return null;
 
   const baseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
-  const redirectTo = encodeURIComponent(`${getPublicAppUrl()}/dashboard`);
+  const response = await fetch(`${baseUrl}/auth/v1/user`, {
+    headers: {
+      apikey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+      Authorization: `Bearer ${accessToken}`
+    },
+    cache: "no-store"
+  }).catch(() => null);
+
+  if (!response?.ok) return null;
+  const user = await response.json().catch(() => null);
+  const account = accountFromAuthUser(user);
+  return account ? { ...account, accessToken } : null;
+}
+
+export function googleAuthUrl(appUrl = getPublicAppUrl()) {
+  if (!hasSupabaseEnv()) return null;
+
+  const baseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
+  const redirectTo = encodeURIComponent(`${appUrl.replace(/\/$/, "")}/auth/callback`);
   return `${baseUrl}/auth/v1/authorize?provider=google&redirect_to=${redirectTo}`;
 }

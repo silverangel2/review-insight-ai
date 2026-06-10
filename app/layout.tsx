@@ -1,7 +1,9 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
+import { IdleLogoutGuard } from "@/components/IdleLogoutGuard";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -36,7 +38,19 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>
+      
+      {process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT ? (
+        <Script
+          id="google-adsense"
+          async
+          strategy="afterInteractive"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT}`}
+          crossOrigin="anonymous"
+        />
+      ) : null}
+
+<body>
+        <IdleLogoutGuard />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

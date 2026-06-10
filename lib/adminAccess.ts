@@ -1,7 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 
 export const ADMIN_SESSION_COOKIE = "reviewintel_admin_session";
-export const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60 * 4;
+export const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60;
 
 type AdminSessionPayload = {
   role: "admin";

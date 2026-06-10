@@ -39,7 +39,7 @@ type ViewKey = keyof typeof views;
 
 function isSellerProAccount() {
   const account = getClientAccount();
-  return account?.role === "seller" && account.plan === "seller_pro";
+  return account?.role === "seller" && account?.plan === "seller_pro";
 }
 
 export function SellerProCommandPanel() {

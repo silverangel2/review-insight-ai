@@ -16,6 +16,7 @@ import {
   setClientPlan
 } from "@/lib/clientAccount";
 import { formatPercent } from "@/lib/analysisScoring";
+import { clearLatestResult } from "@/lib/resultStorage";
 import type { QuotaInfo, ReviewPlatform, SubscriptionPlan } from "@/lib/types";
 
 const planOptions: Array<{
@@ -147,12 +148,6 @@ function roleLabel(role: ClientAccount["role"] | undefined) {
 }
 
 
-function isPrivateTestEmail(email: string | undefined | null) {
-  return Boolean(email?.endsWith("@reviewintel.test"));
-}
-
-
-
 export function AccountDashboard() {
   const router = useRouter();
   const params = useSearchParams();
@@ -239,11 +234,8 @@ export function AccountDashboard() {
       setAccount(getClientAccount());
     }
     if (data.quota) {
-      const currentAccount = getClientAccount();
-      const serverAccount = data.account as (Partial<ClientAccount> & { trusted?: boolean }) | undefined;
-      const nextQuota = serverAccount?.trusted ? data.quota : makeQuotaInfo(currentAccount?.plan ?? "free_buyer", 0);
-      saveQuota(nextQuota);
-      setQuota(nextQuota);
+      saveQuota(data.quota);
+      setQuota(data.quota);
     }
     if (Array.isArray(data.analyses)) {
       setRecentAnalyses(data.analyses);
@@ -303,8 +295,18 @@ export function AccountDashboard() {
     window.location.href = data.url;
   }
 
-  function signOut() {
+  async function signOut() {
     clearClientAccount();
+    window.localStorage.removeItem("reviewintel:active-mode");
+    window.localStorage.removeItem("reviewintel:quota");
+    window.localStorage.removeItem("reviewintel:account-last-active");
+    window.sessionStorage.removeItem("reviewintel:owner-unlocked");
+    window.sessionStorage.removeItem("reviewintel:owner-last-active");
+    clearLatestResult();
+    await Promise.allSettled([
+      fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" }),
+      fetch("/api/owner/logout", { method: "POST", credentials: "same-origin" })
+    ]);
     router.push("/login");
   }
 
@@ -579,7 +581,7 @@ export function AccountDashboard() {
         <Link href="/manage-subscription" className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:bg-white/5 dark:text-white">
           Manage subscription
         </Link>
-        <button onClick={signOut} className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:bg-white/5 dark:text-white">
+        <button onClick={() => void signOut()} className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:bg-white/5 dark:text-white">
           Sign out
         </button>
       </div>

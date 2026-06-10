@@ -51,7 +51,7 @@ export function normalizeRole(role: string | null | undefined): UserRole {
 
 export function planLabel(plan: SubscriptionPlan) {
   if (plan === "buyer_pro") return "Shopper Premium";
-  if (plan === "seller_starter") return "Seller Starter";
+  if (plan === "seller_starter") return "Seller Premium";
   if (plan === "seller_pro") return "Seller Pro";
   return "Shopper Free";
 }

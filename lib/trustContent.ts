@@ -1,4 +1,4 @@
-export const SUPPORT_EMAIL = "support@reviewintel.ai";
+export const SUPPORT_EMAIL = "support@getreviewintel.com";
 export const BILLING_EMAIL = "billing@reviewintel.ai";
 export const PRIVACY_EMAIL = "privacy@reviewintel.ai";
 

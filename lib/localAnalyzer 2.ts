@@ -208,6 +208,18 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
     context: `Mentioned in the supplied review sample.`
   }));
 
+  const complaintThemes = pick(
+    sentences,
+    complaintHints,
+    "No strong repeated complaint pattern was detected in the pasted sample."
+  );
+
+  const praiseThemes = pick(
+    sentences,
+    praisedHints,
+    "No single praised feature dominates the pasted sample."
+  );
+
   return {
     overall_summary:
       "Local fallback analysis found a " +
@@ -215,8 +227,8 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
       " review pattern. Add an OpenAI API key for deeper theme extraction and better seller insights.",
     positive_points: positives,
     negative_points: negatives,
-    common_complaints: pick(sentences, complaintHints, "No strong repeated complaint pattern was detected in the pasted sample."),
-    praised_features: pick(sentences, praisedHints, "No single praised feature dominates the pasted sample."),
+    common_complaints: complaintThemes,
+    praised_features: praiseThemes,
     quality_concerns: pick(sentences, ["quality", "cheap", "broken", "defect", "stopped", "weak"], "Quality concern evidence is limited in the pasted sample."),
     product_quality_concerns: pick(sentences, ["quality", "cheap", "broken", "defect", "stopped", "weak"], "Quality concern evidence is limited in the pasted sample."),
     value_for_money_opinion: valueText,
@@ -229,7 +241,7 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
     ],
     seller_insights: {
       main_customer_pain_points: pick(sentences, NEGATIVE_TERMS, "Collect more reviews to identify repeatable pain points."),
-      complaint_clusters: pick(sentences, complaintHints, "No strong complaint cluster was detected."),
+      complaint_clusters: complaintThemes,
       product_improvement_recommendations: [
         "Prioritize the most repeated defect, setup, or expectation mismatch first.",
         "Turn recurring support questions into listing content and onboarding inserts."
@@ -251,6 +263,62 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
       seller_recommendations: [
         "Create a weekly review operations loop: cluster complaints, assign owners, and update listing copy after fixes.",
         "Escalate refund-risk language to product and support teams before paid traffic is increased."
+      ],
+      seller_action_cards: [
+        {
+          card_type: "competitor_edge",
+          title: "What customers respond to",
+          finding: `Reviews show buyer response around ${praiseThemes[0]}.`,
+          review_evidence_theme: praiseThemes.slice(0, 3).join("; "),
+          seller_meaning: `This shows what buyers may already value and what competitors may also use as proof.`,
+          recommended_action: `Use ${praiseThemes[0]} as a proof point only if your product consistently delivers it.`,
+          confidence: Math.min(85, 45 + praiseThemes.length * 8)
+        },
+        {
+          card_type: "your_product_risk",
+          title: "What may hurt conversion",
+          finding: `Reviews show risk around ${complaintThemes[0]}.`,
+          review_evidence_theme: complaintThemes.slice(0, 3).join("; "),
+          seller_meaning: `This can create buyer hesitation, lower trust, refund risk, or weaker conversion.`,
+          recommended_action: `Fix, clarify, or add proof around ${complaintThemes[0]} before increasing paid traffic.`,
+          confidence: Math.min(90, 50 + complaintThemes.length * 8)
+        },
+        {
+          card_type: "attack_opportunity",
+          title: "Weakness to attack",
+          finding: `A repeated complaint theme is ${complaintThemes[0]}.`,
+          review_evidence_theme: complaintThemes.slice(0, 3).join("; "),
+          seller_meaning: `If competitors have the same weakness, this becomes a positioning opportunity.`,
+          recommended_action: `Show how your product handles ${complaintThemes[0]} better, but only if the claim is true.`,
+          confidence: Math.min(82, 42 + complaintThemes.length * 7)
+        },
+        {
+          card_type: "fix_first",
+          title: "Fix first",
+          finding: `${complaintThemes[0]} appears to be the first issue to investigate.`,
+          review_evidence_theme: complaintThemes.slice(0, 3).join("; "),
+          seller_meaning: `The most repeated complaint should be fixed before pushing more sales traffic.`,
+          recommended_action: `Assign an owner, update the product or listing, and track whether future reviews still mention ${complaintThemes[0]}.`,
+          confidence: Math.min(88, 48 + complaintThemes.length * 8)
+        },
+        {
+          card_type: "advertise_this",
+          title: "What to advertise",
+          finding: `Positive review themes point to ${praiseThemes[0]}.`,
+          review_evidence_theme: praiseThemes.slice(0, 3).join("; "),
+          seller_meaning: `Buyer-approved language is stronger than generic marketing claims.`,
+          recommended_action: `Turn ${praiseThemes[0]} into listing bullets, images, comparison copy, or ad hooks.`,
+          confidence: Math.min(86, 46 + praiseThemes.length * 8)
+        },
+        {
+          card_type: "next_seller_move",
+          title: "Next seller move",
+          finding: `The clearest move is to protect ${praiseThemes[0]} while fixing ${complaintThemes[0]}.`,
+          review_evidence_theme: [...complaintThemes.slice(0, 2), ...praiseThemes.slice(0, 2)].join("; "),
+          seller_meaning: `This balances product improvement with stronger sales positioning.`,
+          recommended_action: `Update the offer around ${praiseThemes[0]}, then reduce buyer doubt around ${complaintThemes[0]}.`,
+          confidence: Math.min(84, 45 + complaintThemes.length * 5 + praiseThemes.length * 5)
+        }
       ],
       customer_satisfaction_score: productScore
     },

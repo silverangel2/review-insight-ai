@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/Badge";
 import { setClientPlan } from "@/lib/clientAccount";
-import { CURRENCY_LABELS, SUPPORTED_CURRENCIES, isPlanCurrencyConfigured, localizedPriceNote, pricingLabelForPlan, type SupportedCurrency } from "@/lib/pricing";
+import { CURRENCY_LABELS, SUPPORTED_CURRENCIES, localizedPriceNote, pricingLabelForPlan, type SupportedCurrency } from "@/lib/pricing";
 import type { SubscriptionPlan } from "@/lib/types";
 
 const tiers: Array<{
@@ -100,7 +100,7 @@ export function PricingCards() {
           const currencyReady = tier.plan === "free_buyer" || Boolean(paymentLinks[tier.plan]);
           return (
           <article key={tier.name} className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-            <Badge tone={tier.plan === "seller_pro" ? "good" : tier.plan === "free_buyer" ? "neutral" : "info"}>
+            <Badge tone={tier.plan === "seller_pro" || tier.plan === "seller_starter" ? "good" : tier.plan === "free_buyer" ? "neutral" : "info"}>
               {tier.plan === "free_buyer" ? "Starter" : "Subscription"}
             </Badge>
             <h2 className="mt-5 text-xl font-black text-ink dark:text-white">{tier.name}</h2>

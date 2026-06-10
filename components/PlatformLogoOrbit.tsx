@@ -99,20 +99,24 @@ const carouselItems = [...platforms, ...platforms.map((platform) => ({
 
 export function PlatformLogoOrbit() {
   return (
-    <section className="relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/25 bg-[radial-gradient(circle_at_18%_12%,rgba(20,184,166,0.42),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(96,165,250,0.36),transparent_32%),radial-gradient(circle_at_52%_95%,rgba(251,191,36,0.34),transparent_34%),linear-gradient(135deg,#06111f_0%,#123b70_42%,#072033_100%)] px-6 py-10 text-white shadow-[0_40px_130px_rgba(15,23,42,0.34)]">
+    <section className="relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/70 bg-[radial-gradient(circle_at_16%_14%,rgba(45,212,191,0.36),transparent_30%),radial-gradient(circle_at_78%_14%,rgba(96,165,250,0.34),transparent_33%),radial-gradient(circle_at_54%_94%,rgba(251,191,36,0.36),transparent_34%),radial-gradient(circle_at_92%_82%,rgba(244,114,182,0.20),transparent_26%),linear-gradient(135deg,#d6fff8_0%,#f8fdff_42%,#fff1c8_100%)] px-6 py-10 text-ink shadow-[0_40px_130px_rgba(35,86,163,0.16)]">
       <style jsx>{`
-        @keyframes riCarouselPan { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        @keyframes riCarouselPan {
+          0% { transform: translateX(0) rotateZ(-0.6deg); }
+          50% { transform: translateX(-25%) rotateZ(0.7deg); }
+          100% { transform: translateX(-50%) rotateZ(-0.6deg); }
+        }
         @keyframes riRandomFlipA {
-          0%, 12%, 100% { transform: perspective(1050px) rotateY(-18deg) rotateX(5deg) translateY(0) scale(1); }
-          28% { transform: perspective(1050px) rotateY(8deg) rotateX(-2deg) translateY(-16px) scale(1.025); }
-          48% { transform: perspective(1050px) rotateY(178deg) rotateX(2deg) translateY(-6px) scale(1.01); }
-          66% { transform: perspective(1050px) rotateY(12deg) rotateX(-4deg) translateY(9px) scale(0.99); }
+          0%, 12%, 100% { transform: perspective(1050px) rotateY(-18deg) rotateX(5deg) rotateZ(-2deg) translateY(0) scale(1); }
+          28% { transform: perspective(1050px) rotateY(8deg) rotateX(-2deg) rotateZ(1.4deg) translateY(-16px) scale(1.025); }
+          48% { transform: perspective(1050px) rotateY(178deg) rotateX(2deg) rotateZ(-1deg) translateY(-6px) scale(1.01); }
+          66% { transform: perspective(1050px) rotateY(12deg) rotateX(-4deg) rotateZ(2deg) translateY(9px) scale(0.99); }
         }
         @keyframes riRandomFlipB {
-          0%, 18%, 100% { transform: perspective(1050px) rotateY(16deg) rotateX(4deg) translateY(0) scale(1); }
-          36% { transform: perspective(1050px) rotateY(-10deg) rotateX(-3deg) translateY(12px) scale(0.995); }
-          57% { transform: perspective(1050px) rotateY(-178deg) rotateX(2deg) translateY(-18px) scale(1.025); }
-          78% { transform: perspective(1050px) rotateY(-8deg) rotateX(5deg) translateY(-5px) scale(1.01); }
+          0%, 18%, 100% { transform: perspective(1050px) rotateY(16deg) rotateX(4deg) rotateZ(1.8deg) translateY(0) scale(1); }
+          36% { transform: perspective(1050px) rotateY(-10deg) rotateX(-3deg) rotateZ(-2deg) translateY(12px) scale(0.995); }
+          57% { transform: perspective(1050px) rotateY(-178deg) rotateX(2deg) rotateZ(1.2deg) translateY(-18px) scale(1.025); }
+          78% { transform: perspective(1050px) rotateY(-8deg) rotateX(5deg) rotateZ(-1.6deg) translateY(-5px) scale(1.01); }
         }
         @keyframes riGlassSweep {
           0%, 58%, 100% { transform: translateX(-150%) skewX(-18deg); opacity: 0; }
@@ -123,7 +127,7 @@ export function PlatformLogoOrbit() {
         @keyframes riOrbFloatTwo { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-70px,60px,0) scale(1.08); } }
         @keyframes riOrbFloatThree { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(40px,80px,0) scale(1.14); } }
         @keyframes riCenterFloat { 0%, 100% { transform: translate(-50%, -50%) translateY(0) scale(1); } 50% { transform: translate(-50%, -50%) translateY(-8px) scale(1.025); } }
-        .ri-carousel-track { animation: riCarouselPan 30s linear infinite; will-change: transform; }
+        .ri-carousel-track { animation: riCarouselPan 30s linear infinite; transform-origin: center; will-change: transform; }
         .ri-carousel-track:hover { animation-play-state: paused; }
         .ri-flip-shell { perspective: 1050px; }
         .ri-glass-card { position: relative; transform-style: preserve-3d; will-change: transform; }
@@ -135,23 +139,23 @@ export function PlatformLogoOrbit() {
       `}</style>
 
       <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,.36)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.36)_1px,transparent_1px)] [background-size:38px_38px]" />
-      <div className="absolute left-[5%] top-[8%] h-80 w-80 rounded-full bg-cyan-300/30 blur-3xl" style={{ animation: "riOrbFloatOne 13s ease-in-out infinite" }} />
-      <div className="absolute right-[4%] top-[10%] h-96 w-96 rounded-full bg-blue-400/28 blur-3xl" style={{ animation: "riOrbFloatTwo 15s ease-in-out infinite" }} />
-      <div className="absolute bottom-[-14%] left-[20%] h-96 w-96 rounded-full bg-amber/26 blur-3xl" style={{ animation: "riOrbFloatThree 17s ease-in-out infinite" }} />
+      <div className="absolute left-[5%] top-[8%] h-80 w-80 rounded-full bg-cyan-300/38 blur-3xl" style={{ animation: "riOrbFloatOne 13s ease-in-out infinite" }} />
+      <div className="absolute right-[4%] top-[10%] h-96 w-96 rounded-full bg-blue-400/34 blur-3xl" style={{ animation: "riOrbFloatTwo 15s ease-in-out infinite" }} />
+      <div className="absolute bottom-[-14%] left-[20%] h-96 w-96 rounded-full bg-amber/34 blur-3xl" style={{ animation: "riOrbFloatThree 17s ease-in-out infinite" }} />
       <div className="absolute bottom-[4%] right-[18%] h-72 w-72 rounded-full bg-fuchsia-400/18 blur-3xl" style={{ animation: "riOrbFloatOne 18s ease-in-out infinite reverse" }} />
 
       <div className="relative z-20 mx-auto max-w-3xl text-center">
-        <p className="mx-auto inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-100 backdrop-blur-xl">
+        <p className="mx-auto inline-flex rounded-full border border-white/70 bg-white/60 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-ocean shadow-sm backdrop-blur-lg">
           Marketplace intelligence
         </p>
         <h2 className="mt-5 text-4xl font-black tracking-tight sm:text-6xl">
-          Review sources move through one AI scan core.
+          All reviews. One AI scan. Clear buying answers.
         </h2>
       </div>
 
       <div className="relative z-10 mt-12 overflow-hidden py-16">
-        <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-28 bg-gradient-to-r from-[#06111f] to-transparent" />
-        <div className="pointer-events-none absolute right-0 top-0 z-20 h-full w-28 bg-gradient-to-l from-[#072033] to-transparent" />
+        <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-28 bg-gradient-to-r from-[#e4fffb] to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 z-20 h-full w-28 bg-gradient-to-l from-[#fff1cd] to-transparent" />
         <div className="ri-carousel-track flex w-max gap-8 px-8">
           {carouselItems.map((platform, index) => (
             <div key={`${platform.name}-${index}`} className="ri-flip-shell h-56 w-48 shrink-0">
@@ -164,11 +168,11 @@ export function PlatformLogoOrbit() {
                   <div className="absolute inset-[1px] rounded-[1.95rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.05)_48%,rgba(255,255,255,0.14))]" />
                   <div className="ri-card-shine absolute inset-0 z-[3] rounded-[2rem] bg-[linear-gradient(115deg,transparent_10%,rgba(255,255,255,0.52)_33%,transparent_58%)]" style={{ animationDelay: platform.shineDelay }} />
                   <div className="relative z-[4] flex h-full flex-col items-center justify-center">
-                    <div className="grid h-20 w-20 place-items-center rounded-3xl border border-white/30 bg-white/18 text-4xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_18px_60px_rgba(0,0,0,0.25)]">
+                    <div className="grid h-20 w-20 place-items-center rounded-3xl border border-white/70 shadow-[0_18px_55px_rgba(15,23,42,0.12)] bg-white/18 text-4xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_18px_60px_rgba(0,0,0,0.25)]">
                       {platform.mark}
                     </div>
                     <p className="mt-5 text-lg font-black">{platform.name}</p>
-                    <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100/75">{platform.sub}</p>
+                    <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-900/75">{platform.sub}</p>
                   </div>
                 </div>
 
@@ -176,10 +180,10 @@ export function PlatformLogoOrbit() {
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(45,212,191,0.30),transparent_34%),radial-gradient(circle_at_80%_85%,rgba(251,191,36,0.20),transparent_30%)]" />
                   <div className="relative z-[4] flex h-full flex-col justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">Example review signal</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-900">Review signal</p>
                       <p className="mt-4 text-sm font-black leading-6 text-white">{platform.review}</p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-100">
+                    <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-900">
                       AI extracts risk + buyer signal
                     </div>
                   </div>
@@ -193,7 +197,7 @@ export function PlatformLogoOrbit() {
           <div className="absolute inset-0 rounded-[2.25rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.34),rgba(255,255,255,0.06))]" />
           <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_54%,#ffb238)] text-3xl font-black text-white shadow-glow">RI</div>
           <p className="relative mt-4 text-sm font-black tracking-[0.22em]">REVIEWINTEL</p>
-          <p className="relative mt-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/80">AI scan core</p>
+          <p className="relative mt-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-900/80">AI scan core</p>
         </div>
       </div>
     </section>

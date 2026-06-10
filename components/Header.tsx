@@ -1,41 +1,85 @@
-import Link from "next/link";
-import { AccountNav } from "@/components/AccountNav";
-import { ThemeToggle } from "@/components/ThemeToggle";
+"use client";
 
-const navItems = [
-  { href: "/analyze", label: "Analyzer" },
-  { href: "/compare", label: "Compare" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/advertise", label: "Advertise" },
-  { href: "/reviews", label: "Reviews" },
-  { href: "/about", label: "About" }
-];
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { getClientAccount, logoutEverywhere } from "@/lib/clientAccount";
 
 export function Header() {
+  const [account, setAccount] = useState<ReturnType<typeof getClientAccount> | null>(null);
+
+  const isLoggedIn = Boolean(
+    account?.email ||
+    account?.role === "admin" ||
+    account?.role === "seller" ||
+    account?.plan === "seller_pro" ||
+    account?.plan === "seller_starter" ||
+    account?.plan === "buyer_pro"
+  );
+
+  useEffect(() => {
+    const refresh = () => setAccount(getClientAccount());
+    refresh();
+
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  const authenticatedAccount = isLoggedIn ? account : null;
+
+  const planLabel =
+    authenticatedAccount?.plan === "seller_pro"
+      ? "Seller Pro"
+      : authenticatedAccount?.plan === "seller_starter"
+        ? "Seller Premium"
+        : authenticatedAccount?.plan === "free_buyer"
+          ? ""
+          : authenticatedAccount?.plan
+            ? "Premium"
+            : "";
+
   return (
-    <header className="sticky top-0 z-30 border-b border-cyan-100/70 bg-white/88 shadow-[0_12px_40px_rgba(8,183,168,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_52%,#ffb238)] text-sm font-black text-white shadow-glow">RI</span>
-          <span className="bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] bg-clip-text text-base font-black tracking-tight text-transparent dark:from-white dark:via-cyan-100 dark:to-amber">ReviewIntel</span>
+    <header className="sticky top-0 z-50 border-b border-white/50 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
+      <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex shrink-0 items-center gap-3 whitespace-nowrap">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] text-sm font-black text-white shadow-soft">
+            RI
+          </span>
+          <span className="bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] bg-clip-text text-lg font-black tracking-tight text-transparent dark:from-white dark:via-cyan-100 dark:to-amber">
+            ReviewIntel
+          </span>
         </Link>
-        <nav className="hidden items-center gap-7 text-sm font-medium text-slate-600 dark:text-slate-300 lg:flex">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className="transition hover:text-ink dark:hover:text-white">
-              {item.label}
+
+        <div className="flex shrink-0 items-center justify-end gap-2 whitespace-nowrap">
+          {planLabel ? (
+            <Link
+              href="/account"
+              className="hidden rounded-2xl border border-line px-4 py-2.5 text-xs font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:text-white sm:inline-flex"
+            >
+              {planLabel}
             </Link>
-          ))}
-        </nav>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <Link
-            href="/analyze"
-            className="hidden rounded-xl bg-[linear-gradient(135deg,#2356a3,#08b7a8)] px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:scale-[1.02] hover:shadow-glow sm:inline-flex"
-          >
-            Analyze
-          </Link>
-          <AccountNav />
+          ) : null}
+
+          {authenticatedAccount ? (
+            <button
+              type="button"
+              onClick={() => void logoutEverywhere()}
+              className="rounded-2xl bg-ink px-4 py-2.5 text-xs font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink sm:text-sm"
+            >
+              Log out
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-2xl bg-ink px-4 py-2.5 text-xs font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink sm:text-sm"
+            >
+              Log in
+            </Link>
+          )}
         </div>
       </div>
     </header>

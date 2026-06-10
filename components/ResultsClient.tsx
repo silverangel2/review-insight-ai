@@ -20,6 +20,36 @@ export function ResultsClient() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [accountPlan, setAccountPlan] = useState<SubscriptionPlan | null>(null);
 
+  const customerNav = (
+    <div className="mb-5 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => window.history.back()}
+        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+      >
+        ← Back
+      </button>
+      <Link
+        href="/dashboard/customer"
+        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+      >
+        Dashboard
+      </Link>
+      <Link
+        href="/analyze"
+        className="rounded-full bg-ink px-4 py-2 text-xs font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean dark:bg-white dark:text-ink"
+      >
+        Scan
+      </Link>
+      <Link
+        href="/account"
+        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+      >
+        Account
+      </Link>
+    </div>
+  );
+
   useEffect(() => {
     try {
       const account = getClientAccount();
@@ -38,7 +68,9 @@ export function ResultsClient() {
 
   if (!result) {
     return (
-      <section className="ri-reveal-pop relative overflow-hidden rounded-[2rem] border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <>
+        {customerNav}
+        <section className="ri-reveal-pop relative overflow-hidden rounded-[2rem] border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-slate-950">
         <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-teal via-ocean to-amber" />
         <Badge tone="warn">No scan loaded</Badge>
         <h1 className="mx-auto mt-4 max-w-2xl text-4xl font-black text-ink dark:text-white">Run a real analysis to see ReviewIntel results.</h1>
@@ -49,15 +81,22 @@ export function ResultsClient() {
           Run AI Analysis
         </Link>
       </section>
+      </>
     );
   }
 
   const isSellerAudience = result.meta.audience === "seller" || result.meta.audience === "both";
-  const sellerPlanLabel = accountPlan === "seller_pro" ? "Seller Pro" : accountPlan === "seller_starter" ? "Seller Starter" : "Seller Premium";
+  const sellerPlanLabel =
+    accountPlan === "seller_pro"
+      ? "Seller Pro"
+      : accountPlan === "seller_starter"
+        ? "Seller Premium"
+        : "Seller Premium";
   const resultHeading = isSellerAudience ? `${sellerPlanLabel} intelligence` : "Shopper quick answer";
 
   return (
     <div className="space-y-5">
+      {customerNav}
       <section className="ri-reveal-pop relative overflow-hidden rounded-[1.6rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
         <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-b from-teal via-ocean to-amber" />
         <div className="flex flex-col gap-4 pl-2 lg:flex-row lg:items-center lg:justify-between">

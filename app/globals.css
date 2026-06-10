@@ -914,3 +914,105 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+@keyframes reviewintel-soft-flip {
+  0%, 38% {
+    transform: rotateY(0deg) translateY(0);
+    opacity: 1;
+  }
+  45%, 55% {
+    transform: rotateY(90deg) translateY(-2px);
+    opacity: 0.35;
+  }
+  62%, 100% {
+    transform: rotateY(0deg) translateY(0);
+    opacity: 1;
+  }
+}
+
+.reviewintel-flip-card {
+  animation: reviewintel-soft-flip 8s ease-in-out infinite;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reviewintel-flip-card {
+    animation: none;
+  }
+}
+
+
+/* ReviewIntel premium scan animation */
+@keyframes reviewintel-orb-vibrate {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); filter: saturate(1.08); }
+  20% { transform: translate3d(1px, -1px, 0) scale(1.015); }
+  40% { transform: translate3d(-1px, 1px, 0) scale(0.995); }
+  60% { transform: translate3d(1px, 1px, 0) scale(1.02); }
+  80% { transform: translate3d(-1px, -1px, 0) scale(1.005); }
+}
+
+@keyframes reviewintel-orb-glow {
+  0%, 100% { box-shadow: 0 0 38px rgba(8,183,168,0.38), inset 0 0 28px rgba(255,255,255,0.34); }
+  50% { box-shadow: 0 0 78px rgba(8,183,168,0.68), inset 0 0 42px rgba(255,255,255,0.46); }
+}
+
+@keyframes reviewintel-ring-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes reviewintel-bar-flow {
+  0% { transform: translateX(-100%); opacity: 0.2; }
+  35% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0.15; }
+}
+
+.reviewintel-scan-orb {
+  animation: reviewintel-orb-vibrate 0.9s ease-in-out infinite, reviewintel-orb-glow 2.4s ease-in-out infinite;
+}
+
+.reviewintel-scan-ring {
+  animation: reviewintel-ring-sweep 2.2s linear infinite;
+}
+
+.reviewintel-scan-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent);
+  animation: reviewintel-bar-flow 1.6s ease-in-out infinite;
+}
+
+
+/* ReviewIntel scan: only control appearance of circular Apple Watch update bars */
+.ri-watch-progress-controlled {
+  animation: none !important;
+}
+
+.ri-watch-progress-controlled .ri-watch-progress-segment-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.ri-watch-progress-controlled .ri-watch-progress-segment-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* ReviewIntel scan: circular Apple Watch update bars visibility only */
+.ri-watch-progress-controlled {
+  animation: none !important;
+}
+
+.ri-watch-progress-controlled .ri-watch-progress-segment-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.ri-watch-progress-controlled .ri-watch-progress-segment-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+}

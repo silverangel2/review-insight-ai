@@ -1,4 +1,5 @@
 import type { ReviewAnalysis } from "./types";
+import { cleanReviewInsightText, isLowQualityReviewInsight, sellerFriendlyTheme } from "./insightSanitizer";
 
 const POSITIVE_TERMS = [
   "great",
@@ -72,12 +73,50 @@ const STOP_WORDS = new Set([
   "ebay"
 ]);
 
+const THEME_RULES: Array<{ label: string; pattern: RegExp }> = [
+  { label: "fit and compatibility clarity", pattern: /\b(fit|fits|fitting|size|sizing|compatible|compatibility|model|case|port|cutout)\b/i },
+  { label: "material quality and durability", pattern: /\b(quality|durable|durability|sturdy|material|cheap|weak|broke|broken|stopped|scratch|scratches)\b/i },
+  { label: "packaging and unboxing expectations", pattern: /\b(packaging|package|box|plastic|wrap|wrapped|bagging|unboxing)\b/i },
+  { label: "shipping and delivery reliability", pattern: /\b(shipping|delivery|late|arrived|damaged|carrier)\b/i },
+  { label: "post-purchase support and returns", pattern: /\b(support|service|seller|refund|return|replacement|warranty|contact)\b/i },
+  { label: "price-to-quality value", pattern: /\b(price|value|worth|budget|affordable|expensive|cheap|cost|quality-price|qualité-prix)\b/i },
+  { label: "setup and instruction clarity", pattern: /\b(instruction|instructions|manual|setup|install|installation|easy|difficult|hard)\b/i },
+  { label: "included accessories and bundle clarity", pattern: /\b(adapter|included|missing|bundle|accessory|accessories|keyboard|template)\b/i },
+  { label: "product performance after real use", pattern: /\b(works|performance|protect|protection|comfort|battery|leak|leaking|motor|daily|use)\b/i }
+];
+
 function splitSentences(text: string) {
   return text
     .replace(/\s+/g, " ")
     .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
+    .map((sentence) => cleanReviewInsightText(sentence))
+    .filter((sentence) => sentence && !isLowQualityReviewInsight(sentence));
+}
+
+function themeFromText(value: string) {
+  const clean = cleanReviewInsightText(value);
+  const sellerTheme = sellerFriendlyTheme(clean, "");
+  if (sellerTheme) return sellerTheme;
+  for (const rule of THEME_RULES) {
+    if (rule.pattern.test(clean)) return rule.label;
+  }
+  return clean;
+}
+
+function themeList(sentences: string[], terms: string[], fallback: string, max = 5) {
+  const seen = new Set<string>();
+  const themes = sentences
+    .filter((sentence) => includesAny(sentence, terms))
+    .map(themeFromText)
+    .filter((theme) => theme && !isLowQualityReviewInsight(theme))
+    .filter((theme) => {
+      const key = theme.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  return (themes.length ? themes : [fallback]).slice(0, max);
 }
 
 function includesAny(sentence: string, terms: string[]) {
@@ -87,7 +126,10 @@ function includesAny(sentence: string, terms: string[]) {
 
 function pick(sentences: string[], terms: string[], fallback: string) {
   const matches = sentences.filter((sentence) => includesAny(sentence, terms));
-  return (matches.length ? matches : [fallback]).slice(0, 5);
+  const cleaned = (matches.length ? matches : [fallback])
+    .map((sentence) => cleanReviewInsightText(sentence))
+    .filter((sentence) => sentence && !isLowQualityReviewInsight(sentence));
+  return (cleaned.length ? cleaned : [fallback]).slice(0, 5);
 }
 
 function topKeywords(text: string) {
@@ -125,12 +167,13 @@ function normalizeReviewCountKey(value: string) {
 }
 
 function isCountableReviewLine(line: string) {
-  const clean = line.trim();
+  const clean = cleanReviewInsightText(line, line.trim());
   const lower = clean.toLowerCase();
   if (!clean) return false;
   if (/^(rating|stars?|score|review|reviews?|review text|review body|comment|comments?|feedback|body|content|title|headline|date|user|customer|reviewer|asin|sku|product|variant|verified|helpful|country|marketplace)(\s*[,|\t]|$)/i.test(clean)) return false;
   if (/^[\d\s.,$%:/#-]+$/.test(clean) && clean.length < 28) return false;
   if (/^(yes|no|true|false|null|n\/a|na)$/i.test(lower)) return false;
+  if (isLowQualityReviewInsight(clean)) return false;
   return normalizeReviewCountKey(clean).length > 20;
 }
 
@@ -200,6 +243,10 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
   const packagingIssues = pick(sentences, shippingHints, "No clear shipping or packaging pattern was detected.");
   const durabilityIssues = pick(sentences, ["stopped", "broke", "broken", "durable", "weak", "lasted"], "Durability evidence is limited in this sample.");
   const supportIssues = pick(sentences, ["support", "service", "seller", "warranty", "replacement", "response"], "Customer support evidence is limited in this sample.");
+  const complaintThemes = themeList(sentences, [...complaintHints, "fit", "size", "compatibility", "plastic", "packaging"], "Not enough repeated complaint evidence.");
+  const praiseThemes = themeList(sentences, praisedHints, "Not enough repeated praise evidence.");
+  const supportThemes = themeList(sentences, [...shippingHints, ...refundHints, "support", "warranty", "replacement"], "Support and return evidence is limited.");
+  const requestThemes = themeList(sentences, ["wish", "need", "could", "should", "feature", "version", "include", "adapter"], "No clear feature request theme was detected.");
   const productScore = Math.max(0, Math.min(100, Math.round(55 + sentiment * 35 + Math.min(10, reviews.length / 1200))));
   const keywordAnalysis = keywords.slice(0, 8).map((keyword) => ({
     keyword,
@@ -215,45 +262,101 @@ export function analyzeReviewsLocally(reviews: string): ReviewAnalysis {
       " customer pattern. ReviewIntel detected the strongest praise, complaint, value, refund-risk, and seller action signals from the provided text.",
     positive_points: positives,
     negative_points: negatives,
-    common_complaints: pick(sentences, complaintHints, "No strong repeated complaint pattern was detected in the pasted sample."),
-    praised_features: pick(sentences, praisedHints, "No single praised feature dominates the pasted sample."),
-    quality_concerns: pick(sentences, ["quality", "cheap", "broken", "defect", "stopped", "weak"], "Quality concern evidence is limited in the pasted sample."),
-    product_quality_concerns: pick(sentences, ["quality", "cheap", "broken", "defect", "stopped", "weak"], "Quality concern evidence is limited in the pasted sample."),
+    common_complaints: complaintThemes,
+    praised_features: praiseThemes,
+    quality_concerns: themeList(sentences, ["quality", "cheap", "broken", "defect", "stopped", "weak", "durability"], "Quality concern evidence is limited in the pasted sample."),
+    product_quality_concerns: themeList(sentences, ["quality", "cheap", "broken", "defect", "stopped", "weak", "durability"], "Quality concern evidence is limited in the pasted sample."),
     value_for_money_opinion: valueText,
     buyer_recommendation: recommendation,
     customer_recommendation: recommendation,
     product_score: productScore,
     fake_review_indicators: [
-      "Local fallback cannot reliably detect fake-review patterns.",
-      "Use OpenAI vision/text analysis for stronger review authenticity signals."
+      "Local fallback gives only a directional authenticity signal.",
+      "A live AI pass is recommended for stronger fake-review pattern detection."
     ],
     seller_insights: {
-      main_customer_pain_points: pick(sentences, NEGATIVE_TERMS, "Collect more reviews to identify repeatable pain points."),
-      complaint_clusters: pick(sentences, complaintHints, "No strong complaint cluster was detected."),
+      main_customer_pain_points: complaintThemes,
+      complaint_clusters: complaintThemes,
       product_improvement_recommendations: [
-        "Fix the highest-frequency defect or expectation mismatch before increasing ad spend.",
-        "Add a listing section that directly answers the most repeated setup, size, quality, or compatibility concern.",
-        "Create a support macro for the top refund-risk complaint so customer replies stay consistent."
+        `Fix or clearly explain ${complaintThemes[0]} before increasing ad spend.`,
+        `Add proof around ${praiseThemes[0]} so shoppers understand why the product is worth buying.`,
+        `Create a support macro for ${supportThemes[0]} so customer replies stay consistent.`
       ],
       listing_improvement_suggestions: [
-        "Turn the top praise theme into the first benefit bullet, using customer wording rather than generic claims.",
-        "Add a before-you-buy note for the strongest limitation found in complaints.",
-        "Show size, material, compatibility, and what-is-included details near the top of the listing."
+        `Move ${praiseThemes[0]} into the first benefit bullet using clean customer-backed wording.`,
+        `Add a before-you-buy note for ${complaintThemes[0]}.`,
+        "Show size, material, compatibility, included items, and support policy near the top of the listing."
       ],
-      packaging_shipping_issues: packagingIssues,
-      shipping_complaint_detection: packagingIssues,
+      packaging_shipping_issues: supportThemes,
+      shipping_complaint_detection: supportThemes,
       sentiment_trends: ["Local fallback does not have dated review trend data. Upload batches by date for trend analysis."],
-      refund_risk_issues: pick(sentences, refundHints, "Refund risk appears low or unclear from this sample."),
-      feature_requests: featureRequests,
+      refund_risk_issues: supportThemes,
+      feature_requests: requestThemes,
       competitor_opportunity_insights: [
-        "Position against competitors by owning the praised strength and directly answering the most repeated objection.",
-        "If competitors hide the same weakness, make your fix or warranty promise visible in images and bullets.",
+        `Position against competitors by owning ${praiseThemes[0]} while directly answering ${complaintThemes[0]}.`,
+        `If competitors hide ${complaintThemes[0]}, make your fix, proof, or warranty promise visible in images and bullets.`,
         "Use praise themes as ad copy only when the product consistently delivers them across reviews."
       ],
       seller_recommendations: [
-        "Start a weekly review operations loop: complaint owner, fix status, listing update, and follow-up metric.",
-        "Escalate refund-risk language to product and support before increasing paid traffic.",
-        "Track whether the next review batch mentions the same defect after the listing or product fix."
+        `Start with ${complaintThemes[0]}: assign an owner, fix status, listing update, and follow-up metric.`,
+        `Protect revenue by answering ${supportThemes[0]} before checkout.`,
+        `Track whether the next review batch still mentions ${complaintThemes[0]} after the listing or product fix.`
+      ],
+      seller_action_cards: [
+        {
+          card_type: "competitor_edge",
+          title: "What customers respond to",
+          finding: `Reviews show buyer response around ${praiseThemes[0]}.`,
+          review_evidence_theme: praiseThemes.slice(0, 3).join("; "),
+          seller_meaning: `This shows what buyers may already value and what competitors may also use as proof.`,
+          recommended_action: `Use ${praiseThemes[0]} as a proof point only if your product consistently delivers it.`,
+          confidence: Math.min(85, 45 + praiseThemes.length * 8)
+        },
+        {
+          card_type: "your_product_risk",
+          title: "What may hurt conversion",
+          finding: `Reviews show risk around ${complaintThemes[0]}.`,
+          review_evidence_theme: complaintThemes.slice(0, 3).join("; "),
+          seller_meaning: `This can create buyer hesitation, lower trust, refund risk, or weaker conversion.`,
+          recommended_action: `Fix, clarify, or add proof around ${complaintThemes[0]} before increasing paid traffic.`,
+          confidence: Math.min(90, 50 + complaintThemes.length * 8)
+        },
+        {
+          card_type: "attack_opportunity",
+          title: "Weakness to attack",
+          finding: `A repeated complaint theme is ${complaintThemes[0]}.`,
+          review_evidence_theme: complaintThemes.slice(0, 3).join("; "),
+          seller_meaning: `If competitors have the same weakness, this becomes a positioning opportunity.`,
+          recommended_action: `Show how your product handles ${complaintThemes[0]} better, but only if the claim is true.`,
+          confidence: Math.min(82, 42 + complaintThemes.length * 7)
+        },
+        {
+          card_type: "fix_first",
+          title: "Fix first",
+          finding: `${complaintThemes[0]} appears to be the first issue to investigate.`,
+          review_evidence_theme: complaintThemes.slice(0, 3).join("; "),
+          seller_meaning: `The most repeated complaint should be fixed before pushing more sales traffic.`,
+          recommended_action: `Assign an owner, update the product or listing, and track whether future reviews still mention ${complaintThemes[0]}.`,
+          confidence: Math.min(88, 48 + complaintThemes.length * 8)
+        },
+        {
+          card_type: "advertise_this",
+          title: "What to advertise",
+          finding: `Positive review themes point to ${praiseThemes[0]}.`,
+          review_evidence_theme: praiseThemes.slice(0, 3).join("; "),
+          seller_meaning: `Buyer-approved language is stronger than generic marketing claims.`,
+          recommended_action: `Turn ${praiseThemes[0]} into listing bullets, images, comparison copy, or ad hooks.`,
+          confidence: Math.min(86, 46 + praiseThemes.length * 8)
+        },
+        {
+          card_type: "next_seller_move",
+          title: "Next seller move",
+          finding: `The clearest move is to protect ${praiseThemes[0]} while fixing ${complaintThemes[0]}.`,
+          review_evidence_theme: [...complaintThemes.slice(0, 2), ...praiseThemes.slice(0, 2)].join("; "),
+          seller_meaning: `This balances product improvement with stronger sales positioning.`,
+          recommended_action: `Update the offer around ${praiseThemes[0]}, then reduce buyer doubt around ${complaintThemes[0]}.`,
+          confidence: Math.min(84, 45 + complaintThemes.length * 5 + praiseThemes.length * 5)
+        }
       ],
       customer_satisfaction_score: productScore
     },

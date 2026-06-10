@@ -1,4 +1,8 @@
 import type { BuyerRecommendation, CustomerRecommendation, ReviewAnalysis, SellerInsights } from "@/lib/types";
+import {
+  cleanReviewInsightText,
+  sellerFriendlyTheme
+} from "@/lib/insightSanitizer";
 
 export const NOT_ENOUGH_REVIEW_DATA = "Not enough review data.";
 
@@ -164,7 +168,7 @@ export function shopperVerdictCopy(verdict: CustomerRecommendation, score?: numb
 }
 
 function usefulText(value: string | undefined) {
-  const text = value?.trim();
+  const text = cleanReviewInsightText(value);
   if (!text) return "";
   if (text.length < 8) return "";
   return text;
@@ -231,7 +235,7 @@ function canonicalTopic(text: string | undefined) {
 }
 
 function cleanIssueLabel(text: string | undefined) {
-  const value = usefulText(text);
+  const value = sellerFriendlyTheme(text, usefulText(text));
   if (!value) return NOT_ENOUGH_REVIEW_DATA;
   const lower = value.toLowerCase();
   if (lower.includes("plastic") || lower.includes("wrap") || lower.includes("bag")) return "Excess plastic packaging";
@@ -380,7 +384,9 @@ function dedupeInsightList(items: Array<string | undefined>, fallback: string[] 
   const cleaned: string[] = [];
 
   for (const item of [...items, ...fallback]) {
-    const text = usefulText(item);
+    const fullText = cleanReviewInsightText(item, "");
+    const themeText = sellerFriendlyTheme(item, "");
+    const text = fullText && !isWeakText(fullText) && fullText.split(/\s+/).length > 4 ? fullText : themeText;
     if (!text || isWeakText(text)) continue;
     const normalized = text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     const topic = canonicalTopic(text);
@@ -406,9 +412,10 @@ function buildSectionSpecificSellerInsights(
     NOT_ENOUGH_REVIEW_DATA
   );
   const complaintLabel = cleanIssueLabel(topComplaint);
-  const topPraise = firstUseful([...(analysis.praised_features ?? []), ...(analysis.positive_points ?? [])], NOT_ENOUGH_REVIEW_DATA);
-  const topFeatureRequest = firstUseful([...(analysis.feature_requests ?? []), ...(baseSellerInsights.feature_requests ?? [])], NOT_ENOUGH_REVIEW_DATA);
-  const topSupport = firstUseful([...(analysis.support_issues ?? []), ...(baseSellerInsights.refund_risk_issues ?? [])], NOT_ENOUGH_REVIEW_DATA);
+  const topPraise = sellerFriendlyTheme(firstUseful([...(analysis.praised_features ?? []), ...(analysis.positive_points ?? [])], "the strongest real customer benefit"), "the strongest real customer benefit");
+  const praiseProof = topPraise === "the strongest real customer benefit" ? "the strongest real customer benefit" : topPraise;
+  const topFeatureRequest = sellerFriendlyTheme(firstUseful([...(analysis.feature_requests ?? []), ...(baseSellerInsights.feature_requests ?? [])], NOT_ENOUGH_REVIEW_DATA), NOT_ENOUGH_REVIEW_DATA);
+  const topSupport = sellerFriendlyTheme(firstUseful([...(analysis.support_issues ?? []), ...(baseSellerInsights.refund_risk_issues ?? [])], NOT_ENOUGH_REVIEW_DATA), NOT_ENOUGH_REVIEW_DATA);
   const sentimentLabel = sentimentLabelFromPercent(scores.sentimentPercent).toLowerCase();
   const productVsPackaging = scores.packagingDominant && scores.complaintSeverity <= 50;
 
@@ -448,7 +455,9 @@ function buildSectionSpecificSellerInsights(
     productVsPackaging
       ? "Advertise fit and protection, but avoid eco-friendly claims until packaging is improved."
       : "Clarify the main limitation before checkout so shoppers are not surprised.",
-    `Move the strongest proof point, ${topPraise}, higher in the listing.`,
+    praiseProof === "the strongest real customer benefit"
+      ? "Move the strongest real customer benefit higher in the listing once enough clean review evidence is available."
+      : `Move customer proof about ${praiseProof} higher in the listing with photos, benefit bullets, and clear expectation language.`,
     "Show product scale, contents, limitations, and support policy before checkout."
   ], baseSellerInsights.listing_improvement_suggestions, 6);
   const packagingIssues = dedupeInsightList([
@@ -472,9 +481,9 @@ function buildSectionSpecificSellerInsights(
   ], baseSellerInsights.feature_requests, 5);
   const positioning = dedupeInsightList([
     productVsPackaging
-      ? `Position around ${topPraise}; treat sustainability as an improvement path, not a current promise.`
+      ? `Position around ${praiseProof}; treat sustainability as an improvement path, not a current promise.`
       : scores.valueScore >= 70
-        ? `Position around value and ${topPraise}, while directly answering the main concern.`
+        ? `Position around value and ${praiseProof}, while directly answering the main concern.`
         : "Avoid overclaiming value until the leading complaint is handled.",
     `Customers currently perceive the product through a ${sentimentLabel} sentiment lens.`
   ], baseSellerInsights.competitor_opportunity_insights, 5);
@@ -482,7 +491,7 @@ function buildSectionSpecificSellerInsights(
     productVsPackaging
       ? "Today: keep the product story positive, then reduce unnecessary plastic before asking for more reviews."
       : "Today: fix or explain the leading complaint in the listing and product experience.",
-    `This week: turn ${topPraise} into a proof-led listing section.`,
+    `This week: turn ${praiseProof} into a proof-led listing section with one clear claim, one photo cue, and one buyer expectation note.`,
     `Track satisfaction weekly and keep Shopper score and Seller score within the same evidence model.`
   ], baseSellerInsights.seller_recommendations, 5);
 
@@ -506,6 +515,7 @@ function buildSectionSpecificSellerInsights(
     feature_requests: featureRequests.length ? featureRequests.slice(0, 5) : [NOT_ENOUGH_REVIEW_DATA],
     competitor_opportunity_insights: scores.insufficientData ? [NOT_ENOUGH_REVIEW_DATA] : positioning.slice(0, 5),
     seller_recommendations: scores.insufficientData ? [NOT_ENOUGH_REVIEW_DATA] : sellerRecommendations.slice(0, 5),
+    seller_action_cards: analysis.seller_insights?.seller_action_cards ?? [],
     customer_satisfaction_score: scores.customerSatisfaction
   };
 }
@@ -608,6 +618,7 @@ export function reconcileAnalysisScores(analysis: ReviewAnalysis, reviewCountEst
     feature_requests: analysis.seller_insights?.feature_requests ?? analysis.feature_requests ?? [],
     competitor_opportunity_insights: analysis.seller_insights?.competitor_opportunity_insights ?? [],
     seller_recommendations: analysis.seller_insights?.seller_recommendations ?? analysis.improvement_suggestions ?? [],
+    seller_action_cards: analysis.seller_insights?.seller_action_cards ?? [],
     customer_satisfaction_score: customerSatisfaction
   };
   const scores: ScoreBundle = {

@@ -2,14 +2,159 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/Badge";
-import { formatPercent } from "@/lib/analysisScoring";
-import {
-  canUseSellerProJournal,
-  readSellerJournal,
-  readSellerJournalNotes,
-  saveSellerJournalNote,
-  type SellerJournalScan
-} from "@/lib/sellerJournal";
+import { canUseSellerProJournal, readSellerJournal, readSellerJournalNotes, saveSellerJournalNote, type SellerJournalScan } from "@/lib/sellerJournal";
+import { getClientAccount } from "@/lib/clientAccount";
+function formatPercent(value: number | undefined | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${Math.round(value)}%`;
+}
+
+function sellerCalendarText(value: string | undefined | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "No detail saved yet.";
+
+  const normalized = raw.toLowerCase();
+
+  const replacements: Array<[string, string]> = [
+    [
+      "main recurring complaint theme: fit or compatibility clarity",
+      "Buyers may be unsure if this product is the right fit for their exact need."
+    ],
+    [
+      "fit or compatibility clarity",
+      "Clarify fit, size, compatibility, and use limits before checkout."
+    ],
+    [
+      "price-to-quality value proof",
+      "Show why the product is worth the price using real customer proof."
+    ],
+    [
+      "fix first: remove or reduce the root cause behind the leading complaint",
+      "Fix first: address the concern buyers are repeating most."
+    ],
+    [
+      "use satisfaction at 71% as the operating benchmark for the next product revision",
+      "Use the current satisfaction score as the benchmark for the next improvement."
+    ],
+    [
+      "reduce the highest-severity complaint before increasing traffic",
+      "Reduce the biggest buyer concern before sending more traffic to the product."
+    ],
+    [
+      "today: fix or explain the leading complaint in the listing and product experience",
+      "Today: explain or fix the main buyer concern in the listing and product experience."
+    ],
+    [
+      "this week: turn material quality perception into a proof-led listing section with one clear claim, one photo cue, and one buyer expectation note",
+      "This week: turn the strongest quality signal into one clear listing proof point."
+    ],
+    [
+      "track satisfaction weekly and keep shopper score and seller score within the same evidence model",
+      "Track satisfaction weekly and compare it against future seller scans."
+    ],
+    [
+      "71% satisfaction: demand exists, but the leading complaint theme is limiting confidence",
+      "Demand is present, but one concern is still holding back buyer confidence."
+    ],
+    [
+      "the clearest pain point is reducing trust before purchase and after delivery",
+      "The clearest pain point is creating doubt before purchase and after delivery."
+    ],
+    [
+      "material quality perception",
+      "Buyers are paying attention to material quality."
+    ],
+    [
+      "durability and long-term reliability proof",
+      "Show stronger proof that the product lasts through real use."
+    ],
+    [
+      "setup and instruction clarity",
+      "Make setup and instructions easier to understand."
+    ],
+    [
+      "packaging and unboxing expectation",
+      "Set clearer expectations for packaging and unboxing."
+    ],
+    [
+      "perfect for international flights",
+      "Customers see this as useful for international travel."
+    ]
+  ];
+
+  for (const [oldText, newText] of replacements) {
+    if (normalized === oldText || normalized.includes(oldText)) {
+      return newText;
+    }
+  }
+
+  return raw;
+}
+
+function compactScore(value: number | undefined | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${Math.round(value)}%`;
+}
+
+function isCompareScan(scan: SellerJournalScan) {
+  const record = scan as unknown as Record<string, unknown>;
+  const type = String(record.type ?? record.kind ?? record.mode ?? "").toLowerCase();
+  return type.includes("compare") || type.includes("comparison") || Boolean(record.competitorName);
+}
+
+function normalScans(scans: SellerJournalScan[]) {
+  return scans.filter((scan) => !isCompareScan(scan));
+}
+
+function compareScanCount(scans: SellerJournalScan[]) {
+  return scans.filter(isCompareScan).length;
+}
+
+function averageProductScore(scans: SellerJournalScan[]) {
+  const scores = normalScans(scans)
+    .map((scan) => scan.productScore)
+    .filter((score): score is number => typeof score === "number" && Number.isFinite(score));
+
+  if (!scores.length) return null;
+  return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
+}
+
+
+function uniqueList(items: string[], limit = 8) {
+  const seen = new Set<string>();
+  return items
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+function productAverageRows(scans: SellerJournalScan[]) {
+  const groups = new Map<string, number[]>();
+
+  for (const scan of normalScans(scans)) {
+    const name = scan.productName || "Unnamed product";
+    if (typeof scan.productScore !== "number" || !Number.isFinite(scan.productScore)) continue;
+    const current = groups.get(name) ?? [];
+    current.push(scan.productScore);
+    groups.set(name, current);
+  }
+
+  return Array.from(groups.entries())
+    .map(([name, scores]) => ({
+      name,
+      average: Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length),
+      count: scores.length
+    }))
+    .sort((a, b) => a.average - b.average);
+}
+
+
 
 type CalendarDay = {
   date: string;
@@ -90,9 +235,93 @@ function dayMetrics(scans: SellerJournalScan[]) {
   const score = clamp(average(scans.map((scan) => scan.productScore)));
   const sentiment = average(scans.map((scan) => scan.sentimentScore));
   const progress = clamp(score * 0.7 + (sentiment + 1) * 15);
-  const complaint = scans[0]?.mainComplaint ?? "No scan";
+  const complaint = scans[0]?.mainComplaint ?? "No scan yet";
   return { score, sentiment, progress, complaint };
 }
+
+
+type SupabaseAnalysisRow = {
+  id?: string;
+  profile_email?: string | null;
+  mode?: string | null;
+  product_name?: string | null;
+  platform?: string | null;
+  product_score?: number | null;
+  recommendation?: unknown;
+  summary?: string | null;
+  analysis_json?: Record<string, unknown> | null;
+  created_at?: string | null;
+};
+
+function asNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function mapAnalysisRowToSellerScan(row: SupabaseAnalysisRow): SellerJournalScan {
+  const analysis = row.analysis_json && typeof row.analysis_json === "object" ? row.analysis_json : {};
+  const sellerInsights = analysis.seller_insights && typeof analysis.seller_insights === "object"
+    ? analysis.seller_insights as Record<string, unknown>
+    : {};
+
+  const complaints = Array.isArray(analysis.top_complaints) ? analysis.top_complaints : [];
+  const praise = Array.isArray(analysis.top_praises) ? analysis.top_praises : [];
+
+  const createdAt = row.created_at ? new Date(row.created_at) : new Date();
+  const score = asNumber(row.product_score ?? analysis.product_score, 0);
+
+  return {
+    id: String(row.id ?? row.created_at ?? crypto.randomUUID()),
+    date: dateKey(createdAt),
+    productName: String(row.product_name ?? analysis.product_name ?? "Saved seller scan"),
+    productScore: score,
+    sentimentScore: asNumber(analysis.sentiment_score ?? sellerInsights.sentiment_score, 0),
+    reviewCount: asNumber(analysis.review_count ?? analysis.reviewCount, 0),
+    topComplaints: complaints.map((item) => String(item)),
+    topPositiveFeedback: praise.map((item) => String(item)),
+    recommendations: Array.isArray(analysis.recommendations)
+      ? analysis.recommendations.map((item) => String(item))
+      : Array.isArray(sellerInsights.recommendations)
+        ? sellerInsights.recommendations.map((item) => String(item))
+        : [],
+    mainComplaint: String(
+      complaints[0] ??
+      sellerInsights.main_complaint ??
+      sellerInsights.top_risk ??
+      row.summary ??
+      "Saved seller scan"
+    ),
+    strongestPraise: String(
+      praise[0] ??
+      sellerInsights.strongest_praise ??
+      sellerInsights.best_strength ??
+      "Review scan saved"
+    ),
+    recommendation: String(
+      analysis.seller_recommendation ??
+      sellerInsights.recommendation ??
+      row.summary ??
+      "Review saved for Seller Pro calendar."
+    ),
+    actionPlan: Array.isArray(analysis.action_plan)
+      ? analysis.action_plan.map((item) => String(item))
+      : Array.isArray(analysis.actionPlan)
+        ? analysis.actionPlan.map((item) => String(item))
+        : Array.isArray(sellerInsights.action_plan)
+          ? sellerInsights.action_plan.map((item) => String(item))
+          : [],
+    summary: String(
+      row.summary ??
+      analysis.summary ??
+      sellerInsights.summary ??
+      "Saved seller scan"
+    ),
+    productHealth: score,
+    createdAt: String(row.created_at ?? createdAt.toISOString()),
+    source: "saved"
+  } as SellerJournalScan;
+}
+
 
 export function SellerImprovementCalendar() {
   const [month, setMonth] = useState(() => monthStart(new Date()));
@@ -103,14 +332,55 @@ export function SellerImprovementCalendar() {
   const sellerProJournalEnabled = canUseSellerProJournal();
 
   useEffect(() => {
-    if (!canUseSellerProJournal()) {
-      setSavedScans([]);
-      setNotes({});
-      return;
+    let cancelled = false;
+
+    async function loadSellerScans() {
+      if (!canUseSellerProJournal()) {
+        setSavedScans([]);
+        setNotes({});
+        return;
+      }
+
+      const fallbackScans = readSellerJournal();
+      const fallbackNotes = readSellerJournalNotes();
+
+      setSavedScans(fallbackScans);
+      setNotes(fallbackNotes);
+
+      const account = getClientAccount();
+      const email = account?.email?.toLowerCase().trim();
+
+      if (!email) return;
+
+      try {
+        const response = await fetch(`/api/account/analyses?email=${encodeURIComponent(email)}`, {
+          cache: "no-store"
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          console.warn("Seller Supabase calendar load failed:", data?.error ?? response.status);
+          return;
+        }
+
+        const supabaseScans = Array.isArray(data.analyses)
+          ? data.analyses.map(mapAnalysisRowToSellerScan)
+          : [];
+
+        if (!cancelled && supabaseScans.length) {
+          setSavedScans(supabaseScans);
+        }
+      } catch (error) {
+        console.warn("Seller calendar Supabase fallback used:", error);
+      }
     }
 
-    setSavedScans(readSellerJournal());
-    setNotes(readSellerJournalNotes());
+    void loadSellerScans();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
     const scans = useMemo(() => savedScans, [savedScans]);
@@ -153,7 +423,7 @@ export function SellerImprovementCalendar() {
           <Badge tone="info">Seller Pro calendar</Badge>
           <h2 className="mt-4 text-3xl font-black text-ink dark:text-white">Daily product improvement journal</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Track every scan by date, spot complaint movement, and turn review intelligence into a daily seller action plan.
+            Track real seller scans by date. Click any scan day to open the full product insight, buyer concern, score, and next action.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -171,7 +441,7 @@ export function SellerImprovementCalendar() {
 
       <div className="mt-5 grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Monthly scans</p>
+          <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Scans this month</p>
           <p className="mt-2 text-3xl font-black text-ocean dark:text-cyan-300">{monthScans.length}</p>
         </div>
         <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
@@ -222,11 +492,26 @@ export function SellerImprovementCalendar() {
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
                       <div className="h-full rounded-full bg-[linear-gradient(90deg,#08b7a8,#ffb238)]" style={{ width: `${metrics.progress}%` }} />
                     </div>
-                    <span className="line-clamp-1 inline-flex max-w-full rounded-full bg-coral/10 px-2 py-1 text-[10px] font-black uppercase text-coral">{metrics.complaint}</span>
-                    <p className="line-clamp-2 text-xs leading-5 text-slate-600 dark:text-slate-300">{cell.scans[0].summary}</p>
+                    <div className="flex flex-wrap gap-1">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-ocean/10 px-2 py-1 text-[10px] font-black uppercase text-ocean">
+                        📊 {normalScans(cell.scans).length} scan{normalScans(cell.scans).length === 1 ? "" : "s"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-teal/10 px-2 py-1 text-[10px] font-black uppercase text-teal">
+                        ⭐ Today {compactScore(averageProductScore(cell.scans))}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                        📦 {productAverageRows(cell.scans).length} product{productAverageRows(cell.scans).length === 1 ? "" : "s"}
+                      </span>
+                      {compareScanCount(cell.scans) > 0 ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-1 text-[10px] font-black uppercase text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                          ⚖️ {compareScanCount(cell.scans)} compare
+                        </span>
+                      ) : null}
+                    </div>
+                    
                   </div>
                 ) : (
-                  <p className="mt-8 text-xs font-semibold text-slate-400">No scan stored</p>
+                  <p className="mt-8 text-xs font-semibold text-slate-400">No scan</p>
                 )}
               </button>
             );
@@ -242,7 +527,7 @@ export function SellerImprovementCalendar() {
                 <Badge tone={selectedScans.length ? sentimentTone(selectedMetrics.sentiment) : "neutral"}>{selectedScans.length ? `${selectedScans.length} scan day` : "Open planning day"}</Badge>
                 <h3 className="mt-3 text-3xl font-black text-ink dark:text-white">{selectedDate}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  {selectedScans.length ? "Full daily scan detail, action planning, and progress notes." : "No scans are stored for this day yet. Add a note or run Seller analysis."}
+                  {selectedScans.length ? "A clean daily view of product scores, buyer concerns, and the next seller move." : "No scans are stored for this day yet. Add a note or run a seller analysis."}
                 </p>
               </div>
               <button type="button" onClick={() => setSelectedDate(null)} className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:text-white">
@@ -253,7 +538,7 @@ export function SellerImprovementCalendar() {
             <div className="mt-6 grid gap-3 md:grid-cols-4">
               <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
                 <p className="text-xs font-black uppercase text-slate-500">Rating overview</p>
-                <p className="mt-2 text-2xl font-black text-ocean dark:text-cyan-300">{selectedScans.length ? formatPercent(selectedMetrics.score) : "No scan"}</p>
+                <p className="mt-2 text-2xl font-black text-ocean dark:text-cyan-300">{selectedScans.length ? formatPercent(selectedMetrics.score) : "No scan yet"}</p>
               </div>
               <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
                 <p className="text-xs font-black uppercase text-slate-500">Sentiment</p>
@@ -271,42 +556,76 @@ export function SellerImprovementCalendar() {
 
             <div className="mt-6 grid gap-5 lg:grid-cols-2">
               <div className="space-y-4">
-                <h4 className="text-lg font-black text-ink dark:text-white">Products scanned</h4>
+                <h4 className="text-lg font-black text-ink dark:text-white">Products reviewed today</h4>
+                {productAverageRows(selectedScans).length ? (
+                  <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Product score by item</p>
+                    <div className="mt-3 grid gap-2">
+                      {productAverageRows(selectedScans).map((product) => (
+                        <div key={product.name} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm dark:bg-black/20">
+                          <span className="font-bold text-ink dark:text-white">{product.name}</span>
+                          <span className="font-black text-ocean">{formatPercent(product.average)} · {product.count} scan{product.count === 1 ? "" : "s"}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                      Compare results are kept separate so product improvement scores stay fair.
+                    </p>
+                  </div>
+                ) : null}
                 {selectedScans.length ? selectedScans.map((scan) => (
                   <article key={scan.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-black text-ink dark:text-white">{scan.productName}</p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{scan.reviewCount.toLocaleString()} reviews analyzed</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{scan.reviewCount.toLocaleString()} reviews scanned</p>
                       </div>
                       <Badge tone={scan.productScore >= 75 ? "good" : scan.productScore >= 55 ? "warn" : "bad"}>{formatPercent(scan.productScore)}</Badge>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{scan.summary}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{sellerCalendarText(scan.mainComplaint)}</p>
                   </article>
                 )) : <p className="rounded-2xl border border-line p-4 text-sm text-slate-500 dark:border-white/10">No products scanned on this date.</p>}
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-lg font-black text-ink dark:text-white">What to improve today</h4>
-                {(selectedScans[0]?.recommendations ?? ["Run a Seller Pro scan, then write the next product improvement action here."]).slice(0, 4).map((item) => (
+                <h4 className="text-lg font-black text-ink dark:text-white">Next best seller moves</h4>
+                {uniqueList(
+                  selectedScans.flatMap((scan) => [
+                    ...(scan.recommendations ?? []),
+                    ...(scan.actionPlan ?? []),
+                    scan.mainComplaint ? `Fix or explain this buyer concern: ${sellerCalendarText(scan.mainComplaint)}` : ""
+                  ]),
+                  5
+                ).length ? uniqueList(
+                  selectedScans.flatMap((scan) => [
+                    ...(scan.recommendations ?? []),
+                    ...(scan.actionPlan ?? []),
+                    scan.mainComplaint ? `Fix or explain this buyer concern: ${sellerCalendarText(scan.mainComplaint)}` : ""
+                  ]),
+                  5
+                ).map((item) => (
                   <div key={item} className="rounded-2xl border border-teal/20 bg-teal/10 p-4 text-sm font-bold text-ink dark:text-white">
                     {item}
                   </div>
-                ))}
+                )) : (
+                  <div className="rounded-2xl border border-teal/20 bg-teal/10 p-4 text-sm font-bold text-ink dark:text-white">
+                    Run another seller scan to build a clearer improvement plan.
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="mt-6 grid gap-5 lg:grid-cols-3">
               {[
-                ["Top complaints", selectedScans.flatMap((scan) => scan.topComplaints)],
-                ["Top positive feedback", selectedScans.flatMap((scan) => scan.topPositiveFeedback)],
-                ["Suggested action plan", selectedScans.flatMap((scan) => scan.actionPlan)]
+                ["Buyer hesitation points", selectedScans.flatMap((scan) => scan.topComplaints)],
+                ["What buyers liked", selectedScans.flatMap((scan) => scan.topPositiveFeedback)],
+                ["Action plan", selectedScans.flatMap((scan) => scan.actionPlan)]
               ].map(([title, items]) => (
                 <div key={title as string} className="rounded-2xl border border-line p-4 dark:border-white/10">
                   <h4 className="font-black text-ink dark:text-white">{title as string}</h4>
                   <div className="mt-3 grid gap-2">
-                    {((items as string[]).length ? (items as string[]) : ["No detail stored yet."]).slice(0, 5).map((item) => (
-                      <p key={item} className="rounded-xl bg-mist px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">{item}</p>
+                    {((items as string[]).length ? (items as string[]) : ["No clear signal saved yet."]).slice(0, 5).map((item) => (
+                      <p key={item} className="rounded-xl bg-mist px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">{sellerCalendarText(item)}</p>
                     ))}
                   </div>
                 </div>
