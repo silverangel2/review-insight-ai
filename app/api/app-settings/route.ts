@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { canManageAppSettings, getRuntimeAppSettings, updateRuntimeAppSettings, type RuntimeAppSettings } from "@/lib/appSettings";
+import {
+  canManageAppSettings,
+  getRuntimeAppSettings,
+  updateRuntimeAppSettings,
+  type RuntimeAppSettings
+} from "@/lib/appSettings";
 import { accountFromRequest } from "@/lib/supabaseServer";
 
 const allowedKeys: Array<keyof RuntimeAppSettings> = [
@@ -19,9 +24,12 @@ function sanitizeSettings(input: unknown) {
 
   for (const key of allowedKeys) {
     if (!(key in source)) continue;
+
     const value = source[key];
+
     if (key === "announcement_text") {
-      next.announcement_text = typeof value === "string" ? value.slice(0, 240) : "";
+      next.announcement_text =
+        typeof value === "string" ? value.slice(0, 240) : "";
     } else if (typeof value === "boolean") {
       next[key] = value;
     }
@@ -31,21 +39,34 @@ function sanitizeSettings(input: unknown) {
 }
 
 export async function GET() {
-  return NextResponse.json({ settings: getRuntimeAppSettings() });
+  const settings = await getRuntimeAppSettings();
+  return NextResponse.json({ settings });
 }
 
 export async function PATCH(request: Request) {
   const account = await accountFromRequest(request);
+
   if (!account || !canManageAppSettings(account)) {
-    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Admin access required." },
+      { status: 403 }
+    );
   }
 
   let body: unknown;
+
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON request body." },
+      { status: 400 }
+    );
   }
 
-  return NextResponse.json({ settings: updateRuntimeAppSettings(sanitizeSettings(body)) });
+  const settings = await updateRuntimeAppSettings(
+    sanitizeSettings(body)
+  );
+
+  return NextResponse.json({ settings });
 }

@@ -112,3 +112,7 @@ export async function POST(request: NextRequest) {
     source: "supabase"
   });
 }
+
+export async function PATCH(request: NextRequest) {
+  return POST(request);
+}

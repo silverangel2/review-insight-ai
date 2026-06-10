@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   try {
     const account = await accountFromRequest(request);
-    const appSettings = getRuntimeAppSettings();
+    const appSettings = await getRuntimeAppSettings();
 
     if (account?.role === "admin") {
       return NextResponse.json({ url: `/account?plan=${plan}&mode=developer`, mode: "developer-simulated" });

@@ -4,7 +4,7 @@ import { getRequestAppUrl } from "@/lib/env";
 import { googleAuthUrl } from "@/lib/supabaseAuth";
 
 export async function GET(request: Request) {
-  const appSettings = getRuntimeAppSettings();
+  const appSettings = await getRuntimeAppSettings();
 
   if (appSettings.maintenance_mode) {
     return NextResponse.json({ error: appSettings.announcement_text || "ReviewIntel is temporarily updating. Please check back shortly." }, { status: 503 });

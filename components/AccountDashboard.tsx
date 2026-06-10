@@ -310,16 +310,66 @@ export function AccountDashboard() {
     router.push("/login");
   }
 
-  function saveProfile() {
+  async function saveProfile() {
     if (!account) return;
+
+    setError("");
+    setProfileNotice("");
+
+    const response = await fetch("/api/account", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...accountHeaders()
+      },
+      body: JSON.stringify({
+        name: profileForm.name.trim(),
+        companyName: profileForm.companyName,
+        phone: profileForm.phone,
+        addressLine1: profileForm.addressLine1,
+        addressLine2: profileForm.addressLine2,
+        city: profileForm.city,
+        region: profileForm.region,
+        postalCode: profileForm.postalCode,
+        country: profileForm.country,
+        website: profileForm.website,
+        preferredLanguage: profileForm.preferredLanguage,
+        preferredCurrency: profileForm.preferredCurrency,
+        profileNotes: profileForm.profileNotes,
+        marketingConsent: profileForm.marketingConsent
+      })
+    }).catch(() => null);
+
+    if (!response) {
+      setError("Profile save failed. Please try again.");
+      return;
+    }
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setError(data?.error ?? "Profile save failed.");
+      return;
+    }
+
+    const savedAccount = data.account as Partial<ClientAccount> | undefined;
+
     const nextAccount: ClientAccount = {
       ...account,
       ...profileForm,
-      name: profileForm.name.trim() || (isPrivateTestAccount(account) ? planLabel(account.plan) : account.name)
+      ...savedAccount,
+      name:
+        savedAccount?.name ??
+        profileForm.name.trim() ??
+        (isPrivateTestAccount(account) ? planLabel(account.plan) : account.name),
+      marketingConsent:
+        savedAccount?.marketingConsent ?? profileForm.marketingConsent
     };
+
     saveClientAccount(nextAccount);
     setAccount(nextAccount);
-    setProfileNotice("Profile saved for this account.");
+    setProfileForm(profileFromAccount(nextAccount));
+    setProfileNotice("Profile changes saved.");
   }
 
   function changePassword() {

@@ -589,7 +589,7 @@ export async function POST(request: Request): Promise<Response> {
   const platformName = platformLabel(platform);
   const reviewSections = normalizeReviewSections(body.reviewSections);
   const ingestionMode = inferIngestionMode(body, reviews);
-  const appSettings = getRuntimeAppSettings();
+  const appSettings = await getRuntimeAppSettings();
   const sectionError = validateReviewSections(reviewSections, adminBypass);
 
   if (sectionError) {

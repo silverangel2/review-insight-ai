@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Choose Shopper or Seller account type." }, { status: 400 });
   }
 
-  const appSettings = getRuntimeAppSettings();
+  const appSettings = await getRuntimeAppSettings();
 
   if (appSettings.maintenance_mode) {
     return NextResponse.json({ error: appSettings.announcement_text || "ReviewIntel is temporarily updating. Please check back shortly." }, { status: 503 });
