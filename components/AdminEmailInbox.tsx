@@ -16,29 +16,40 @@ type ContactMessage = {
 };
 
 function formatDate(value?: string | null) {
-  if (!value) return "Unknown";
-  return new Date(value).toLocaleString();
+  if (!value) return "Unknown date";
+
+  try {
+    return new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 function statusClass(status?: string | null) {
-  if (status === "unread") return "bg-rose-50 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200";
-  if (status === "replied") return "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200";
-  if (status === "archived") return "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300";
-  return "bg-cyan-50 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-200";
+  if (status === "replied") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200";
+  if (status === "archived") return "bg-slate-200 text-slate-600 dark:bg-white/10 dark:text-slate-300";
+  if (status === "read") return "bg-cyan-100 text-cyan-700 dark:bg-cyan-400/15 dark:text-cyan-200";
+  return "bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200";
 }
 
 export function AdminEmailInbox() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [selected, setSelected] = useState<ContactMessage | null>(null);
+  const [replyBody, setReplyBody] = useState("");
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sendingReply, setSendingReply] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const summary = useMemo(() => {
     return {
       total: messages.length,
-      unread: messages.filter((item) => item.status === "unread").length,
-      replied: messages.filter((item) => item.status === "replied").length
+      unread: messages.filter((message) => (message.status ?? "unread") === "unread").length,
+      replied: messages.filter((message) => message.status === "replied").length
     };
   }, [messages]);
 
@@ -48,22 +59,31 @@ export function AdminEmailInbox() {
 
     try {
       const response = await fetch("/api/admin/messages", { cache: "no-store" });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data?.error ?? "Failed to load messages.");
+        setError(data?.error ?? "Could not load messages.");
+        return;
       }
 
-      setMessages(data.messages ?? []);
-      setSelected(data.messages?.[0] ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load messages.");
+      const nextMessages = Array.isArray(data.messages) ? data.messages : [];
+      setMessages(nextMessages);
+
+      if (selected) {
+        const refreshed = nextMessages.find((message: ContactMessage) => message.id === selected.id);
+        setSelected(refreshed ?? null);
+      } else {
+        setSelected(nextMessages[0] ?? null);
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  async function updateMessage(id: string, patch: Record<string, unknown>) {
+  async function updateMessage(id: string, patch: Partial<ContactMessage>) {
+    setError("");
+    setNotice("");
+
     const response = await fetch("/api/admin/messages", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -78,6 +98,52 @@ export function AdminEmailInbox() {
     }
 
     await loadMessages();
+  }
+
+  async function sendReply() {
+    if (!selected) return;
+
+    setError("");
+    setNotice("");
+
+    if (!selected.email) {
+      setError("This message has no customer email address.");
+      return;
+    }
+
+    if (!replyBody.trim()) {
+      setError("Write a reply before sending.");
+      return;
+    }
+
+    setSendingReply(true);
+
+    try {
+      const response = await fetch("/api/admin/messages/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selected.id,
+          to: selected.email,
+          customerName: selected.name,
+          subject: selected.subject?.startsWith("Re:") ? selected.subject : `Re: ${selected.subject ?? "ReviewIntel Support"}`,
+          message: replyBody
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(data?.error ?? "Reply failed.");
+        return;
+      }
+
+      setReplyBody("");
+      setNotice(`Reply sent to ${selected.email}.`);
+      await loadMessages();
+    } finally {
+      setSendingReply(false);
+    }
   }
 
   async function copyForRusty(message: ContactMessage) {
@@ -109,107 +175,185 @@ export function AdminEmailInbox() {
   }, []);
 
   return (
-    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
-            Admin inbox
-          </p>
-          <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">
-            Customer messages
-          </h2>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            Messages submitted from the website support form are saved here.
-          </p>
+    <section className="rounded-[2rem] border border-line bg-white shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <div className="border-b border-line px-5 py-4 dark:border-white/10">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
+              Admin email center
+            </p>
+            <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">
+              Customer messages
+            </h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Gmail-style inbox for support messages, replies, and customer follow-up.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void loadMessages()}
+            className="rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink"
+          >
+            Refresh
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadMessages()}
-          className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink"
-        >
-          Refresh Messages
-        </button>
-      </div>
-
-      <div className="mt-6 grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase text-slate-500">Total</p>
-          <p className="mt-2 text-3xl font-black text-ink dark:text-white">{summary.total}</p>
-        </div>
-        <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase text-slate-500">Unread</p>
-          <p className="mt-2 text-3xl font-black text-rose-600 dark:text-rose-300">{summary.unread}</p>
-        </div>
-        <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
-          <p className="text-xs font-black uppercase text-slate-500">Replied</p>
-          <p className="mt-2 text-3xl font-black text-emerald-600 dark:text-emerald-300">{summary.replied}</p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-2xl bg-mist px-4 py-3 dark:bg-white/[0.04]">
+            <p className="text-[11px] font-black uppercase text-slate-500">Total</p>
+            <p className="mt-1 text-2xl font-black text-ink dark:text-white">{summary.total}</p>
+          </div>
+          <div className="rounded-2xl bg-mist px-4 py-3 dark:bg-white/[0.04]">
+            <p className="text-[11px] font-black uppercase text-slate-500">Unread</p>
+            <p className="mt-1 text-2xl font-black text-rose-600 dark:text-rose-300">{summary.unread}</p>
+          </div>
+          <div className="rounded-2xl bg-mist px-4 py-3 dark:bg-white/[0.04]">
+            <p className="text-[11px] font-black uppercase text-slate-500">Replied</p>
+            <p className="mt-1 text-2xl font-black text-emerald-600 dark:text-emerald-300">{summary.replied}</p>
+          </div>
         </div>
       </div>
 
       {error ? (
-        <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">
+        <div className="mx-5 mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">
           {error}
         </div>
       ) : null}
 
+      {notice ? (
+        <div className="mx-5 mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
+          {notice}
+        </div>
+      ) : null}
+
       {loading ? (
-        <p className="mt-6 text-sm font-bold text-slate-500">Loading messages...</p>
+        <p className="p-6 text-sm font-bold text-slate-500">Loading messages...</p>
       ) : messages.length === 0 ? (
-        <p className="mt-6 rounded-2xl bg-mist p-5 text-sm font-bold text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
+        <p className="m-5 rounded-2xl bg-mist p-5 text-sm font-bold text-slate-600 dark:bg-white/[0.04] dark:text-slate-300">
           No customer messages yet.
         </p>
       ) : (
-        <div className="mt-6 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-          <div className="space-y-3">
-            {messages.map((message) => (
-              <button
-                key={message.id}
-                type="button"
-                onClick={() => {
-                  setSelected(message);
-                  setCopied(false);
-                }}
-                className="w-full rounded-2xl border border-line bg-mist p-4 text-left transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-white/[0.04]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-black text-ink dark:text-white">{message.subject ?? "No subject"}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-500">{message.email ?? "No email"} · {formatDate(message.created_at)}</p>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${statusClass(message.status)}`}>
-                    {message.status ?? "read"}
-                  </span>
-                </div>
-                <p className="mt-3 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{message.message}</p>
-              </button>
-            ))}
+        <div className="grid min-h-[620px] lg:grid-cols-[360px_1fr]">
+          <div className="border-r border-line bg-slate-50/70 dark:border-white/10 dark:bg-white/[0.02]">
+            <div className="max-h-[720px] overflow-y-auto p-3">
+              {messages.map((message) => {
+                const isSelected = selected?.id === message.id;
+
+                return (
+                  <button
+                    key={message.id}
+                    type="button"
+                    onClick={() => {
+                      setSelected(message);
+                      setCopied(false);
+                      setReplyBody("");
+                      setNotice("");
+                    }}
+                    className={`mb-2 w-full rounded-2xl border p-4 text-left transition hover:bg-white dark:hover:bg-white/[0.06] ${
+                      isSelected
+                        ? "border-ocean bg-white shadow-sm dark:border-cyan-300/50 dark:bg-white/[0.08]"
+                        : "border-transparent bg-transparent"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-ink dark:text-white">
+                          {message.name || message.email || "Customer"}
+                        </p>
+                        <p className="mt-1 truncate text-xs font-bold text-slate-500">
+                          {message.subject ?? "No subject"}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black uppercase ${statusClass(message.status)}`}>
+                        {message.status ?? "unread"}
+                      </span>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                      {message.message}
+                    </p>
+                    <p className="mt-2 text-[11px] font-bold text-slate-400">
+                      {formatDate(message.created_at)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {selected ? (
-            <div className="rounded-3xl border border-line bg-white p-5 dark:border-white/10 dark:bg-slate-900">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xl font-black text-ink dark:text-white">{selected.subject ?? "No subject"}</p>
-                  <p className="mt-1 text-sm font-bold text-slate-500">{selected.email ?? "No email"} · {formatDate(selected.created_at)}</p>
+            <div className="flex min-h-[620px] flex-col">
+              <div className="border-b border-line p-6 dark:border-white/10">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-2xl font-black text-ink dark:text-white">
+                      {selected.subject ?? "No subject"}
+                    </p>
+                    <p className="mt-2 text-sm font-bold text-slate-500">
+                      From: {selected.name || "Customer"} · {selected.email ?? "No email"}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">
+                      {formatDate(selected.created_at)} · {selected.source ?? "website"}
+                    </p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${statusClass(selected.status)}`}>
+                    {selected.status ?? "unread"}
+                  </span>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${statusClass(selected.status)}`}>
-                  {selected.status ?? "read"}
-                </span>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button onClick={() => void updateMessage(selected.id, { status: "read" })} className="rounded-xl border border-line px-3 py-2 text-xs font-black dark:border-white/10">Mark Read</button>
+                  <button onClick={() => void updateMessage(selected.id, { status: "replied" })} className="rounded-xl border border-line px-3 py-2 text-xs font-black dark:border-white/10">Mark Replied</button>
+                  <button onClick={() => void updateMessage(selected.id, { status: "archived" })} className="rounded-xl border border-line px-3 py-2 text-xs font-black dark:border-white/10">Archive</button>
+                  <button onClick={() => void copyForRusty(selected)} className="rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white">{copied ? "Copied" : "Copy for Rusty"}</button>
+                </div>
               </div>
 
-              <p className="mt-5 whitespace-pre-wrap rounded-2xl bg-mist p-4 text-sm leading-6 text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">
-                {selected.message}
-              </p>
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="rounded-3xl bg-mist p-5 text-sm leading-7 text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">
+                  <p className="whitespace-pre-wrap">{selected.message}</p>
+                </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <button onClick={() => void updateMessage(selected.id, { status: "read" })} className="rounded-2xl border border-line px-4 py-3 text-xs font-black dark:border-white/10">Mark Read</button>
-                <button onClick={() => void updateMessage(selected.id, { status: "replied" })} className="rounded-2xl border border-line px-4 py-3 text-xs font-black dark:border-white/10">Mark Replied</button>
-                <button onClick={() => void updateMessage(selected.id, { status: "archived" })} className="rounded-2xl border border-line px-4 py-3 text-xs font-black dark:border-white/10">Archive</button>
-                <button onClick={() => void copyForRusty(selected)} className="rounded-2xl bg-ocean px-4 py-3 text-xs font-black text-white">{copied ? "Copied" : "Copy for Rusty"}</button>
+                {selected.admin_notes ? (
+                  <div className="mt-4 rounded-2xl border border-line p-4 text-xs font-bold text-slate-500 dark:border-white/10">
+                    Admin note: {selected.admin_notes}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="border-t border-line bg-white p-5 dark:border-white/10 dark:bg-slate-950">
+                <div className="rounded-3xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+                  <p className="text-xs font-black uppercase tracking-[0.15em] text-ocean dark:text-cyan-300">
+                    Reply to customer
+                  </p>
+                  <textarea
+                    value={replyBody}
+                    onChange={(event) => setReplyBody(event.target.value)}
+                    placeholder={selected.email ? "Write your customer reply here..." : "This message has no customer email."}
+                    disabled={!selected.email || sendingReply}
+                    className="mt-3 min-h-32 w-full resize-y rounded-2xl border border-line bg-mist p-4 text-sm font-semibold text-ink outline-none transition focus:border-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+                  />
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs font-bold text-slate-500">
+                      Sends from ReviewIntel through Resend and marks this message as replied.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void sendReply()}
+                      disabled={!selected.email || sendingReply || !replyBody.trim()}
+                      className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+                    >
+                      {sendingReply ? "Sending..." : "Send Reply"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex items-center justify-center p-8 text-sm font-bold text-slate-500">
+              Select a message to read and reply.
+            </div>
+          )}
         </div>
       )}
     </section>
