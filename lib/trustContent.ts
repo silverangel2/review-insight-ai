@@ -1,5 +1,5 @@
 export const SUPPORT_EMAIL = "support@getreviewintel.com";
-export const BILLING_EMAIL = "billing@reviewintel.ai";
+export const BILLING_EMAIL = "support@getreviewintel.com";
 export const PRIVACY_EMAIL = "privacy@reviewintel.ai";
 
 export type TrustPageContent = {
