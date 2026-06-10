@@ -64,7 +64,7 @@ export async function POST(request: Request): Promise<Response> {
       const resend = new Resend(resendApiKey);
 
       await resend.emails.send({
-        from: "ReviewIntel <onboarding@resend.dev>",
+        from: "ReviewIntel <support@getreviewintel.com>",
         to: SUPPORT_EMAIL,
         replyTo: email || undefined,
         subject,
@@ -83,7 +83,7 @@ export async function POST(request: Request): Promise<Response> {
 
       if (email) {
         await resend.emails.send({
-          from: "ReviewIntel <onboarding@resend.dev>",
+          from: "ReviewIntel <support@getreviewintel.com>",
           to: email,
           replyTo: SUPPORT_EMAIL,
           subject: "We received your ReviewIntel message",

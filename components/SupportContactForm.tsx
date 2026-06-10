@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { SUPPORT_EMAIL } from "@/lib/trustContent";
 
 const supportTopics = [
@@ -19,15 +19,6 @@ export function SupportContactForm({ defaultTopic = "Product question" }: { defa
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
   const [error, setError] = useState("");
 
-  const mailtoHref = useMemo(() => {
-    const subject = encodeURIComponent(`ReviewIntel support: ${topic}`);
-    const body = encodeURIComponent(
-      `Account email: ${email || "Not provided"}\nTopic: ${topic}\n\nMessage:\n${message}\n\nPage: ${
-        typeof window !== "undefined" ? window.location.href : ""
-      }`
-    );
-    return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-  }, [email, message, topic]);
 
 
   async function submitMessage(event: React.FormEvent<HTMLFormElement>) {
@@ -107,13 +98,6 @@ export function SupportContactForm({ defaultTopic = "Product question" }: { defa
           >
             {status === "sending" ? "Sending..." : status === "sent" ? "Message Sent" : "Send Message"}
           </button>
-
-          <a
-            href={mailtoHref}
-            className="inline-flex justify-center rounded-2xl border border-line px-6 py-3 text-sm font-black text-ink transition hover:-translate-y-0.5 dark:border-white/10 dark:text-white"
-          >
-            Open Email Draft
-          </a>
         </div>
         <div className="space-y-2 text-sm font-bold text-slate-500 dark:text-slate-400">
           {status === "sent" ? <p className="text-emerald-600 dark:text-emerald-300">Saved. Admin inbox will show this message.</p> : null}
