@@ -1155,3 +1155,122 @@ html[data-layout-mode="desktop"] {
 html[data-layout-mode="desktop"] body {
   min-width: 1180px;
 }
+
+
+/* FINAL ReviewIntel mobile containment fix
+   Keeps normal mobile pages inside the viewport.
+   Desktop mode stays available from the mobile menu, but Auto/Mobile must never overflow. */
+@media (max-width: 767px) {
+  html:not([data-layout-mode="desktop"]),
+  html:not([data-layout-mode="desktop"]) body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) body {
+    padding-bottom: 4.25rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main,
+  html:not([data-layout-mode="desktop"]) header,
+  html:not([data-layout-mode="desktop"]) footer,
+  html:not([data-layout-mode="desktop"]) section,
+  html:not([data-layout-mode="desktop"]) article,
+  html:not([data-layout-mode="desktop"]) aside,
+  html:not([data-layout-mode="desktop"]) form,
+  html:not([data-layout-mode="desktop"]) div {
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="max-w-"],
+  html:not([data-layout-mode="desktop"]) [class*="w-["],
+  html:not([data-layout-mode="desktop"]) [class*="min-w-"],
+  html:not([data-layout-mode="desktop"]) [class*="mx-auto"] {
+    max-width: 100vw !important;
+    min-width: 0 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) .grid,
+  html:not([data-layout-mode="desktop"]) [class*="grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="sm:grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="md:grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="lg:grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="xl:grid-cols-"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) .flex {
+    min-width: 0 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) img,
+  html:not([data-layout-mode="desktop"]) video,
+  html:not([data-layout-mode="desktop"]) canvas,
+  html:not([data-layout-mode="desktop"]) svg {
+    max-width: 100% !important;
+    height: auto;
+  }
+
+  html:not([data-layout-mode="desktop"]) input,
+  html:not([data-layout-mode="desktop"]) select,
+  html:not([data-layout-mode="desktop"]) textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) button,
+  html:not([data-layout-mode="desktop"]) a {
+    max-width: 100% !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) table {
+    display: block !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    white-space: nowrap;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="px-10"],
+  html:not([data-layout-mode="desktop"]) [class*="px-12"],
+  html:not([data-layout-mode="desktop"]) [class*="px-16"],
+  html:not([data-layout-mode="desktop"]) [class*="px-20"],
+  html:not([data-layout-mode="desktop"]) [class*="px-24"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="text-5xl"],
+  html:not([data-layout-mode="desktop"]) [class*="text-6xl"],
+  html:not([data-layout-mode="desktop"]) [class*="text-7xl"],
+  html:not([data-layout-mode="desktop"]) [class*="text-8xl"] {
+    font-size: 2.25rem !important;
+    line-height: 2.6rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="translate-x"],
+  html:not([data-layout-mode="desktop"]) [class*="-translate-x"] {
+    transform: none !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="absolute"],
+  html:not([data-layout-mode="desktop"]) [class*="fixed"] {
+    max-width: 100vw !important;
+  }
+}
+
+/* Desktop mode is still available, but it is intentionally a wide preview. */
+@media (max-width: 767px) {
+  html[data-layout-mode="desktop"] {
+    overflow-x: auto !important;
+  }
+
+  html[data-layout-mode="desktop"] body {
+    min-width: 1180px !important;
+    overflow-x: auto !important;
+    padding-bottom: 4.25rem !important;
+  }
+}
