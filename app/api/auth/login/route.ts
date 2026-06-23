@@ -21,7 +21,7 @@ const qaAccounts: Array<{
   {
     email: "shopper.free@reviewintel.test",
     name: "Shopper Free Tester",
-    role: "seller",
+    role: "buyer",
     plan: "free_buyer",
     profileId: "SHOP-FREE-001",
     addressLine1: "101 Shopper Lane",
