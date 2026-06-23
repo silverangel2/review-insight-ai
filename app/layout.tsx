@@ -77,7 +77,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               offers: {
                 "@type": "Offer",
                 price: "0",
-                priceCurrency: "USD"
+                priceCurrency: "CAD"
               }
             })
           }}

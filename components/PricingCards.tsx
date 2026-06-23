@@ -47,7 +47,7 @@ const tiers: Array<{
 export function PricingCards() {
   const [error, setError] = useState("");
   const [busyPlan, setBusyPlan] = useState<SubscriptionPlan | null>(null);
-  const [currency, setCurrency] = useState<SupportedCurrency>("USD");
+  const [currency, setCurrency] = useState<SupportedCurrency>("CAD");
 
   async function choosePlan(plan: SubscriptionPlan) {
     setError("");

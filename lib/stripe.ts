@@ -4,13 +4,13 @@ import { normalizeCurrency, type SupportedCurrency } from "@/lib/pricing";
 import type { SubscriptionPlan } from "@/lib/types";
 
 const priceEnv: Record<Exclude<SubscriptionPlan, "free_buyer">, string> = {
-  buyer_pro: "STRIPE_BUYER_PRO_PRICE_ID",
+  buyer_pro: "STRIPE_BUYER_PREMIUM_PRICE_ID",
   seller_premium: "STRIPE_SELLER_PREMIUM_PRICE_ID",
   seller_pro: "STRIPE_SELLER_PRO_PRICE_ID"
 };
 
 const localizedPriceEnvKeys: Record<Exclude<SubscriptionPlan, "free_buyer">, string> = {
-  buyer_pro: "STRIPE_BUYER_PRO",
+  buyer_pro: "STRIPE_BUYER_PREMIUM",
   seller_premium: "STRIPE_SELLER_PREMIUM",
   seller_pro: "STRIPE_SELLER_PRO"
 };
@@ -20,10 +20,10 @@ function localizedPriceEnv(plan: Exclude<SubscriptionPlan, "free_buyer">, curren
   return `${localizedPriceEnvKeys[plan]}_${currency}_PRICE_ID`;
 }
 
-export function planPriceId(plan: SubscriptionPlan, rawCurrency: unknown = "USD") {
+export function planPriceId(plan: SubscriptionPlan, rawCurrency: unknown = "CAD") {
   if (plan === "free_buyer") return null;
   const currency = normalizeCurrency(rawCurrency);
-  return process.env[localizedPriceEnv(plan, currency)] || process.env[localizedPriceEnv(plan, "USD")] || null;
+  return process.env[localizedPriceEnv(plan, currency)] || process.env[localizedPriceEnv(plan, "CAD")] || process.env[localizedPriceEnv(plan, "USD")] || null;
 }
 
 export function planFromPriceId(priceId: string | null | undefined): SubscriptionPlan {
@@ -36,7 +36,7 @@ export function planFromPriceId(priceId: string | null | undefined): Subscriptio
   return "free_buyer";
 }
 
-export async function createCheckoutSession(plan: SubscriptionPlan, email?: string, userId?: string | null, customerId?: string | null, rawCurrency: unknown = "USD") {
+export async function createCheckoutSession(plan: SubscriptionPlan, email?: string, userId?: string | null, customerId?: string | null, rawCurrency: unknown = "CAD") {
   const currency = normalizeCurrency(rawCurrency);
 
   if (plan === "free_buyer") {

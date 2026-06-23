@@ -62,9 +62,9 @@ export function planLabel(plan: SubscriptionPlan) {
 }
 
 export function planPrice(plan: SubscriptionPlan) {
-  if (plan === "buyer_pro") return "$9.99";
-  if (plan === "seller_premium") return "$29.99";
-  if (plan === "seller_pro") return "$59.90";
+  if (plan === "buyer_pro") return "$9.99 CAD";
+  if (plan === "seller_premium") return "$29.99 CAD";
+  if (plan === "seller_pro") return "$59.99 CAD";
   return "$0";
 }
 
