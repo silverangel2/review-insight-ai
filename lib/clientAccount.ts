@@ -145,15 +145,36 @@ export function touchClientAccountActivity() {
 }
 
 export async function logoutEverywhere(redirectPath = "/login") {
-  clearClientAccount();
-
   await Promise.allSettled([
     fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }),
     fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" }),
     fetch("/api/owner/logout", { method: "POST", credentials: "same-origin" })
   ]);
 
-  window.location.href = redirectPath;
+  if (typeof window !== "undefined") {
+    const clearReviewIntelStorage = (storage: Storage) => {
+      const keys = Object.keys(storage);
+      for (const key of keys) {
+        if (
+          key.startsWith("reviewintel") ||
+          key.startsWith("reviewintel:") ||
+          key.startsWith("reviewintel-") ||
+          key.startsWith("ri:")
+        ) {
+          storage.removeItem(key);
+        }
+      }
+    };
+
+    try {
+      clearReviewIntelStorage(window.localStorage);
+      clearReviewIntelStorage(window.sessionStorage);
+    } catch {
+      // Ignore storage cleanup failures.
+    }
+
+    window.location.replace(redirectPath);
+  }
 }
 
 export function setClientPlan(plan: SubscriptionPlan) {
