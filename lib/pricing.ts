@@ -16,34 +16,34 @@ const defaultUsdPrices: Record<SubscriptionPlan, string> = {
   free_buyer: "$0",
   buyer_pro: "$9.99",
   seller_premium: "$29.99",
-  seller_pro: "$59.90"
+  seller_pro: "$59.99"
 };
 
 const defaultLocalizedPrices: Record<SupportedCurrency, Record<SubscriptionPlan, string>> = {
   USD: defaultUsdPrices,
   CAD: {
     free_buyer: "$0",
-    buyer_pro: "USD $9.99",
-    seller_premium: "USD $29.99",
-    seller_pro: "USD $59.90"
+    buyer_pro: "CAD $9.99",
+    seller_premium: "CAD $29.99",
+    seller_pro: "CAD $59.99"
   },
   EUR: {
     free_buyer: "$0",
-    buyer_pro: "USD $9.99",
-    seller_premium: "USD $29.99",
-    seller_pro: "USD $59.90"
+    buyer_pro: "CAD $9.99",
+    seller_premium: "CAD $29.99",
+    seller_pro: "CAD $59.99"
   },
   GBP: {
     free_buyer: "$0",
-    buyer_pro: "USD $9.99",
-    seller_premium: "USD $29.99",
-    seller_pro: "USD $59.90"
+    buyer_pro: "CAD $9.99",
+    seller_premium: "CAD $29.99",
+    seller_pro: "CAD $59.99"
   },
   PHP: {
     free_buyer: "$0",
-    buyer_pro: "USD $9.99",
-    seller_premium: "USD $29.99",
-    seller_pro: "USD $59.90"
+    buyer_pro: "CAD $9.99",
+    seller_premium: "CAD $29.99",
+    seller_pro: "CAD $59.99"
   }
 };
 
@@ -80,5 +80,5 @@ export function isPlanCurrencyConfigured(plan: SubscriptionPlan, currency: Suppo
 
 export function localizedPriceNote(currency: SupportedCurrency) {
   if (currency === "USD") return "USD prices are shown by default.";
-  return `${currency} can be configured with matching Stripe prices. Until then, ReviewIntel shows the real USD checkout price to avoid fake conversion.`;
+  return `ReviewIntel pricing is shown in CAD and matches the active Stripe checkout prices.`;
 }
