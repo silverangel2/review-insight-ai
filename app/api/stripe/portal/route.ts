@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const session = await createBillingPortal(customerId);
     return NextResponse.json(session);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Billing portal failed." }, { status: 400 });
+    console.error("Stripe billing portal failed", error);
+    return NextResponse.json({ error: "Billing portal is temporarily unavailable. Please contact support@getreviewintel.com." }, { status: 400 });
   }
 }

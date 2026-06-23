@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     );
     return NextResponse.json(session);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Checkout failed." }, { status: 400 });
+    console.error("Stripe checkout failed", error);
+    return NextResponse.json({ error: "Checkout is temporarily unavailable. Please try again or contact support@getreviewintel.com." }, { status: 400 });
   }
 }

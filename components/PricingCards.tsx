@@ -50,7 +50,7 @@ export function PricingCards() {
   const [currency, setCurrency] = useState<SupportedCurrency>("CAD");
 
   async function choosePlan(plan: SubscriptionPlan) {
-    setError("");
+    setError("Checkout is temporarily unavailable. Please try again or contact support@getreviewintel.com.");
 
     if (plan === "free_buyer") {
       setClientPlan("free_buyer");
@@ -80,7 +80,7 @@ export function PricingCards() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok || !data.url) {
-        setError(data.error || "Checkout failed.");
+        setError("Checkout is temporarily unavailable. Please try again or contact support@getreviewintel.com.");
         return;
       }
 
