@@ -109,6 +109,7 @@ export default function AnalyzerForm() {
 
   const canAnalyze = Boolean(image) && !isLoading;
   const scanLimitMessage = analyzerFormCopy(readStoredLocale()).scanLimitMessage;
+  const isScanLimitError = error.includes("3 free scans") || error.toLowerCase().includes("upgrade to premium") || error.includes("scans reset tomorrow");
 
   const uploadLabel = useMemo(() => {
     if (!image) return analyzerFormCopy(readStoredLocale()).uploadTitle;
@@ -265,7 +266,16 @@ export default function AnalyzerForm() {
 
         {error ? (
           <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700 dark:border-rose-400/30 dark:bg-rose-950/30 dark:text-rose-200">
-            {error.includes("confidence") ? analyzerFormCopy(readStoredLocale()).clearerScreenshot : error}
+            <p>{error.includes("confidence") ? analyzerFormCopy(readStoredLocale()).clearerScreenshot : error}</p>
+
+            {isScanLimitError ? (
+              <a
+                href="/pricing?plan=shopper_premium"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ink sm:w-auto"
+              >
+                Try Premium
+              </a>
+            ) : null}
           </div>
         ) : null}
 

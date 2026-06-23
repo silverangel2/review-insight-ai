@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/social-autopost",
+      "schedule": "0 13 * * *"
+    }
+  ]
+}

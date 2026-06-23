@@ -1184,8 +1184,11 @@ export async function POST(request: Request) {
       if ((quota.remaining ?? 0) <= 0) {
         return NextResponse.json(
           {
-            error: "You have used all 3 free scans for today. Your scans reset tomorrow.",
+            error: "You have used all 3 free scans for today. Upgrade to Premium for more scans and the fuller buying-confidence report.",
             code: "DAILY_SCAN_LIMIT_REACHED",
+            upgradeRequired: true,
+            upgradeUrl: "/pricing?plan=shopper_premium",
+            cta: "Try Premium",
             quota
           },
           { status: 429 }

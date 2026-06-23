@@ -1123,3 +1123,35 @@ html[data-layout-mode="desktop"] main {
 html[data-layout-mode="desktop"] .grid {
   min-width: 0;
 }
+
+/* Compact mobile global navigation */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 6.25rem;
+  }
+
+  html[data-layout-mode="mobile"] body {
+    padding-bottom: 6.25rem;
+  }
+
+  html[data-layout-mode="desktop"] body {
+    padding-bottom: 6.25rem;
+  }
+}
+
+/* Better desktop-mode behavior when forced on a phone */
+html[data-layout-mode="desktop"] {
+  overflow-x: auto;
+}
+
+html[data-layout-mode="desktop"] body {
+  min-width: 1180px;
+}
