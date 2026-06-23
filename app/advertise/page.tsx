@@ -55,12 +55,12 @@ export default function AdvertisePage() {
               </li>
             </ul>
             <a
-              href={plan.stripeUrl}
+              href="/advertise/apply"
               target="_blank"
               rel="noopener noreferrer"
               className="mt-6 inline-flex w-full justify-center rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean"
             >
-              Pay for {plan.name}
+              Apply for {plan.name}
             </a>
           </article>
         ))}
@@ -70,7 +70,7 @@ export default function AdvertisePage() {
         <h2 className="text-2xl font-black text-ink">How campaign approval works</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-4">
           {[
-            "Pay for a package",
+            "Apply for a package",
             "Upload banner or video",
             "ReviewIntel verifies payment",
             "Approved ads rotate automatically"
