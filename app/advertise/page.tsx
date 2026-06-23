@@ -12,8 +12,8 @@ export default function AdvertisePage() {
         Run clean sponsored campaigns inside ReviewIntel.
       </h1>
       <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-        Advertisers pay for a package, upload a banner or short muted video, and submit the campaign for approval.
-        ReviewIntel verifies payment and reviews every creative before it rotates on the selected placement.
+        Advertisers submit an application first. ReviewIntel reviews the brand, placement, and creative before payment is requested.
+        After approval, ReviewIntel sends the payment step and activates the campaign only after payment and creative review.
       </p>
 
       <div className="mt-7 flex flex-wrap gap-3">
