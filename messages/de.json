@@ -1,0 +1,91 @@
+{
+  "Common": {
+    "language": "Sprache",
+    "chooseLanguage": "Sprache auswählen",
+    "loading": "Wird geladen",
+    "error": "Etwas ist schiefgelaufen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "continue": "Weiter"
+  },
+  "Analyzer": {
+    "productName": "Produktname",
+    "runAnalysis": "KI-Analyse starten"
+  },
+  "Dashboard": {
+    "shopperScore": "Käuferbewertung",
+    "sellerDashboard": "Verkäufer-Dashboard",
+    "manageSubscription": "Abonnement verwalten"
+  },
+  "Home": {
+    "scanReviewsNow": "Bewertungen jetzt analysieren",
+    "seeExampleResult": "Beispielergebnis ansehen",
+    "shopperMode": "Käufermodus",
+    "fastShoppingVerdict": "Schnelles Kaufurteil.",
+    "tryShopperScan": "Käuferanalyse testen",
+    "sellerPro": "Verkäufer Pro",
+    "businessIntelligence": "Geschäftsanalysen.",
+    "seeSellerPlans": "Verkäuferpläne ansehen",
+    "payoff": {
+      "eyebrow": "Screenshot-würdiges Ergebnis",
+      "title": "Das Ergebnis soll sich wie das Öffnen einer Überraschungsbox anfühlen.",
+      "body": "Käufer erhalten die Antwort, ohne einen Bericht zu lesen. Verkäufer erhalten eine separate Steuerungsansicht, die für Entscheidungen gebaut ist, nicht fürs Einkaufen."
+    },
+    "modeIntro": {
+      "eyebrow": "Den richtigen Modus wählen",
+      "title": "Ein Produkt-Scan, zwei klare Abläufe.",
+      "body": "Nutze den Käufermodus, wenn du entscheidest, was du kaufen sollst: Lade einen Produkt-Screenshot hoch und ReviewIntel prüft öffentliche Bewertungssignale, wiederholte Beschwerden, Wert, Bewertungsindizien und KI-ähnliche Bewertungsmuster, bevor ein Urteil KAUFEN, PRÜFEN oder VERMEIDEN ausgegeben wird. Nutze den Verkäufermodus, wenn du ein Produkt verwaltest: Analysiere Bewertungen, um Beschwerdegruppen, Keyword-Themen, Vertrauenslücken, Verbesserungen der Produktseite und nächste Schritte für Produktqualität, Support, Anzeigen und Conversion zu finden."
+    },
+    "buyerWins": {
+      "verdict": "Kaufen / Vielleicht / Vermeiden",
+      "fakeRisk": "Risiko gefälschter Bewertungen",
+      "bestFor": "Am besten geeignet für",
+      "complaint": "Größte Beschwerde"
+    },
+    "sellerWins": {
+      "complaintClusters": "Beschwerdegruppen",
+      "keywordIntelligence": "Keyword-Analyse",
+      "painPoints": "Schwachstellen",
+      "exportReport": "Exportfertiger Bericht"
+    },
+    "cards": {
+      "worthBuying": "Kaufenswert",
+      "lowFakeRisk": "Geringes Fälschungsrisiko",
+      "topComplaint": "Häufigste Beschwerde",
+      "batteryLife": "Akkulaufzeit",
+      "checkBeforeBuying": "Vor dem Kauf prüfen",
+      "bestFor": "Ideal für",
+      "studentsOfficeTravel": "Studierende, Büro und Reisen",
+      "greatValue": "Sehr gutes Preis-Leistungs-Verhältnis"
+    },
+    "steps": {
+      "uploadTitle": "Einfügen oder hochladen",
+      "uploadDetail": "Bewertungen, TXT, CSV oder schnelle Screenshots.",
+      "scanTitle": "KI-Analyse",
+      "scanDetail": "Vertrauen, Beschwerden, Wert, Keywords und Muster.",
+      "answerTitle": "Klare Antwort",
+      "answerDetail": "Käuferurteil oder Verkäufer-Pro-Bericht."
+    }
+  },
+  "Results": {
+    "trustScore": "Vertrauenswert",
+    "evidence": "Belege",
+    "worry": "Bedenken",
+    "action": "Maßnahme",
+    "hideProof": "Belege ausblenden",
+    "seeSellerProof": "Verkäuferbelege ansehen",
+    "sellerProTrustCriteria": "Vertrauenscriteria für Verkäufer Pro",
+    "trustQuestion": "Beweisen diese Bewertungen, dass Käufer diesem Produkt vertrauen können?",
+    "overallTrustScore": "Gesamtvertrauenswert",
+    "sellerTrustDiagnosis": "Vertrauensdiagnose für Verkäufer",
+    "trustBlockerHeading": "Das hält weitere Käufer davon ab, diesem Produkt zu vertrauen.",
+    "biggestConversionOpportunity": "Größte Conversion-Chance",
+    "topActionsNext": "Die nächsten 3 Maßnahmen",
+    "listingImprovements": "Verbesserungen des Angebots",
+    "coreSellerTrustRead": "Zentrale Vertrauensanalyse für Verkäufer.",
+    "overallTrust": "Gesamtvertrauen",
+    "sellerPro": "Verkäufer Pro",
+    "sellerPremium": "Verkäufer Premium",
+    "trustSnapshot": "Vertrauensübersicht für {plan}"
+  }
+}

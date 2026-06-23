@@ -1,0 +1,371 @@
+
+function isPaymentBypassSellerTestAccount(email: string) {
+  return email.trim().toLowerCase() === "seller.starter@reviewintel.test";
+}
+
+import { NextResponse } from "next/server";
+import { isAdminRole, isSellerPlan, normalizePlan, normalizeRole } from "@/lib/account";
+import {
+  consumePersistentQuota,
+  isSupabaseConfigured,
+  saveAnalysisRecord,
+  supabaseSelect,
+} from "@/lib/supabaseServer";
+import type { SubscriptionPlan, UserRole } from "@/lib/types";
+
+export const runtime = "nodejs";
+export const maxDuration = 90;
+
+type JsonRecord = Record<string, unknown>;
+
+function languageNameFromLocale(locale: string) {
+  const value = String(locale || "en").toLowerCase();
+
+  if (value === "fr") return "French";
+  if (value === "es") return "Spanish";
+  if (value === "zh") return "Simplified Chinese";
+  if (value === "de") return "German";
+  if (value === "hi") return "Hindi";
+
+  return "English";
+}
+
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asTextArray(value: unknown, limit = 8): string[] {
+  return asArray(value)
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function readString(source: JsonRecord, key: string) {
+  return String(source[key] || "").trim();
+}
+
+function readNumber(source: JsonRecord, key: string) {
+  const value = Number(source[key]);
+  return Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : 0;
+}
+
+function readCookie(request: Request, name: string) {
+  const entry = (request.headers.get("cookie") || "")
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+
+  if (!entry) return "";
+
+  const value = entry.slice(name.length + 1);
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+type SellerAccessProfile = {
+  role?: unknown;
+  plan?: unknown;
+  subscription_status?: unknown;
+  status?: unknown;
+};
+
+type ResolvedSellerAccess = {
+  allowed: boolean;
+  email: string;
+  plan: SubscriptionPlan;
+  role: UserRole;
+};
+
+function hasActiveSellerSubscription(profile: SellerAccessProfile) {
+  const accountStatus = String(profile.status ?? "active").toLowerCase();
+  const subscriptionStatus = String(profile.subscription_status ?? "").toLowerCase();
+
+  if (["banned", "suspended", "disabled"].includes(accountStatus)) return false;
+  return ["active", "trialing", "developer"].includes(subscriptionStatus);
+}
+
+async function resolveSellerAccess(
+  email: string,
+  requestedPlan: SubscriptionPlan,
+  requestedRole: UserRole,
+): Promise<ResolvedSellerAccess> {
+  if (isAdminRole(requestedRole)) {
+    return { allowed: true, email, plan: requestedPlan, role: "admin" };
+  }
+
+  if (!email || email === "guest") {
+    return { allowed: false, email, plan: "free_buyer", role: "guest" };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return {
+      allowed: isSellerPlan(requestedPlan),
+      email,
+      plan: requestedPlan,
+      role: requestedRole,
+    };
+  }
+
+  const rows = await supabaseSelect<SellerAccessProfile>(
+    "profiles",
+    `select=role,plan,subscription_status,status&email=eq.${encodeURIComponent(email)}&limit=1`,
+  );
+  const profile = rows[0];
+  const plan = normalizePlan(String(profile?.plan ?? "free_buyer"));
+  const role = normalizeRole(String(profile?.role ?? "guest"));
+
+  return {
+    allowed: role === "seller" && isSellerPlan(plan) && Boolean(profile) && hasActiveSellerSubscription(profile),
+    email,
+    plan,
+    role,
+  };
+}
+
+function parseCsvRows(csv: string, limit = 80) {
+  const lines = csv
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, limit + 1);
+
+  if (lines.length <= 1) return [];
+
+  const headers = lines[0].split(",").map((header) => header.trim().replace(/^"|"$/g, ""));
+  const rows = lines.slice(1).map((line) => {
+    const values = line.split(",").map((value) => value.trim().replace(/^"|"$/g, ""));
+    const row: JsonRecord = {};
+    headers.forEach((header, index) => {
+      row[header || `column_${index + 1}`] = values[index] || "";
+    });
+    return row;
+  });
+
+  return rows;
+}
+
+function sampleTextFromRows(rows: JsonRecord[]) {
+  return rows
+    .slice(0, 60)
+    .map((row, index) => {
+      const values = Object.entries(row)
+        .filter(([, value]) => String(value || "").trim())
+        .slice(0, 8)
+        .map(([key, value]) => `${key}: ${String(value).slice(0, 500)}`)
+        .join(" | ");
+
+      return `Row ${index + 1}: ${values}`;
+    })
+    .join("\n");
+}
+
+async function openAIResponse(prompt: string) {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is missing.");
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-4.1",
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: prompt
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(String(asRecord(data).error || "Seller analysis failed."));
+  }
+
+  const record = asRecord(data);
+  const outputText = typeof record.output_text === "string"
+    ? record.output_text
+    : asArray(record.output)
+        .flatMap((item) => asArray(asRecord(item).content))
+        .map((item) => readString(asRecord(item), "text"))
+        .join("");
+
+  const cleaned = outputText.replace(/^```json/i, "").replace(/^```/, "").replace(/```$/, "").trim();
+  return JSON.parse(cleaned);
+}
+
+function normalizeSellerResult(rawValue: unknown, reviewCount: number) {
+  const raw = asRecord(rawValue);
+
+  return {
+    summary: readString(raw, "summary") || "Seller review analysis completed.",
+    reviewsAnalyzed: reviewCount,
+    healthScore: readNumber(raw, "healthScore"),
+    buyerSatisfaction: readNumber(raw, "buyerSatisfaction"),
+    refundRisk: readNumber(raw, "refundRisk"),
+    topComplaints: asTextArray(raw.topComplaints, 8),
+    topPraise: asTextArray(raw.topPraise, 8),
+    buyerObjections: asTextArray(raw.buyerObjections, 8),
+    productFixes: asTextArray(raw.productFixes, 8),
+    listingFixes: asTextArray(raw.listingFixes, 8),
+    adAngles: asTextArray(raw.adAngles, 8),
+    nextActions: asTextArray(raw.nextActions, 8)
+  };
+}
+
+export async function POST(request: Request) {
+  try {
+    const email =
+      request.headers.get("x-reviewintel-email") ||
+      request.headers.get("x-reviewintel-user") ||
+      readCookie(request, "reviewintel_account_email") ||
+      readCookie(request, "reviewintel_email") ||
+      "";
+    const requestedPlan = normalizePlan(request.headers.get("x-reviewintel-plan") || readCookie(request, "reviewintel_account_plan") || "free_buyer");
+    const requestedRole = normalizeRole(request.headers.get("x-reviewintel-role") || readCookie(request, "reviewintel_account_role") || "guest");
+    const sellerAccess = await resolveSellerAccess(email, requestedPlan, requestedRole);
+    const plan = sellerAccess.plan;
+    const role = sellerAccess.role;
+
+    if (!sellerAccess.allowed) {
+      return NextResponse.json(
+        { error: "Seller analysis requires an active Seller Premium or Seller Pro subscription.", code: "SELLER_PLAN_REQUIRED" },
+        { status: 402 }
+      );
+    }
+
+    const formData = await request.formData();
+    const file = formData.get("csv");
+    const locale = String(formData.get("locale") || "en").trim();
+    const outputLanguage = languageNameFromLocale(locale);
+
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Please upload a CSV file." }, { status: 400 });
+    }
+
+    const isCsv =
+      file.type === "text/csv" ||
+      file.name.toLowerCase().endsWith(".csv") ||
+      file.type === "application/vnd.ms-excel";
+
+    if (!isCsv) {
+      return NextResponse.json({ error: "Seller analysis accepts CSV files only." }, { status: 400 });
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: "CSV file is too large. Please upload a file under 5MB." }, { status: 400 });
+    }
+
+    const csv = await file.text();
+    const rows = parseCsvRows(csv, 120);
+
+    if (!rows.length) {
+      return NextResponse.json({ error: "No review rows found in this CSV." }, { status: 400 });
+    }
+
+    const sample = sampleTextFromRows(rows);
+
+    const prompt = `
+You are ReviewIntel Seller Intelligence.
+
+Analyze this seller product review CSV sample.
+Do not talk about shopper screenshot analysis.
+Do not ask for screenshots.
+Do not mention fake reviews as fact.
+Focus on seller usefulness:
+- common complaints
+- buyer objections
+- product quality issues
+- refund/return risk
+- listing improvement ideas
+- product improvement ideas
+- ad angles based on real praise
+- next actions
+
+LANGUAGE RULE:
+Write all user-facing result text in ${outputLanguage}.
+Keep JSON keys in English.
+Numbers should remain numbers.
+
+Return JSON only with this shape:
+{
+  "summary": "short seller summary",
+  "healthScore": 0-100,
+  "buyerSatisfaction": 0-100,
+  "refundRisk": 0-100,
+  "topComplaints": ["..."],
+  "topPraise": ["..."],
+  "buyerObjections": ["..."],
+  "productFixes": ["..."],
+  "listingFixes": ["..."],
+  "adAngles": ["..."],
+  "nextActions": ["..."]
+}
+
+CSV sample:
+${sample}
+`;
+
+    const raw = await openAIResponse(prompt);
+    const result = normalizeSellerResult(raw, rows.length);
+    if (email) {
+      const analysisRecord = await saveAnalysisRecord({
+        profile_email: email,
+        mode: "seller",
+        product_name: file.name.replace(/\.csv$/i, "") || "Seller CSV scan",
+        platform: "other",
+        product_score: result.healthScore,
+        recommendation: result.healthScore >= 70 ? "seller_watch" : "seller_fix",
+        summary: result.summary,
+        analysis_json: result,
+        account: { email, plan, role }
+      }) as { id?: string; created_at?: string } | null;
+
+      await consumePersistentQuota(
+        { email, plan },
+        {
+          analysis_id: analysisRecord?.id ?? null,
+          audience: "seller",
+          product_name: file.name,
+          review_count: rows.length
+        }
+      );
+
+      return NextResponse.json({
+        ...result,
+        analysisId: analysisRecord?.id ?? null,
+        createdAt: analysisRecord?.created_at ?? new Date().toISOString()
+      });
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Seller CSV analysis error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Seller CSV analysis failed." },
+      { status: 500 }
+    );
+  }
+}

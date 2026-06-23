@@ -1,0 +1,91 @@
+{
+  "Common": {
+    "language": "语言",
+    "chooseLanguage": "选择语言",
+    "loading": "正在加载",
+    "error": "出现错误",
+    "save": "保存",
+    "cancel": "取消",
+    "continue": "继续"
+  },
+  "Analyzer": {
+    "productName": "产品名称",
+    "runAnalysis": "运行 AI 分析"
+  },
+  "Dashboard": {
+    "shopperScore": "购物者评分",
+    "sellerDashboard": "卖家控制面板",
+    "manageSubscription": "管理订阅"
+  },
+  "Home": {
+    "scanReviewsNow": "立即分析评论",
+    "seeExampleResult": "查看示例结果",
+    "shopperMode": "购物者模式",
+    "fastShoppingVerdict": "快速购物结论。",
+    "tryShopperScan": "试用购物者分析",
+    "sellerPro": "专业卖家",
+    "businessIntelligence": "商业智能。",
+    "seeSellerPlans": "查看卖家方案",
+    "payoff": {
+      "eyebrow": "值得截图的结果",
+      "title": "结果应该像打开惊喜盒一样清楚。",
+      "body": "购物者无需阅读长报告就能得到答案。卖家会获得独立的决策视图，专为经营决策而不是购物而设计。"
+    },
+    "modeIntro": {
+      "eyebrow": "选择正确模式",
+      "title": "一次产品分析，两种清晰流程。",
+      "body": "当你在决定是否购买时，请使用购物者模式：上传产品截图后，ReviewIntel 会检查公开评论信号、重复投诉、价值、评分线索和类似 AI 生成评论的模式，然后给出购买、考虑或避免的结论。当你在管理产品时，请使用卖家模式：分析评论以找出投诉分类、关键词主题、信任差距、商品页面改进点，以及针对产品质量、客服、广告和转化率的下一步行动。"
+    },
+    "buyerWins": {
+      "verdict": "购买 / 考虑 / 避免",
+      "fakeRisk": "虚假评论风险",
+      "bestFor": "最适合人群",
+      "complaint": "最大问题"
+    },
+    "sellerWins": {
+      "complaintClusters": "投诉分类",
+      "keywordIntelligence": "关键词分析",
+      "painPoints": "用户痛点",
+      "exportReport": "可导出报告"
+    },
+    "cards": {
+      "worthBuying": "值得购买",
+      "lowFakeRisk": "虚假评论风险低",
+      "topComplaint": "主要问题",
+      "batteryLife": "电池续航",
+      "checkBeforeBuying": "购买前请检查",
+      "bestFor": "最适合",
+      "studentsOfficeTravel": "学生、办公和旅行",
+      "greatValue": "性价比高"
+    },
+    "steps": {
+      "uploadTitle": "粘贴或上传",
+      "uploadDetail": "评论、TXT、CSV 或快速截图。",
+      "scanTitle": "AI 分析",
+      "scanDetail": "可信度、投诉、价值、关键词和趋势。",
+      "answerTitle": "清晰答案",
+      "answerDetail": "购物者结论或专业卖家报告。"
+    }
+  },
+  "Results": {
+    "trustScore": "信任评分",
+    "evidence": "证据",
+    "worry": "顾虑",
+    "action": "行动",
+    "hideProof": "隐藏证据",
+    "seeSellerProof": "查看卖家证据",
+    "sellerProTrustCriteria": "专业卖家信任标准",
+    "trustQuestion": "这些评论是否证明买家可以信任该产品？",
+    "overallTrustScore": "总体信任评分",
+    "sellerTrustDiagnosis": "卖家信任诊断",
+    "trustBlockerHeading": "以下因素正在阻碍更多买家信任该产品。",
+    "biggestConversionOpportunity": "最大转化机会",
+    "topActionsNext": "接下来的三项行动",
+    "listingImprovements": "商品页面改进",
+    "coreSellerTrustRead": "核心卖家信任分析。",
+    "overallTrust": "总体信任度",
+    "sellerPro": "专业卖家",
+    "sellerPremium": "高级卖家",
+    "trustSnapshot": "{plan} 信任概览"
+  }
+}

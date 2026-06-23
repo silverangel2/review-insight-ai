@@ -1,0 +1,145 @@
+"use client";
+
+import { ACCOUNT_STORAGE_KEY } from "@/lib/account";
+
+export type SellerCompareProductSnapshot = {
+  label: string;
+  summary?: string;
+  reviewsAnalyzed?: number;
+  healthScore?: number;
+  buyerSatisfaction?: number;
+  refundRisk?: number;
+  topComplaints?: string[];
+  topPraise?: string[];
+};
+
+export type SellerComparePlan = {
+  competitivePosition: string;
+  confidence: number;
+  executiveSummary: string;
+  marketMove: string;
+  fixFirst: string;
+  outgrowStrategy: string[];
+  competitorAdvantages: string[];
+  yourAdvantages: string[];
+  conversionGaps: string[];
+  productMoves: string[];
+  listingMoves: string[];
+  adAngles: string[];
+  riskWarnings: string[];
+  thirtyDayPlan: string[];
+  ninetyDayPlan: string[];
+  comparabilityWarning: string;
+};
+
+export type SellerCompareHistoryItem = {
+  id: string;
+  createdAt: string;
+  yourLabel: string;
+  competitorLabel: string;
+  yourProduct: SellerCompareProductSnapshot;
+  competitorProduct: SellerCompareProductSnapshot;
+  comparison: SellerComparePlan;
+};
+
+const SELLER_COMPARE_HISTORY_KEY_BASE = "reviewintel:seller-compare-history";
+const SELLER_COMPARE_ACTIVE_KEY_BASE = "reviewintel:seller-compare-active";
+
+function canUseStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function safeAccountKey(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9@._-]+/g, "-");
+}
+
+function currentScopeKey() {
+  if (!canUseStorage()) return "guest";
+
+  try {
+    const raw = window.localStorage.getItem(ACCOUNT_STORAGE_KEY);
+    if (!raw) return "guest";
+    const parsed = JSON.parse(raw) as { email?: string; userId?: string | null; authUserId?: string | null };
+    const identity = parsed.email || parsed.userId || parsed.authUserId || "guest";
+
+    return safeAccountKey(identity);
+  } catch {
+    return "guest";
+  }
+}
+
+function historyKey() {
+  return `${SELLER_COMPARE_HISTORY_KEY_BASE}:${currentScopeKey()}`;
+}
+
+function activeKey() {
+  return `${SELLER_COMPARE_ACTIVE_KEY_BASE}:${currentScopeKey()}`;
+}
+
+function uid() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `seller-compare-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function readSellerCompareHistory(): SellerCompareHistoryItem[] {
+  if (!canUseStorage()) return [];
+
+  try {
+    const raw = window.localStorage.getItem(historyKey());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item) => item?.id && item?.comparison) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function readActiveSellerCompare() {
+  if (!canUseStorage()) return null;
+
+  try {
+    const activeId = window.localStorage.getItem(activeKey());
+    const history = readSellerCompareHistory();
+    return history.find((item) => item.id === activeId) ?? history[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSellerCompareHistoryItem(input: Omit<SellerCompareHistoryItem, "id" | "createdAt">) {
+  if (!canUseStorage()) return null;
+
+  const item: SellerCompareHistoryItem = {
+    ...input,
+    id: uid(),
+    createdAt: new Date().toISOString()
+  };
+
+  const current = readSellerCompareHistory().filter((entry) => entry.id !== item.id);
+  const next = [item, ...current].slice(0, 20);
+  window.localStorage.setItem(historyKey(), JSON.stringify(next));
+  window.localStorage.setItem(activeKey(), item.id);
+  return item;
+}
+
+export function setActiveSellerCompare(id: string) {
+  if (!canUseStorage()) return;
+  window.localStorage.setItem(activeKey(), id);
+}
+
+export function deleteSellerCompareHistoryItem(id: string) {
+  if (!canUseStorage()) return;
+  const next = readSellerCompareHistory().filter((item) => item.id !== id);
+  window.localStorage.setItem(historyKey(), JSON.stringify(next));
+  const active = window.localStorage.getItem(activeKey());
+  if (active === id) {
+    if (next[0]) window.localStorage.setItem(activeKey(), next[0].id);
+    else window.localStorage.removeItem(activeKey());
+  }
+}
+
+export function clearSellerCompareHistory() {
+  if (!canUseStorage()) return;
+  window.localStorage.removeItem(historyKey());
+  window.localStorage.removeItem(activeKey());
+}

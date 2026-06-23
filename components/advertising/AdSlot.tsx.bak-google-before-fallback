@@ -1,0 +1,303 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import {
+  type AdPlacement,
+  type SponsorAd,
+  defaultAdSettings,
+  reviewIntelPlaceholderAds,
+} from "@/lib/adConfig";
+import type { LiveAdSettings } from "@/lib/adSettingsStore";
+
+declare global {
+  interface Window {
+    adsbygoogle?: unknown[];
+  }
+}
+
+type AdSlotProps = {
+  placement: AdPlacement;
+  className?: string;
+  compact?: boolean;
+};
+
+type AdSource = "direct" | "placeholder";
+
+function isExternalUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
+function hasGoogleAdSenseConfig(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT &&
+      process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT,
+  );
+}
+
+function sendAdEvent(type: "impression" | "click", sponsorId: string, placement: AdPlacement) {
+  const payload = JSON.stringify({
+    type,
+    sponsorId,
+    placement,
+    path: window.location.pathname,
+    occurredAt: new Date().toISOString(),
+  });
+
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/api/sponsor-events", new Blob([payload], { type: "application/json" }));
+    return;
+  }
+
+  void fetch("/api/sponsor-events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    keepalive: true,
+  });
+}
+
+function hourlySeed(placement: string) {
+  const hour = Math.floor(Date.now() / (60 * 60 * 1000));
+  return placement.split("").reduce((total, char) => total + char.charCodeAt(0), hour);
+}
+
+function pickRotatingAd(ads: SponsorAd[], placement: AdPlacement) {
+  const candidates = ads.filter(
+    (item) =>
+      item.placement === placement &&
+      item.active &&
+      item.status === "approved" &&
+      item.paymentStatus === "paid",
+  );
+
+  if (!candidates.length) return null;
+  return candidates[hourlySeed(placement) % candidates.length] ?? candidates[0];
+}
+
+function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
+  const client = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT;
+  const slot = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT;
+
+  useEffect(() => {
+    if (!client || !slot) return;
+
+    try {
+      window.adsbygoogle = window.adsbygoogle || [];
+      window.adsbygoogle.push({});
+    } catch {
+      // Google may block ads locally or before approval. Safe to ignore.
+    }
+  }, [client, slot]);
+
+  if (!client || !slot) {
+    return null;
+  }
+
+  return (
+    <aside
+      className={`rounded-3xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950/70 ${className}`}
+      aria-label="Google AdSense advertisement"
+    >
+      <div className="mb-2 text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+        Advertisement
+      </div>
+
+      <ins
+        className="adsbygoogle block min-h-[120px] w-full"
+        style={{ display: "block" }}
+        data-ad-client={client}
+        data-ad-slot={slot}
+        data-ad-format="auto"
+        data-full-width-responsive="true"
+      />
+    </aside>
+  );
+}
+
+export function AdSlot({ placement, className = "", compact = false }: AdSlotProps) {
+  const [settings, setSettings] = useState<LiveAdSettings | null>(null);
+  const [ad, setAd] = useState<SponsorAd | null>(null);
+  const [adSource, setAdSource] = useState<AdSource | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAd() {
+      try {
+        const response = await fetch("/api/advertising/settings", { cache: "no-store" });
+        const data = await response.json();
+        const liveSettings = data.settings as LiveAdSettings;
+
+        if (!mounted) return;
+
+        setSettings(liveSettings);
+
+        if (!liveSettings.adsEnabled || !liveSettings.placements?.[placement]) {
+          setAd(null);
+          setAdSource(null);
+          return;
+        }
+
+        const sponsorAds = Array.isArray(data.ads) ? (data.ads as SponsorAd[]) : [];
+        const directSponsorAd =
+          liveSettings.directSponsorAdsEnabled
+            ? pickRotatingAd(sponsorAds, placement)
+            : null;
+
+        if (directSponsorAd) {
+          setAd(directSponsorAd);
+          setAdSource("direct");
+          return;
+        }
+
+        if (liveSettings.googleAdsEnabled && hasGoogleAdSenseConfig()) {
+          setAd(null);
+          setAdSource(null);
+          return;
+        }
+
+        if (liveSettings.placeholderAdsEnabled) {
+          const placeholder =
+            reviewIntelPlaceholderAds.find(
+              (item) =>
+                item.placement === placement &&
+                item.active &&
+                item.status === "approved",
+            ) ?? null;
+
+          setAd(placeholder);
+          setAdSource(placeholder ? "placeholder" : null);
+          return;
+        }
+
+        setAd(null);
+        setAdSource(null);
+      } catch {
+        if (mounted) {
+          setSettings(null);
+          setAd(null);
+          setAdSource(null);
+        }
+      }
+    }
+
+    loadAd();
+
+    return () => {
+      mounted = false;
+    };
+  }, [placement]);
+
+  useEffect(() => {
+    if (!ad || adSource !== "direct") return;
+    sendAdEvent("impression", ad.id, placement);
+  }, [ad, adSource, placement]);
+
+  const effectiveSettings = settings ?? defaultAdSettings;
+
+  // Priority:
+  // 1. Private/direct sponsor ad when available.
+  // 2. Google AdSense fallback when enabled.
+  // 3. Nothing.
+  if (
+    !ad &&
+    effectiveSettings.adsEnabled &&
+    effectiveSettings.googleAdsEnabled &&
+    effectiveSettings.placements?.[placement] &&
+    hasGoogleAdSenseConfig()
+  ) {
+    return <GoogleAdSenseBlock className={className} />;
+  }
+
+  const fallbackAd =
+    effectiveSettings.adsEnabled && effectiveSettings.placements?.[placement]
+      ? reviewIntelPlaceholderAds.find(
+          (item) =>
+            item.placement === placement &&
+            item.active &&
+            item.status === "approved",
+        ) ?? null
+      : null;
+
+  const visibleAd = ad ?? fallbackAd;
+  const visibleAdSource = ad ? adSource : fallbackAd ? "placeholder" : null;
+
+  if (!visibleAd) return null;
+
+  const isHouseAd = visibleAdSource === "placeholder";
+  const ctaLabel = isHouseAd ? "Advertise with ReviewIntel" : visibleAdSource === "direct" ? "Learn more" : "Apply for ads";
+  const badgeLabel = isHouseAd ? "ReviewIntel ad spot" : "Sponsored";
+  const ctaClassName =
+    "inline-flex shrink-0 items-center justify-center rounded-full bg-cyan-300 px-5 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200";
+  const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl;
+  const media = mediaUrl ? (
+    visibleAd.mediaType === "video" ? (
+      <video
+        src={mediaUrl}
+        muted
+        loop
+        playsInline
+        autoPlay
+        className="h-20 w-full rounded-2xl border border-white/10 object-cover sm:w-32"
+      />
+    ) : (
+      <img
+        src={mediaUrl}
+        alt=""
+        loading="lazy"
+        className="h-20 w-full rounded-2xl border border-white/10 object-cover sm:w-32"
+      />
+    )
+  ) : null;
+  const trackClick = () => {
+    if (visibleAdSource === "direct") sendAdEvent("click", visibleAd.id, placement);
+  };
+  const cta = isExternalUrl(visibleAd.destinationUrl) ? (
+    <a
+      href={visibleAd.destinationUrl}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      className={ctaClassName}
+      data-sponsor-click={visibleAd.id}
+      onClick={trackClick}
+    >
+      {ctaLabel}
+    </a>
+  ) : (
+    <Link href={visibleAd.destinationUrl} className={ctaClassName} data-sponsor-click={visibleAd.id} onClick={trackClick}>
+      {ctaLabel}
+    </Link>
+  );
+
+  return (
+    <aside
+      className={`rounded-3xl border border-cyan-200/20 bg-slate-950/70 p-4 text-white shadow-[0_0_30px_rgba(34,211,238,0.10)] backdrop-blur-xl ${isHouseAd ? "ri-house-ad-slot animate-pulse border-cyan-300/40 shadow-[0_0_45px_rgba(34,211,238,0.22)]" : ""} ${className}`}
+      aria-label="Sponsored placement"
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center">
+          {media}
+
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100">
+              {badgeLabel}
+            </div>
+
+            <p className="text-sm font-semibold text-cyan-100">{visibleAd.sponsorName}</p>
+            <h3 className={compact ? "mt-1 text-lg font-bold" : "mt-1 text-xl font-bold"}>
+              {visibleAd.headline}
+            </h3>
+            {visibleAd.description ? (
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                {visibleAd.description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {cta}
+      </div>
+    </aside>
+  );
+}

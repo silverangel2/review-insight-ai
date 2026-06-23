@@ -1,0 +1,91 @@
+{
+  "Common": {
+    "language": "Langue",
+    "chooseLanguage": "Choisir la langue",
+    "loading": "Chargement",
+    "error": "Une erreur s’est produite",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "continue": "Continuer"
+  },
+  "Analyzer": {
+    "productName": "Nom du produit",
+    "runAnalysis": "Lancer l’analyse IA"
+  },
+  "Dashboard": {
+    "shopperScore": "Score acheteur",
+    "sellerDashboard": "Tableau de bord vendeur",
+    "manageSubscription": "Gérer l’abonnement"
+  },
+  "Home": {
+    "scanReviewsNow": "Analyser les avis",
+    "seeExampleResult": "Voir un exemple de résultat",
+    "shopperMode": "Mode acheteur",
+    "fastShoppingVerdict": "Un verdict d’achat rapide.",
+    "tryShopperScan": "Essayer l’analyse acheteur",
+    "sellerPro": "Vendeur Pro",
+    "businessIntelligence": "Intelligence commerciale.",
+    "seeSellerPlans": "Voir les forfaits vendeur",
+    "payoff": {
+      "eyebrow": "Résultat digne d’une capture",
+      "title": "Le résultat doit donner l’impression d’ouvrir une boîte surprise.",
+      "body": "Les acheteurs obtiennent la réponse sans lire un rapport. Les vendeurs obtiennent une vue de commande séparée, conçue pour les décisions, pas pour l’achat."
+    },
+    "modeIntro": {
+      "eyebrow": "Choisir le bon mode",
+      "title": "Une analyse produit, deux parcours clairs.",
+      "body": "Utilisez le mode acheteur lorsque vous décidez quoi acheter : téléversez une capture du produit et ReviewIntel vérifie les signaux publics d’avis, les plaintes répétées, la valeur, les indices de note et les signes d’avis générés par IA avant de donner un verdict ACHETER, CONSIDÉRER ou ÉVITER. Utilisez le mode vendeur lorsque vous gérez un produit : analysez les avis pour trouver les groupes de plaintes, les thèmes de mots-clés, les écarts de confiance, les améliorations de fiche et les prochaines actions pour la qualité produit, le support, les publicités et la conversion."
+    },
+    "buyerWins": {
+      "verdict": "Acheter / Peut-être / Éviter",
+      "fakeRisk": "Risque de faux avis",
+      "bestFor": "Profil idéal",
+      "complaint": "Principale plainte"
+    },
+    "sellerWins": {
+      "complaintClusters": "Groupes de plaintes",
+      "keywordIntelligence": "Analyse des mots-clés",
+      "painPoints": "Points faibles",
+      "exportReport": "Rapport prêt à exporter"
+    },
+    "cards": {
+      "worthBuying": "Vaut l’achat",
+      "lowFakeRisk": "Faible risque de faux avis",
+      "topComplaint": "Principale plainte",
+      "batteryLife": "Autonomie de la batterie",
+      "checkBeforeBuying": "À vérifier avant l’achat",
+      "bestFor": "Idéal pour",
+      "studentsOfficeTravel": "Étudiants, bureau et voyages",
+      "greatValue": "Excellent rapport qualité-prix"
+    },
+    "steps": {
+      "uploadTitle": "Coller ou téléverser",
+      "uploadDetail": "Avis, fichiers TXT, CSV ou captures d’écran.",
+      "scanTitle": "Analyse IA",
+      "scanDetail": "Fiabilité, plaintes, valeur, mots-clés et tendances.",
+      "answerTitle": "Réponse claire",
+      "answerDetail": "Verdict acheteur ou rapport Vendeur Pro."
+    }
+  },
+  "Results": {
+    "trustScore": "Score de confiance",
+    "evidence": "Preuves",
+    "worry": "Préoccupation",
+    "action": "Action",
+    "hideProof": "Masquer les preuves",
+    "seeSellerProof": "Voir les preuves vendeur",
+    "sellerProTrustCriteria": "Critères de confiance Vendeur Pro",
+    "trustQuestion": "Ces avis prouvent-ils que les acheteurs peuvent faire confiance à ce produit?",
+    "overallTrustScore": "Score global de confiance",
+    "sellerTrustDiagnosis": "Diagnostic de confiance vendeur",
+    "trustBlockerHeading": "Voici ce qui empêche davantage d’acheteurs de faire confiance à ce produit.",
+    "biggestConversionOpportunity": "Plus grande occasion de conversion",
+    "topActionsNext": "Les 3 prochaines actions",
+    "listingImprovements": "Améliorations de la fiche produit",
+    "coreSellerTrustRead": "Analyse principale de la confiance vendeur.",
+    "overallTrust": "Confiance globale",
+    "sellerPro": "Vendeur Pro",
+    "sellerPremium": "Vendeur Premium",
+    "trustSnapshot": "Aperçu de confiance — {plan}"
+  }
+}

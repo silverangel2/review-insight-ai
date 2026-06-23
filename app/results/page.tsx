@@ -1,0 +1,9 @@
+import { ResultsClient } from "@/components/ResultsClient";
+
+export default function ResultsPage() {
+  return (
+    <main className="mx-auto max-w-7xl px-3 py-5 sm:px-6 sm:py-10">
+      <ResultsClient />
+    </main>
+  );
+}

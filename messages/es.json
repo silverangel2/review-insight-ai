@@ -1,0 +1,91 @@
+{
+  "Common": {
+    "language": "Idioma",
+    "chooseLanguage": "Elegir idioma",
+    "loading": "Cargando",
+    "error": "Algo salió mal",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "continue": "Continuar"
+  },
+  "Analyzer": {
+    "productName": "Nombre del producto",
+    "runAnalysis": "Ejecutar análisis con IA"
+  },
+  "Dashboard": {
+    "shopperScore": "Puntuación del comprador",
+    "sellerDashboard": "Panel del vendedor",
+    "manageSubscription": "Administrar suscripción"
+  },
+  "Home": {
+    "scanReviewsNow": "Analizar reseñas ahora",
+    "seeExampleResult": "Ver resultado de ejemplo",
+    "shopperMode": "Modo comprador",
+    "fastShoppingVerdict": "Un veredicto de compra rápido.",
+    "tryShopperScan": "Probar análisis para compradores",
+    "sellerPro": "Vendedor Pro",
+    "businessIntelligence": "Inteligencia empresarial.",
+    "seeSellerPlans": "Ver planes para vendedores",
+    "payoff": {
+      "eyebrow": "Resultado digno de captura",
+      "title": "El resultado debe sentirse como abrir una caja sorpresa.",
+      "body": "Los compradores obtienen la respuesta sin leer un informe. Los vendedores obtienen una vista de mando separada, creada para tomar decisiones, no para comprar."
+    },
+    "modeIntro": {
+      "eyebrow": "Elige el modo correcto",
+      "title": "Un análisis de producto, dos flujos claros.",
+      "body": "Usa el modo comprador cuando estás decidiendo qué comprar: sube una captura del producto y ReviewIntel revisa señales públicas de reseñas, quejas repetidas, valor, pistas de calificación y patrones de reseñas similares a IA antes de dar un veredicto COMPRAR, CONSIDERAR o EVITAR. Usa el modo vendedor cuando gestionas un producto: analiza reseñas para encontrar grupos de quejas, temas de palabras clave, brechas de confianza, mejoras de ficha y próximas acciones para calidad del producto, soporte, anuncios y conversión."
+    },
+    "buyerWins": {
+      "verdict": "Comprar / Tal vez / Evitar",
+      "fakeRisk": "Riesgo de reseñas falsas",
+      "bestFor": "Mejor perfil",
+      "complaint": "Mayor queja"
+    },
+    "sellerWins": {
+      "complaintClusters": "Grupos de quejas",
+      "keywordIntelligence": "Análisis de palabras clave",
+      "painPoints": "Puntos débiles",
+      "exportReport": "Informe listo para exportar"
+    },
+    "cards": {
+      "worthBuying": "Vale la pena comprarlo",
+      "lowFakeRisk": "Bajo riesgo de reseñas falsas",
+      "topComplaint": "Principal queja",
+      "batteryLife": "Duración de la batería",
+      "checkBeforeBuying": "Revisar antes de comprar",
+      "bestFor": "Ideal para",
+      "studentsOfficeTravel": "Estudiantes, oficina y viajes",
+      "greatValue": "Excelente relación calidad-precio"
+    },
+    "steps": {
+      "uploadTitle": "Pega o sube",
+      "uploadDetail": "Reseñas, archivos TXT, CSV o capturas rápidas.",
+      "scanTitle": "Análisis con IA",
+      "scanDetail": "Confianza, quejas, valor, palabras clave y patrones.",
+      "answerTitle": "Respuesta clara",
+      "answerDetail": "Veredicto del comprador o informe Vendedor Pro."
+    }
+  },
+  "Results": {
+    "trustScore": "Puntuación de confianza",
+    "evidence": "Pruebas",
+    "worry": "Preocupación",
+    "action": "Acción",
+    "hideProof": "Ocultar pruebas",
+    "seeSellerProof": "Ver pruebas del vendedor",
+    "sellerProTrustCriteria": "Criterios de confianza Vendedor Pro",
+    "trustQuestion": "¿Estas reseñas demuestran que los compradores pueden confiar en este producto?",
+    "overallTrustScore": "Puntuación general de confianza",
+    "sellerTrustDiagnosis": "Diagnóstico de confianza del vendedor",
+    "trustBlockerHeading": "Esto es lo que impide que más compradores confíen en este producto.",
+    "biggestConversionOpportunity": "Mayor oportunidad de conversión",
+    "topActionsNext": "Las 3 próximas acciones",
+    "listingImprovements": "Mejoras de la ficha",
+    "coreSellerTrustRead": "Análisis principal de confianza del vendedor.",
+    "overallTrust": "Confianza general",
+    "sellerPro": "Vendedor Pro",
+    "sellerPremium": "Vendedor Premium",
+    "trustSnapshot": "Resumen de confianza de {plan}"
+  }
+}

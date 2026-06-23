@@ -1,0 +1,227 @@
+{
+  "/": {
+    "title": "ReviewIntel | AI Product Review Analyzer for Smarter Buying Decisions",
+    "description": "ReviewIntel turns messy product reviews into instant buying confidence. Analyze reviews, detect fake-review risk, compare products, and understand what customers really say before you buy or sell.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com",
+    "robots": "index, follow"
+  },
+  "/pricing": {
+    "title": "ReviewIntel Pricing | Shopper and Seller AI Review Intelligence Plans",
+    "description": "Choose the right ReviewIntel plan for fast product analysis, buyer confidence reports, seller insights, review intelligence, and premium product comparison tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/pricing",
+    "robots": "index, follow"
+  },
+  "/about": {
+    "title": "About ReviewIntel | AI Review Intelligence for Buyers and Sellers",
+    "description": "ReviewIntel helps shoppers make faster product decisions and helps sellers understand customer feedback using AI-powered review analysis, risk signals, and product insights.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/about",
+    "robots": "index, follow"
+  },
+  "/faq": {
+    "title": "ReviewIntel FAQ | AI Product Review Analyzer Questions Answered",
+    "description": "Get answers about ReviewIntel, AI review analysis, fake-review risk, product comparisons, shopper reports, seller insights, privacy, and subscriptions.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/faq",
+    "robots": "index, follow"
+  },
+  "/contact": {
+    "title": "Contact ReviewIntel | Support for AI Review Analysis",
+    "description": "Contact ReviewIntel for support, product questions, seller analytics help, advertising inquiries, billing support, or account assistance.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/contact",
+    "robots": "index, follow"
+  },
+  "/login": {
+    "title": "Login to ReviewIntel | AI Product Review Dashboard",
+    "description": "Sign in to ReviewIntel to access your AI review analysis dashboard, saved product scans, shopper insights, seller reports, and product comparison tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/login",
+    "robots": "index, follow"
+  },
+  "/signup": {
+    "title": "Create a ReviewIntel Account | Start AI Product Review Analysis",
+    "description": "Create your ReviewIntel account and start analyzing product reviews, detecting fake-review risk, comparing products, and unlocking smarter buying decisions.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/signup",
+    "robots": "index, follow"
+  },
+  "/analyze": {
+    "title": "AI Product Review Analyzer | Upload, Scan, and Decide Fast",
+    "description": "Use ReviewIntel to analyze product reviews instantly. Upload reviews, paste product feedback, or scan data to get a fast AI buying-confidence report.",
+    "ogImage": "/uploads/seo/seo-1782228046732-bbd0c1c0-9f44-4152-958d-5356fe20c014.jpg",
+    "canonicalUrl": "https://getreviewintel.com/analyze",
+    "robots": "index, follow"
+  },
+  "/compare": {
+    "title": "AI Product Comparison Tool | Compare Reviews and Find the Stronger Choice",
+    "description": "Compare products with ReviewIntel using AI review intelligence, customer sentiment, complaints, fake-review risk, value signals, and buyer confidence insights.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/compare",
+    "robots": "index, follow"
+  },
+  "/results": {
+    "title": "ReviewIntel Results | Instant AI Product Review Insights",
+    "description": "View ReviewIntel AI results with buying confidence, review patterns, fake-review risk, product strengths, complaints, and clear decision signals.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/results",
+    "robots": "index, follow"
+  },
+  "/reviews": {
+    "title": "ReviewIntel Reviews | Smarter Product Feedback Intelligence",
+    "description": "Explore how ReviewIntel turns customer reviews into clear product insights, buyer confidence, seller intelligence, and faster decisions.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/reviews",
+    "robots": "index, follow"
+  },
+  "/advertise": {
+    "title": "Advertise with ReviewIntel | Reach Product Shoppers and Sellers",
+    "description": "Promote your brand with ReviewIntel advertising placements designed for product shoppers, online sellers, ecommerce tools, and review intelligence audiences.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/advertise",
+    "robots": "index, follow"
+  },
+  "/advertise/apply": {
+    "title": "Apply to Advertise on ReviewIntel | Sponsor Placement Request",
+    "description": "Apply for ReviewIntel advertising and sponsorship opportunities to reach shoppers, sellers, ecommerce brands, and product research audiences.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/advertise/apply",
+    "robots": "index, follow"
+  },
+  "/buyer-review-analyzer": {
+    "title": "Buyer Review Analyzer | AI Buying Confidence Before You Purchase",
+    "description": "ReviewIntel helps buyers understand product reviews fast with AI verdicts, fake-review risk, common complaints, strengths, and buying-confidence signals.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/buyer-review-analyzer",
+    "robots": "index, follow"
+  },
+  "/consumer-review-analyzer": {
+    "title": "Consumer Review Analyzer | AI Insights from Customer Feedback",
+    "description": "Analyze consumer reviews with ReviewIntel to understand product quality, trust signals, complaints, value, and buyer satisfaction before making a decision.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/consumer-review-analyzer",
+    "robots": "index, follow"
+  },
+  "/amazon-review-analyzer": {
+    "title": "Amazon Review Analyzer | AI Product Review Scanner",
+    "description": "Analyze Amazon-style product reviews with ReviewIntel to detect review patterns, fake-review risk, buyer sentiment, complaints, and product value signals.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/amazon-review-analyzer",
+    "robots": "index, follow"
+  },
+  "/fake-review-detector": {
+    "title": "Fake Review Detector | AI Risk Signals for Product Reviews",
+    "description": "Use ReviewIntel to identify suspicious review patterns, fake-review risk signals, unnatural feedback, and product trust concerns before buying.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/fake-review-detector",
+    "robots": "index, follow"
+  },
+  "/seller-review-analytics": {
+    "title": "Seller Review Analytics | AI Customer Feedback Intelligence",
+    "description": "ReviewIntel helps sellers understand customer reviews, product complaints, strengths, competitor signals, and buyer sentiment using AI-powered analytics.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/seller-review-analytics",
+    "robots": "index, follow"
+  },
+  "/product-complaint-analyzer": {
+    "title": "Product Complaint Analyzer | Find What Customers Dislike Fast",
+    "description": "ReviewIntel identifies recurring product complaints, quality issues, customer pain points, and improvement opportunities from customer reviews.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/product-complaint-analyzer",
+    "robots": "index, follow"
+  },
+  "/product-feedback-dashboard": {
+    "title": "Product Feedback Dashboard | AI Review Intelligence for Teams",
+    "description": "Turn product feedback into a clear dashboard with ReviewIntel. Track complaints, strengths, customer sentiment, product issues, and review intelligence.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/product-feedback-dashboard",
+    "robots": "index, follow"
+  },
+  "/ai-review-intelligence-tool": {
+    "title": "AI Review Intelligence Tool | Product Review Insights in Seconds",
+    "description": "ReviewIntel is an AI review intelligence tool that helps shoppers and sellers understand product reviews, fake-review risk, sentiment, and buying confidence.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/ai-review-intelligence-tool",
+    "robots": "index, follow"
+  },
+  "/privacy": {
+    "title": "Privacy Policy | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/privacy",
+    "robots": "index, follow"
+  },
+  "/terms": {
+    "title": "Terms of Service | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/terms",
+    "robots": "index, follow"
+  },
+  "/cookies": {
+    "title": "Cookie Policy | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/cookies",
+    "robots": "index, follow"
+  },
+  "/refunds": {
+    "title": "Refund Policy | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/refunds",
+    "robots": "index, follow"
+  },
+  "/disclaimer": {
+    "title": "ReviewIntel Disclaimer | AI Review Intelligence Limitations",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/disclaimer",
+    "robots": "index, follow",
+    "ogTitle": "ReviewIntel Disclaimer | AI Review Intelligence Limitations"
+  },
+  "/acceptable-use": {
+    "title": "Acceptable Use Policy | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/acceptable-use",
+    "robots": "index, follow"
+  },
+  "/billing-support": {
+    "title": "Billing Support | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/billing-support",
+    "robots": "index, follow"
+  },
+  "/account-support": {
+    "title": "Account Support | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/account-support",
+    "robots": "index, follow"
+  },
+  "/delete-account": {
+    "title": "Delete Your Account | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/delete-account",
+    "robots": "index, follow"
+  },
+  "/unsubscribe": {
+    "title": "Unsubscribe | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/unsubscribe",
+    "robots": "index, follow"
+  },
+  "/manage-subscription": {
+    "title": "Manage Subscription | ReviewIntel",
+    "description": "ReviewIntel provides AI-powered product review intelligence, buyer confidence insights, seller analytics, and practical product feedback tools.",
+    "ogImage": "/og-reviewintel.png",
+    "canonicalUrl": "https://getreviewintel.com/manage-subscription",
+    "robots": "index, follow"
+  }
+}

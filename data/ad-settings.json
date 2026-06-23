@@ -1,0 +1,18 @@
+{
+  "adsEnabled": true,
+  "googleAdsEnabled": true,
+  "directSponsorAdsEnabled": true,
+  "requireOwnerApproval": true,
+  "placements": {
+    "homepage_hero": true,
+    "homepage_mid": true,
+    "analyze_below_card": true,
+    "analyze_premium_top": true,
+    "analyze_premium_bottom": true,
+    "results_below_verdict": true,
+    "buyer_dashboard": true,
+    "seller_dashboard": true,
+    "footer": true
+  },
+  "placeholderAdsEnabled": true
+}
