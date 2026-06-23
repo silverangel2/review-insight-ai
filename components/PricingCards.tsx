@@ -92,25 +92,6 @@ export function PricingCards() {
 
   return (
     <section>
-      <div className="mb-6 rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm font-black text-ink dark:text-white">Localized pricing display</p>
-            <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{localizedPriceNote(currency)}</p>
-          </div>
-          <select
-            value={currency}
-            onChange={(event) => setCurrency(event.target.value as SupportedCurrency)}
-            className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-black text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-          >
-            {SUPPORTED_CURRENCIES.map((item) => (
-              <option key={item} value={item}>
-                {CURRENCY_LABELS[item]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
       {error ? <p className="mb-5 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {tiers.map((tier) => (
