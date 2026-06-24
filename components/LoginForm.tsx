@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { canAccessSellerAnalytics, type ClientAccount } from "@/lib/account";
-import { saveActiveMode, saveClientAccount } from "@/lib/clientAccount";
+import { getClientAccount, saveActiveMode, saveClientAccount } from "@/lib/clientAccount";
 import { clearLatestResult } from "@/lib/resultStorage";
 import type { UserRole } from "@/lib/types";
 
@@ -35,11 +35,25 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    const account = getClientAccount();
+
+    if (account?.role && account?.plan) {
+      window.location.replace(nextPathForAccount(account.role as SignupRole, account.plan));
+      return;
+    }
+
+    setCheckingSession(false);
+  }, []);
+
 
   async function submit() {
+    if (submitting) return;
+
     setError("");
     setNotice("");
 
@@ -127,7 +141,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
       clearLatestResult();
       saveActiveMode(canAccessSellerAnalytics(nextRole, nextPlan) ? "seller" : "buyer");
 
-      router.push(nextPathForAccount(nextRole, nextPlan));
+      window.location.replace(nextPathForAccount(nextRole, nextPlan));
     } finally {
       setSubmitting(false);
     }
