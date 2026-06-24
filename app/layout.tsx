@@ -85,7 +85,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           }}
         />
         <Header initialLocale={locale} />
-        <LayoutModeProvider>{children}<AccountWorkspacePermission /></LayoutModeProvider>
+        <LayoutModeProvider>
+            <MobileAccountTopNav />{children}<AccountWorkspacePermission /></LayoutModeProvider>
           <SellerResultHistoryCorner />
           <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact />
         <SiteFooter />
