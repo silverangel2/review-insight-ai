@@ -1,4 +1,5 @@
 import LayoutModeProvider from "@/components/LayoutModeProvider";
+import MobileAccountTopNav from "@/components/MobileAccountTopNav";
 import AccountWorkspacePermission from "@/components/AccountWorkspacePermission";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getMessages} from "next-intl/server";

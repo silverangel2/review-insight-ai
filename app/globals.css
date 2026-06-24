@@ -1672,3 +1672,90 @@ html[data-layout-mode="desktop"] .reviewintel-apple-float-button {
   color: #020617 !important;
   background: rgba(255, 255, 255, 0.98) !important;
 }
+
+/* ReviewIntel final mobile account nav + result fit */
+@media (max-width: 640px) {
+  .reviewintel-mobile-account-top-nav {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    width: 100%;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(18px);
+  }
+
+  .dark .reviewintel-mobile-account-top-nav {
+    background: rgba(2, 6, 23, 0.92);
+  }
+
+  [data-mobile-global-nav],
+  [data-mobile-global-nav="true"],
+  [data-mobile-global-nav="compact"] {
+    display: none !important;
+  }
+
+  /* Make result pages fit phones better */
+  .results-page,
+  .result-page,
+  [data-results-page="true"],
+  main:has(.reviewintel-result-card),
+  main:has([data-result-card="true"]) {
+    font-size: 12px !important;
+    line-height: 1.28 !important;
+  }
+
+  .results-page h1,
+  .result-page h1,
+  [data-results-page="true"] h1,
+  main:has(.reviewintel-result-card) h1,
+  main:has([data-result-card="true"]) h1 {
+    font-size: 1.65rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .results-page h2,
+  .result-page h2,
+  [data-results-page="true"] h2,
+  main:has(.reviewintel-result-card) h2,
+  main:has([data-result-card="true"]) h2 {
+    font-size: 1.15rem !important;
+    line-height: 1.12 !important;
+  }
+
+  .results-page h3,
+  .result-page h3,
+  [data-results-page="true"] h3,
+  main:has(.reviewintel-result-card) h3,
+  main:has([data-result-card="true"]) h3 {
+    font-size: 0.95rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .results-page p,
+  .result-page p,
+  [data-results-page="true"] p,
+  main:has(.reviewintel-result-card) p,
+  main:has([data-result-card="true"]) p {
+    font-size: 0.78rem !important;
+    line-height: 1.28 !important;
+  }
+
+  .results-page .rounded-3xl,
+  .result-page .rounded-3xl,
+  [data-results-page="true"] .rounded-3xl,
+  main:has(.reviewintel-result-card) .rounded-3xl,
+  main:has([data-result-card="true"]) .rounded-3xl {
+    border-radius: 1.15rem !important;
+    padding: 0.85rem !important;
+  }
+
+  .results-page .gap-6,
+  .results-page .gap-8,
+  .result-page .gap-6,
+  .result-page .gap-8,
+  [data-results-page="true"] .gap-6,
+  [data-results-page="true"] .gap-8 {
+    gap: 0.75rem !important;
+  }
+}
