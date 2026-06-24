@@ -12,18 +12,18 @@ type NavAccount = {
   plan?: string;
 } | null;
 
-function accountLabel(account: NavAccount) {
-  if (!account) return "RI";
+function menuTitle(account: NavAccount) {
+  if (!account) return "Menu";
 
   const role = String(account.role || "").toLowerCase();
   const plan = String(account.plan || "").toLowerCase();
 
-  if (role.includes("admin") || role.includes("owner")) return "AD";
-  if (role.includes("seller")) return "SE";
-  if (plan.includes("buyer_pro")) return "PRO";
-  if (role.includes("buyer")) return "FR";
+  if (role.includes("admin") || role.includes("owner")) return "Admin";
+  if (role.includes("seller")) return "Seller";
+  if (plan.includes("buyer_pro")) return "Shopper Premium";
+  if (role.includes("buyer")) return "Shopper";
 
-  return "RI";
+  return "Menu";
 }
 
 function accountMenu(account: NavAccount) {
@@ -31,8 +31,8 @@ function accountMenu(account: NavAccount) {
     return [
       { href: "/login", label: "Login" },
       { href: "/analyze", label: "Scan" },
-      { href: "/pricing", label: "Plans" },
-      { href: "/contact", label: "Help" }
+      { href: "/pricing", label: "Pricing" },
+      { href: "/contact", label: "Support" }
     ];
   }
 
@@ -106,15 +106,15 @@ export default function MobileGlobalNav() {
       aria-label="Mobile navigation"
     >
       {open ? (
-        <div className="mb-2 w-44 rounded-[2rem] border border-white/20 bg-slate-950/92 p-3 shadow-2xl backdrop-blur-2xl">
+        <div className="mb-2 w-44 rounded-[2rem] border border-white/50 bg-white/82 p-3 text-slate-950 shadow-2xl backdrop-blur-2xl">
           <div className="mb-2 flex items-center justify-between">
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/70">
-              {account ? accountLabel(account) : "Menu"}
+            <span className="rounded-full bg-slate-950/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-700">
+              {menuTitle(account)}
             </span>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm font-black text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/10 text-sm font-black text-slate-950"
               aria-label="Close mobile menu"
             >
               ×
@@ -130,7 +130,7 @@ export default function MobileGlobalNav() {
                 className={`flex h-14 items-center justify-center rounded-2xl text-center text-[11px] font-black ${
                   isActive(item.href)
                     ? "bg-cyan-200 text-slate-950"
-                    : "bg-white/10 text-white"
+                    : "bg-white/70 text-slate-950"
                 }`}
               >
                 {item.label}
@@ -143,10 +143,10 @@ export default function MobileGlobalNav() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border border-white/20 bg-slate-950/90 text-[11px] font-black uppercase tracking-[-0.02em] text-white shadow-2xl backdrop-blur-2xl active:scale-95"
+        className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border border-white/50 bg-white/82 text-[12px] font-black text-slate-950 shadow-2xl backdrop-blur-2xl active:scale-95"
         aria-label="Open mobile menu"
       >
-        {open ? "×" : accountLabel(account)}
+        {open ? "×" : "RI"}
       </button>
     </nav>
   );
