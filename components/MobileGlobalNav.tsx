@@ -19,9 +19,10 @@ function menuTitle(account: NavAccount) {
   const plan = String(account.plan || "").toLowerCase();
 
   if (role.includes("admin") || role.includes("owner")) return "Admin";
-  if (role.includes("seller")) return "Seller";
+  if (role.includes("seller") && plan.includes("seller_pro")) return "Seller Pro";
+  if (role.includes("seller")) return "Seller Premium";
   if (plan.includes("buyer_pro")) return "Shopper Premium";
-  if (role.includes("buyer")) return "Shopper";
+  if (role.includes("buyer")) return "Shopper Free";
 
   return "Menu";
 }
@@ -48,11 +49,21 @@ function accountMenu(account: NavAccount) {
     ];
   }
 
-  if (role.includes("seller")) {
+  if (role.includes("seller") && plan.includes("seller_pro")) {
     return [
-      { href: "/dashboard/seller", label: "Seller" },
       { href: "/dashboard/seller/upload", label: "Scan" },
       { href: "/dashboard/seller/compare", label: "Compare" },
+      { href: "/dashboard/seller", label: "Dashboard" },
+      { href: "/dashboard/seller/result", label: "Results" },
+      { href: "/account", label: "Account" }
+    ];
+  }
+
+  if (role.includes("seller")) {
+    return [
+      { href: "/dashboard/seller/upload", label: "Scan" },
+      { href: "/dashboard/seller", label: "Dashboard" },
+      { href: "/dashboard/seller/result", label: "Results" },
       { href: "/account", label: "Account" }
     ];
   }
@@ -60,17 +71,18 @@ function accountMenu(account: NavAccount) {
   if (plan.includes("buyer_pro")) {
     return [
       { href: "/analyze", label: "Scan" },
+      { href: "/compare", label: "Compare" },
+      { href: "/dashboard/customer", label: "Dashboard" },
       { href: "/results", label: "Results" },
-      { href: "/dashboard/customer", label: "History" },
       { href: "/account", label: "Account" }
     ];
   }
 
   return [
     { href: "/analyze", label: "Scan" },
-    { href: "/pricing", label: "Premium" },
-    { href: "/dashboard/customer", label: "History" },
-    { href: "/account", label: "Account" }
+    { href: "/results", label: "Results" },
+    { href: "/account", label: "Account" },
+    { href: "/pricing", label: "Pricing" }
   ];
 }
 
@@ -106,9 +118,9 @@ export default function MobileGlobalNav() {
       aria-label="Mobile navigation"
     >
       {open ? (
-        <div className="mb-2 w-44 rounded-[2rem] border border-white/50 bg-white/82 p-3 text-slate-950 shadow-2xl backdrop-blur-2xl">
+        <div className="mb-2 w-48 rounded-[2rem] border border-white/50 bg-white/88 p-3 text-slate-950 shadow-2xl backdrop-blur-2xl">
           <div className="mb-2 flex items-center justify-between">
-            <span className="rounded-full bg-slate-950/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-700">
+            <span className="rounded-full bg-slate-950/8 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.11em] text-slate-700">
               {menuTitle(account)}
             </span>
             <button
@@ -127,10 +139,10 @@ export default function MobileGlobalNav() {
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className={`flex h-14 items-center justify-center rounded-2xl text-center text-[11px] font-black ${
+                className={`flex h-12 items-center justify-center rounded-2xl text-center text-[11px] font-black ${
                   isActive(item.href)
                     ? "bg-cyan-200 text-slate-950"
-                    : "bg-white/70 text-slate-950"
+                    : "bg-white/75 text-slate-950"
                 }`}
               >
                 {item.label}
@@ -143,7 +155,7 @@ export default function MobileGlobalNav() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border border-white/50 bg-white/82 text-[12px] font-black text-slate-950 shadow-2xl backdrop-blur-2xl active:scale-95"
+        className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border border-white/50 bg-white/86 text-[12px] font-black text-slate-950 shadow-2xl backdrop-blur-2xl active:scale-95"
         aria-label="Open mobile menu"
       >
         {open ? "×" : "RI"}
