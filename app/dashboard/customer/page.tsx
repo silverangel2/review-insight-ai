@@ -18,11 +18,7 @@ function shopperHistoryKeys(account: ReturnType<typeof getClientAccount>) {
   const plan = (account?.plan || "free_buyer").trim().toLowerCase();
 
   return [
-    `reviewintel_shopper_result_history:${plan}:${identity}`,
-    "reviewintel_shopper_history",
-    "reviewintel_result_history",
-    "reviewintel_scan_history",
-    "reviewintel_recent_scans"
+    `reviewintel_shopper_result_history:${plan}:${identity}`
   ];
 }
 
