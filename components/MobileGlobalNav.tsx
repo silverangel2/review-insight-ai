@@ -43,7 +43,7 @@ export default function MobileGlobalNav() {
 
   return (
     <nav className="fixed inset-x-2 bottom-2 z-[9999] rounded-2xl border border-white/15 bg-ink/95 p-2 shadow-2xl backdrop-blur md:hidden">
-      <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+      <div data-mobile-global-nav="true" className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
         {navItems.map((item) => {
           const active =
             pathname === item.href ||
