@@ -64,7 +64,7 @@ export function SupportContactForm({ defaultTopic = "Product question" }: { defa
             onChange={(event) => setEmail(event.target.value)}
             type="email"
             className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-            placeholder="you@example.com"
+            placeholder="your@email.com"
           />
         </label>
         <label className="block">

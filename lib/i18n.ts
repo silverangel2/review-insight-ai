@@ -869,7 +869,7 @@ const extraPhraseTranslations = {
     "Load review batches for seller intelligence.": "Chargez des lots d’avis pour l’intelligence vendeur.",
     "Paste a compact review batch here.": "Collez ici un lot d’avis compact.",
     "Paste seller review exports here, or upload CSV/TXT.": "Collez ici les exports d’avis vendeur, ou téléversez un CSV/TXT.",
-    "Quick Scan Beta": "Analyse rapide bêta",
+    "Quick Scan": "Analyse rapide",
     "Drop screenshots for a fast check.": "Déposez des captures pour une vérification rapide.",
     "Use this for a few mobile screenshots. Use Deep Analysis for real volume.":
       "Utilisez ceci pour quelques captures mobiles. Utilisez l’analyse approfondie pour un vrai volume.",
@@ -1240,7 +1240,7 @@ const extraPhraseTranslations = {
     "Review platform": "Plataforma de reseñas",
     "Optional reference": "Referencia opcional",
     "Deep Analysis": "Análisis profundo",
-    "Quick Scan Beta": "Análisis rápido beta",
+    "Quick Scan": "Análisis rápido",
     "Drop screenshots for a fast check.": "Suelta capturas para una revisión rápida.",
     "Run Screenshot Analysis": "Analizar capturas",
     "Upgrade unlock": "Desbloqueo con mejora",
@@ -1491,7 +1491,7 @@ const extraPhraseTranslations = {
     "Analyzing review intelligence": "正在分析评价智能",
     "Choose the result you want": "选择你想要的结果",
     "Deep Analysis": "深度分析",
-    "Quick Scan Beta": "快速分析测试版",
+    "Quick Scan": "快速分析",
     "Run Screenshot Analysis": "分析截图",
     "Upgrade unlock": "升级解锁",
     "Concrete steps": "具体步骤",
@@ -1653,7 +1653,7 @@ const extraPhraseTranslations = {
     "Analyzing review intelligence": "Bewertungsintelligenz wird analysiert",
     "Choose the result you want": "Wähle das gewünschte Ergebnis",
     "Deep Analysis": "Tiefenanalyse",
-    "Quick Scan Beta": "Schnellanalyse Beta",
+    "Quick Scan": "Schnellanalyse",
     "Run Screenshot Analysis": "Screenshots analysieren",
     "Upgrade unlock": "Upgrade-Freischaltung",
     "Concrete steps": "Konkrete Schritte",
@@ -1815,7 +1815,7 @@ const extraPhraseTranslations = {
     "Analyzing review intelligence": "समीक्षा इंटेलिजेंस विश्लेषित हो रही है",
     "Choose the result you want": "अपना परिणाम चुनें",
     "Deep Analysis": "गहरा विश्लेषण",
-    "Quick Scan Beta": "क्विक स्कैन बीटा",
+    "Quick Scan": "क्विक स्कैन",
     "Run Screenshot Analysis": "स्क्रीनशॉट विश्लेषण चलाएँ",
     "Upgrade unlock": "अपग्रेड अनलॉक",
     "Concrete steps": "ठोस कदम",
@@ -2018,8 +2018,8 @@ const siteWidePhraseTranslations = {
     "We use information to provide analysis, enforce usage limits, manage subscriptions, improve product quality, detect abuse, and respond to support requests.":
       "Nous utilisons les informations pour fournir l’analyse, appliquer les limites, gérer les abonnements, améliorer le produit, détecter les abus et répondre au support.",
     "Data requests": "Demandes de données",
-    "For deletion, access, export, or correction requests, email privacy@reviewintel.ai or use the Delete Account / Data Request page.":
-      "Pour supprimer, consulter, exporter ou corriger vos données, écrivez à privacy@reviewintel.ai ou utilisez la page Supprimer le compte / demande de données.",
+    "For deletion, access, export, or correction requests, email support@getreviewintel.com or use the Delete Account / Data Request page.":
+      "Pour supprimer, consulter, exporter ou corriger vos données, écrivez à support@getreviewintel.com ou utilisez la page Supprimer le compte / demande de données.",
     Retention: "Conservation",
     "We keep information only as long as needed for product operation, legal obligations, billing records, security, and customer support.":
       "Nous conservons les informations seulement le temps nécessaire au produit, aux obligations légales, à la facturation, à la sécurité et au support.",
@@ -2084,8 +2084,8 @@ const siteWidePhraseTranslations = {
     "For charges, cancellations, or invoices, contact support@getreviewintel.com or open Billing Support.":
       "Pour les paiements, annulations ou factures, contactez support@getreviewintel.com ou ouvrez l’assistance facturation.",
     "Privacy and data": "Confidentialité et données",
-    "For access, deletion, or export requests, contact privacy@reviewintel.ai or open Delete Account / Data Request.":
-      "Pour l’accès, la suppression ou l’exportation, contactez privacy@reviewintel.ai ou ouvrez Supprimer le compte / demande de données.",
+    "For access, deletion, or export requests, contact support@getreviewintel.com or open Delete Account / Data Request.":
+      "Pour l’accès, la suppression ou l’exportation, contactez support@getreviewintel.com ou ouvrez Supprimer le compte / demande de données.",
     "Unsubscribe / Manage Product Subscription": "Se désabonner / gérer l’abonnement produit",
     "Control your plan clearly": "Contrôlez clairement votre forfait",
     "Manage billing, cancel renewal, downgrade, or contact support if you cannot access the billing portal.":
@@ -2130,7 +2130,7 @@ const siteWidePhraseTranslations = {
     "Tell us whether you want account deletion or only specific analysis data removed.": "Indiquez si vous voulez supprimer le compte ou seulement certaines analyses.",
     "Billing records may need to be retained where required by law or payment processors.": "Les dossiers de facturation peuvent être conservés si la loi ou les processeurs l’exigent.",
     "Where to send requests": "Où envoyer les demandes",
-    "Email privacy@reviewintel.ai or use the customer service form.": "Écrivez à privacy@reviewintel.ai ou utilisez le formulaire de service client.",
+    "Email support@getreviewintel.com or use the customer service form.": "Écrivez à support@getreviewintel.com ou utilisez le formulaire de service client.",
     "Cookie Policy": "Politique relative aux cookies",
     "Cookies and local storage": "Cookies et stockage local",
     "ReviewIntel uses cookies and browser storage for login state, account role, plan mode, quotas, preferences, and product operation.":
@@ -2192,7 +2192,7 @@ const siteWidePhraseTranslations = {
       "Nous examinons chaque ressource avant publication. Nous pouvons refuser les placements non pertinents, dangereux, trompeurs ou de faible qualité et rembourser si approprié.",
     "Contact before paying": "Contacter avant de payer",
     "Stripe-ready subscriptions": "Abonnements prêts pour Stripe",
-    "Shopper Free users can analyze 3 products per day. Premium plans use live Stripe payment links during beta. Access is manually activated after payment until full automation is connected.":
+    "Shopper Free users can analyze 3 products per day. Premium subscriptions use secure Stripe checkout. Advertising and sponsored placements require an application before payment.":
       "Les utilisateurs Acheteur gratuit peuvent analyser 3 produits par jour. Les forfaits Premium utilisent des liens Stripe actifs pendant la bêta. L’accès est activé manuellement après paiement jusqu’à l’automatisation complète."
   },
   es: {

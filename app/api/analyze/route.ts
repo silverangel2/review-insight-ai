@@ -1030,14 +1030,18 @@ If ${outputLanguage} is not English, do not mix English into those free-text fie
 Your job:
 Go online and research the product using public sources. Consolidate real review signals and give a buying verdict.
 
-Use the screenshot facts as the product identity seed. Search the exact visible product title, brand, model, store, and the user-provided link when available.
+Use the screenshot facts only as the product identity seed. You must search the internet for trusted public product and review evidence before scoring. Search the exact visible product title, brand, model, store, and the user-provided link when available.
 
 Important matching rules:
 - Prefer sources that match the visible screenshot product name and brand.
 - If the screenshot says Amazon.ca, do not switch the product to Walmart, Ubuy, or another marketplace unless you are using that only as an extra comparison source.
 - Do not overwrite visible screenshot price, rating, review count, or store.
 - If web results refer to a different product, ignore them.
-- If the product has very limited public review evidence, say confidence is limited instead of inventing certainty.
+- If trusted public review evidence is limited, do not invent certainty and do not create fake-looking scores.
+- Do not score from the screenshot alone. The screenshot identifies the product; the final verdict must come from trusted public product/review evidence plus visible screenshot facts.
+- Use trusted sources such as major retailers, manufacturer pages, marketplace review sections, consumer forums, Reddit discussions, review sites, and support/complaint signals when available.
+- Prefer exact product matches. Do not switch to a different model, bundle, size, color, or marketplace listing unless clearly marked as comparison evidence.
+- If you cannot find enough trusted review evidence for the exact product, return a limited-evidence result with lower confidence and tell the shopper what to upload next.
 
 Use sources such as:
 - official product page
@@ -1075,7 +1079,9 @@ Do not say AI-generated reviews are confirmed unless a source proves it.
 5. Screenshot facts remain locked for store, price, visible rating, and visible review count.
 6. Web research may add complaints, strengths, durability issues, support issues, value signals, and authenticity concerns.
 7. If you cannot find enough reliable public evidence, say so in bottomLine and lower buyingConfidence.
-8. If the visible screenshot rating is weak or review count is low, do not return a confident BUY unless web evidence strongly supports it.
+8. If the visible screenshot rating is weak, review count is low, or web evidence is limited, do not return a confident BUY.
+9. Never manufacture review counts, complaints, pros, cons, or fake-review risk. If evidence is not found, say it is not found.
+10. The final shopper score must reflect evidence quality. Limited evidence should reduce confidence and should show a cautious verdict.
 9. If the visible product and web results do not clearly match, return CONSIDER or AVOID and explain that identification is uncertain.
 10. sourcesUsed must contain real source names or URLs actually used.
 

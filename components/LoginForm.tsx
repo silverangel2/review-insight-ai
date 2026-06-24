@@ -225,7 +225,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10 dark:border-white/10 dark:bg-slate-900 dark:text-white"
-          placeholder="you@example.com"
+          placeholder="your@email.com"
         />
       </label>
 

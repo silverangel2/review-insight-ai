@@ -25,7 +25,7 @@ export default async function UnsubscribePage({ searchParams }: UnsubscribePageP
             defaultValue={email}
             type="email"
             required
-            placeholder="you@example.com"
+            placeholder="your@email.com"
             className="rounded-2xl border border-line bg-mist px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
           />
           <button className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">

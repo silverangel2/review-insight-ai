@@ -31,7 +31,7 @@ export const REVIEW_INGESTION_METHODS: Array<{
   },
   {
     key: "quick_screenshot",
-    label: "Quick Scan Beta = Screenshot Upload",
+    label: "Quick Scan = Screenshot Upload",
     availability: "live",
     summary: "Fast shopper checks from mobile screenshots or small visible review samples."
   },
