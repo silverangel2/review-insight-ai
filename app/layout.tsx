@@ -1,5 +1,4 @@
 import LayoutModeProvider from "@/components/LayoutModeProvider";
-import MobileGlobalNav from "@/components/MobileGlobalNav";
 import AccountWorkspacePermission from "@/components/AccountWorkspacePermission";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getMessages} from "next-intl/server";
@@ -85,7 +84,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           }}
         />
         <Header initialLocale={locale} />
-        <LayoutModeProvider>{children}<AccountWorkspacePermission /><MobileGlobalNav /></LayoutModeProvider>
+        <LayoutModeProvider>{children}<AccountWorkspacePermission /></LayoutModeProvider>
           <SellerResultHistoryCorner />
           <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact />
         <SiteFooter />
