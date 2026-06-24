@@ -15,13 +15,9 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
   const [mode, setMode] = useState<LayoutMode>("auto");
 
   useEffect(() => {
-    let saved = safeMode(window.localStorage.getItem(STORAGE_KEY));
+    const saved = safeMode(window.localStorage.getItem(STORAGE_KEY));
 
     // Safety: do not let an old forced desktop mode trap real phones in a broken wide layout.
-    if (window.innerWidth < 768 && saved === "desktop") {
-      saved = "auto";
-      window.localStorage.setItem(STORAGE_KEY, saved);
-    }
 
     setMode(saved);
     document.documentElement.dataset.layoutMode = saved;

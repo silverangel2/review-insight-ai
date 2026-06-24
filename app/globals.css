@@ -1536,3 +1536,74 @@ html[data-layout-mode="desktop"] body {
     letter-spacing: 0.12em !important;
   }
 }
+
+/* ReviewIntel consolidated mobile readability + real desktop mode */
+@media (max-width: 640px) {
+  html:not([data-layout-mode="desktop"]) main h1,
+  html:not([data-layout-mode="desktop"]) main .text-9xl,
+  html:not([data-layout-mode="desktop"]) main .text-8xl,
+  html:not([data-layout-mode="desktop"]) main .text-7xl,
+  html:not([data-layout-mode="desktop"]) main .text-6xl,
+  html:not([data-layout-mode="desktop"]) main .text-5xl {
+    font-size: 1.55rem !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.035em !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main h2,
+  html:not([data-layout-mode="desktop"]) main .text-4xl,
+  html:not([data-layout-mode="desktop"]) main .text-3xl {
+    font-size: 1.25rem !important;
+    line-height: 1.18 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main h3,
+  html:not([data-layout-mode="desktop"]) main .text-2xl {
+    font-size: 1.05rem !important;
+    line-height: 1.2 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main p,
+  html:not([data-layout-mode="desktop"]) main li,
+  html:not([data-layout-mode="desktop"]) main span {
+    font-size: 0.88rem;
+    line-height: 1.35;
+  }
+
+  html:not([data-layout-mode="desktop"]) main h1,
+  html:not([data-layout-mode="desktop"]) main h2,
+  html:not([data-layout-mode="desktop"]) main h3,
+  html:not([data-layout-mode="desktop"]) main p,
+  html:not([data-layout-mode="desktop"]) main div {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  html:not([data-layout-mode="desktop"]) label:has(input[type="file"]),
+  html:not([data-layout-mode="desktop"]) div:has(> input[type="file"]) {
+    min-height: 180px !important;
+    padding: 1rem !important;
+    border-radius: 1.25rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) label:has(input[type="file"]) h2,
+  html:not([data-layout-mode="desktop"]) label:has(input[type="file"]) h3,
+  html:not([data-layout-mode="desktop"]) div:has(> input[type="file"]) h2,
+  html:not([data-layout-mode="desktop"]) div:has(> input[type="file"]) h3 {
+    font-size: 1.25rem !important;
+    line-height: 1.15 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  html[data-layout-mode="desktop"],
+  html[data-layout-mode="desktop"] body {
+    min-width: 1180px !important;
+    overflow-x: auto !important;
+  }
+
+  html[data-layout-mode="desktop"] main {
+    min-width: 1180px !important;
+    max-width: none !important;
+  }
+}
