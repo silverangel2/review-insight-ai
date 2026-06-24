@@ -564,7 +564,109 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     : copy.sourcesLimited;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <>
+      {/* Mobile-only compact shopper result */}
+      <div className="ri-results-mobile space-y-3">
+        <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${verdict.soft}`}>
+          <div className="mx-auto grid size-16 place-items-center rounded-full border-[4px] border-emerald-400 bg-white text-3xl font-black text-emerald-700 shadow-sm">
+            {shopper.verdict === "BUY" ? "✓" : shopper.verdict === "AVOID" ? "!" : "?"}
+          </div>
+
+          <p className={`mt-2 text-[34px] font-black leading-none tracking-[-0.08em] ${verdict.tone}`}>
+            {verdict.answer}
+          </p>
+
+          <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
+            {percent}% {copy.buyerConfidence}
+          </div>
+
+          <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
+            {productName}
+          </h1>
+
+          <p className="mx-auto mt-2 line-clamp-2 max-w-[300px] text-[12px] font-bold leading-4 text-slate-600 dark:text-slate-300">
+            {verdict.message}
+          </p>
+
+          <div className="ri-mobile-metric-grid mt-4 grid grid-cols-2 gap-2 border-t border-black/10 pt-3 text-left">
+            <MiniMetric label={copy.buyScore} value={`${Math.round(shopper.productScore / 10)}/10`} />
+            <MiniMetric label={copy.value} value={localizedValueLabel(locale, shopper.valueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
+            <MiniMetric label={copy.aiLikeReviews} value={`${shopper.fakeReviewPercent}% ${copy.signs}`} helper={`${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`} />
+            <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
+          </div>
+        </section>
+
+        <section className="grid grid-cols-[104px_minmax(0,1fr)] gap-3 rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <div className="relative h-[104px] overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02]">
+            {preview ? (
+              <Image src={preview} alt="Analyzed product screenshot" fill className="object-contain p-1.5" unoptimized priority />
+            ) : (
+              <div className="grid h-full place-items-center px-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                {copy.screenshotUnavailable}
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <Badge tone="good">{copy.productIdentified}</Badge>
+            <p className="mt-2 line-clamp-2 text-[12px] font-black leading-[1.12] text-ink dark:text-white">
+              {productName}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] font-bold leading-4 text-slate-600 dark:text-slate-300">
+              {shopper.product.brand ? <span>{shopper.product.brand}</span> : null}
+              <span>{visibleReviews}</span>
+              {shopper.product.store ? <span>{shopper.product.store}</span> : null}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-2 gap-2">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-300/20 dark:bg-emerald-300/10">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-800 dark:text-emerald-100">
+              {copy.topStrengths}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {(shopper.strengths.slice(0, 3).length ? shopper.strengths.slice(0, 3) : [copy.noStrengths]).map((item, index) => (
+                <li key={`mobile-strength-${index}`} className="text-[10px] font-bold leading-4 text-slate-700 dark:text-slate-200">
+                  • {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-rose-100 bg-rose-50 p-3 dark:border-rose-300/20 dark:bg-rose-300/10">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-800 dark:text-rose-100">
+              {copy.topComplaints}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {(shopper.complaints.slice(0, 3).length ? shopper.complaints.slice(0, 3) : [copy.noComplaints]).map((item, index) => (
+                <li key={`mobile-complaint-${index}`} className="text-[10px] font-bold leading-4 text-slate-700 dark:text-slate-200">
+                  • {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10">
+          <h2 className="text-[13px] font-black text-ink dark:text-white">{copy.bottomLine}</h2>
+          <p className="mt-2 text-[11px] font-bold leading-4 text-slate-700 dark:text-slate-200">
+            {shopper.bottomLine}
+          </p>
+        </section>
+
+        <section className="grid grid-cols-2 gap-2">
+          <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 2)} empty={copy.bestForEmpty} />
+          <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor.slice(0, 2)} empty={copy.notIdealEmpty} />
+        </section>
+
+        <div className="rounded-2xl border border-ocean/20 bg-ocean/5 p-3 text-[10px] font-bold leading-4 text-slate-600 dark:border-cyan-300/20 dark:bg-cyan-300/10 dark:text-slate-200">
+          {sourcesLine}
+        </div>
+      </div>
+
+      {/* Desktop report layout unchanged */}
+      <div className="ri-results-desktop space-y-4 sm:space-y-6">
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
         <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[1.75rem] sm:p-4">
           <div className="relative grid h-[260px] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02] sm:h-[360px] sm:rounded-2xl lg:h-[520px]">
@@ -638,7 +740,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
         <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor} empty={copy.bestForEmpty} />
         <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor} empty={copy.notIdealEmpty} />
       </section>
-    </div>
+      </div>
+    </>
   );
 }
 
