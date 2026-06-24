@@ -1444,3 +1444,95 @@ html[data-layout-mode="desktop"] body {
     border-radius: 1.5rem !important;
   }
 }
+
+/* ReviewIntel mobile results readability fix */
+@media (max-width: 640px) {
+  /* Stop result titles from becoming huge desktop hero text */
+  main .text-9xl,
+  main .text-8xl,
+  main .text-7xl,
+  main .text-6xl,
+  main .text-5xl {
+    font-size: clamp(1.45rem, 6vw, 2rem) !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.035em !important;
+  }
+
+  main .text-4xl {
+    font-size: clamp(1.3rem, 5.5vw, 1.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  main .text-3xl {
+    font-size: clamp(1.15rem, 5vw, 1.45rem) !important;
+    line-height: 1.18 !important;
+  }
+
+  main .text-2xl {
+    font-size: clamp(1rem, 4.5vw, 1.25rem) !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Result cards must wrap long product names cleanly */
+  main h1,
+  main h2,
+  main h3,
+  main p,
+  main span,
+  main a,
+  main button,
+  main li,
+  main div {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Compact result cards */
+  main .rounded-3xl,
+  main .rounded-\[2rem\],
+  main .rounded-\[2\.5rem\] {
+    border-radius: 1.35rem !important;
+  }
+
+  main .p-10,
+  main .p-8,
+  main .p-7,
+  main .p-6 {
+    padding: 1rem !important;
+  }
+
+  main .px-10,
+  main .px-8,
+  main .px-7,
+  main .px-6 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  main .py-10,
+  main .py-8,
+  main .py-7,
+  main .py-6 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* Keep result action buttons readable but not huge */
+  main button,
+  main a {
+    min-height: 2.75rem;
+    font-size: 0.88rem;
+  }
+
+  /* Long latest-scan/product titles should not dominate the screen */
+  main h1 {
+    max-width: 100%;
+  }
+
+  /* Result chips/badges smaller */
+  main .tracking-\[0\.24em\],
+  main .tracking-\[0\.28em\],
+  main .tracking-\[0\.32em\] {
+    letter-spacing: 0.12em !important;
+  }
+}
