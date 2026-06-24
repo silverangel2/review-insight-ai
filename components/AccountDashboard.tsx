@@ -368,6 +368,18 @@ export function AccountDashboard() {
   }
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const mustCompleteProfile = params.get("completeProfile") === "1";
+
+    if (mustCompleteProfile) {
+      setIsEditingProfile(true);
+      setProfileNotice("Complete all profile fields before continuing to analysis.");
+    }
+  }, []);
+
+  useEffect(() => {
     if (!profileNotice || !/(saved|updated|success)/i.test(profileNotice)) return;
 
     const timer = window.setTimeout(() => {
@@ -383,6 +395,33 @@ export function AccountDashboard() {
 
     setError("");
     setProfileNotice("");
+
+    const requiredProfileFields = [
+      ["Display name", profileForm.name],
+      ["Company / store", profileForm.companyName],
+      ["Phone", profileForm.phone],
+      ["Address line 1", profileForm.addressLine1],
+      ["Address line 2", profileForm.addressLine2],
+      ["City", profileForm.city],
+      ["State / Province", profileForm.region],
+      ["Postal code", profileForm.postalCode],
+      ["Country", profileForm.country],
+      ["Website / product store", profileForm.website],
+      ["Language", profileForm.preferredLanguage],
+      ["Preferred currency", profileForm.preferredCurrency],
+      ["Notes / preferences", profileForm.profileNotes],
+    ];
+
+    const missingFields = requiredProfileFields
+      .filter(([, value]) => !String(value ?? "").trim())
+      .map(([label]) => label);
+
+    if (missingFields.length) {
+      setError(`Complete these required profile fields before saving: ${missingFields.join(", ")}.`);
+      setProfileNotice("");
+      setIsEditingProfile(true);
+      return;
+    }
 
     const response = await fetch("/api/account", {
       method: "PATCH",
@@ -439,6 +478,15 @@ export function AccountDashboard() {
     setProfileForm(profileFromAccount(nextAccount));
     setIsEditingProfile(false);
     setProfileNotice("Profile changes saved.");
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const nextPath = params.get("next");
+
+      if (params.get("completeProfile") === "1" && nextPath) {
+        router.push(nextPath);
+      }
+    }
   }
 
   async function sendPasswordResetEmail() {
@@ -538,29 +586,133 @@ export function AccountDashboard() {
           </div>
 
           {!isEditingProfile ? (
-            <div className="mt-5 rounded-2xl border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
-              <p className="text-lg font-black text-ink dark:text-white">
-                {profileForm.name || displayAccountName(account, activePlan)}
-              </p>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                {profileForm.companyName || effectiveRoleLabel(account)}
-              </p>
-              {profileForm.profileId ? (
-                <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Profile ID: {profileForm.profileId}
-                </p>
-              ) : null}
-              <div className="mt-4 grid gap-2 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
-                {profileForm.phone ? <p>{profileForm.phone}</p> : null}
-                {profileForm.city || profileForm.region ? (
-                  <p>{[profileForm.city, profileForm.region].filter(Boolean).join(", ")}</p>
-                ) : null}
-                {profileForm.country ? <p>{profileForm.country}</p> : null}
-                {profileForm.website ? <p className="truncate">{profileForm.website}</p> : null}
+            <div className="mt-5 space-y-4">
+              <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xl font-black leading-tight text-ink dark:text-white">
+                      {profileForm.name || "Not provided"}
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {account.email || displayAccountEmail(account) || "Email not available"}
+                    </p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                      {effectiveRoleLabel(account)} · {displayPlanBadge(account, activePlan)}
+                    </p>
+                  </div>
+
+                  <Badge tone={account.role === "admin" ? "good" : account.role === "seller" || isSellerPlan(account.plan) ? "info" : "good"}>
+                    {account.role === "admin" ? "Admin" : account.role === "seller" || isSellerPlan(account.plan) ? "Seller" : "Shopper"}
+                  </Badge>
+                </div>
+
+                <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-3">
+                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
+                    <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Plan</span>
+                    <span className="mt-1 block text-ink dark:text-white">{displayPlanBadge(account, activePlan)}</span>
+                  </div>
+
+                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
+                    <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Daily usage</span>
+                    <span className="mt-1 block text-ink dark:text-white">
+                      {hasUnlimitedUsage(account.role, activePlan) ? "Unlimited" : quota ? quotaText(quota) : `${FREE_DAILY_REVIEW_LIMIT} free scans`}
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
+                    <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Profile status</span>
+                    <span className="mt-1 block text-ink dark:text-white">
+                      {[
+                        profileForm.name,
+                        profileForm.companyName,
+                        profileForm.phone,
+                        profileForm.addressLine1,
+                        profileForm.addressLine2,
+                        profileForm.city,
+                        profileForm.region,
+                        profileForm.postalCode,
+                        profileForm.country,
+                        profileForm.website,
+                        profileForm.preferredLanguage,
+                        profileForm.preferredCurrency,
+                        profileForm.profileNotes,
+                      ].every((value) => String(value ?? "").trim()) ? "Complete" : "Needs review"}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p className="mt-4 text-xs font-bold text-slate-500 dark:text-slate-400">
-                Click Edit profile to update your information.
-              </p>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                {[
+                  {
+                    title: "Personal",
+                    items: [
+                      ["Display name", profileForm.name || "Not provided"],
+                      ["Email", account.email || displayAccountEmail(account) || "Email not available"],
+                      ["Phone", profileForm.phone || "Not provided"],
+                    ],
+                  },
+                  {
+                    title: "Business / Store",
+                    items: [
+                      ["Company / store", profileForm.companyName || "Not provided"],
+                      ["Website / product store", profileForm.website || "Not provided"],
+                    ],
+                  },
+                  {
+                    title: "Location",
+                    items: [
+                      ["Address line 1", profileForm.addressLine1 || "Not provided"],
+                      ["Address line 2", profileForm.addressLine2 || "Not provided"],
+                      ["City", profileForm.city || "Not provided"],
+                      ["State / Province", profileForm.region || "Not provided"],
+                      ["Postal code", profileForm.postalCode || "Not provided"],
+                      ["Country", profileForm.country || "Not provided"],
+                    ],
+                  },
+                  {
+                    title: "Preferences",
+                    items: [
+                      ["Language", profileForm.preferredLanguage || "Not provided"],
+                      ["Preferred currency", profileForm.preferredCurrency || "Not provided"],
+                      ["Marketing email consent", profileForm.marketingConsent ? "Yes" : "No"],
+                      ["Notes / preferences", profileForm.profileNotes || "Not provided"],
+                    ],
+                  },
+                  {
+                    title: "Account System Info",
+                    items: [
+                      ["Account type", effectiveRoleLabel(account)],
+                      ["Plan", displayPlanBadge(account, activePlan)],
+                      ["Daily usage", hasUnlimitedUsage(account.role, activePlan) ? "Unlimited product analyses" : quota ? quotaText(quota) : `${FREE_DAILY_REVIEW_LIMIT} free shopper analyses today`],
+                      ["Profile ID", profileForm.profileId || "Not available"],
+                    ],
+                  },
+                ].map((group) => (
+                  <div key={group.title} className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
+                      {group.title}
+                    </p>
+
+                    <div className="mt-3 divide-y divide-line dark:divide-white/10">
+                      {group.items.map(([label, value]) => (
+                        <div key={label} className="grid gap-1 py-2 sm:grid-cols-[130px_minmax(0,1fr)] sm:gap-3">
+                          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                            {label}
+                          </p>
+                          <p className="break-words text-sm font-bold text-ink dark:text-white">
+                            {String(value)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
+                Review these details carefully. If something is blank or wrong, click Edit profile and correct it before using the account.
+              </div>
             </div>
           ) : null}
 

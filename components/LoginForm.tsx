@@ -25,6 +25,32 @@ function nextPathForAccount(role: SignupRole, plan: ClientAccount["plan"]) {
   return "/analyze";
 }
 
+function profileCompletionPath(nextPath = "/analyze") {
+  return `/account?completeProfile=1&next=${encodeURIComponent(nextPath)}`;
+}
+
+function isProfileComplete(account: Partial<ClientAccount> | null | undefined) {
+  if (!account) return false;
+
+  const requiredValues = [
+    account.name,
+    account.companyName,
+    account.phone,
+    account.addressLine1,
+    account.addressLine2,
+    account.city,
+    account.region,
+    account.postalCode,
+    account.country,
+    account.website,
+    account.preferredLanguage,
+    account.preferredCurrency,
+    account.profileNotes,
+  ];
+
+  return requiredValues.every((value) => String(value ?? "").trim().length > 0);
+}
+
 export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode }) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -43,7 +69,14 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
     const account = getClientAccount();
 
     if (account?.role && account?.plan) {
-      window.location.replace(nextPathForAccount(account.role as SignupRole, account.plan));
+      const nextPath = nextPathForAccount(account.role as SignupRole, account.plan);
+
+      if (!isProfileComplete(account)) {
+        window.location.replace(profileCompletionPath(nextPath));
+        return;
+      }
+
+      window.location.replace(nextPath);
       return;
     }
 
@@ -141,7 +174,14 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
       clearLatestResult();
       saveActiveMode(canAccessSellerAnalytics(nextRole, nextPlan) ? "seller" : "buyer");
 
-      window.location.replace(nextPathForAccount(nextRole, nextPlan));
+      const nextPath = nextPathForAccount(nextRole, nextPlan);
+
+      if (!isProfileComplete(account)) {
+        window.location.replace(profileCompletionPath(nextPath));
+        return;
+      }
+
+      window.location.replace(nextPath);
     } finally {
       setSubmitting(false);
     }
@@ -156,11 +196,14 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
       return;
     }
 
+    const nextPath = nextPathForAccount(role, defaultPlanForRole(role));
+
     const params = new URLSearchParams({
       intent: mode === "signup" ? "signup" : "login",
       termsAccepted: mode === "signup" && termsAccepted ? "true" : "false",
       marketingConsent: marketingConsent ? "true" : "false",
-      role: mode === "signup" ? role : "buyer"
+      role: mode === "signup" ? role : "buyer",
+      next: profileCompletionPath(nextPath)
     });
     const response = await fetch(`/api/auth/google?${params.toString()}`);
     const data = await response.json();
