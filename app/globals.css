@@ -1607,3 +1607,68 @@ html[data-layout-mode="desktop"] body {
     max-width: none !important;
   }
 }
+
+/* ReviewIntel Apple-style mobile floating nav */
+.reviewintel-apple-float-button {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  padding: 0 !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #020617 !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  transform: none !important;
+  scale: 1 !important;
+}
+
+.reviewintel-apple-menu {
+  width: 184px !important;
+  max-width: 184px !important;
+  padding: 10px !important;
+  border-radius: 28px !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #020617 !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  transform: none !important;
+  scale: 1 !important;
+}
+
+.reviewintel-apple-menu * {
+  color: inherit;
+}
+
+html[data-layout-mode="desktop"] [data-mobile-global-nav="apple"] {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+  transform: none !important;
+  scale: 1 !important;
+  zoom: 1 !important;
+}
+
+html[data-layout-mode="desktop"] .reviewintel-apple-float-button {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  font-size: 9px !important;
+  color: #020617 !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+}
