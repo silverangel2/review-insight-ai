@@ -1,4 +1,5 @@
 import LayoutModeProvider from "@/components/LayoutModeProvider";
+import MobileGlobalNav from "@/components/MobileGlobalNav";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getMessages} from "next-intl/server";
 import type { Metadata } from "next";
@@ -83,7 +84,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           }}
         />
         <Header initialLocale={locale} />
-        <LayoutModeProvider>{children}</LayoutModeProvider>
+        <LayoutModeProvider>{children}<MobileGlobalNav /></LayoutModeProvider>
           <SellerResultHistoryCorner />
           <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact />
         <SiteFooter />
