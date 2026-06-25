@@ -6,6 +6,7 @@ import { readLatestResult, saveLatestResult } from "@/lib/resultStorage";
 import { buildProductMemoryBrain } from "@/lib/productMemoryBrain";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { readStoredLocale } from "@/lib/i18n";
+import { shortProductName } from "@/lib/productName";
 
 const HISTORY_KEY = "reviewintel_shopper_result_history";
 
@@ -149,7 +150,7 @@ function resultTitle(result: unknown) {
     verdict?: string;
   };
 
-  return displayCodeForResult(payload, payload.product?.name || payload.product?.title || payload.analysis?.summary || payload.verdict || "Product scan");
+  return shortProductName(displayCodeForResult(payload, payload.product?.name || payload.product?.title || payload.analysis?.summary || payload.verdict || "Product scan"), "Product scan");
 }
 
 function retentionLabel() {

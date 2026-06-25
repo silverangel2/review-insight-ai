@@ -6,6 +6,7 @@ import { getClientAccount, incrementStoredScanTally } from "@/lib/clientAccount"
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { displayCodeForResult } from "@/lib/productDisplay";
+import { shortProductName } from "@/lib/productName";
 import { readStoredLocale } from "@/lib/i18n";
 
 type Verdict = "BUY" | "CONSIDER" | "AVOID";

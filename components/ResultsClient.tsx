@@ -13,6 +13,7 @@ import { clearLatestResult, readLatestPreview, readLatestResult, saveLatestResul
 import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
+import { shortCompareTitle, shortProductName } from "@/lib/productName";
 
 type ProductLike = {
   title?: string;
@@ -482,14 +483,14 @@ function isShopperCompareResult(value: unknown) {
 function compareSideName(value: unknown, fallback: string) {
   const record = recordOf(value);
   const product = recordOf(record.product);
-  return String(
+  return shortProductName(
     product.title ||
       product.name ||
       record.productName ||
       record.title ||
       record.name ||
-      record.fileName ||
-      fallback
+      record.fileName,
+    fallback
   );
 }
 
@@ -498,11 +499,12 @@ function compareResultTitle(value: unknown) {
   const productA = record.productA || record.resultA || record.a;
   const productB = record.productB || record.resultB || record.b;
 
-  return String(
+  return shortCompareTitle(
     record.title ||
       record.fileName ||
       record.productName ||
-      `Compare: ${compareSideName(productA, "Product A")} vs ${compareSideName(productB, "Product B")}`
+      `Compare: ${compareSideName(productA, "Product A")} vs ${compareSideName(productB, "Product B")}`,
+    "Product comparison"
   );
 }
 
@@ -613,7 +615,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     ...shopperVerdictStyle[shopper.verdict],
     ...copy.verdicts[shopper.verdict]
   };
-  const productName = shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product");
+  const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
   const percent = decisionPercent(shopper);
   const visibleRating = shopper.product.rating || copy.notShown;
   const visibleReviews = shopper.product.reviewCount ? `${shopper.product.reviewCount} ${copy.reviews}` : copy.reviewCountNotShown;

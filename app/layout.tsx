@@ -13,6 +13,7 @@ import { SmartAdSlot } from "@/components/advertising/SmartAdSlot";
 import { SellerResultHistoryCorner } from "@/components/SellerResultHistoryCorner";
 import MobileTinyNav from "@/components/mobile/MobileTinyNav";
 import MobileUtilityMenu from "@/components/mobile/MobileUtilityMenu";
+import SessionIdleLogout from "@/components/SessionIdleLogout";
 
 const googleAdsenseClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT || "ca-pub-5711144364755686";
 
@@ -88,6 +89,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <Header initialLocale={locale} />
         <LayoutModeProvider>
           <MobileTinyNav />
+          <SessionIdleLogout />
           <MobileUtilityMenu />{children}<AccountWorkspacePermission /></LayoutModeProvider>
           <SellerResultHistoryCorner />
           <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact />

@@ -7,6 +7,7 @@ import { openSellerResult, readLatestSellerResult, sellerHistoryKey } from "@/li
 import { setActiveSellerCompare } from "@/lib/sellerCompareHistory";
 import {} from "@/lib/productDisplay";
 import { readStoredLocale } from "@/lib/i18n";
+import { shortProductName } from "@/lib/productName";
 
 const MAX_PER_WEEK = 10;
 const MAX_AGE_DAYS = 30;
@@ -225,7 +226,7 @@ export function SellerResultHistoryCorner() {
                 code.startsWith("CMR-") || code.startsWith("PRD-")
                   ? code
                   : String(entry.displayCode || entry.code || "PRD-TEST"),
-              productName: String(
+              productName: shortProductName(
                 entry.productName ||
                   entry.product_name ||
                   entry.title ||
@@ -347,10 +348,13 @@ export function SellerResultHistoryCorner() {
                         row.displayCode ||
                           row.code ||
                           row.refCode ||
-                          row.productName ||
-                          row.product_name ||
-                          row.title ||
-                          ""
+                          shortProductName(
+                            row.productName ||
+                              row.product_name ||
+                              row.title ||
+                              "",
+                            "Seller analysis"
+                          )
                       ).toUpperCase();
 
                       const fullRow = JSON.stringify(row || {}).toUpperCase();
