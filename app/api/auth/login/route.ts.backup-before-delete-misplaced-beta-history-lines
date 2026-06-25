@@ -223,6 +223,21 @@ export async function POST(request: Request) {
     eventType: "login_rate_limited"
   });
 
+          // Delete beta cloud history when beta expires and account returns to basic/free.
+          // Basic/free accounts should not retain saved cloud products.
+          const betaHistoryEmail = String(profile.email || account.email || "").toLowerCase().trim();
+
+          if (betaHistoryEmail) {
+            try {
+              await fetch(`${new URL(request.url).origin}/api/account/analyses?email=${encodeURIComponent(betaHistoryEmail)}&clear=1`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: betaHistoryEmail, clear: true, reason: "beta_expired" }),
+              });
+            } catch (historyDeleteError) {
+              console.warn("BETA_HISTORY_DELETE_FAILED", historyDeleteError);
+            }
+          }
 
   if (!limit.allowed) {
     return limit.response ?? NextResponse.json({ error: "Too many login attempts." }, { status: 429 });

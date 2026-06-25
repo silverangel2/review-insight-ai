@@ -1160,15 +1160,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const normalizedPlanForAnalyze = String(plan || "").trim();
-    const isBetaPlanForAnalyze =
-      normalizedPlanForAnalyze === "buyer_beta" ||
-      normalizedPlanForAnalyze === "seller_beta";
-
     const isShopperFree =
       role !== "admin" &&
-      !isBetaPlanForAnalyze &&
-      normalizedPlanForAnalyze === "free_buyer";
+      plan === "free_buyer";
 
     if (isShopperFree) {
       if (!email) {
@@ -1213,7 +1207,7 @@ export async function POST(request: Request) {
         return scanResult;
       }
 
-      const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
+      const accountPlan = plan || "free_buyer";
       const shouldSaveHistory = role === "admin" || accountPlan !== "free_buyer";
       const analysisRecord = shouldSaveHistory
         ? (await saveAnalysisRecord({

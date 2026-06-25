@@ -6,7 +6,7 @@ export default async function DashboardPage() {
   const role = (cookieStore.get("reviewintel_account_role")?.value || "").toLowerCase();
   const plan = (cookieStore.get("reviewintel_account_plan")?.value || "").toLowerCase();
 
-  const hasPaidSellerPlan = plan === "seller_premium" || plan === "seller_beta" || plan === "seller_pro";
+  const hasPaidSellerPlan = plan === "seller_premium" || plan === "seller_pro";
 
   if (hasPaidSellerPlan) {
     redirect("/dashboard/seller");
@@ -16,8 +16,8 @@ export default async function DashboardPage() {
     redirect("/pricing?plan=seller_premium");
   }
 
-  if (role === "buyer" && (plan === "buyer_pro" || plan === "buyer_beta")) {
-    redirect("/dashboard/customer");
+  if (role === "buyer" && plan === "buyer_pro") {
+    redirect("/analyze");
   }
 
   redirect("/analyze");

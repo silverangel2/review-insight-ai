@@ -223,7 +223,6 @@ export async function POST(request: Request) {
     eventType: "login_rate_limited"
   });
 
-
   if (!limit.allowed) {
     return limit.response ?? NextResponse.json({ error: "Too many login attempts." }, { status: 429 });
   }

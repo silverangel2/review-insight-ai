@@ -126,7 +126,7 @@ export default function CustomerDashboardPage() {
     const refresh = () => {
       const account = getClientAccount();
       const plan = String(account?.plan || "").toLowerCase();
-      const premium = plan === "buyer_pro" || plan === "buyer_beta" || plan.includes("premium");
+      const premium = plan === "buyer_pro" || plan.includes("premium");
 
       setIsPremium(premium);
       setDashboardAllowed(premium);

@@ -15,8 +15,7 @@ function hasSellerAccess(account: ClientAccount | null) {
     role === "admin" ||
     plan.includes("seller_pro") ||
     plan.includes("seller premium") ||
-    plan.includes("seller_premium") ||
-    plan.includes("seller_beta")
+    plan.includes("seller_premium")
   );
 }
 
@@ -31,7 +30,6 @@ function isShopperPremiumAccount(account: ClientAccount | null) {
     !hasSellerAccess(account) &&
     (
       plan.includes("buyer_pro") ||
-      plan.includes("buyer_beta") ||
       plan.includes("shopper premium") ||
       plan.includes("shopper_premium") ||
       plan.includes("premium")

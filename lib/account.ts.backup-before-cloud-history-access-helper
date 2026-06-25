@@ -151,16 +151,3 @@ export function forceSellerPremiumTesterAccount<T extends Record<string, unknown
   return account;
 }
 
-
-
-export function hasCloudHistoryAccess(plan: string | null | undefined) {
-  const normalized = String(plan || "").trim();
-
-  return (
-    normalized === "buyer_pro" ||
-    normalized === "buyer_beta" ||
-    normalized === "seller_pro" ||
-    normalized === "seller_premium" ||
-    normalized === "seller_beta"
-  );
-}

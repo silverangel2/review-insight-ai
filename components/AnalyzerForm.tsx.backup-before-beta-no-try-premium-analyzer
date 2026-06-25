@@ -109,13 +109,7 @@ export default function AnalyzerForm() {
 
   const canAnalyze = Boolean(image) && !isLoading;
   const scanLimitMessage = analyzerFormCopy(readStoredLocale()).scanLimitMessage;
-  const clientAccount = getClientAccount();
-  const isBetaAccount = clientAccount?.plan === "buyer_beta" || clientAccount?.plan === "seller_beta";
-  const isScanLimitError =
-    !isBetaAccount &&
-    (error.includes("3 free scans") ||
-      error.toLowerCase().includes("upgrade to premium") ||
-      error.includes("scans reset tomorrow"));
+  const isScanLimitError = error.includes("3 free scans") || error.toLowerCase().includes("upgrade to premium") || error.includes("scans reset tomorrow");
 
   const uploadLabel = useMemo(() => {
     if (!image) return analyzerFormCopy(readStoredLocale()).uploadTitle;
@@ -272,7 +266,7 @@ export default function AnalyzerForm() {
 
         {error ? (
           <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700 dark:border-rose-400/30 dark:bg-rose-950/30 dark:text-rose-200">
-            <p>{error.includes("confidence") ? "I can see the product, but I need a closer screenshot or product link for a stronger verdict." : error}</p>
+            <p>{error.includes("confidence") ? analyzerFormCopy(readStoredLocale()).clearerScreenshot : error}</p>
 
             {isScanLimitError ? (
               <a

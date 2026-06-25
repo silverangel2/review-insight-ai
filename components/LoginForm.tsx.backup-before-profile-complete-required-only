@@ -33,13 +33,23 @@ function profileCompletionPath(nextPath = "/analyze") {
 function isProfileComplete(account: Partial<ClientAccount> | null | undefined) {
   if (!account) return false;
 
-  // First-login profile completion should only require the essentials.
-  // Website and notes are optional and must never force the profile screen again.
-  return Boolean(
-    String(account.name || "").trim() &&
-      String(account.role || "").trim() &&
-      String(account.plan || "").trim()
-  );
+  const requiredValues = [
+    account.name,
+    account.companyName,
+    account.phone,
+    account.addressLine1,
+    account.addressLine2,
+    account.city,
+    account.region,
+    account.postalCode,
+    account.country,
+    account.website,
+    account.preferredLanguage,
+    account.preferredCurrency,
+    account.profileNotes,
+  ];
+
+  return requiredValues.every((value) => String(value ?? "").trim().length > 0);
 }
 
 export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode }) {
