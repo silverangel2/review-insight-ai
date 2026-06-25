@@ -47,26 +47,28 @@ export function DashboardShell({
 
   return (
     <main
+      data-dashboard-experience={experience}
+      data-dashboard-fullwidth={fullWidth ? "true" : "false"}
       className={
         fullWidth
-          ? "mx-auto grid w-full max-w-none gap-6 px-4 py-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:px-6"
-          : "mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[260px_minmax(0,1fr)]"
+          ? "dashboard-shell-main mx-auto grid w-full max-w-none gap-6 px-4 py-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:px-6"
+          : "dashboard-shell-main mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[260px_minmax(0,1fr)]"
       }
     >
-      <aside className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
-        <div className="rounded-2xl bg-ink p-4 text-white dark:bg-white dark:text-ink">
+      <aside className="dashboard-shell-sidebar rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <div className="dashboard-shell-workspace-card rounded-2xl bg-ink p-4 text-white dark:bg-white dark:text-ink">
           <p className="text-xs font-bold uppercase opacity-70">Workspace</p>
           <p className="mt-2 text-lg font-black">{workspaceLabel}</p>
           <p className="mt-1 text-xs opacity-70">ReviewIntel</p>
         </div>
-        <nav className="mt-4 grid gap-2">
+        <nav className="dashboard-shell-nav mt-4 grid gap-2">
           {navItems[experience].map(([href, label]) => (
             <Link key={`${label}-${href}`} href={href} className="rounded-2xl border border-line bg-slate-50 px-5 py-4 text-base font-black text-slate-700 shadow-sm transition hover:border-ocean hover:bg-white hover:text-ink dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white">
               {label}
             </Link>
           ))}
         </nav>
-        <div className="mt-6 rounded-2xl border border-line p-4 dark:border-white/10">
+        <div className="dashboard-shell-intelligence-card mt-6 rounded-2xl border border-line p-4 dark:border-white/10">
           <Badge tone={badgeTone}>{badge}</Badge>
           <p className="mt-3 text-sm font-bold text-ink dark:text-white">
             {experience === "admin" ? "All limits bypassed" : experience === "seller" ? "Business intelligence" : "Shopping assistant"}
@@ -79,7 +81,7 @@ export function DashboardShell({
                 : "Shopper tools stay simple and recommendation-focused."}
           </p>
         </div>
-        <div className="mt-4 grid gap-2 rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="dashboard-shell-support-card mt-4 grid gap-2 rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">
             {experience === "admin" ? "Quick access" : "Support"}
           </p>
@@ -120,8 +122,8 @@ export function DashboardShell({
         </div>
       </aside>
 
-      <section className="min-w-0">
-        <div className="mb-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="dashboard-shell-content min-w-0">
+        <div className="dashboard-shell-page-title mb-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
           <Badge tone="info">Dashboard</Badge>
           <h1 className="mt-4 text-3xl font-black text-ink dark:text-white">{title}</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">{subtitle}</p>

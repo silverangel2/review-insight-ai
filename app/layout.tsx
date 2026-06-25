@@ -1,5 +1,4 @@
 import LayoutModeProvider from "@/components/LayoutModeProvider";
-import MobileAccountTopNav from "@/components/MobileAccountTopNav";
 import AccountWorkspacePermission from "@/components/AccountWorkspacePermission";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getMessages} from "next-intl/server";
@@ -13,6 +12,7 @@ import { IdleLogoutGuard } from "@/components/IdleLogoutGuard";
 import { SmartAdSlot } from "@/components/advertising/SmartAdSlot";
 import { SellerResultHistoryCorner } from "@/components/SellerResultHistoryCorner";
 import MobileTinyNav from "@/components/mobile/MobileTinyNav";
+import MobileUtilityMenu from "@/components/mobile/MobileUtilityMenu";
 
 const googleAdsenseClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT || "ca-pub-5711144364755686";
 
@@ -87,8 +87,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         />
         <Header initialLocale={locale} />
         <LayoutModeProvider>
-            <MobileAccountTopNav />
-          <MobileTinyNav />{children}<AccountWorkspacePermission /></LayoutModeProvider>
+          <MobileTinyNav />
+          <MobileUtilityMenu />{children}<AccountWorkspacePermission /></LayoutModeProvider>
           <SellerResultHistoryCorner />
           <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact />
         <SiteFooter />

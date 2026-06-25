@@ -172,8 +172,8 @@ export default async function LandingPage() {
 
       <PlatformLogoOrbit initialLocale={locale} />
 
-      <section className="bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-6 py-12 text-ink">
-        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+      <section className="home-premium-payoff bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-6 py-12 text-ink">
+        <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-5 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
             <Badge tone="warn">{t("payoff.eyebrow")}</Badge>
             <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">{t("payoff.title")}</h2>
@@ -198,9 +198,9 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-6 py-10 text-ink">
-        <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
-          <article className="rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
+      <section className="home-premium-audience bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-6 py-10 text-ink">
+        <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
+          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
             <Badge tone="good">{t("shopperMode")}</Badge>
             <h2 className="mt-4 text-3xl font-black">{t("fastShoppingVerdict")}</h2>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -215,7 +215,7 @@ export default async function LandingPage() {
             </Link>
           </article>
 
-          <article className="rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
+          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
             <Badge tone="warn">{t("sellerPro")}</Badge>
             <h2 className="mt-4 text-3xl font-black">{t("businessIntelligence")}</h2>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -232,8 +232,8 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="bg-mist px-6 py-12 text-ink">
-        <div className="mx-auto max-w-5xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-8">
+      <section className="home-premium-mode bg-mist px-6 py-12 text-ink">
+        <div className="home-premium-mode-card mx-auto max-w-5xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-8">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 text-3xl font-black tracking-tight text-ink md:text-4xl">{t("modeIntro.title")}</h2>
           <p className="mt-4 text-base font-semibold leading-8 text-slate-700 md:text-lg md:leading-9">
@@ -241,9 +241,9 @@ export default async function LandingPage() {
           </p>
         </div>
       </section>
-      <FeaturedReviews />
+      <div className="home-premium-featured-reviews"><FeaturedReviews /></div>
     
-      <section className="mx-auto max-w-6xl px-6 pb-12">
+      <section className="home-premium-ad-section mx-auto max-w-6xl px-6 pb-12">
         <AdSlot placement="homepage_mid" />
       </section>
 

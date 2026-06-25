@@ -7,6 +7,7 @@ import { canAccessSellerAnalytics, type ClientAccount } from "@/lib/account";
 import { getClientAccount, saveActiveMode, saveClientAccount } from "@/lib/clientAccount";
 import { clearLatestResult } from "@/lib/resultStorage";
 import type { UserRole } from "@/lib/types";
+import type { SubscriptionPlan } from "@/lib/types";
 
 type AuthMode = "login" | "signup" | "reset";
 type SignupRole = Extract<UserRole, "buyer" | "seller">;
@@ -142,7 +143,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
 
       const serverProfile = serverAccount as Partial<ClientAccount> | null | undefined;
       const savedRole: SignupRole = serverAccount?.role === "seller" ? "seller" : role;
-      saveClientAccount({
+      const loggedInAccount: ClientAccount = {
         userId: serverAccount?.userId ?? null,
         authUserId: serverAccount?.authUserId ?? data.result?.user?.id ?? null,
         email: serverAccount?.email ?? normalizedEmail,
@@ -165,7 +166,9 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
         website: serverProfile?.website,
         profileNotes: serverProfile?.profileNotes,
         marketingConsent: serverProfile?.marketingConsent ?? marketingConsent
-      });
+      };
+
+      saveClientAccount(loggedInAccount);
 
       const nextRole = savedRole;
       const nextPlan = serverAccount?.plan ?? defaultPlanForRole(savedRole);
@@ -176,7 +179,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
 
       const nextPath = nextPathForAccount(nextRole, nextPlan);
 
-      if (!isProfileComplete(account)) {
+      if (!isProfileComplete(loggedInAccount)) {
         window.location.replace(profileCompletionPath(nextPath));
         return;
       }
@@ -196,7 +199,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
       return;
     }
 
-    const nextPath = nextPathForAccount(role, defaultPlanForRole(role));
+    const nextPath = nextPathForAccount(role, defaultPlanForRole(role) as SubscriptionPlan);
 
     const params = new URLSearchParams({
       intent: mode === "signup" ? "signup" : "login",

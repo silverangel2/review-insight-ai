@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { setAccountSessionCookie } from "@/lib/accountSession";
+import { createAdminNotification } from "@/lib/notifications";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { rateLimitRequest } from "@/lib/security";
 import { loginWithSupabase } from "@/lib/supabaseAuth";
@@ -83,6 +85,41 @@ async function readProfileByEmail(email: string) {
   }
 }
 
+function isBetaPlan(plan: string) {
+  return plan === "buyer_beta" || plan === "seller_beta";
+}
+
+function safeRestoredPlan(currentPlan: string, originalPlan: string) {
+  const normalizedOriginal = normalizePlan(originalPlan);
+
+  if (normalizedOriginal && !isBetaPlan(normalizedOriginal)) {
+    return normalizedOriginal;
+  }
+
+  return currentPlan === "seller_beta" ? "seller_premium" : "free_buyer";
+}
+
+function roleForRestoredPlan(plan: string, fallbackRole: string) {
+  if (plan === "seller_premium" || plan === "seller_beta" || plan === "seller_pro") return "seller";
+  if (fallbackRole === "admin") return "admin";
+  return "buyer";
+}
+
+function isExpiredBetaProfile(profile: Record<string, unknown>, plan: string) {
+  if (!isBetaPlan(plan)) return false;
+
+  const status = valueAsString(profile.subscription_status);
+  if (status !== "beta") return false;
+
+  const expiresAt = valueAsString(profile.beta_expires_at);
+  if (!expiresAt) return false;
+
+  const expiry = new Date(expiresAt);
+  if (Number.isNaN(expiry.getTime())) return false;
+
+  return expiry.getTime() <= Date.now();
+}
+
 async function mergeProfileIntoLoginResult(result: Record<string, unknown>) {
   const account = result.account && typeof result.account === "object"
     ? (result.account as Record<string, unknown>)
@@ -94,15 +131,60 @@ async function mergeProfileIntoLoginResult(result: Record<string, unknown>) {
   const profile = await readProfileByEmail(email);
   if (!profile) return result;
 
-  const role = normalizeRole(valueAsString(profile.role) || valueAsString(account.role));
-  const plan = normalizePlan(valueAsString(profile.plan) || valueAsString(account.plan));
+  const profileRole = normalizeRole(valueAsString(profile.role) || valueAsString(account.role));
+  const profilePlan = normalizePlan(valueAsString(profile.plan) || valueAsString(account.plan));
   const now = new Date().toISOString();
 
-  await supabaseUpsert("profiles", {
-    email,
-    last_login: now,
-    updated_at: now
-  }).catch(() => null);
+  let role = profileRole;
+  let plan = profilePlan;
+  let subscriptionStatus = valueAsString(profile.subscription_status) || valueAsString(account.subscriptionStatus);
+
+  if (isExpiredBetaProfile(profile, profilePlan)) {
+    const restoredPlan = safeRestoredPlan(profilePlan, valueAsString(profile.beta_original_plan));
+    const restoredStatus = valueAsString(profile.beta_original_status) || "active";
+    const restoredRole = roleForRestoredPlan(restoredPlan, profileRole);
+
+    await supabaseUpsert("profiles", {
+      email,
+      role: restoredRole,
+      plan: restoredPlan,
+      subscription_plan: restoredPlan,
+      subscription_status: restoredStatus,
+      beta_started_at: null,
+      beta_expires_at: null,
+      beta_original_plan: null,
+      beta_original_status: null,
+      beta_last_notified_at: now,
+      beta_last_survey_sent_at: null,
+      beta_survey_count: 0,
+      last_login: now,
+      updated_at: now
+    }).catch(() => null);
+
+    await createAdminNotification({
+      title: "Beta access expired",
+      message: `${email} beta access expired and was restored to ${restoredPlan}.`,
+      type: "beta_expired",
+      severity: "info",
+      action_url: "/admin/beta",
+      metadata: {
+        email,
+        expiredPlan: profilePlan,
+        restoredPlan,
+        expiredAt: valueAsString(profile.beta_expires_at)
+      }
+    }).catch(() => null);
+
+    role = restoredRole;
+    plan = restoredPlan;
+    subscriptionStatus = restoredStatus;
+  } else {
+    await supabaseUpsert("profiles", {
+      email,
+      last_login: now,
+      updated_at: now
+    }).catch(() => null);
+  }
 
   return {
     ...result,
@@ -115,7 +197,7 @@ async function mergeProfileIntoLoginResult(result: Record<string, unknown>) {
       name: valueAsString(profile.name) || valueAsString(account.name) || email.split("@")[0],
       role: role === "guest" ? "buyer" : role,
       plan,
-      subscriptionStatus: valueAsString(profile.subscription_status) || valueAsString(account.subscriptionStatus),
+      subscriptionStatus,
       stripeCustomerId: valueAsString(profile.stripe_customer_id) || valueAsString(account.stripeCustomerId) || null,
       companyName: valueAsString(profile.company_name) || valueAsString(account.companyName),
       phone: valueAsString(profile.phone) || valueAsString(account.phone),
@@ -154,28 +236,33 @@ export async function POST(request: Request) {
     const email = String(body.email).trim().toLowerCase();
     const qaAccount = qaAccounts.find((account) => account.email === email && body.password === QA_PASSWORD);
     if (qaAccount) {
-      return NextResponse.json({
+      const account = {
+        userId: `test-${qaAccount.email}`,
+        authUserId: `test-auth-${qaAccount.email}`,
+        email: qaAccount.email,
+        name: qaAccount.name,
+        role: qaAccount.role,
+        plan: qaAccount.plan,
+        subscriptionStatus: qaAccount.plan === "free_buyer" ? "free" : "active",
+        createdAt: new Date().toISOString(),
+        profileId: qaAccount.profileId,
+        companyName: qaAccount.companyName,
+        addressLine1: qaAccount.addressLine1,
+        city: qaAccount.city,
+        country: qaAccount.country,
+        marketingConsent: false
+      };
+
+      const response = NextResponse.json({
         ok: true,
         result: {
           mode: "qa-customer-account",
-          account: {
-            userId: `test-${qaAccount.email}`,
-            authUserId: `test-auth-${qaAccount.email}`,
-            email: qaAccount.email,
-            name: qaAccount.name,
-            role: qaAccount.role,
-            plan: qaAccount.plan,
-            subscriptionStatus: qaAccount.plan === "free_buyer" ? "free" : "active",
-            createdAt: new Date().toISOString(),
-            profileId: qaAccount.profileId,
-            companyName: qaAccount.companyName,
-            addressLine1: qaAccount.addressLine1,
-            city: qaAccount.city,
-            country: qaAccount.country,
-            marketingConsent: false
-          }
+          account
         }
       });
+
+      setAccountSessionCookie(response, account);
+      return response;
     }
 
     const result = await mergeProfileIntoLoginResult(
@@ -185,7 +272,9 @@ export async function POST(request: Request) {
     if (account?.role === "admin") {
       return NextResponse.json({ error: "Use the private admin access route for developer accounts." }, { status: 403 });
     }
-    return NextResponse.json({ ok: true, result });
+    const response = NextResponse.json({ ok: true, result });
+    setAccountSessionCookie(response, result.account as Record<string, unknown>);
+    return response;
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Login failed." }, { status: 401 });
   }

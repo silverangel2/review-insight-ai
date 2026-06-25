@@ -1,0 +1,145 @@
+import { NextResponse } from "next/server";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
+import { sendReviewIntelEmail } from "@/lib/emailDelivery";
+import { supabaseSelect, supabaseUpdate } from "@/lib/supabaseServer";
+
+export const runtime = "nodejs";
+
+const SURVEY_QUESTIONS = [
+  "1. What did you test this week?",
+  "2. What confused you or felt hard to use?",
+  "3. Did anything break, freeze, or give wrong results?",
+  "4. What feature felt most useful?",
+  "5. What would make you trust ReviewIntel more?"
+];
+
+
+function isActiveBetaProfile(profile: Record<string, unknown>) {
+  const plan = String(profile.plan || "");
+  const status = String(profile.subscription_status || "");
+  const expiresAt = profile.beta_expires_at ? new Date(String(profile.beta_expires_at)) : null;
+
+  if (status !== "beta") return false;
+  if (plan !== "buyer_beta" && plan !== "seller_beta") return false;
+  if (!expiresAt || Number.isNaN(expiresAt.getTime())) return false;
+
+  return expiresAt.getTime() > Date.now();
+}
+
+function isSurveyDue(profile: Record<string, unknown>) {
+  const lastSent = profile.beta_last_survey_sent_at ? new Date(String(profile.beta_last_survey_sent_at)) : null;
+
+  if (!lastSent || Number.isNaN(lastSent.getTime())) return true;
+
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
+  return Date.now() - lastSent.getTime() >= sevenDays;
+}
+
+function appUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+}
+
+export async function POST(request: Request) {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const force = Boolean(body.force);
+
+  const profiles = await supabaseSelect(
+    "profiles",
+    "select=email,name,role,plan,subscription_status,beta_expires_at,beta_last_survey_sent_at,beta_survey_count&subscription_status=eq.beta&order=beta_expires_at.asc&limit=200"
+  );
+
+  const betaProfiles = Array.isArray(profiles)
+    ? profiles.filter((profile) => isActiveBetaProfile(profile as Record<string, unknown>))
+    : [];
+  const dueProfiles = force ? betaProfiles : betaProfiles.filter((profile) => isSurveyDue(profile as Record<string, unknown>));
+
+  const sent: string[] = [];
+  const skipped: string[] = [];
+  const failed: { email: string; error: string }[] = [];
+
+  for (const profile of dueProfiles as Array<Record<string, unknown>>) {
+    const email = String(profile.email || "").trim();
+
+    if (!email) continue;
+
+    const name = String(profile.name || "").trim();
+    const currentCount = Number(profile.beta_survey_count || 0);
+    const surveyNumber = currentCount + 1;
+    const accountLink = `${appUrl()}/account?betaSurvey=weekly-${surveyNumber}`;
+
+    try {
+      await sendReviewIntelEmail({
+        emailType: "beta_weekly_survey",
+        to: email,
+        subject: `ReviewIntel Beta Weekly Survey #${surveyNumber}`,
+        html: `
+          <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
+            <h2>ReviewIntel Beta Weekly Survey #${surveyNumber}</h2>
+            <p>Hi ${name || "there"},</p>
+            <p>Thank you for testing ReviewIntel beta. Please answer these 5 quick questions from your Account page beta feedback box:</p>
+            <ol>
+              <li>What did you test this week?</li>
+              <li>What confused you or felt hard to use?</li>
+              <li>Did anything break, freeze, or give wrong results?</li>
+              <li>What feature felt most useful?</li>
+              <li>What would make you trust ReviewIntel more?</li>
+            </ol>
+            <p>
+              <a href="${accountLink}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#0f172a;color:white;text-decoration:none;font-weight:700">
+                Answer Beta Survey
+              </a>
+            </p>
+            <p>You can also reply using the beta feedback box inside your ReviewIntel Account page.</p>
+          </div>
+        `,
+        text: `ReviewIntel Beta Weekly Survey #${surveyNumber}
+
+${SURVEY_QUESTIONS.join("\n")}
+
+Answer from your Account page: ${accountLink}`,
+        metadata: {
+          surveyNumber,
+          plan: profile.plan || null,
+          betaExpiresAt: profile.beta_expires_at || null
+        }
+      });
+
+      await supabaseUpdate(
+        "profiles",
+        `email=eq.${encodeURIComponent(email)}`,
+        {
+          beta_last_survey_sent_at: new Date().toISOString(),
+          beta_survey_count: surveyNumber,
+          updated_at: new Date().toISOString()
+        }
+      );
+
+      sent.push(email);
+    } catch (error) {
+      failed.push({
+        email,
+        error: error instanceof Error ? error.message : "Unknown email error"
+      });
+    }
+  }
+
+  for (const profile of betaProfiles as Array<Record<string, unknown>>) {
+    const email = String(profile.email || "").trim();
+    if (email && !dueProfiles.includes(profile)) skipped.push(email);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    sent,
+    skipped,
+    failed,
+    totalBetaUsers: betaProfiles.length,
+    dueCount: dueProfiles.length
+  });
+}

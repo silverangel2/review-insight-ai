@@ -97,7 +97,7 @@ function currentSellerProductScope() {
       key,
       role,
       plan,
-      isSeller: role === "seller" && (plan === "seller_premium" || plan === "seller_pro"),
+      isSeller: role === "seller" && (plan === "seller_premium" || plan === "seller_beta" || plan === "seller_pro"),
       isSellerPro: role === "seller" && plan === "seller_pro"
     };
   } catch {
@@ -122,7 +122,7 @@ function toneForScan(score: number, previousScore?: number): SellerProductScanTo
 
 export function productLimitForPlan(plan: SubscriptionPlan | undefined) {
   if (plan === "seller_pro") return 50;
-  if (plan === "seller_premium") return 10;
+  if (plan === "seller_premium" || plan === "seller_beta") return 10;
   return 0;
 }
 

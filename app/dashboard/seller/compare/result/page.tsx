@@ -98,7 +98,7 @@ export default function SellerCompareResultPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ea] px-4 py-8 text-[#172033]">
       <section className="mx-auto max-w-7xl">
-        <div className="overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
+        <div className="seller-compare-result-shell overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
           <div className="bg-slate-950 px-6 py-7 text-white md:px-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -113,7 +113,7 @@ export default function SellerCompareResultPage() {
                 </p>
               </div>
 
-              <div className="rounded-3xl border border-teal-400/30 bg-teal-400/10 px-5 py-4">
+              <div className="seller-compare-score-card rounded-3xl border border-teal-400/30 bg-teal-400/10 px-5 py-4">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-teal-200">
                   AI Confidence
                 </p>
@@ -122,7 +122,7 @@ export default function SellerCompareResultPage() {
             </div>
           </div>
 
-          <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="seller-compare-summary-grid grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="border-b border-slate-200 p-6 md:p-8 lg:border-b-0 lg:border-r">
               <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">
                 Competitive position
@@ -130,7 +130,7 @@ export default function SellerCompareResultPage() {
               <h2 className="mt-3 text-3xl font-black leading-tight text-slate-950">{position}</h2>
               <p className="mt-4 text-base font-semibold leading-7 text-slate-700">{heroSummary}</p>
 
-              <div className="mt-6 rounded-3xl border border-teal-200 bg-teal-50 p-5">
+              <div className="seller-compare-summary-card mt-6 rounded-3xl border border-teal-200 bg-teal-50 p-5">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-teal-700">
                   Best market move
                 </p>
@@ -138,14 +138,14 @@ export default function SellerCompareResultPage() {
               </div>
 
               {warning ? (
-                <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
+                <p className="seller-compare-warning mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
                   {warning}
                 </p>
               ) : null}
             </section>
 
-            <section className="p-6 md:p-8">
-              <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6">
+            <section className="seller-compare-summary-left p-6 md:p-8">
+              <div className="seller-compare-risk-card rounded-3xl border border-rose-200 bg-rose-50 p-6">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-rose-700">
                   Fix first
                 </p>
@@ -157,21 +157,21 @@ export default function SellerCompareResultPage() {
             </section>
           </div>
 
-          <div className="grid gap-5 border-t border-slate-200 bg-slate-50 p-6 md:grid-cols-3 md:p-8">
+          <div className="seller-compare-strategy-grid seller-compare-strategy-grid-3 grid gap-5 border-t border-slate-200 bg-slate-50 p-6 md:grid-cols-3 md:p-8">
             <StrategyCard title="Competitor wins because" items={competitorAdvantages} tone="amber" />
             <StrategyCard title="You already win on" items={yourAdvantages} tone="teal" />
             <StrategyCard title="Conversion leaks" items={conversionGaps} tone="rose" />
           </div>
 
-          <div className="grid gap-5 p-6 md:grid-cols-2 md:p-8">
+          <div className="seller-compare-strategy-grid seller-compare-strategy-grid-4 grid gap-5 p-6 md:grid-cols-2 md:p-8">
             <StrategyCard title="Product moves" items={productMoves} tone="slate" />
             <StrategyCard title="Listing moves" items={listingMoves} tone="slate" />
             <StrategyCard title="Ad angles to test" items={adAngles} tone="teal" />
             <StrategyCard title="Risk warnings" items={riskWarnings} tone="rose" />
           </div>
 
-          <div className="border-t border-slate-200 bg-slate-950 p-6 text-white md:p-8">
-            <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="seller-compare-plan-section border-t border-slate-200 bg-slate-950 p-6 text-white md:p-8">
+            <div className="seller-compare-plan-grid grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
               <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-teal-300">
                   Outgrow strategy
@@ -179,7 +179,7 @@ export default function SellerCompareResultPage() {
                 <ActionList items={outgrowStrategy} empty="No outgrowth strategy was generated." tone="dark" limit={6} />
               </section>
 
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="seller-compare-roadmap-grid grid gap-5 md:grid-cols-2">
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                   <p className="text-xs font-black uppercase tracking-[0.25em] text-teal-300">
                     30-day attack plan
@@ -197,7 +197,7 @@ export default function SellerCompareResultPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3 border-t border-slate-200 bg-white p-6 md:p-8">
+          <div className="seller-compare-actions flex flex-wrap gap-3 border-t border-slate-200 bg-white p-6 md:p-8">
             <Link
               href="/dashboard/seller/compare"
               className="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-black text-white hover:bg-slate-800"
@@ -214,7 +214,7 @@ export default function SellerCompareResultPage() {
         </div>
 
         {history.length > 0 ? (
-          <section className="mt-6 rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="seller-compare-history mt-6 rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-black text-slate-950">Compare history</h2>
             <div className="mt-4 grid gap-3">
               {history.map((item) => (
@@ -280,7 +280,7 @@ function StrategyCard({
           : "border-slate-200 bg-white text-slate-950";
 
   return (
-    <section className={`rounded-3xl border p-6 ${toneClass}`}>
+    <section className={`seller-compare-strategy-card rounded-3xl border p-6 ${toneClass}`}>
       <h3 className="text-xl font-black">{title}</h3>
       <ActionList items={items} empty={empty} tone={tone} limit={6} />
     </section>

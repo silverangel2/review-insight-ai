@@ -27,7 +27,7 @@ type AdminUserRow = {
   updatedAt?: string;
 };
 
-type AdminAction = "refresh" | "force_logout" | "reset_quota" | "note" | "suspend" | "ban" | "unban";
+type AdminAction = "refresh" | "force_logout" | "reset_quota" | "note" | "make_beta_shopper" | "make_beta_seller" | "remove_beta" | "suspend" | "ban" | "unban";
 
 const actionCopy: Record<AdminAction, { label: string; busy: string; done: string; helper: string }> = {
   refresh: {
@@ -53,6 +53,24 @@ const actionCopy: Record<AdminAction, { label: string; busy: string; done: strin
     busy: "Saving note...",
     done: "Note saved",
     helper: "Stores a private admin note on this customer row."
+  },
+  make_beta_shopper: {
+    label: "Beta Shopper",
+    busy: "Granting Beta Shopper Premium...",
+    done: "Beta Shopper Premium granted.",
+    helper: "Gives this customer beta shopper premium access with unlimited scans.",
+  },
+  make_beta_seller: {
+    label: "Beta Seller",
+    busy: "Granting Beta Seller Premium...",
+    done: "Beta Seller Premium granted.",
+    helper: "Gives this customer beta seller premium access with unlimited scans.",
+  },
+  remove_beta: {
+    label: "Remove Beta",
+    busy: "Removing beta access...",
+    done: "Beta access removed.",
+    helper: "Returns the customer to a normal base plan.",
   },
   suspend: {
     label: "Suspend",
@@ -440,6 +458,11 @@ export function AdminUserSystem() {
                       {actionButton(user, "refresh", "rounded-full bg-ocean px-3 py-2 text-xs font-black text-white")}
                       {actionButton(user, "force_logout", "rounded-full bg-slate-700 px-3 py-2 text-xs font-black text-white")}
                       {actionButton(user, "reset_quota", "rounded-full bg-teal px-3 py-2 text-xs font-black text-ink")}
+                      {actionButton(user, "make_beta_shopper", "rounded-full bg-cyan-600 px-3 py-2 text-xs font-black text-white")}
+                      {actionButton(user, "make_beta_seller", "rounded-full bg-purple-600 px-3 py-2 text-xs font-black text-white")}
+                      {user.rawPlan === "buyer_beta" || user.rawPlan === "seller_beta" ? (
+                        actionButton(user, "remove_beta", "rounded-full bg-slate-900 px-3 py-2 text-xs font-black text-white")
+                      ) : null}
                       {actionButton(user, "note", "rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-line")}
                       {user.status === "banned" || user.status === "suspended" ? (
                         actionButton(user, "unban", "rounded-full bg-green-600 px-3 py-2 text-xs font-black text-white")

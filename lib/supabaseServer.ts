@@ -751,7 +751,7 @@ export async function upsertSubscriptionByStripeCustomer(input: SupabaseRow) {
   const subscriptionStatus = String(input.status ?? "active");
   const inactive = !["active", "trialing"].includes(subscriptionStatus);
   const plan = inactive ? "free_buyer" : rawPlan;
-  const role = rawPlan === "seller_premium" || rawPlan === "seller_pro" ? "seller" : roleForPlan(plan);
+  const role = rawPlan === "seller_premium" || rawPlan === "seller_beta" || rawPlan === "seller_pro" ? "seller" : roleForPlan(plan);
   const stripeCustomerId = input.stripe_customer_id ?? input.customer ?? input.customerId ?? null;
 
   if (email) {

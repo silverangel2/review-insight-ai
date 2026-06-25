@@ -1,5 +1,5 @@
 export type CustomerRecommendation = "Buy" | "Maybe" | "Avoid";
-export type SubscriptionPlan = "free_buyer" | "buyer_pro" | "seller_premium" | "seller_pro";
+export type SubscriptionPlan = "free_buyer" | "buyer_pro" | "buyer_beta" | "seller_premium" | "seller_beta" | "seller_pro";
 export type UserRole = "guest" | "buyer" | "seller" | "admin";
 export type AnalysisAudience = "buyer" | "seller" | "both";
 export type ReviewPlatform =

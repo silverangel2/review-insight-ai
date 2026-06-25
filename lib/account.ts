@@ -34,6 +34,10 @@ export type ClientAccount = {
   preferredCurrency?: string;
   profileNotes?: string;
   marketingConsent?: boolean;
+  betaStartedAt?: string;
+  betaExpiresAt?: string;
+  betaOriginalPlan?: string;
+  betaOriginalStatus?: string;
   passwordUpdatedAt?: string;
 };
 
@@ -44,7 +48,9 @@ export function normalizePlan(plan: string | null | undefined): SubscriptionPlan
     .replace(/[\s-]+/g, "_");
 
   if (value === "buyer_pro" || value === "pro" || value === "premium" || value === "shopper_premium") return "buyer_pro";
+  if (value === "buyer_beta" || value === "beta_buyer" || value === "shopper_beta" || value === "beta_shopper" || value === "shopper_premium_beta") return "buyer_beta";
   if (value === "seller_starter" || value === "seller_premium" || value === "seller") return "seller_premium";
+  if (value === "seller_beta" || value === "beta_seller" || value === "seller_premium_beta") return "seller_beta";
   if (value === "seller_pro" || value === "team") return "seller_pro";
   return "free_buyer";
 }
@@ -56,14 +62,18 @@ export function normalizeRole(role: string | null | undefined): UserRole {
 
 export function planLabel(plan: SubscriptionPlan) {
   if (plan === "buyer_pro") return "Shopper Premium";
+  if (plan === "buyer_beta") return "Beta Shopper Premium";
   if (plan === "seller_premium") return "Seller Premium";
+  if (plan === "seller_beta") return "Beta Seller Premium";
   if (plan === "seller_pro") return "Seller Pro";
   return "Shopper Free";
 }
 
 export function planPrice(plan: SubscriptionPlan) {
   if (plan === "buyer_pro") return "$9.99 CAD";
+  if (plan === "buyer_beta") return "Beta";
   if (plan === "seller_premium") return "$29.99 CAD";
+  if (plan === "seller_beta") return "Beta";
   if (plan === "seller_pro") return "$59.99 CAD";
   return "$0";
 }
@@ -78,7 +88,7 @@ export function isPaidPlan(plan: SubscriptionPlan) {
 
 export function isSellerPlan(plan: unknown) {
   const value = String(plan || "").toLowerCase();
-  return value === "seller_premium" || value === "seller_pro";
+  return value === "seller_premium" || value === "seller_beta" || value === "seller_pro";
 }
 
 export function roleForPlan(plan: SubscriptionPlan): UserRole {

@@ -109,6 +109,25 @@ function displayAccountEmail(account: ClientAccount | null) {
   return account.email || "Local account";
 }
 
+function betaDaysRemaining(expiresAt?: string | null) {
+  if (!expiresAt) return null;
+  const expires = new Date(expiresAt);
+  if (Number.isNaN(expires.getTime())) return null;
+  const diff = expires.getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+function formatBetaDate(value?: string | null) {
+  if (!value) return "Not set";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not set";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
 function profileFromAccount(account: ClientAccount | null): AccountProfileForm {
   if (!account) return emptyProfileForm;
 
@@ -167,6 +186,10 @@ export function AccountDashboard() {
   const [profileNotice, setProfileNotice] = useState("");
   const [passwordNotice, setPasswordNotice] = useState("");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [betaFeedbackMessage, setBetaFeedbackMessage] = useState("");
+  const [isSendingBetaFeedback, setIsSendingBetaFeedback] = useState(false);
+  const [betaFeedbackStatus, setBetaFeedbackStatus] = useState<string | null>(null);
+  const [betaSurveyKey, setBetaSurveyKey] = useState<string | null>(null);
 
   useEffect(() => {
     const checkoutStatus = params.get("checkout");
@@ -202,6 +225,28 @@ export function AccountDashboard() {
   }, [account]);
 
   const activePlan = effectiveAccountPlan(account);
+  const isBetaAccountPlan = activePlan === "buyer_beta" || activePlan === "seller_beta";
+  const betaDaysLeft = betaDaysRemaining(account?.betaExpiresAt);
+  const betaExpiryText = formatBetaDate(account?.betaExpiresAt);
+  useEffect(() => {
+    const survey = params.get("betaSurvey");
+
+    if (!survey || betaFeedbackMessage.trim()) return;
+
+    const numberMatch = survey.match(/weekly-(\d+)/);
+    const surveyNumber = numberMatch?.[1] || "";
+
+    setBetaSurveyKey(survey);
+    setBetaFeedbackMessage(
+      `Weekly Beta Survey${surveyNumber ? ` #${surveyNumber}` : ""}\n\n` +
+        `1. What did you test this week?\nAnswer: \n\n` +
+        `2. What confused you or felt hard to use?\nAnswer: \n\n` +
+        `3. Did anything break, freeze, or give wrong results?\nAnswer: \n\n` +
+        `4. What feature felt most useful?\nAnswer: \n\n` +
+        `5. What would make you trust ReviewIntel more?\nAnswer: `
+    );
+  }, [params, betaFeedbackMessage]);
+
   const developerMode = isAdminRole(account?.role);
   const accountBlobText = JSON.stringify({ account, activePlan }).toLowerCase();
   const accountEmailText = String(account?.email || "").toLowerCase();
@@ -390,6 +435,44 @@ export function AccountDashboard() {
   }, [profileNotice]);
 
 
+  async function handleSendBetaFeedback() {
+    const message = betaFeedbackMessage.trim();
+
+    if (message.length < 5) {
+      setBetaFeedbackStatus("Please enter a little more detail before sending.");
+      return;
+    }
+
+    setIsSendingBetaFeedback(true);
+    setBetaFeedbackStatus(null);
+
+    try {
+      const response = await fetch("/api/account/beta-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...accountHeaders() },
+        body: JSON.stringify({
+          message,
+          feedbackType: betaSurveyKey ? "survey" : "feedback",
+          surveyKey: betaSurveyKey,
+          surveyNumber: betaSurveyKey?.match(/weekly-(\d+)/)?.[1] || null
+        })
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Could not send beta feedback.");
+      }
+
+      setBetaFeedbackMessage("");
+      setBetaFeedbackStatus("Beta feedback sent to admin.");
+    } catch (error) {
+      setBetaFeedbackStatus(error instanceof Error ? error.message : "Could not send beta feedback.");
+    } finally {
+      setIsSendingBetaFeedback(false);
+    }
+  }
+
   async function saveProfile() {
     if (!account) return;
 
@@ -558,7 +641,7 @@ export function AccountDashboard() {
         </div>
       </article>
 
-      <section className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+      <section className="grid gap-5">
         <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -606,6 +689,61 @@ export function AccountDashboard() {
                   </Badge>
                 </div>
 
+                {isBetaAccountPlan ? (
+                  <div className="account-beta-card mt-4 rounded-3xl border border-amber-300/70 bg-amber-50/90 p-4 shadow-sm dark:border-amber-400/30 dark:bg-amber-500/10">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="account-beta-badge inline-flex rounded-full bg-amber-400 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.18em] text-ink">
+                          Beta Access
+                        </span>
+                        <p className="mt-3 text-sm font-black text-ink dark:text-white">
+                          {displayPlanBadge(account, activePlan)}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          You are currently using a beta account. Please send observations, bugs, and feedback while beta access is active.
+                        </p>
+                      </div>
+
+                      <div className="account-beta-timer rounded-2xl bg-white/80 px-4 py-3 text-right shadow-sm dark:bg-white/10">
+                        <p className="text-[0.62rem] font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">
+                          Beta ends
+                        </p>
+                        <p className="text-sm font-black text-ink dark:text-white">{betaExpiryText}</p>
+                        <p className="text-xs font-bold text-amber-700 dark:text-amber-200">
+                          {betaDaysLeft === null ? "Timer pending" : `${betaDaysLeft} day${betaDaysLeft === 1 ? "" : "s"} left`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="account-beta-feedback-panel mt-4 rounded-2xl bg-white/70 p-3 dark:bg-white/10">
+                      <label className="block text-[0.68rem] font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
+                        {betaSurveyKey ? "Weekly beta survey reply" : "Beta feedback to admin"}
+                      </label>
+                      <textarea
+                        value={betaFeedbackMessage}
+                        onChange={(event) => setBetaFeedbackMessage(event.target.value)}
+                        rows={3}
+                        maxLength={2000}
+                        placeholder="Send bugs, observations, confusing parts, or anything you notice while testing beta."
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-amber-400 dark:border-white/10 dark:bg-slate-950/60 dark:text-white"
+                      />
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-300">
+                          {betaFeedbackStatus || (betaSurveyKey ? "Your survey reply goes directly to the admin beta panel." : "Your feedback goes directly to the admin beta panel.")}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleSendBetaFeedback}
+                          disabled={isSendingBetaFeedback}
+                          className="account-beta-feedback rounded-full bg-ink px-4 py-2 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-ink"
+                        >
+                          {isSendingBetaFeedback ? "Sending..." : "Send Beta Feedback"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-3">
                   <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
                     <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Plan</span>
@@ -642,7 +780,7 @@ export function AccountDashboard() {
                 </div>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-2 gap-2 lg:grid-cols-2">
                 {[
                   {
                     title: "Personal",
@@ -689,14 +827,14 @@ export function AccountDashboard() {
                     ],
                   },
                 ].map((group) => (
-                  <div key={group.title} className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
+                  <div key={group.title} data-profile-group={group.title} className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
                       {group.title}
                     </p>
 
                     <div className="mt-3 divide-y divide-line dark:divide-white/10">
                       {group.items.map(([label, value]) => (
-                        <div key={label} className="grid gap-1 py-2 sm:grid-cols-[130px_minmax(0,1fr)] sm:gap-3">
+                        <div key={label} className="py-1">
                           <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                             {label}
                           </p>

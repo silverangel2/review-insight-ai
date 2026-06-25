@@ -417,7 +417,7 @@ export function SellerImprovementCalendar() {
   }
 
   return (
-    <section className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="seller-calendar-shell rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Badge tone="info">Seller Pro calendar</Badge>
@@ -439,7 +439,7 @@ export function SellerImprovementCalendar() {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-4">
+      <div className="seller-calendar-stats mt-5 grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Scans this month</p>
           <p className="mt-2 text-3xl font-black text-ocean dark:text-cyan-300">{monthScans.length}</p>
@@ -458,33 +458,54 @@ export function SellerImprovementCalendar() {
         </div>
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-line dark:border-white/10">
-        <div className="grid grid-cols-7 bg-ink text-white dark:bg-white dark:text-ink">
+      <div className="seller-calendar-box mt-5 overflow-hidden rounded-[1.5rem] border border-line dark:border-white/10">
+        <div className="seller-calendar-weekdays grid grid-cols-7 bg-ink text-white dark:bg-white dark:text-ink">
           {dayNames.map((day) => (
             <div key={day} className="px-3 py-3 text-center text-xs font-black uppercase tracking-wide">
               {day}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 bg-white dark:bg-slate-950">
+        <div className="seller-calendar-month-grid grid grid-cols-7 bg-white dark:bg-slate-950">
           {cells.map((cell) => {
             const metrics = dayMetrics(cell.scans);
             const hasScans = cell.scans.length > 0;
+            const mobileStatus = !hasScans
+              ? "No scan"
+              : cell.scans.length >= 5
+                ? "Active"
+                : metrics.score >= 70
+                  ? "Up"
+                  : metrics.score < 45
+                    ? "Risk"
+                    : "Fix";
+            const mobileStatusClass = !hasScans
+              ? "seller-calendar-mobile-status-empty"
+              : mobileStatus === "Up"
+                ? "seller-calendar-mobile-status-up"
+                : mobileStatus === "Risk"
+                  ? "seller-calendar-mobile-status-risk"
+                  : mobileStatus === "Fix"
+                    ? "seller-calendar-mobile-status-fix"
+                    : "seller-calendar-mobile-status-active";
             return (
               <button
                 key={cell.date}
                 type="button"
                 onClick={() => setSelectedDate(cell.date)}
-                className={`min-h-36 border-b border-r border-line p-3 text-left transition hover:bg-cyan-50 dark:border-white/10 dark:hover:bg-white/[0.04] ${
+                className={`seller-calendar-day-cell min-h-36 border-b border-r border-line p-3 text-left transition hover:bg-cyan-50 dark:border-white/10 dark:hover:bg-white/[0.04] ${
                   cell.inMonth ? "bg-white dark:bg-slate-950" : "bg-slate-50 text-slate-400 dark:bg-white/[0.02]"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className={`text-sm font-black ${cell.inMonth ? "text-ink dark:text-white" : "text-slate-400"}`}>{cell.dayNumber}</span>
-                  {hasScans ? <span className="rounded-full bg-teal/10 px-2 py-1 text-[10px] font-black uppercase text-teal">{cell.scans.length} scan{cell.scans.length === 1 ? "" : "s"}</span> : null}
+                  {hasScans ? <span className="seller-calendar-scan-count rounded-full bg-teal/10 px-2 py-1 text-[10px] font-black uppercase text-teal">{cell.scans.length} scan{cell.scans.length === 1 ? "" : "s"}</span> : null}
+                </div>
+                <div className={`seller-calendar-mobile-status ${mobileStatusClass}`}>
+                  {mobileStatus}
                 </div>
                 {hasScans ? (
-                  <div className="mt-3 space-y-2">
+                  <div className="seller-calendar-full-details mt-3 space-y-2">
                     <div className="flex items-center justify-between text-xs font-black">
                       <span className="text-slate-500 dark:text-slate-400">Score</span>
                       <span className="text-ocean dark:text-cyan-300">{formatPercent(metrics.score)}</span>
@@ -492,18 +513,18 @@ export function SellerImprovementCalendar() {
                     <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
                       <div className="h-full rounded-full bg-[linear-gradient(90deg,#08b7a8,#ffb238)]" style={{ width: `${metrics.progress}%` }} />
                     </div>
-                    <div className="flex flex-wrap gap-1">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-ocean/10 px-2 py-1 text-[10px] font-black uppercase text-ocean">
+                    <div className="seller-calendar-chip-row flex flex-wrap gap-1">
+                      <span className="seller-calendar-chip inline-flex items-center gap-1 rounded-full bg-ocean/10 px-2 py-1 text-[10px] font-black uppercase text-ocean">
                         📊 {normalScans(cell.scans).length} scan{normalScans(cell.scans).length === 1 ? "" : "s"}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-teal/10 px-2 py-1 text-[10px] font-black uppercase text-teal">
+                      <span className="seller-calendar-chip inline-flex items-center gap-1 rounded-full bg-teal/10 px-2 py-1 text-[10px] font-black uppercase text-teal">
                         ⭐ Today {compactScore(averageProductScore(cell.scans))}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-700 dark:bg-white/10 dark:text-slate-200">
+                      <span className="seller-calendar-chip inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase text-slate-700 dark:bg-white/10 dark:text-slate-200">
                         📦 {productAverageRows(cell.scans).length} product{productAverageRows(cell.scans).length === 1 ? "" : "s"}
                       </span>
                       {compareScanCount(cell.scans) > 0 ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-1 text-[10px] font-black uppercase text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
+                        <span className="seller-calendar-chip inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-1 text-[10px] font-black uppercase text-violet-700 dark:bg-violet-500/15 dark:text-violet-200">
                           ⚖️ {compareScanCount(cell.scans)} compare
                         </span>
                       ) : null}
@@ -520,8 +541,8 @@ export function SellerImprovementCalendar() {
       </div>
 
       {selectedDate ? (
-        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-950/70 px-5 py-8 backdrop-blur-lg">
-          <div className="max-h-[88vh] w-full max-w-4xl overflow-auto rounded-[2rem] border border-white/15 bg-white p-6 shadow-[0_40px_140px_rgba(0,0,0,0.4)] dark:bg-slate-950">
+        <div className="seller-calendar-modal-overlay fixed inset-0 z-40 grid place-items-center bg-slate-950/70 px-5 py-8 backdrop-blur-lg">
+          <div className="seller-calendar-modal-panel max-h-[88vh] w-full max-w-4xl overflow-auto rounded-[2rem] border border-white/15 bg-white p-6 shadow-[0_40px_140px_rgba(0,0,0,0.4)] dark:bg-slate-950">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <Badge tone={selectedScans.length ? sentimentTone(selectedMetrics.sentiment) : "neutral"}>{selectedScans.length ? `${selectedScans.length} scan day` : "Open planning day"}</Badge>
@@ -535,7 +556,7 @@ export function SellerImprovementCalendar() {
               </button>
             </div>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-4">
+            <div className="seller-calendar-modal-stats mt-6 grid gap-3 md:grid-cols-4">
               <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
                 <p className="text-xs font-black uppercase text-slate-500">Rating overview</p>
                 <p className="mt-2 text-2xl font-black text-ocean dark:text-cyan-300">{selectedScans.length ? formatPercent(selectedMetrics.score) : "No scan yet"}</p>
@@ -554,7 +575,7 @@ export function SellerImprovementCalendar() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-5 lg:grid-cols-2">
+            <div className="seller-calendar-modal-main-grid mt-6 grid gap-5 lg:grid-cols-2">
               <div className="space-y-4">
                 <h4 className="text-lg font-black text-ink dark:text-white">Products reviewed today</h4>
                 {productAverageRows(selectedScans).length ? (
@@ -615,7 +636,7 @@ export function SellerImprovementCalendar() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-5 lg:grid-cols-3">
+            <div className="seller-calendar-modal-signal-grid mt-6 grid gap-5 lg:grid-cols-3">
               {[
                 ["Buyer hesitation points", selectedScans.flatMap((scan) => scan.topComplaints)],
                 ["What buyers liked", selectedScans.flatMap((scan) => scan.topPositiveFeedback)],
@@ -632,7 +653,7 @@ export function SellerImprovementCalendar() {
               ))}
             </div>
 
-            <label className="mt-6 block">
+            <label className="seller-calendar-modal-note mt-6 block">
               <span className="text-sm font-black text-ink dark:text-white">Progress note/comment for this day</span>
               <textarea
                 value={selectedNote}

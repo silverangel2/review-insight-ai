@@ -61,7 +61,7 @@ function currentSellerJournalScope() {
       key,
       role,
       plan,
-      isSellerTrackingEnabled: role === "seller" && (plan === "seller_premium" || plan === "seller_pro")
+      isSellerTrackingEnabled: role === "seller" && (plan === "seller_premium" || plan === "seller_beta" || plan === "seller_pro")
     };
   } catch {
     return { key: "guest", role: "guest", plan: "free_buyer", isSellerTrackingEnabled: false };

@@ -15,7 +15,9 @@ export const CURRENCY_LABELS: Record<SupportedCurrency, string> = {
 const defaultUsdPrices: Record<SubscriptionPlan, string> = {
   free_buyer: "$0",
   buyer_pro: "$9.99",
+  buyer_beta: "Beta",
   seller_premium: "$29.99",
+  seller_beta: "Beta",
   seller_pro: "$59.99"
 };
 
@@ -24,32 +26,42 @@ const defaultLocalizedPrices: Record<SupportedCurrency, Record<SubscriptionPlan,
   CAD: {
     free_buyer: "$0",
     buyer_pro: "CAD $9.99",
+    buyer_beta: "Beta",
     seller_premium: "CAD $29.99",
+    seller_beta: "Beta",
     seller_pro: "CAD $59.99"
   },
   EUR: {
     free_buyer: "$0",
     buyer_pro: "CAD $9.99",
+    buyer_beta: "Beta",
     seller_premium: "CAD $29.99",
+    seller_beta: "Beta",
     seller_pro: "CAD $59.99"
   },
   GBP: {
     free_buyer: "$0",
     buyer_pro: "CAD $9.99",
+    buyer_beta: "Beta",
     seller_premium: "CAD $29.99",
+    seller_beta: "Beta",
     seller_pro: "CAD $59.99"
   },
   PHP: {
     free_buyer: "$0",
     buyer_pro: "CAD $9.99",
+    buyer_beta: "Beta",
     seller_premium: "CAD $29.99",
+    seller_beta: "Beta",
     seller_pro: "CAD $59.99"
   }
 };
 
 const planEnvKey: Record<Exclude<SubscriptionPlan, "free_buyer">, string> = {
   buyer_pro: "BUYER_PRO",
+  buyer_beta: "BUYER_BETA",
   seller_premium: "SELLER_PREMIUM",
+  seller_beta: "SELLER_BETA",
   seller_pro: "SELLER_PRO"
 };
 
@@ -69,11 +81,12 @@ function configuredPublicPrice(plan: Exclude<SubscriptionPlan, "free_buyer">, cu
 
 export function pricingLabelForPlan(plan: SubscriptionPlan, currency: SupportedCurrency) {
   if (plan === "free_buyer") return "$0";
+  if (plan === "buyer_beta" || plan === "seller_beta") return "Beta";
   return configuredPublicPrice(plan, currency) || defaultLocalizedPrices[currency][plan];
 }
 
 export function isPlanCurrencyConfigured(plan: SubscriptionPlan, currency: SupportedCurrency) {
-  if (plan === "free_buyer") return true;
+  if (plan === "free_buyer" || plan === "buyer_beta" || plan === "seller_beta") return true;
   if (currency === "USD") return true;
   return Boolean(configuredPublicPrice(plan, currency));
 }

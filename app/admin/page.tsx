@@ -43,6 +43,12 @@ export default async function AdminPage() {
       action: "Open inbox"
     },
     {
+      title: "Beta Panel",
+      detail: "Active beta users, beta observations, replies, and expiry countdowns.",
+      href: "/admin/beta",
+      action: "Monitor beta"
+    },
+    {
       title: "Advertising",
       detail: "AdSense, direct sponsors, house ads, and sponsor applications.",
       href: "/admin/advertising",

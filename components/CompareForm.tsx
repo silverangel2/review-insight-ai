@@ -684,7 +684,7 @@ export function CompareForm() {
             {copy.compareIntro}
           </p>
 
-          <div className="mt-5 grid gap-3 sm:mt-8 sm:gap-5 lg:grid-cols-2">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-8 sm:gap-5 lg:grid-cols-2">
             <SideInput
               side={productA}
               disabled={isLoading}

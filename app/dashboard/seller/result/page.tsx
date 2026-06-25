@@ -73,7 +73,7 @@ function InsightBlock({
   const safeItems = items?.length ? items : ["No clear signal found yet."];
 
   return (
-    <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="seller-insight-card rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-xl">
           {icon}
@@ -99,14 +99,14 @@ function PriorityPlan({ items }: { items: string[] }) {
   const safeItems = items?.length ? items : ["Review the top complaint themes and improve the product listing before scaling sales."];
 
   return (
-    <div className="rounded-[2rem] border border-slate-900 bg-slate-950 p-6 text-white shadow-xl">
+    <div className="seller-priority-plan rounded-[2rem] border border-slate-900 bg-slate-950 p-6 text-white shadow-xl">
       <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-200">Priority Action Plan</p>
       <h3 className="mt-2 text-3xl font-black">What to fix next</h3>
 
-      <div className="mt-5 space-y-3">
+      <div className="seller-priority-list mt-5 space-y-3">
         {safeItems.slice(0, 5).map((item, index) => (
-          <div key={index} className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">
+          <div key={index} className="seller-priority-item flex gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+            <div className="seller-priority-number flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-300 text-sm font-black text-slate-950">
               {index + 1}
             </div>
             <p className="text-sm font-semibold text-slate-100">{item}</p>
@@ -168,8 +168,8 @@ export default function SellerResultPage() {
           </span>
         </div>
 
-        <section className="rounded-[2.5rem] border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+        <section className="seller-result-hero rounded-[2.5rem] border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+          <div className="seller-result-hero-grid grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-700">ReviewIntel Seller Result</p>
               <h1 className="mt-3 text-5xl font-black tracking-tight text-slate-950 sm:text-6xl">{status.label}</h1>
@@ -179,7 +179,7 @@ export default function SellerResultPage() {
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6">
+            <div className="seller-result-summary-card rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6">
               <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-700">Executive Summary</p>
               <p className="mt-3 text-2xl font-black leading-tight text-slate-950">{result.summary}</p>
             </div>
@@ -208,24 +208,24 @@ export default function SellerResultPage() {
           plan="seller-pro"
         />
 
-        <section className="mt-6 grid gap-4 lg:grid-cols-3">
-          <div className="rounded-[2rem] border border-rose-200 bg-rose-50 p-5 shadow-sm">
+        <section className="seller-result-top-cards mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="seller-result-mini-card rounded-[2rem] border border-rose-200 bg-rose-50 p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.25em] text-rose-700">Biggest Problem</p>
             <h2 className="mt-3 text-2xl font-black text-rose-950">{biggestProblem}</h2>
           </div>
 
-          <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <div className="seller-result-mini-card rounded-[2rem] border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.25em] text-emerald-700">Best Opportunity</p>
             <h2 className="mt-3 text-2xl font-black text-emerald-950">{bestOpportunity}</h2>
           </div>
 
-          <div className="rounded-[2rem] border border-cyan-200 bg-cyan-50 p-5 shadow-sm">
+          <div className="seller-result-mini-card rounded-[2rem] border border-cyan-200 bg-cyan-50 p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-700">Fix First</p>
             <h2 className="mt-3 text-2xl font-black text-cyan-950">{fixFirst}</h2>
           </div>
         </section>
 
-        <section className="mt-6 grid gap-5 lg:grid-cols-2">
+        <section className="seller-insight-grid mt-6 grid gap-5 lg:grid-cols-2">
           <InsightBlock title="Top Complaints" subtitle="What buyers are unhappy about." icon="⚠️" items={result.topComplaints} />
           <InsightBlock title="Top Praise" subtitle="What buyers already love." icon="⭐" items={result.topPraise} />
           <InsightBlock title="Buyer Objections" subtitle="What may stop shoppers from buying." icon="🧠" items={result.buyerObjections} />

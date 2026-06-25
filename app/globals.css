@@ -3632,137 +3632,4020 @@ html[data-layout-mode="auto"] [class*="reviewintel-route-account"] * {
    Desktop unchanged.
    ========================================================= */
 
+/* =========================================================
+   Mobile Tiny Nav Only
+   Nav bar only. More + Language are controlled separately below.
+   ========================================================= */
+
 .ri-mobile-tiny-nav {
   display: none;
 }
 
-/* Mobile mode */
 html[data-layout-mode="mobile"] .ri-mobile-tiny-nav {
-  position: sticky;
-  top: 0;
-  z-index: 9998;
-  display: block;
+  display: block !important;
   width: 100%;
-  max-width: 430px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0.32rem 0.38rem;
-  background: rgba(255, 255, 255, 0.92);
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(14px);
+  padding: 0.28rem 0.35rem;
+  position: relative;
+  z-index: 5;
 }
 
-/* Auto mode on real phone screens */
 @media (max-width: 640px) {
   html[data-layout-mode="auto"] .ri-mobile-tiny-nav {
-    position: sticky;
-    top: 0;
-    z-index: 9998;
-    display: block;
+    display: block !important;
     width: 100%;
-    max-width: 430px;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 0.32rem 0.38rem;
-    background: rgba(255, 255, 255, 0.92);
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(14px);
+    padding: 0.28rem 0.35rem;
+    position: relative;
+    z-index: 5;
   }
 }
 
 .ri-mobile-tiny-nav-scroll {
   display: flex;
-  gap: 0.32rem;
+  align-items: center;
+  gap: 0.22rem;
   overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  white-space: nowrap;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
 
 .ri-mobile-tiny-nav-scroll::-webkit-scrollbar {
   display: none;
 }
 
-.ri-mobile-tiny-nav a {
-  flex: 0 0 auto;
+.ri-mobile-tiny-nav a,
+.ri-mobile-tiny-nav button {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+  width: 4.05rem !important;
+  height: 1.45rem !important;
+  min-height: 1.45rem !important;
+  max-height: 1.45rem !important;
+  appearance: none;
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 999px;
-  padding: 0.28rem 0.52rem;
-  font-size: 0.56rem;
-  line-height: 1;
-  font-weight: 900;
-  letter-spacing: -0.01em;
-  color: #475569;
-  background: rgba(15, 23, 42, 0.055);
-  text-decoration: none;
-  white-space: nowrap;
+  background: rgba(241, 245, 249, 0.98);
+  color: #334155;
+  padding: 0 !important;
+  font-size: 0.54rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  text-align: center;
+  text-decoration: none !important;
+  box-shadow: none;
+  transform: none !important;
+  cursor: pointer;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
 }
 
-.ri-mobile-tiny-nav a.active {
-  color: white;
-  background: linear-gradient(135deg, #7c3aed, #06b6d4);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.16);
-}
-
-.dark .ri-mobile-tiny-nav {
-  background: rgba(2, 6, 23, 0.9);
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-}
-
-.dark .ri-mobile-tiny-nav a {
-  color: #cbd5e1;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.dark .ri-mobile-tiny-nav a.active {
-  color: white;
-}
-
-/* Prevent the tiny nav from being shrunk by previous mobile page patches */
-html[data-layout-mode="mobile"] .ri-mobile-tiny-nav a,
-html[data-layout-mode="auto"] .ri-mobile-tiny-nav a {
-  font-size: 0.56rem !important;
-  min-height: auto !important;
-  padding: 0.28rem 0.52rem !important;
-  border-radius: 999px !important;
-}
-
-/* Add a little breathing room below tiny nav */
-html[data-layout-mode="mobile"] .ri-mobile-tiny-nav + *,
-html[data-layout-mode="auto"] .ri-mobile-tiny-nav + * {
-  margin-top: 0.15rem;
+.ri-mobile-tiny-nav a.active,
+.ri-mobile-tiny-nav a[aria-current="page"] {
+  background: rgba(207, 250, 254, 0.98);
+  border-color: rgba(6, 182, 212, 0.35);
+  color: #155e75;
 }
 
 
 /* =========================================================
-   Tiny Mobile Nav Mirror Top Nav Fix
-   Make mobile quick nav match the visible desktop top nav.
+   Mobile Utility And More Page Restore
+   Restores More + Language row and /mobile-more cards only.
+   No desktop/header/login/nav rewrite.
    ========================================================= */
 
-.ri-mobile-tiny-nav-scroll button {
+.ri-mobile-utility-menu {
+  display: none;
+}
+
+html[data-layout-mode="mobile"] .ri-mobile-utility-menu {
+  display: block;
+  width: 100%;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(248, 250, 252, 0.96);
+  padding: 0.3rem 0.45rem;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .ri-mobile-utility-menu {
+    display: block;
+    width: 100%;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(248, 250, 252, 0.96);
+    padding: 0.3rem 0.45rem;
+  }
+}
+
+.ri-mobile-utility-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+}
+
+.ri-mobile-utility-more-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
-  border: 0;
+  width: 4.05rem;
+  height: 1.45rem;
+  min-height: 1.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 999px;
-  padding: 0.28rem 0.52rem;
-  font-size: 0.56rem;
-  line-height: 1;
+  background: rgba(241, 245, 249, 0.98);
+  color: #334155;
+  padding: 0;
+  font-size: 0.54rem;
   font-weight: 900;
-  letter-spacing: -0.01em;
-  color: #475569;
-  background: rgba(15, 23, 42, 0.055);
+  line-height: 1;
+  text-align: center;
   text-decoration: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.ri-mobile-utility-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 8.5rem;
+  height: 1.45rem;
+  min-height: 1.45rem;
+  padding: 0 0.4rem;
+  font-size: 0.54rem !important;
+  font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
-  cursor: pointer;
 }
 
-html[data-layout-mode="mobile"] .ri-mobile-tiny-nav-scroll button,
-html[data-layout-mode="auto"] .ri-mobile-tiny-nav-scroll button {
-  font-size: 0.56rem !important;
+.ri-mobile-utility-row select {
+  height: 1.45rem;
+  min-height: 1.45rem;
+  max-width: 7rem;
+  font-size: 0.54rem !important;
+  font-weight: 900;
+  line-height: 1;
+}
+
+
+/* =========================================================
+   Mobile More Page Restore
+   Separate page content for More links.
+   ========================================================= */
+
+.ri-mobile-more-page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0.75rem;
+}
+
+.ri-mobile-more-hero {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(236, 254, 255, 0.95), rgba(255, 255, 255, 0.98));
+  padding: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.ri-mobile-more-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0891b2;
+}
+
+.ri-mobile-more-hero h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.ri-mobile-more-hero p:last-child {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: #475569;
+}
+
+.ri-mobile-more-groups {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ri-mobile-more-card {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.98);
+  padding: 0.65rem;
+}
+
+.ri-mobile-more-card h2 {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  color: #0f172a;
+}
+
+.ri-mobile-more-page-links {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ri-mobile-more-page-links a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-radius: 0.72rem;
+  background: rgba(241, 245, 249, 0.96);
+  padding: 0.58rem 0.65rem;
+  color: #0f172a;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.ri-mobile-more-page-links strong {
+  font-size: 1rem;
+  color: #0891b2;
+}
+
+
+/* =========================================================
+   Pricing Mobile One Page Compact
+   Pricing page only. No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.45rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing section,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing article {
+  padding: 0.5rem !important;
+  border-radius: 0.85rem !important;
+  gap: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .grid {
+  gap: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h1 {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h2,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h3 {
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing p,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing li,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing span {
+  font-size: 0.52rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing ul {
+  margin-top: 0.25rem !important;
+  gap: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing li {
+  margin-top: 0.12rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing button,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing a {
+  min-height: 1.4rem !important;
+  padding: 0.28rem 0.45rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  border-radius: 0.55rem !important;
+}
+
+/* Compress common Tailwind spacing on pricing only */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .py-20,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .py-16,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .py-12,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .py-10,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .py-8 {
+  padding-top: 0.45rem !important;
+  padding-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .px-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .px-6,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .px-4 {
+  padding-left: 0.45rem !important;
+  padding-right: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-4 {
+  padding: 0.5rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mt-10,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mt-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mt-6,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mt-4 {
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mb-10,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mb-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mb-6,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .mb-4 {
+  margin-bottom: 0.35rem !important;
+}
+
+/* Hide long helper copy on mobile pricing so the cards fit better */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing p.text-lg,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing p.text-xl,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-lg,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-xl {
+  font-size: 0.58rem !important;
+  line-height: 1.05 !important;
+}
+
+/* Auto mode phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-pricing main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.45rem !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-pricing section,
+  html[data-layout-mode="auto"] .reviewintel-route-pricing article {
+    padding: 0.5rem !important;
+    border-radius: 0.85rem !important;
+    gap: 0.35rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-pricing h1 {
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-pricing h2,
+  html[data-layout-mode="auto"] .reviewintel-route-pricing h3 {
+    font-size: 0.72rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-pricing p,
+  html[data-layout-mode="auto"] .reviewintel-route-pricing li,
+  html[data-layout-mode="auto"] .reviewintel-route-pricing span {
+    font-size: 0.52rem !important;
+    line-height: 1.05 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-pricing button,
+  html[data-layout-mode="auto"] .reviewintel-route-pricing a {
+    min-height: 1.4rem !important;
+    padding: 0.28rem 0.45rem !important;
+    font-size: 0.54rem !important;
+    line-height: 1 !important;
+    border-radius: 0.55rem !important;
+  }
+}
+
+
+/* =========================================================
+   Advertise Mobile One Page Compact
+   Advertise page only. No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.45rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise section,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise article,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise form {
+  padding: 0.5rem !important;
+  border-radius: 0.85rem !important;
+  gap: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .grid,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise [class*="grid"] {
+  gap: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h1 {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h2,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h3 {
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise p,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise li,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise span,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise label {
+  font-size: 0.52rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise input,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise textarea,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise select {
+  min-height: 1.45rem !important;
+  padding: 0.25rem 0.45rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  border-radius: 0.5rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise textarea {
+  min-height: 3.2rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise button,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise a {
+  min-height: 1.4rem !important;
+  padding: 0.28rem 0.45rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  border-radius: 0.55rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise ul {
+  margin-top: 0.25rem !important;
+  gap: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise li {
+  margin-top: 0.12rem !important;
+}
+
+/* Compress common spacing on advertise only */
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .py-24,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .py-20,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .py-16,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .py-12,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .py-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .py-8 {
+  padding-top: 0.45rem !important;
+  padding-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .px-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .px-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .px-4 {
+  padding-left: 0.45rem !important;
+  padding-right: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-4 {
+  padding: 0.5rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mt-12,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mt-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mt-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mt-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mt-4 {
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mb-12,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mb-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mb-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mb-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .mb-4 {
+  margin-bottom: 0.35rem !important;
+}
+
+/* Auto mode phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-advertise main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.45rem !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-advertise section,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise article,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise form {
+    padding: 0.5rem !important;
+    border-radius: 0.85rem !important;
+    gap: 0.35rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-advertise h1 {
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-advertise h2,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise h3 {
+    font-size: 0.72rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-advertise p,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise li,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise span,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise label {
+    font-size: 0.52rem !important;
+    line-height: 1.05 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-advertise input,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise textarea,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise select,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise button,
+  html[data-layout-mode="auto"] .reviewintel-route-advertise a {
+    font-size: 0.54rem !important;
+    line-height: 1 !important;
+    border-radius: 0.55rem !important;
+  }
+}
+
+
+/* =========================================================
+   Account Profile Mobile One Page Compact
+   Account/profile page only. No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-account main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.4rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account section,
+html[data-layout-mode="mobile"] .reviewintel-route-account article,
+html[data-layout-mode="mobile"] .reviewintel-route-account form,
+html[data-layout-mode="mobile"] .reviewintel-route-account aside {
+  padding: 0.48rem !important;
+  border-radius: 0.8rem !important;
+  gap: 0.3rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account .grid,
+html[data-layout-mode="mobile"] .reviewintel-route-account [class*="grid"],
+html[data-layout-mode="mobile"] .reviewintel-route-account [class*="space-y"] {
+  gap: 0.34rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account h1 {
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.2rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account h2,
+html[data-layout-mode="mobile"] .reviewintel-route-account h3 {
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.14rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account p,
+html[data-layout-mode="mobile"] .reviewintel-route-account li,
+html[data-layout-mode="mobile"] .reviewintel-route-account span,
+html[data-layout-mode="mobile"] .reviewintel-route-account label,
+html[data-layout-mode="mobile"] .reviewintel-route-account dt,
+html[data-layout-mode="mobile"] .reviewintel-route-account dd {
+  font-size: 0.5rem !important;
+  line-height: 1.03 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account input,
+html[data-layout-mode="mobile"] .reviewintel-route-account textarea,
+html[data-layout-mode="mobile"] .reviewintel-route-account select {
+  min-height: 1.35rem !important;
+  padding: 0.22rem 0.4rem !important;
+  font-size: 0.52rem !important;
+  line-height: 1 !important;
+  border-radius: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account textarea {
+  min-height: 2.6rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account button,
+html[data-layout-mode="mobile"] .reviewintel-route-account a {
+  min-height: 1.32rem !important;
+  padding: 0.24rem 0.38rem !important;
+  font-size: 0.52rem !important;
+  line-height: 1 !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Compress Tailwind spacing on account only */
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-24,
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-20,
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-16,
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-12,
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-10,
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-8,
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-6,
+html[data-layout-mode="mobile"] .reviewintel-route-account .py-4 {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account .px-8,
+html[data-layout-mode="mobile"] .reviewintel-route-account .px-6,
+html[data-layout-mode="mobile"] .reviewintel-route-account .px-4 {
+  padding-left: 0.4rem !important;
+  padding-right: 0.4rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-account .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-account .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-account .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-account .p-4 {
+  padding: 0.48rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account .mt-12,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mt-10,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mt-8,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mt-6,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mt-4,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mt-3,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mt-2 {
+  margin-top: 0.24rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-account .mb-12,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mb-10,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mb-8,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mb-6,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mb-4,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mb-3,
+html[data-layout-mode="mobile"] .reviewintel-route-account .mb-2 {
+  margin-bottom: 0.24rem !important;
+}
+
+/* Hide lower-priority profile sections on mobile only */
+html[data-layout-mode="mobile"] .reviewintel-route-account [data-profile-group="Preferences"],
+html[data-layout-mode="mobile"] .reviewintel-route-account [data-profile-group="Account System Info"] {
+  display: none !important;
+}
+
+/* Auto mode phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-account main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.4rem !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-account section,
+  html[data-layout-mode="auto"] .reviewintel-route-account article,
+  html[data-layout-mode="auto"] .reviewintel-route-account form,
+  html[data-layout-mode="auto"] .reviewintel-route-account aside {
+    padding: 0.48rem !important;
+    border-radius: 0.8rem !important;
+    gap: 0.3rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-account h1 {
+    font-size: 0.95rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-account h2,
+  html[data-layout-mode="auto"] .reviewintel-route-account h3 {
+    font-size: 0.68rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-account p,
+  html[data-layout-mode="auto"] .reviewintel-route-account li,
+  html[data-layout-mode="auto"] .reviewintel-route-account span,
+  html[data-layout-mode="auto"] .reviewintel-route-account label,
+  html[data-layout-mode="auto"] .reviewintel-route-account dt,
+  html[data-layout-mode="auto"] .reviewintel-route-account dd {
+    font-size: 0.5rem !important;
+    line-height: 1.03 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-account input,
+  html[data-layout-mode="auto"] .reviewintel-route-account textarea,
+  html[data-layout-mode="auto"] .reviewintel-route-account select,
+  html[data-layout-mode="auto"] .reviewintel-route-account button,
+  html[data-layout-mode="auto"] .reviewintel-route-account a {
+    font-size: 0.52rem !important;
+    line-height: 1 !important;
+    border-radius: 0.5rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-account [data-profile-group="Preferences"],
+  html[data-layout-mode="auto"] .reviewintel-route-account [data-profile-group="Account System Info"] {
+    display: none !important;
+  }
+}
+
+
+/* =========================================================
+   More Pages Mobile One Page Compact
+   Mobile More and pages under More only.
+   No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more main,
+html[data-layout-mode="mobile"] .reviewintel-route-faq main,
+html[data-layout-mode="mobile"] .reviewintel-route-contact main,
+html[data-layout-mode="mobile"] .reviewintel-route-terms main,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy main,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer main,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds main,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies main,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use main,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support main,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support main,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account main,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription main,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer main,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer main,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector main,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.42rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more section,
+html[data-layout-mode="mobile"] .reviewintel-route-faq section,
+html[data-layout-mode="mobile"] .reviewintel-route-contact section,
+html[data-layout-mode="mobile"] .reviewintel-route-terms section,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy section,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer section,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds section,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies section,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use section,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support section,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support section,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account section,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription section,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer section,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer section,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector section,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics section,
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more article,
+html[data-layout-mode="mobile"] .reviewintel-route-faq article,
+html[data-layout-mode="mobile"] .reviewintel-route-contact article,
+html[data-layout-mode="mobile"] .reviewintel-route-terms article,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy article,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer article,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds article,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies article,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use article,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support article,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support article,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account article,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription article,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer article,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer article,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector article,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics article {
+  padding: 0.48rem !important;
+  border-radius: 0.8rem !important;
+  gap: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more .ri-mobile-more-page {
+  max-width: 430px !important;
+  padding: 0.42rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more .ri-mobile-more-hero {
+  padding: 0.55rem !important;
+  margin-bottom: 0.4rem !important;
+  border-radius: 0.8rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more .ri-mobile-more-groups {
+  gap: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more .ri-mobile-more-card {
+  padding: 0.45rem !important;
+  border-radius: 0.75rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more .ri-mobile-more-page-links {
+  gap: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more .ri-mobile-more-page-links a {
+  min-height: 1.35rem !important;
+  padding: 0.32rem 0.45rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  border-radius: 0.5rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more .ri-mobile-more-page-links strong {
+  font-size: 0.75rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more h1,
+html[data-layout-mode="mobile"] .reviewintel-route-faq h1,
+html[data-layout-mode="mobile"] .reviewintel-route-contact h1,
+html[data-layout-mode="mobile"] .reviewintel-route-terms h1,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy h1,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer h1,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds h1,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies h1,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use h1,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support h1,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support h1,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account h1,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription h1,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer h1,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer h1,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector h1,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics h1 {
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.22rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more h2,
+html[data-layout-mode="mobile"] .reviewintel-route-faq h2,
+html[data-layout-mode="mobile"] .reviewintel-route-contact h2,
+html[data-layout-mode="mobile"] .reviewintel-route-terms h2,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy h2,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer h2,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds h2,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies h2,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use h2,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support h2,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support h2,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account h2,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription h2,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer h2,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer h2,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector h2,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics h2,
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more h3,
+html[data-layout-mode="mobile"] .reviewintel-route-faq h3,
+html[data-layout-mode="mobile"] .reviewintel-route-contact h3,
+html[data-layout-mode="mobile"] .reviewintel-route-terms h3,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy h3,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer h3,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds h3,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies h3,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use h3,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support h3,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support h3,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account h3,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription h3,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer h3,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer h3,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector h3,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics h3 {
+  font-size: 0.66rem !important;
+  line-height: 1 !important;
+  margin-bottom: 0.14rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more p,
+html[data-layout-mode="mobile"] .reviewintel-route-faq p,
+html[data-layout-mode="mobile"] .reviewintel-route-contact p,
+html[data-layout-mode="mobile"] .reviewintel-route-terms p,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy p,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer p,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds p,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies p,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use p,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support p,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support p,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account p,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription p,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer p,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer p,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector p,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics p,
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more li,
+html[data-layout-mode="mobile"] .reviewintel-route-faq li,
+html[data-layout-mode="mobile"] .reviewintel-route-contact li,
+html[data-layout-mode="mobile"] .reviewintel-route-terms li,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy li,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer li,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds li,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies li,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use li,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support li,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support li,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account li,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription li,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer li,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer li,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector li,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics li,
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more span,
+html[data-layout-mode="mobile"] .reviewintel-route-faq span,
+html[data-layout-mode="mobile"] .reviewintel-route-contact span,
+html[data-layout-mode="mobile"] .reviewintel-route-terms span,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy span,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer span,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds span,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies span,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use span,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support span,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support span,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account span,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription span,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer span,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer span,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector span,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics span {
+  font-size: 0.5rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more button,
+html[data-layout-mode="mobile"] .reviewintel-route-faq button,
+html[data-layout-mode="mobile"] .reviewintel-route-contact button,
+html[data-layout-mode="mobile"] .reviewintel-route-terms button,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy button,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer button,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds button,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies button,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use button,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support button,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support button,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account button,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription button,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer button,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer button,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector button,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics button,
+html[data-layout-mode="mobile"] .reviewintel-route-mobile-more a,
+html[data-layout-mode="mobile"] .reviewintel-route-faq a,
+html[data-layout-mode="mobile"] .reviewintel-route-contact a,
+html[data-layout-mode="mobile"] .reviewintel-route-terms a,
+html[data-layout-mode="mobile"] .reviewintel-route-privacy a,
+html[data-layout-mode="mobile"] .reviewintel-route-disclaimer a,
+html[data-layout-mode="mobile"] .reviewintel-route-refunds a,
+html[data-layout-mode="mobile"] .reviewintel-route-cookies a,
+html[data-layout-mode="mobile"] .reviewintel-route-acceptable-use a,
+html[data-layout-mode="mobile"] .reviewintel-route-billing-support a,
+html[data-layout-mode="mobile"] .reviewintel-route-account-support a,
+html[data-layout-mode="mobile"] .reviewintel-route-delete-account a,
+html[data-layout-mode="mobile"] .reviewintel-route-manage-subscription a,
+html[data-layout-mode="mobile"] .reviewintel-route-buyer-review-analyzer a,
+html[data-layout-mode="mobile"] .reviewintel-route-amazon-review-analyzer a,
+html[data-layout-mode="mobile"] .reviewintel-route-fake-review-detector a,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-review-analytics a {
+  min-height: 1.3rem !important;
+  padding: 0.24rem 0.38rem !important;
+  font-size: 0.52rem !important;
+  line-height: 1 !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Auto mode phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-mobile-more main,
+  html[data-layout-mode="auto"] .reviewintel-route-faq main,
+  html[data-layout-mode="auto"] .reviewintel-route-contact main,
+  html[data-layout-mode="auto"] .reviewintel-route-terms main,
+  html[data-layout-mode="auto"] .reviewintel-route-privacy main,
+  html[data-layout-mode="auto"] .reviewintel-route-disclaimer main,
+  html[data-layout-mode="auto"] .reviewintel-route-refunds main,
+  html[data-layout-mode="auto"] .reviewintel-route-cookies main,
+  html[data-layout-mode="auto"] .reviewintel-route-acceptable-use main,
+  html[data-layout-mode="auto"] .reviewintel-route-billing-support main,
+  html[data-layout-mode="auto"] .reviewintel-route-account-support main,
+  html[data-layout-mode="auto"] .reviewintel-route-delete-account main,
+  html[data-layout-mode="auto"] .reviewintel-route-manage-subscription main,
+  html[data-layout-mode="auto"] .reviewintel-route-buyer-review-analyzer main,
+  html[data-layout-mode="auto"] .reviewintel-route-amazon-review-analyzer main,
+  html[data-layout-mode="auto"] .reviewintel-route-fake-review-detector main,
+  html[data-layout-mode="auto"] .reviewintel-route-seller-review-analytics main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.42rem !important;
+    overflow-x: hidden !important;
+  }
+}
+
+
+/* =========================================================
+   Compare Mobile One Page Compact
+   Compare page only. Product A/B side by side.
+   No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.4rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare section {
+  padding: 0.48rem !important;
+  border-radius: 0.85rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare h1 {
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+  margin-top: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare h2,
+html[data-layout-mode="mobile"] .reviewintel-route-compare h3 {
+  font-size: 0.62rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare p,
+html[data-layout-mode="mobile"] .reviewintel-route-compare span,
+html[data-layout-mode="mobile"] .reviewintel-route-compare label,
+html[data-layout-mode="mobile"] .reviewintel-route-compare li {
+  font-size: 0.48rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare input,
+html[data-layout-mode="mobile"] .reviewintel-route-compare textarea,
+html[data-layout-mode="mobile"] .reviewintel-route-compare select {
+  min-height: 1.35rem !important;
+  padding: 0.22rem 0.35rem !important;
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+  border-radius: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare textarea {
+  min-height: 2.6rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare button,
+html[data-layout-mode="mobile"] .reviewintel-route-compare a {
+  min-height: 1.3rem !important;
+  padding: 0.24rem 0.36rem !important;
+  font-size: 0.5rem !important;
+  line-height: 1 !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Compress upload cards */
+html[data-layout-mode="mobile"] .reviewintel-route-compare [class*="rounded"] {
+  border-radius: 0.7rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .p-4 {
+  padding: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare .py-8,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .py-6,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .py-5,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .py-4 {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mt-8,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mt-6,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mt-5,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mt-4,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mt-3 {
+  margin-top: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mb-8,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mb-6,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mb-5,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mb-4,
+html[data-layout-mode="mobile"] .reviewintel-route-compare .mb-3 {
+  margin-bottom: 0.3rem !important;
+}
+
+/* Keep Product A and B tight side by side */
+html[data-layout-mode="mobile"] .reviewintel-route-compare .grid.grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.35rem !important;
+}
+
+/* Compare button smaller */
+html[data-layout-mode="mobile"] .reviewintel-route-compare button.w-full {
+  min-height: 1.65rem !important;
+  padding: 0.32rem 0.45rem !important;
+  font-size: 0.58rem !important;
+}
+
+/* Auto mode phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-compare main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.4rem !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-compare section {
+    padding: 0.48rem !important;
+    border-radius: 0.85rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-compare h1 {
+    font-size: 0.95rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-compare p,
+  html[data-layout-mode="auto"] .reviewintel-route-compare span,
+  html[data-layout-mode="auto"] .reviewintel-route-compare label,
+  html[data-layout-mode="auto"] .reviewintel-route-compare li {
+    font-size: 0.48rem !important;
+    line-height: 1.05 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-compare .grid.grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.35rem !important;
+  }
+}
+
+
+/* =========================================================
+   Shopper Dashboard Mobile One Screen Compact
+   Dashboard customer only. No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.35rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer section,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer article,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer aside,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer div[class*="rounded"] {
+  padding: 0.38rem !important;
+  border-radius: 0.7rem !important;
+  gap: 0.25rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .grid,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer [class*="grid"] {
+  gap: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer h1 {
+  font-size: 0.9rem !important;
+  line-height: 1 !important;
+  margin: 0 0 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer h2,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer h3 {
+  font-size: 0.62rem !important;
+  line-height: 1 !important;
+  margin: 0 0 0.12rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer p,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer span,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer li,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer label {
+  font-size: 0.48rem !important;
+  line-height: 1.03 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer a,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer button {
+  min-height: 1.22rem !important;
+  padding: 0.2rem 0.34rem !important;
+  font-size: 0.5rem !important;
+  line-height: 1 !important;
+  border-radius: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .p-4 {
+  padding: 0.38rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .py-20,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .py-16,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .py-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .py-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .py-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .py-6 {
+  padding-top: 0.3rem !important;
+  padding-bottom: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mt-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mt-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mt-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mt-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mt-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mt-3 {
+  margin-top: 0.2rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mb-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mb-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mb-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mb-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mb-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .mb-3 {
+  margin-bottom: 0.2rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer svg,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer img {
+  max-width: 0.85rem !important;
+  max-height: 0.85rem !important;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.35rem !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer section,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer article,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer aside,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer div[class*="rounded"] {
+    padding: 0.38rem !important;
+    border-radius: 0.7rem !important;
+    gap: 0.25rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer h1 {
+    font-size: 0.9rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer h2,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer h3 {
+    font-size: 0.62rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer p,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer span,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer li,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer label {
+    font-size: 0.48rem !important;
+    line-height: 1.03 !important;
+  }
+}
+
+
+/* =========================================================
+   Mobile Canvas Click Layer Fix
+   Fixes first-click delay caused by fixed high-z layout canvas.
+   Mobile/auto phone only. Desktop untouched.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-layout-canvas {
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+  width: 100% !important;
   min-height: auto !important;
-  padding: 0.28rem 0.52rem !important;
-  border-radius: 999px !important;
+  pointer-events: auto !important;
+  transform: none !important;
 }
 
-.dark .ri-mobile-tiny-nav-scroll button {
-  color: #cbd5e1;
-  background: rgba(255, 255, 255, 0.08);
+html[data-layout-mode="mobile"] .reviewintel-layout-root {
+  position: relative !important;
+  z-index: auto !important;
+  pointer-events: auto !important;
+}
+
+html[data-layout-mode="mobile"] .ri-mobile-tiny-nav,
+html[data-layout-mode="mobile"] .ri-mobile-utility-menu {
+  position: relative !important;
+  z-index: 20 !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-layout-canvas {
+    position: relative !important;
+    inset: auto !important;
+    z-index: auto !important;
+    width: 100% !important;
+    min-height: auto !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-layout-root {
+    position: relative !important;
+    z-index: auto !important;
+    pointer-events: auto !important;
+  }
+
+  html[data-layout-mode="auto"] .ri-mobile-tiny-nav,
+  html[data-layout-mode="auto"] .ri-mobile-utility-menu {
+    position: relative !important;
+    z-index: 20 !important;
+    pointer-events: auto !important;
+  }
+}
+
+
+/* =========================================================
+   More Language Mobile Font Fix
+   More + Language row only. No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .ri-mobile-utility-menu,
+html[data-layout-mode="mobile"] .ri-mobile-utility-menu * {
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+}
+
+html[data-layout-mode="mobile"] .ri-mobile-utility-more-link {
+  width: 3.75rem !important;
+  height: 1.25rem !important;
+  min-height: 1.25rem !important;
+  max-height: 1.25rem !important;
+  padding: 0 !important;
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+}
+
+html[data-layout-mode="mobile"] .ri-mobile-utility-row label {
+  height: 1.25rem !important;
+  min-height: 1.25rem !important;
+  max-height: 1.25rem !important;
+  padding: 0 0.32rem !important;
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+  gap: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .ri-mobile-utility-row select {
+  height: 1.25rem !important;
+  min-height: 1.25rem !important;
+  max-height: 1.25rem !important;
+  max-width: 6.2rem !important;
+  padding: 0 0.28rem !important;
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+  font-weight: 850 !important;
+}
+
+/* Auto mode phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .ri-mobile-utility-menu,
+  html[data-layout-mode="auto"] .ri-mobile-utility-menu * {
+    font-size: 0.48rem !important;
+    line-height: 1 !important;
+    font-weight: 850 !important;
+  }
+
+  html[data-layout-mode="auto"] .ri-mobile-utility-more-link {
+    width: 3.75rem !important;
+    height: 1.25rem !important;
+    min-height: 1.25rem !important;
+    max-height: 1.25rem !important;
+    padding: 0 !important;
+    font-size: 0.48rem !important;
+    line-height: 1 !important;
+    font-weight: 850 !important;
+  }
+
+  html[data-layout-mode="auto"] .ri-mobile-utility-row label,
+  html[data-layout-mode="auto"] .ri-mobile-utility-row select {
+    height: 1.25rem !important;
+    min-height: 1.25rem !important;
+    max-height: 1.25rem !important;
+    font-size: 0.48rem !important;
+    line-height: 1 !important;
+    font-weight: 850 !important;
+  }
+}
+
+
+/* =========================================================
+   Seller Dashboard Mobile Two Page Compact
+   Dashboard seller only. No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.45rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller section,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller article,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller aside,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller div[class*="rounded"] {
+  padding: 0.55rem !important;
+  border-radius: 0.85rem !important;
+  gap: 0.35rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .grid,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="grid"] {
+  gap: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller h1 {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  margin: 0 0 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller h2,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller h3 {
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+  margin: 0 0 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller p,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller span,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller li,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller label,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller dt,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller dd {
+  font-size: 0.54rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller a,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller button {
+  min-height: 1.45rem !important;
+  padding: 0.28rem 0.45rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  border-radius: 0.55rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller input,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller textarea,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller select {
+  min-height: 1.45rem !important;
+  padding: 0.28rem 0.45rem !important;
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+  border-radius: 0.55rem !important;
+}
+
+/* Compress common Tailwind spacing on seller dashboard only */
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-4 {
+  padding: 0.55rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-24,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-20,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-16,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-6 {
+  padding-top: 0.45rem !important;
+  padding-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-4 {
+  padding-left: 0.45rem !important;
+  padding-right: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-5,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-3 {
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-5,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-3 {
+  margin-bottom: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller svg,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller img {
+  max-width: 1rem !important;
+  max-height: 1rem !important;
+}
+
+/* Keep dashboard cards compact but not unreadably tiny */
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-4xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-3xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-2xl"] {
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-lg"] {
+  font-size: 0.72rem !important;
+  line-height: 1.05 !important;
+}
+
+/* Auto phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.45rem !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller section,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller article,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller aside,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller div[class*="rounded"] {
+    padding: 0.55rem !important;
+    border-radius: 0.85rem !important;
+    gap: 0.35rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller h1 {
+    font-size: 1rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller h2,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller h3 {
+    font-size: 0.72rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller p,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller span,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller li,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller label,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller dt,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller dd {
+    font-size: 0.54rem !important;
+    line-height: 1.08 !important;
+  }
+}
+
+
+/* =========================================================
+   Seller Dashboard Mobile Ultra Compact
+   Dashboard seller only. Stronger squeeze toward 2 mobile screens.
+   No nav/login/desktop changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller main {
+  max-width: 430px !important;
+  margin: 0 auto !important;
+  padding: 0.28rem !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller section,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller article,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller aside,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller div[class*="rounded"] {
+  padding: 0.34rem !important;
+  border-radius: 0.62rem !important;
+  gap: 0.22rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .grid,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="grid"] {
+  gap: 0.28rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller h1 {
+  font-size: 0.82rem !important;
+  line-height: 1 !important;
+  margin: 0 0 0.12rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller h2,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller h3 {
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+  margin: 0 0 0.08rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller p,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller span,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller li,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller label,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller dt,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller dd {
+  font-size: 0.44rem !important;
+  line-height: 1.02 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller a,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller button {
+  min-height: 1.12rem !important;
+  padding: 0.16rem 0.28rem !important;
+  font-size: 0.44rem !important;
+  line-height: 1 !important;
+  border-radius: 0.4rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller input,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller textarea,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller select {
+  min-height: 1.12rem !important;
+  padding: 0.16rem 0.28rem !important;
+  font-size: 0.44rem !important;
+  line-height: 1 !important;
+  border-radius: 0.4rem !important;
+}
+
+/* Strongly compress Tailwind spacing on seller dashboard only */
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .p-3 {
+  padding: 0.34rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-24,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-20,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-16,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .py-4 {
+  padding-top: 0.24rem !important;
+  padding-bottom: 0.24rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .px-3 {
+  padding-left: 0.3rem !important;
+  padding-right: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-16,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-5,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-3,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mt-2 {
+  margin-top: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-16,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-12,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-10,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-8,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-6,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-5,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-4,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-3,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .mb-2 {
+  margin-bottom: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller svg,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller img {
+  max-width: 0.72rem !important;
+  max-height: 0.72rem !important;
+}
+
+/* Compress large number/stat text */
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-5xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-4xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-3xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-2xl"] {
+  font-size: 0.8rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="text-lg"] {
+  font-size: 0.58rem !important;
+  line-height: 1.02 !important;
+}
+
+/* Remove extra vertical whitespace from flex/space wrappers */
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.22rem !important;
+}
+
+/* Auto phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller main {
+    max-width: 430px !important;
+    margin: 0 auto !important;
+    padding: 0.28rem !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller section,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller article,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller aside,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller div[class*="rounded"] {
+    padding: 0.34rem !important;
+    border-radius: 0.62rem !important;
+    gap: 0.22rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller h1 {
+    font-size: 0.82rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller h2,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller h3 {
+    font-size: 0.58rem !important;
+    line-height: 1 !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller p,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller span,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller li,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller label,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller dt,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller dd {
+    font-size: 0.44rem !important;
+    line-height: 1.02 !important;
+  }
+}
+
+
+/* =========================================================
+   Seller KPI Dashboard Mobile Horizontal Cards
+   Exact SellerBusinessKpiDashboard classes only.
+   Makes KPI cards horizontal 4 per row.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-money-kpi-section,
+html[data-layout-mode="auto"] .seller-money-kpi-section {
+  margin-top: 0.5rem !important;
+  padding: 0.38rem !important;
+  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-kpi-section > div:first-child,
+html[data-layout-mode="auto"] .seller-money-kpi-section > div:first-child {
+  gap: 0.28rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-kpi-section h2,
+html[data-layout-mode="auto"] .seller-money-kpi-section h2 {
+  margin-top: 0.15rem !important;
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-kpi-section p,
+html[data-layout-mode="auto"] .seller-money-kpi-section p {
+  font-size: 0.42rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-grid,
+html[data-layout-mode="auto"] .seller-kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.28rem !important;
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card,
+html[data-layout-mode="auto"] .seller-kpi-card {
+  height: 5.1rem !important;
+  min-height: 5.1rem !important;
+  max-height: 5.1rem !important;
+  min-width: 0 !important;
+  border-radius: 0.55rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card article,
+html[data-layout-mode="auto"] .seller-kpi-card article {
+  padding: 0.25rem !important;
+  border-radius: 0.55rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card svg,
+html[data-layout-mode="auto"] .seller-kpi-card svg {
+  height: 1.25rem !important;
+  max-height: 1.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card .size-8,
+html[data-layout-mode="auto"] .seller-kpi-card .size-8 {
+  width: 0.8rem !important;
+  height: 0.8rem !important;
+  font-size: 0.35rem !important;
+  border-radius: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card p,
+html[data-layout-mode="auto"] .seller-kpi-card p {
+  font-size: 0.34rem !important;
+  line-height: 1.02 !important;
+  margin-top: 0.08rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card p:nth-of-type(2),
+html[data-layout-mode="auto"] .seller-kpi-card p:nth-of-type(2) {
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card h3,
+html[data-layout-mode="auto"] .seller-kpi-card h3 {
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card p:nth-of-type(3),
+html[data-layout-mode="auto"] .seller-kpi-card p:nth-of-type(3) {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-kpi-card p:last-child,
+html[data-layout-mode="auto"] .seller-kpi-card p:last-child {
+  display: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-summary-grid,
+html[data-layout-mode="auto"] .seller-money-summary-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.3rem !important;
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-summary-card,
+html[data-layout-mode="auto"] .seller-money-summary-card {
+  padding: 0.35rem !important;
+  border-radius: 0.65rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-summary-card h3,
+html[data-layout-mode="auto"] .seller-money-summary-card h3 {
+  font-size: 0.55rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-summary-card ul,
+html[data-layout-mode="auto"] .seller-money-summary-card ul,
+html[data-layout-mode="mobile"] .seller-money-summary-card div,
+html[data-layout-mode="auto"] .seller-money-summary-card div {
+  margin-top: 0.25rem !important;
+  gap: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-money-summary-card li,
+html[data-layout-mode="auto"] .seller-money-summary-card li,
+html[data-layout-mode="mobile"] .seller-money-summary-card p,
+html[data-layout-mode="auto"] .seller-money-summary-card p {
+  font-size: 0.38rem !important;
+  line-height: 1.08 !important;
+}
+
+
+/* =========================================================
+   Seller Result Header Mobile Compact
+   Exact seller result header classes only.
+   No KPI/nav/login/analyze changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-result-hero,
+html[data-layout-mode="auto"] .seller-result-hero {
+  padding: 0.48rem !important;
+  border-radius: 0.85rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-hero-grid,
+html[data-layout-mode="auto"] .seller-result-hero-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 0.38rem !important;
+  align-items: stretch !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-hero p,
+html[data-layout-mode="auto"] .seller-result-hero p {
+  font-size: 0.46rem !important;
+  line-height: 1.08 !important;
+  margin-top: 0.22rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-hero h1,
+html[data-layout-mode="auto"] .seller-result-hero h1 {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  margin-top: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-summary-card,
+html[data-layout-mode="auto"] .seller-result-summary-card {
+  padding: 0.4rem !important;
+  border-radius: 0.65rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-summary-card p:first-child,
+html[data-layout-mode="auto"] .seller-result-summary-card p:first-child {
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.16em !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-summary-card p:last-child,
+html[data-layout-mode="auto"] .seller-result-summary-card p:last-child {
+  font-size: 0.52rem !important;
+  line-height: 1.08 !important;
+  margin-top: 0.22rem !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 6 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Biggest Problem / Best Opportunity / Fix First */
+html[data-layout-mode="mobile"] .seller-result-top-cards,
+html[data-layout-mode="auto"] .seller-result-top-cards {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.3rem !important;
+  margin-top: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-mini-card,
+html[data-layout-mode="auto"] .seller-result-mini-card {
+  padding: 0.35rem !important;
+  border-radius: 0.65rem !important;
+  min-height: 3.4rem !important;
+  max-height: 4rem !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-mini-card p,
+html[data-layout-mode="auto"] .seller-result-mini-card p {
+  font-size: 0.38rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.12em !important;
+  margin: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-result-mini-card h2,
+html[data-layout-mode="auto"] .seller-result-mini-card h2 {
+  font-size: 0.55rem !important;
+  line-height: 1.05 !important;
+  margin-top: 0.25rem !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+
+/* =========================================================
+   Seller Result Remaining Cards Mobile Compact
+   Exact seller result classes only.
+   Compresses insight cards + priority plan.
+   No header/KPI/nav/login/analyze changes.
+   ========================================================= */
+
+/* Six insight blocks: Top Complaints, Praise, Objections, Fixes, Listing, Ads */
+html[data-layout-mode="mobile"] .seller-insight-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.3rem !important;
+  margin-top: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card {
+  min-height: 5.3rem !important;
+  max-height: 5.8rem !important;
+  overflow: hidden !important;
+  padding: 0.32rem !important;
+  border-radius: 0.65rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card > div:first-child {
+  gap: 0.2rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card .h-11 {
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  min-width: 0.95rem !important;
+  border-radius: 0.32rem !important;
+  font-size: 0.46rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card h3 {
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card p {
+  font-size: 0.34rem !important;
+  line-height: 1.02 !important;
+  margin-top: 0.08rem !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 1 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card .mt-4 {
+  margin-top: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.12rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-insight-card div.rounded-2xl {
+  padding: 0.16rem 0.18rem !important;
+  border-radius: 0.35rem !important;
+  font-size: 0.34rem !important;
+  line-height: 1.02 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Priority Action Plan */
+html[data-layout-mode="mobile"] .seller-priority-plan {
+  margin-top: 0.5rem !important;
+  padding: 0.45rem !important;
+  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-priority-plan > p {
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.14em !important;
+}
+
+html[data-layout-mode="mobile"] .seller-priority-plan h3 {
+  margin-top: 0.18rem !important;
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-priority-list {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.25rem !important;
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-priority-list > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-priority-item {
+  gap: 0.22rem !important;
+  padding: 0.28rem !important;
+  border-radius: 0.55rem !important;
+  min-height: 2.1rem !important;
+  max-height: 2.5rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-priority-number {
+  width: 0.9rem !important;
+  height: 0.9rem !important;
+  min-width: 0.9rem !important;
+  font-size: 0.4rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-priority-item p {
+  font-size: 0.38rem !important;
+  line-height: 1.06 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Auto phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .seller-insight-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.3rem !important;
+    margin-top: 0.45rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-insight-card {
+    min-height: 5.3rem !important;
+    max-height: 5.8rem !important;
+    overflow: hidden !important;
+    padding: 0.32rem !important;
+    border-radius: 0.65rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-priority-plan {
+    margin-top: 0.5rem !important;
+    padding: 0.45rem !important;
+    border-radius: 0.75rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-priority-list {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.25rem !important;
+    margin-top: 0.35rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-priority-item {
+    gap: 0.22rem !important;
+    padding: 0.28rem !important;
+    border-radius: 0.55rem !important;
+    min-height: 2.1rem !important;
+    max-height: 2.5rem !important;
+    overflow: hidden !important;
+  }
+}
+
+
+/* =========================================================
+   Seller Pro Compare Result Mobile Compact
+   Exact compare-result classes only.
+   No single-result/KPI/nav/login/analyze changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-compare-result-shell,
+html[data-layout-mode="auto"] .seller-compare-result-shell {
+  border-radius: 0.85rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-hero,
+html[data-layout-mode="auto"] .seller-compare-hero {
+  padding: 0.48rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-hero > div,
+html[data-layout-mode="auto"] .seller-compare-hero > div {
+  gap: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-hero h1,
+html[data-layout-mode="auto"] .seller-compare-hero h1 {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+  margin-top: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-hero p,
+html[data-layout-mode="auto"] .seller-compare-hero p {
+  font-size: 0.44rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-score-card,
+html[data-layout-mode="auto"] .seller-compare-score-card {
+  padding: 0.35rem !important;
+  border-radius: 0.65rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-score-card p:first-child,
+html[data-layout-mode="auto"] .seller-compare-score-card p:first-child {
+  font-size: 0.4rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-score-card p:nth-child(2),
+html[data-layout-mode="auto"] .seller-compare-score-card p:nth-child(2) {
+  font-size: 1.05rem !important;
+  line-height: 1 !important;
+}
+
+/* Executive summary + risk side by side */
+html[data-layout-mode="mobile"] .seller-compare-summary-grid,
+html[data-layout-mode="auto"] .seller-compare-summary-grid {
+  display: grid !important;
+  grid-template-columns: 1.1fr 0.9fr !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-summary-left,
+html[data-layout-mode="auto"] .seller-compare-summary-left {
+  padding: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-summary-left h2,
+html[data-layout-mode="auto"] .seller-compare-summary-left h2 {
+  font-size: 0.78rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-summary-left p,
+html[data-layout-mode="auto"] .seller-compare-summary-left p {
+  font-size: 0.44rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-summary-card,
+html[data-layout-mode="auto"] .seller-compare-summary-card,
+html[data-layout-mode="mobile"] .seller-compare-risk-card,
+html[data-layout-mode="auto"] .seller-compare-risk-card {
+  margin-top: 0.35rem !important;
+  padding: 0.38rem !important;
+  border-radius: 0.65rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-summary-card h3,
+html[data-layout-mode="auto"] .seller-compare-summary-card h3,
+html[data-layout-mode="mobile"] .seller-compare-risk-card h3,
+html[data-layout-mode="auto"] .seller-compare-risk-card h3 {
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-summary-card p,
+html[data-layout-mode="auto"] .seller-compare-summary-card p,
+html[data-layout-mode="mobile"] .seller-compare-risk-card p,
+html[data-layout-mode="auto"] .seller-compare-risk-card p,
+html[data-layout-mode="mobile"] .seller-compare-warning,
+html[data-layout-mode="auto"] .seller-compare-warning {
+  font-size: 0.42rem !important;
+  line-height: 1.08 !important;
+  margin-top: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-warning,
+html[data-layout-mode="auto"] .seller-compare-warning {
+  padding: 0.28rem !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Strategy cards */
+html[data-layout-mode="mobile"] .seller-compare-strategy-grid,
+html[data-layout-mode="auto"] .seller-compare-strategy-grid {
+  display: grid !important;
+  gap: 0.3rem !important;
+  padding: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-strategy-grid-3,
+html[data-layout-mode="auto"] .seller-compare-strategy-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-strategy-grid-4,
+html[data-layout-mode="auto"] .seller-compare-strategy-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-strategy-card,
+html[data-layout-mode="auto"] .seller-compare-strategy-card {
+  padding: 0.32rem !important;
+  border-radius: 0.65rem !important;
+  min-height: 5rem !important;
+  max-height: 5.7rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-strategy-card h3,
+html[data-layout-mode="auto"] .seller-compare-strategy-card h3 {
+  font-size: 0.52rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-strategy-card ul,
+html[data-layout-mode="auto"] .seller-compare-strategy-card ul {
+  margin-top: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-strategy-card li,
+html[data-layout-mode="auto"] .seller-compare-strategy-card li,
+html[data-layout-mode="mobile"] .seller-compare-strategy-card p,
+html[data-layout-mode="auto"] .seller-compare-strategy-card p {
+  font-size: 0.36rem !important;
+  line-height: 1.05 !important;
+}
+
+/* Dark plan section */
+html[data-layout-mode="mobile"] .seller-compare-plan-section,
+html[data-layout-mode="auto"] .seller-compare-plan-section {
+  padding: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-plan-grid,
+html[data-layout-mode="auto"] .seller-compare-plan-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1.15fr !important;
+  gap: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-roadmap-grid,
+html[data-layout-mode="auto"] .seller-compare-roadmap-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-plan-section section,
+html[data-layout-mode="auto"] .seller-compare-plan-section section {
+  padding: 0.35rem !important;
+  border-radius: 0.65rem !important;
+  max-height: 6.2rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-plan-section p,
+html[data-layout-mode="auto"] .seller-compare-plan-section p,
+html[data-layout-mode="mobile"] .seller-compare-plan-section li,
+html[data-layout-mode="auto"] .seller-compare-plan-section li {
+  font-size: 0.36rem !important;
+  line-height: 1.05 !important;
+}
+
+/* Buttons + history */
+html[data-layout-mode="mobile"] .seller-compare-actions,
+html[data-layout-mode="auto"] .seller-compare-actions {
+  padding: 0.4rem !important;
+  gap: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-actions a,
+html[data-layout-mode="auto"] .seller-compare-actions a {
+  padding: 0.28rem 0.45rem !important;
+  border-radius: 0.55rem !important;
+  font-size: 0.42rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-compare-history,
+html[data-layout-mode="auto"] .seller-compare-history {
+  margin-top: 0.45rem !important;
+  padding: 0.45rem !important;
+  border-radius: 0.75rem !important;
+}
+
+
+/* =========================================================
+   Seller Pro Calendar Mobile One Page Compact
+   Exact SellerImprovementCalendar classes only.
+   No nav/results/KPI/login/analyze changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-calendar-shell,
+html[data-layout-mode="auto"] .seller-calendar-shell {
+  padding: 0.45rem !important;
+  border-radius: 0.85rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-shell > div:first-child,
+html[data-layout-mode="auto"] .seller-calendar-shell > div:first-child {
+  gap: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-shell h2,
+html[data-layout-mode="auto"] .seller-calendar-shell h2 {
+  font-size: 0.85rem !important;
+  line-height: 1 !important;
+  margin-top: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-shell p,
+html[data-layout-mode="auto"] .seller-calendar-shell p {
+  font-size: 0.42rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-shell button,
+html[data-layout-mode="auto"] .seller-calendar-shell button {
+  min-height: 1.35rem !important;
+  padding: 0.2rem 0.35rem !important;
+  border-radius: 0.45rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-shell .min-w-44,
+html[data-layout-mode="auto"] .seller-calendar-shell .min-w-44 {
+  min-width: 5.5rem !important;
+  padding: 0.25rem 0.45rem !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.62rem !important;
+}
+
+/* Stats: 4 small boxes in one row */
+html[data-layout-mode="mobile"] .seller-calendar-stats,
+html[data-layout-mode="auto"] .seller-calendar-stats {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.25rem !important;
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-stats > div,
+html[data-layout-mode="auto"] .seller-calendar-stats > div {
+  padding: 0.25rem !important;
+  border-radius: 0.5rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-stats p:first-child,
+html[data-layout-mode="auto"] .seller-calendar-stats p:first-child {
+  font-size: 0.34rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-stats p:last-child,
+html[data-layout-mode="auto"] .seller-calendar-stats p:last-child {
+  margin-top: 0.08rem !important;
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+}
+
+/* Calendar itself */
+html[data-layout-mode="mobile"] .seller-calendar-box,
+html[data-layout-mode="auto"] .seller-calendar-box {
+  margin-top: 0.35rem !important;
+  border-radius: 0.55rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-weekdays > div,
+html[data-layout-mode="auto"] .seller-calendar-weekdays > div {
+  padding: 0.18rem 0.05rem !important;
+  font-size: 0.34rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.04em !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-month-grid,
+html[data-layout-mode="auto"] .seller-calendar-month-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell,
+html[data-layout-mode="auto"] .seller-calendar-day-cell {
+  min-height: 1.95rem !important;
+  height: 1.95rem !important;
+  max-height: 1.95rem !important;
+  padding: 0.12rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell > div:first-child,
+html[data-layout-mode="auto"] .seller-calendar-day-cell > div:first-child {
+  gap: 0.05rem !important;
+  align-items: flex-start !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell span,
+html[data-layout-mode="auto"] .seller-calendar-day-cell span {
+  font-size: 0.33rem !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell span.rounded-full,
+html[data-layout-mode="auto"] .seller-calendar-day-cell span.rounded-full {
+  display: none !important;
+}
+
+/* Hide detailed chips/progress inside cells on mobile, keep cell clickable */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell .mt-2,
+html[data-layout-mode="mobile"] .seller-calendar-day-cell .space-y-1,
+html[data-layout-mode="auto"] .seller-calendar-day-cell .mt-2,
+html[data-layout-mode="auto"] .seller-calendar-day-cell .space-y-1 {
+  display: none !important;
+}
+
+/* Show scan days as small dot only */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell:has(.bg-teal\/10)::after,
+html[data-layout-mode="auto"] .seller-calendar-day-cell:has(.bg-teal\/10)::after {
+  content: "";
+  display: block;
+  width: 0.28rem;
+  height: 0.28rem;
+  margin-top: 0.18rem;
+  border-radius: 999px;
+  background: #08b7a8;
+}
+
+
+/* =========================================================
+   Seller Calendar Force Tiny Month Grid
+   Exact calendar classes only.
+   Forces real horizontal 7-column calendar.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-calendar-box,
+html[data-layout-mode="auto"] .seller-calendar-box {
+  margin-top: 0.25rem !important;
+  border-radius: 0.45rem !important;
+  overflow: hidden !important;
+}
+
+/* Weekday header must be 7 columns horizontally, not stacked */
+html[data-layout-mode="mobile"] .seller-calendar-weekdays,
+html[data-layout-mode="auto"] .seller-calendar-weekdays {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  height: 1.05rem !important;
+  min-height: 1.05rem !important;
+  max-height: 1.05rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-weekdays > div,
+html[data-layout-mode="auto"] .seller-calendar-weekdays > div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 1.05rem !important;
+  min-height: 1.05rem !important;
+  max-height: 1.05rem !important;
+  padding: 0 !important;
+  font-size: 0.32rem !important;
+  line-height: 1 !important;
+}
+
+/* Month cells must be 7 columns horizontally with tiny rows */
+html[data-layout-mode="mobile"] .seller-calendar-month-grid,
+html[data-layout-mode="auto"] .seller-calendar-month-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  grid-auto-rows: 1.35rem !important;
+  width: 100% !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell,
+html[data-layout-mode="auto"] .seller-calendar-day-cell {
+  position: relative !important;
+  min-height: 1.35rem !important;
+  height: 1.35rem !important;
+  max-height: 1.35rem !important;
+  padding: 0.08rem !important;
+  overflow: hidden !important;
+  border-width: 1px !important;
+}
+
+/* Keep only the date number visible inside each cell */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell > *:not(:first-child),
+html[data-layout-mode="auto"] .seller-calendar-day-cell > *:not(:first-child) {
+  display: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell > div:first-child,
+html[data-layout-mode="auto"] .seller-calendar-day-cell > div:first-child {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  gap: 0 !important;
+  height: auto !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell > div:first-child > *:not(:first-child),
+html[data-layout-mode="auto"] .seller-calendar-day-cell > div:first-child > *:not(:first-child) {
+  display: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell span,
+html[data-layout-mode="auto"] .seller-calendar-day-cell span {
+  font-size: 0.34rem !important;
+  line-height: 1 !important;
+}
+
+/* Tiny dot for scan days */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell:has([class*="scan"])::after,
+html[data-layout-mode="mobile"] .seller-calendar-day-cell:has([class*="teal"])::after,
+html[data-layout-mode="auto"] .seller-calendar-day-cell:has([class*="scan"])::after,
+html[data-layout-mode="auto"] .seller-calendar-day-cell:has([class*="teal"])::after {
+  content: "";
+  position: absolute;
+  right: 0.12rem;
+  bottom: 0.12rem;
+  width: 0.22rem;
+  height: 0.22rem;
+  border-radius: 999px;
+  background: #08b7a8;
+}
+
+/* Squeeze the whole calendar top controls too */
+html[data-layout-mode="mobile"] .seller-calendar-shell,
+html[data-layout-mode="auto"] .seller-calendar-shell {
+  padding: 0.32rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-stats,
+html[data-layout-mode="auto"] .seller-calendar-stats {
+  margin-top: 0.22rem !important;
+  gap: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-shell h2,
+html[data-layout-mode="auto"] .seller-calendar-shell h2 {
+  font-size: 0.68rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-shell p,
+html[data-layout-mode="auto"] .seller-calendar-shell p {
+  font-size: 0.34rem !important;
+  line-height: 1 !important;
+}
+
+/* =========================================================
+   Seller Calendar Font Only Scan Shrink
+   Font only. No JSX/logic/layout changes.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-calendar-scan-count,
+html[data-layout-mode="auto"] .seller-calendar-scan-count {
+  font-size: 0.18rem !important;
+  line-height: 0.9 !important;
+  letter-spacing: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-chip,
+html[data-layout-mode="auto"] .seller-calendar-chip {
+  font-size: 0.16rem !important;
+  line-height: 0.85 !important;
+  letter-spacing: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-full-details,
+html[data-layout-mode="auto"] .seller-calendar-full-details {
+  font-size: 0.16rem !important;
+  line-height: 0.85 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-full-details span,
+html[data-layout-mode="mobile"] .seller-calendar-full-details p,
+html[data-layout-mode="auto"] .seller-calendar-full-details span,
+html[data-layout-mode="auto"] .seller-calendar-full-details p {
+  font-size: 0.16rem !important;
+  line-height: 0.85 !important;
+  letter-spacing: 0 !important;
+}
+
+
+/* =========================================================
+   Seller Calendar Mobile Improvement Display
+   Mobile-only visual status calendar.
+   Desktop keeps original full calendar details.
+   ========================================================= */
+
+/* Default: desktop does not show mobile status labels */
+.seller-calendar-mobile-status {
+  display: none;
+}
+
+/* Mobile calendar cells become clean visual progress tiles */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell {
+  min-height: 1.9rem !important;
+  height: 1.9rem !important;
+  max-height: 1.9rem !important;
+  padding: 0.1rem !important;
+  overflow: hidden !important;
+}
+
+/* Keep day number visible */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell > div:first-child {
+  height: 0.55rem !important;
+  max-height: 0.55rem !important;
+  align-items: flex-start !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-day-cell > div:first-child span:first-child {
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+}
+
+/* Hide raw scan-count pill and desktop scan details only in mobile calendar */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell .seller-calendar-scan-count,
+html[data-layout-mode="mobile"] .seller-calendar-day-cell .seller-calendar-full-details {
+  display: none !important;
+}
+
+/* Show the meaningful mobile status label */
+html[data-layout-mode="mobile"] .seller-calendar-day-cell > .seller-calendar-mobile-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-top: 0.15rem !important;
+  padding: 0.12rem 0.22rem !important;
+  border-radius: 999px !important;
+  font-size: 0.34rem !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.02em !important;
+  white-space: nowrap !important;
+}
+
+/* Status colors */
+html[data-layout-mode="mobile"] .seller-calendar-mobile-status-empty {
+  color: #94a3b8 !important;
+  background: transparent !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-mobile-status-active {
+  color: #0f766e !important;
+  background: rgba(20, 184, 166, 0.14) !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-mobile-status-up {
+  color: #047857 !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-mobile-status-fix {
+  color: #b45309 !important;
+  background: rgba(245, 158, 11, 0.18) !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-mobile-status-risk {
+  color: #be123c !important;
+  background: rgba(244, 63, 94, 0.16) !important;
+}
+
+/* Auto mode only when actually phone width */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .seller-calendar-day-cell {
+    min-height: 1.9rem !important;
+    height: 1.9rem !important;
+    max-height: 1.9rem !important;
+    padding: 0.1rem !important;
+    overflow: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-day-cell > div:first-child {
+    height: 0.55rem !important;
+    max-height: 0.55rem !important;
+    align-items: flex-start !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-day-cell > div:first-child span:first-child {
+    font-size: 0.42rem !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-day-cell .seller-calendar-scan-count,
+  html[data-layout-mode="auto"] .seller-calendar-day-cell .seller-calendar-full-details {
+    display: none !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-day-cell > .seller-calendar-mobile-status {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    margin-top: 0.15rem !important;
+    padding: 0.12rem 0.22rem !important;
+    border-radius: 999px !important;
+    font-size: 0.34rem !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.02em !important;
+    white-space: nowrap !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-mobile-status-empty {
+    color: #94a3b8 !important;
+    background: transparent !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-mobile-status-active {
+    color: #0f766e !important;
+    background: rgba(20, 184, 166, 0.14) !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-mobile-status-up {
+    color: #047857 !important;
+    background: rgba(16, 185, 129, 0.16) !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-mobile-status-fix {
+    color: #b45309 !important;
+    background: rgba(245, 158, 11, 0.18) !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-mobile-status-risk {
+    color: #be123c !important;
+    background: rgba(244, 63, 94, 0.16) !important;
+  }
+}
+
+
+/* =========================================================
+   Seller Calendar Popup Mobile One Page
+   Exact selected-day popup classes only.
+   Desktop unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-overlay {
+  padding: 0.35rem !important;
+  place-items: center !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel {
+  max-height: 92vh !important;
+  max-width: 96vw !important;
+  padding: 0.45rem !important;
+  border-radius: 0.8rem !important;
+  overflow: auto !important;
+  box-shadow: none !important;
+}
+
+/* Popup header */
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel > div:first-child {
+  gap: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel h3 {
+  margin-top: 0.18rem !important;
+  font-size: 0.9rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel p {
+  font-size: 0.38rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel button {
+  min-height: 1.35rem !important;
+  padding: 0.22rem 0.45rem !important;
+  border-radius: 0.48rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+}
+
+/* Four stat cards in one row */
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.25rem !important;
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats > div {
+  padding: 0.3rem !important;
+  border-radius: 0.55rem !important;
+  min-height: 2.4rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats p:first-child {
+  font-size: 0.3rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.08em !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats p:last-child {
+  margin-top: 0.15rem !important;
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+}
+
+/* Main content: products + next moves side-by-side */
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 0.35rem !important;
+  margin-top: 0.4rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid h4 {
+  font-size: 0.55rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid article,
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid div[class*="rounded-2xl"],
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid p[class*="rounded"] {
+  padding: 0.3rem !important;
+  border-radius: 0.55rem !important;
+  max-height: 3.3rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid article p,
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid div,
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid span {
+  font-size: 0.36rem !important;
+  line-height: 1.06 !important;
+}
+
+/* Clamp long product names and recommendations */
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid article p:last-child,
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid div[class*="border-teal"] {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Bottom signal cards: 3 across */
+html[data-layout-mode="mobile"] .seller-calendar-modal-signal-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.3rem !important;
+  margin-top: 0.4rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-signal-grid > div {
+  padding: 0.3rem !important;
+  border-radius: 0.55rem !important;
+  max-height: 4.1rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-signal-grid h4 {
+  font-size: 0.5rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-signal-grid .mt-3 {
+  margin-top: 0.2rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-signal-grid p {
+  padding: 0.16rem 0.22rem !important;
+  border-radius: 0.35rem !important;
+  font-size: 0.34rem !important;
+  line-height: 1.04 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Progress note stays visible but not huge */
+html[data-layout-mode="mobile"] .seller-calendar-modal-note {
+  margin-top: 0.4rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-note span {
+  font-size: 0.46rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-note textarea {
+  min-height: 3.2rem !important;
+  margin-top: 0.25rem !important;
+  padding: 0.35rem !important;
+  border-radius: 0.55rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1.08 !important;
+}
+
+/* Auto mode only on phone width */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .seller-calendar-modal-overlay {
+    padding: 0.35rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-modal-panel {
+    max-height: 92vh !important;
+    max-width: 96vw !important;
+    padding: 0.45rem !important;
+    border-radius: 0.8rem !important;
+    overflow: auto !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-modal-stats {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.25rem !important;
+    margin-top: 0.35rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-modal-main-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.35rem !important;
+    margin-top: 0.4rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-modal-signal-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.3rem !important;
+    margin-top: 0.4rem !important;
+  }
+}
+
+
+/* =========================================================
+   Seller Calendar Popup Phone Width Fix
+   Mobile popup stays compact even when testing mobile mode on Mac.
+   Desktop normal mode unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel {
+  width: min(430px, 94vw) !important;
+  max-width: 430px !important;
+  max-height: 88vh !important;
+  padding: 0.38rem !important;
+  border-radius: 0.75rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-overlay {
+  padding: 0.35rem !important;
+  align-items: center !important;
+  justify-items: center !important;
+}
+
+/* Make popup content fit the compact phone-width panel */
+html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid {
+  grid-template-columns: 1fr !important;
+  gap: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-signal-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.22rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.18rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel h3 {
+  font-size: 0.72rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel p,
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel span,
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel div,
+html[data-layout-mode="mobile"] .seller-calendar-modal-panel li {
+  font-size: 0.34rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-note textarea {
+  min-height: 2.6rem !important;
+  max-height: 3rem !important;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .seller-calendar-modal-panel {
+    width: min(430px, 94vw) !important;
+    max-width: 430px !important;
+    max-height: 88vh !important;
+    padding: 0.38rem !important;
+    border-radius: 0.75rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-modal-main-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.25rem !important;
+  }
+}
+
+/* =========================================================
+   Seller Calendar Popup Readable Stats Fix
+   Mobile popup only. Prevents vertical unreadable words.
+   Desktop unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.25rem !important;
+}
+
+/* Main complaint needs full width so words read normally */
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats > div:nth-child(3) {
+  grid-column: 1 / -1 !important;
+  min-height: auto !important;
+  max-height: 4.2rem !important;
+}
+
+/* Before/after also full width */
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats > div:nth-child(4) {
+  grid-column: 1 / -1 !important;
+  min-height: auto !important;
+  max-height: 2.4rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats > div:nth-child(3) p:last-child,
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats > div:nth-child(4) p:last-child {
+  font-size: 0.42rem !important;
+  line-height: 1.12 !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 4 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Keep rating/sentiment compact but readable */
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats > div:nth-child(1),
+html[data-layout-mode="mobile"] .seller-calendar-modal-stats > div:nth-child(2) {
+  min-height: 2rem !important;
+  max-height: 2.4rem !important;
+}
+
+/* Auto phone width only */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .seller-calendar-modal-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.25rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-modal-stats > div:nth-child(3),
+  html[data-layout-mode="auto"] .seller-calendar-modal-stats > div:nth-child(4) {
+    grid-column: 1 / -1 !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-calendar-modal-stats > div:nth-child(3) p:last-child,
+  html[data-layout-mode="auto"] .seller-calendar-modal-stats > div:nth-child(4) p:last-child {
+    font-size: 0.42rem !important;
+    line-height: 1.12 !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+}
+
+
+/* =========================================================
+   Seller Pro Dashboard Premium Mobile Layout
+   Exact seller dashboard classes only.
+   Desktop unchanged.
+   ========================================================= */
+
+/* Premium hero */
+html[data-layout-mode="mobile"] .seller-premium-hero {
+  padding: 0.55rem !important;
+  border-radius: 0.85rem !important;
+  margin-bottom: 0.45rem !important;
+  box-shadow: none !important;
+  background:
+    radial-gradient(circle at top left, rgba(20,184,166,0.14), transparent 45%),
+    #ffffff !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-hero p:first-child {
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.14em !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-hero h2 {
+  margin-top: 0.22rem !important;
+  font-size: 1rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-hero p:last-child {
+  margin-top: 0.28rem !important;
+  max-width: 100% !important;
+  font-size: 0.48rem !important;
+  line-height: 1.12 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 4 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Metrics: clean command-center row */
+html[data-layout-mode="mobile"] .seller-premium-metrics {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.28rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-metrics article,
+html[data-layout-mode="mobile"] .seller-premium-metrics div[class*="rounded"] {
+  padding: 0.35rem !important;
+  border-radius: 0.65rem !important;
+  min-height: 4rem !important;
+  max-height: 4.4rem !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-metrics p,
+html[data-layout-mode="mobile"] .seller-premium-metrics span {
+  font-size: 0.34rem !important;
+  line-height: 1.02 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-metrics h3,
+html[data-layout-mode="mobile"] .seller-premium-metrics [class*="text-3xl"],
+html[data-layout-mode="mobile"] .seller-premium-metrics [class*="text-2xl"] {
+  font-size: 0.82rem !important;
+  line-height: 1 !important;
+}
+
+/* Product ranking: make it look like a premium compact intelligence table */
+html[data-layout-mode="mobile"] .seller-premium-ranking {
+  padding: 0.5rem !important;
+  border-radius: 0.85rem !important;
+  margin-bottom: 0.45rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-ranking h2 {
+  margin-top: 0.18rem !important;
+  font-size: 0.78rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-ranking p {
+  font-size: 0.4rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-ranking .mt-5 {
+  margin-top: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-ranking .grid {
+  font-size: 0.36rem !important;
+  line-height: 1.05 !important;
+  gap: 0.15rem !important;
+  padding: 0.28rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-ranking [class*="px-4"] {
+  padding-left: 0.25rem !important;
+  padding-right: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-ranking [class*="py-4"],
+html[data-layout-mode="mobile"] .seller-premium-ranking [class*="py-3"] {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+/* Focus first + best performer: premium side-by-side cards */
+html[data-layout-mode="mobile"] .seller-premium-focus-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.32rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-focus-grid article {
+  padding: 0.45rem !important;
+  border-radius: 0.8rem !important;
+  min-height: 5.2rem !important;
+  max-height: 5.8rem !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-focus-grid p:first-child {
+  font-size: 0.36rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.12em !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-focus-grid h3 {
+  margin-top: 0.22rem !important;
+  font-size: 0.7rem !important;
+  line-height: 1.02 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-focus-grid p:last-child {
+  margin-top: 0.24rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1.08 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Buyer concerns / next moves / winning signals */
+html[data-layout-mode="mobile"] .seller-premium-insight-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.3rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-insight-grid article,
+html[data-layout-mode="mobile"] .seller-premium-insight-grid div[class*="rounded"] {
+  padding: 0.38rem !important;
+  border-radius: 0.75rem !important;
+  min-height: 5rem !important;
+  max-height: 5.7rem !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-insight-grid h3,
+html[data-layout-mode="mobile"] .seller-premium-insight-grid h2 {
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-insight-grid li,
+html[data-layout-mode="mobile"] .seller-premium-insight-grid p {
+  font-size: 0.36rem !important;
+  line-height: 1.05 !important;
+}
+
+/* Compare + report center: clean lower dashboard tools */
+html[data-layout-mode="mobile"] .seller-premium-utility-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.32rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-utility-grid article,
+html[data-layout-mode="mobile"] .seller-premium-utility-grid div[class*="rounded"] {
+  padding: 0.45rem !important;
+  border-radius: 0.8rem !important;
+  min-height: 5.5rem !important;
+  max-height: 6.3rem !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-utility-grid h3 {
+  margin-top: 0.22rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1.02 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-utility-grid p {
+  margin-top: 0.22rem !important;
+  font-size: 0.4rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .seller-premium-utility-grid a {
+  margin-top: 0.35rem !important;
+  padding: 0.25rem 0.42rem !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.38rem !important;
+  line-height: 1 !important;
+}
+
+/* Auto mode only on phones */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .seller-premium-hero {
+    padding: 0.55rem !important;
+    border-radius: 0.85rem !important;
+    margin-bottom: 0.45rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-premium-metrics {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.28rem !important;
+    margin-bottom: 0.45rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-premium-focus-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.32rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-premium-insight-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.3rem !important;
+  }
+
+  html[data-layout-mode="auto"] .seller-premium-utility-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.32rem !important;
+  }
+}
+
+
+/* =========================================================
+   Seller Dashboard Top Premium Workspace Mobile
+   DashboardShell seller top only.
+   Desktop unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] {
+  display: block !important;
+  max-width: 430px !important;
+  width: 100% !important;
+  padding: 0.45rem !important;
+  margin: 0 auto !important;
+}
+
+/* Turn the sidebar into a compact premium top command strip */
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-sidebar {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0.35rem !important;
+  padding: 0.45rem !important;
+  margin-bottom: 0.45rem !important;
+  border-radius: 0.9rem !important;
+  box-shadow: none !important;
+  background:
+    radial-gradient(circle at top left, rgba(20,184,166,0.14), transparent 45%),
+    rgba(255,255,255,0.92) !important;
+}
+
+/* Workspace hero */
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-workspace-card {
+  padding: 0.55rem !important;
+  border-radius: 0.75rem !important;
+  background:
+    linear-gradient(135deg, #0f172a, #063b4a 55%, #0f766e) !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-workspace-card p:first-child {
+  font-size: 0.38rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.14em !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-workspace-card p:nth-child(2) {
+  margin-top: 0.18rem !important;
+  font-size: 0.88rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-workspace-card p:nth-child(3) {
+  margin-top: 0.18rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+  opacity: 0.82 !important;
+}
+
+/* Make the main workspace links premium pills */
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-nav {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.28rem !important;
+  margin-top: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-nav a {
+  min-height: 1.75rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.28rem 0.2rem !important;
+  border-radius: 0.6rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  box-shadow: none !important;
+}
+
+/* Business intelligence card becomes compact, not a tall block */
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-intelligence-card {
+  display: grid !important;
+  grid-template-columns: auto 1fr !important;
+  column-gap: 0.35rem !important;
+  row-gap: 0.08rem !important;
+  align-items: center !important;
+  padding: 0.45rem !important;
+  margin-top: 0 !important;
+  border-radius: 0.7rem !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-intelligence-card > span {
+  grid-row: 1 / span 2 !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-intelligence-card p {
+  margin: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-intelligence-card p:nth-of-type(1) {
+  font-size: 0.52rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-intelligence-card p:nth-of-type(2) {
+  font-size: 0.38rem !important;
+  line-height: 1.08 !important;
+}
+
+/* Support links become a compact row instead of tall menu */
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-support-card {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 0.22rem !important;
+  padding: 0.35rem !important;
+  margin-top: 0 !important;
+  border-radius: 0.7rem !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-support-card > p {
+  grid-column: 1 / -1 !important;
+  font-size: 0.34rem !important;
+  line-height: 1 !important;
+  letter-spacing: 0.12em !important;
+  margin: 0 0 0.05rem !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-support-card a {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 1.4rem !important;
+  padding: 0.18rem 0.12rem !important;
+  border-radius: 0.5rem !important;
+  background: rgba(255,255,255,0.75) !important;
+  font-size: 0.34rem !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
+/* The dashboard title card becomes compact and premium */
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-page-title {
+  padding: 0.55rem !important;
+  margin-bottom: 0.45rem !important;
+  border-radius: 0.85rem !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-page-title h1 {
+  margin-top: 0.25rem !important;
+  font-size: 0.95rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-page-title p {
+  margin-top: 0.22rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1.1 !important;
+}
+
+/* Auto mode: only if actual phone width */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .dashboard-shell-main[data-dashboard-experience="seller"] {
+    display: block !important;
+    max-width: 430px !important;
+    width: 100% !important;
+    padding: 0.45rem !important;
+    margin: 0 auto !important;
+  }
+
+  html[data-layout-mode="auto"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-sidebar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.35rem !important;
+    padding: 0.45rem !important;
+    margin-bottom: 0.45rem !important;
+    border-radius: 0.9rem !important;
+    box-shadow: none !important;
+  }
+
+  html[data-layout-mode="auto"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-nav {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.28rem !important;
+    margin-top: 0 !important;
+  }
+
+  html[data-layout-mode="auto"] .dashboard-shell-main[data-dashboard-experience="seller"] .dashboard-shell-support-card {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.22rem !important;
+    padding: 0.35rem !important;
+    margin-top: 0 !important;
+    border-radius: 0.7rem !important;
+  }
+}
+
+
+/* =========================================================
+   Home Premium Mobile Lower Sections
+   Exact homepage lower-section classes only.
+   Desktop unchanged.
+   ========================================================= */
+
+/* Payoff section: premium compact proof block */
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff {
+  padding: 0.8rem 0.65rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff-grid {
+  display: grid !important;
+  grid-template-columns: 0.88fr 1.12fr !important;
+  gap: 0.55rem !important;
+  align-items: stretch !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff h2 {
+  margin-top: 0.28rem !important;
+  font-size: 1.05rem !important;
+  line-height: 1.03 !important;
+  letter-spacing: -0.035em !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff p {
+  margin-top: 0.28rem !important;
+  font-size: 0.46rem !important;
+  line-height: 1.14 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff .ri-reveal-pop {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0.28rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff .ri-reveal-pop article {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  gap: 0.2rem !important;
+  padding: 0.42rem !important;
+  border-radius: 0.72rem !important;
+  min-height: 3.1rem !important;
+  max-height: 3.6rem !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff .ri-reveal-pop article > div {
+  position: static !important;
+  width: 0.78rem !important;
+  height: 0.78rem !important;
+  border-radius: 0.28rem !important;
+  grid-row: 1 / span 2 !important;
+  grid-column: 2 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff .ri-reveal-pop h3 {
+  margin-top: 0.12rem !important;
+  font-size: 0.7rem !important;
+  line-height: 1 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-payoff .ri-reveal-pop p {
+  margin-top: 0.08rem !important;
+  font-size: 0.36rem !important;
+  line-height: 1.05 !important;
+}
+
+/* Shopper/Seller cards: premium side-by-side, not long stacked blocks */
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-audience {
+  padding: 0.75rem 0.65rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-audience-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-audience-card {
+  padding: 0.55rem !important;
+  border-radius: 0.9rem !important;
+  min-height: 10.5rem !important;
+  max-height: 11.5rem !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  background: rgba(255,255,255,0.72) !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-audience-card h2 {
+  margin-top: 0.35rem !important;
+  font-size: 0.86rem !important;
+  line-height: 1.04 !important;
+  letter-spacing: -0.03em !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-audience-card .mt-5 {
+  margin-top: 0.38rem !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 0.22rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-audience-card span {
+  padding: 0.25rem 0.34rem !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.37rem !important;
+  line-height: 1.06 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-audience-card a {
+  margin-top: 0.45rem !important;
+  padding: 0.35rem 0.5rem !important;
+  border-radius: 0.55rem !important;
+  font-size: 0.4rem !important;
+  line-height: 1 !important;
+}
+
+/* Mode intro: compact premium explanation card */
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-mode {
+  padding: 0.8rem 0.65rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-mode-card {
+  padding: 0.65rem !important;
+  border-radius: 0.9rem !important;
+  box-shadow: none !important;
+  background:
+    radial-gradient(circle at top left, rgba(59,130,246,0.10), transparent 42%),
+    #ffffff !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-mode-card h2 {
+  margin-top: 0.35rem !important;
+  font-size: 0.95rem !important;
+  line-height: 1.04 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-mode-card p {
+  margin-top: 0.32rem !important;
+  font-size: 0.46rem !important;
+  line-height: 1.16 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 7 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* Featured reviews: keep premium preview, but stop it from becoming a long page */
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-featured-reviews {
+  max-height: 18rem !important;
+  overflow: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-featured-reviews section,
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-featured-reviews div[class*="rounded"] {
+  box-shadow: none !important;
+}
+
+/* Ad section: smaller premium banner */
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section {
+  padding: 0.75rem 0.65rem 1rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section > * {
+  max-height: 7.2rem !important;
+  overflow: hidden !important;
+  border-radius: 0.9rem !important;
+}
+
+/* Auto mode only on actual phone width */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-home .home-premium-payoff {
+    padding: 0.8rem 0.65rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-home .home-premium-payoff-grid {
+    display: grid !important;
+    grid-template-columns: 0.88fr 1.12fr !important;
+    gap: 0.55rem !important;
+    align-items: stretch !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-home .home-premium-audience {
+    padding: 0.75rem 0.65rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-home .home-premium-audience-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.45rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-home .home-premium-mode {
+    padding: 0.8rem 0.65rem !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-home .home-premium-featured-reviews {
+    max-height: 18rem !important;
+    overflow: hidden !important;
+  }
+}
+
+
+/* =========================================================
+   Home Premium Ad Mobile Readability Fix
+   Fixes homepage ad banner only.
+   Desktop unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section {
+  padding: 0.65rem 0.65rem 0.85rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section > * {
+  max-height: none !important;
+  min-height: 6.2rem !important;
+  overflow: visible !important;
+  border-radius: 0.9rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section h2,
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section h3,
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section p,
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section span {
+  font-size: 0.52rem !important;
+  line-height: 1.12 !important;
+  letter-spacing: 0 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section [class*="text-5xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section [class*="text-4xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section [class*="text-3xl"],
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section [class*="text-2xl"] {
+  font-size: 0.9rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section a,
+html[data-layout-mode="mobile"] .reviewintel-route-home .home-premium-ad-section button {
+  padding: 0.32rem 0.5rem !important;
+  border-radius: 0.55rem !important;
+  font-size: 0.42rem !important;
+  line-height: 1 !important;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-home .home-premium-ad-section > * {
+    max-height: none !important;
+    min-height: 6.2rem !important;
+    overflow: visible !important;
+  }
+}
+
+
+/* Account Beta Badge Mobile Safe */
+@media (max-width: 640px) {
+  html[data-layout-mode="mobile"] .reviewintel-route-account .account-beta-card,
+  html[data-layout-mode="auto"] .reviewintel-route-account .account-beta-card {
+    border-radius: 1.35rem;
+    padding: 0.9rem;
+  }
+
+  html[data-layout-mode="mobile"] .reviewintel-route-account .account-beta-card > div,
+  html[data-layout-mode="auto"] .reviewintel-route-account .account-beta-card > div {
+    align-items: stretch;
+  }
+
+  html[data-layout-mode="mobile"] .reviewintel-route-account .account-beta-timer,
+  html[data-layout-mode="auto"] .reviewintel-route-account .account-beta-timer {
+    width: 100%;
+    text-align: left;
+    padding: 0.85rem;
+  }
+
+  html[data-layout-mode="mobile"] .reviewintel-route-account .account-beta-feedback,
+  html[data-layout-mode="auto"] .reviewintel-route-account .account-beta-feedback {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+/* Account Beta Feedback Mobile Safe */
+@media (max-width: 640px) {
+  html[data-layout-mode="mobile"] .reviewintel-route-account .account-beta-feedback-panel,
+  html[data-layout-mode="auto"] .reviewintel-route-account .account-beta-feedback-panel {
+    padding: 0.75rem;
+  }
+
+  html[data-layout-mode="mobile"] .reviewintel-route-account .account-beta-feedback-panel textarea,
+  html[data-layout-mode="auto"] .reviewintel-route-account .account-beta-feedback-panel textarea {
+    min-height: 5.5rem;
+    font-size: 0.82rem;
+  }
+
+  html[data-layout-mode="mobile"] .reviewintel-route-account .account-beta-feedback-panel button,
+  html[data-layout-mode="auto"] .reviewintel-route-account .account-beta-feedback-panel button {
+    width: 100%;
+    justify-content: center;
+  }
 }

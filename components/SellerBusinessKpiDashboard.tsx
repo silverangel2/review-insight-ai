@@ -244,7 +244,7 @@ function KpiCard({
       type="button"
       onClick={() => setFlipped((value) => !value)}
       aria-pressed={flipped}
-      className="h-[260px] rounded-[1.35rem] text-left [perspective:1200px] focus:outline-none focus:ring-4 focus:ring-ocean/20"
+      className="seller-kpi-card h-[260px] rounded-[1.35rem] text-left [perspective:1200px] focus:outline-none focus:ring-4 focus:ring-ocean/20"
     >
       <div className={`relative h-full transition-transform duration-500 [transform-style:preserve-3d] ${flipped ? "[transform:rotateY(180deg)]" : ""}`}>
         <article className={`absolute inset-0 overflow-y-auto rounded-[1.35rem] border bg-gradient-to-br ${tone} p-3 shadow-soft [backface-visibility:hidden] dark:border-white/10`}>
@@ -358,7 +358,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
   ];
 
   return (
-    <section className="mt-8 rounded-[2rem] border border-line bg-white/85 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
+    <section className="seller-money-kpi-section mt-8 rounded-[2rem] border border-line bg-white/85 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Seller money intelligence</p>
@@ -372,12 +372,12 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="seller-kpi-grid mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {cards.map((card) => <KpiCard key={card.title} {...card} />)}
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <article className="rounded-[1.75rem] border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="seller-money-summary-grid mt-6 grid gap-5 lg:grid-cols-2">
+        <article className="seller-money-summary-card rounded-[1.75rem] border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <h3 className="text-xl font-black text-ink dark:text-white">Money Opportunity</h3>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
             <li><span className="font-black">What may be costing sales:</span> {topComplaint}</li>
@@ -387,7 +387,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
           </ul>
         </article>
 
-        <article className="rounded-[1.75rem] border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
+        <article className="seller-money-summary-card rounded-[1.75rem] border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <h3 className="text-xl font-black text-ink dark:text-white">Buyer Psychology</h3>
           <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
             <p><span className="font-black">Can I trust this?</span> Show real proof and balanced pros/cons.</p>

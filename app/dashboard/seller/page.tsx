@@ -464,7 +464,7 @@ export default function SellerDashboardPage() {
       >
         <SponsorAnalytics placement="seller_dashboard" />
 
-        <section className="mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <section className="seller-premium-hero mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro summary</p>
           <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Your product improvement command center.</h2>
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
@@ -472,7 +472,7 @@ export default function SellerDashboardPage() {
           </p>
         </section>
 
-        <section className="mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <section className="seller-premium-metrics mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <DashboardMetric
             label="Products tracked"
             value={String(dashboard.productRows.length)}
@@ -500,7 +500,7 @@ export default function SellerDashboardPage() {
         </section>
 
         {dashboard.productRows.length ? (
-          <section className="mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="seller-premium-ranking mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Product health ranking</p>
@@ -538,7 +538,7 @@ export default function SellerDashboardPage() {
           </section>
         ) : null}
 
-        <section className="mb-6 grid gap-5 lg:grid-cols-2">
+        <section className="seller-premium-focus-grid mb-6 grid gap-5 lg:grid-cols-2">
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-coral">Focus first</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">
@@ -564,7 +564,7 @@ export default function SellerDashboardPage() {
           </article>
         </section>
 
-        <section className="mb-6 grid gap-5 lg:grid-cols-3">
+        <section className="seller-premium-insight-grid mb-6 grid gap-5 lg:grid-cols-3">
           <InsightList
             title="Buyer concerns"
             tone="bad"
@@ -582,7 +582,7 @@ export default function SellerDashboardPage() {
           />
         </section>
 
-        <section className="mb-6 grid gap-5 lg:grid-cols-2">
+        <section className="seller-premium-utility-grid mb-6 grid gap-5 lg:grid-cols-2">
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
             {isSellerPro ? <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-700 dark:text-violet-300">Compare intelligence</p> : null}
             {isSellerPro ? <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">Compare results guide strategy, but do not affect product health averages.</h3> : null}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readAccountSession } from "@/lib/accountSession";
 import { deleteAnalysisHistory, saveAnalysisRecord, supabaseDelete, supabaseSelect } from "@/lib/supabaseServer";
 
 
@@ -139,7 +140,7 @@ function retainByPlan(rows: Record<string, unknown>[], plan: string) {
 
   // Shopper Premium / Buyer Pro history should not be capped to 10 per week.
   // Keep the newest 50 records total so new product scans and compare scans appear immediately.
-  if (plan === "buyer_pro") {
+  if ((plan === "buyer_pro" || plan === "buyer_beta")) {
     return rows.slice(0, 50);
   }
 
@@ -159,9 +160,39 @@ function retainByPlan(rows: Record<string, unknown>[], plan: string) {
   return retained.slice(0, 50);
 }
 
+
+function readRequestCookie(request: Request, name: string) {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  for (const part of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === name) {
+      return decodeURIComponent(rawValue.join("="));
+    }
+  }
+  return "";
+}
+
+function getAuthenticatedAccountEmail(request: Request) {
+  const session = readAccountSession(request);
+  return String(session?.email ?? "").toLowerCase().trim();
+}
+
+function emailMismatchResponse(requestedEmail: string, authenticatedEmail: string) {
+  if (requestedEmail && authenticatedEmail && requestedEmail !== authenticatedEmail) {
+    return NextResponse.json(
+      normalizeAnalysesForDashboard({ error: "You are not allowed to access another account's analysis history." }),
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const email = String(url.searchParams.get("email") ?? "").toLowerCase().trim();
+  const requestedEmail = String(url.searchParams.get("email") ?? "").toLowerCase().trim();
+  const email = getAuthenticatedAccountEmail(request);
+  const mismatch = emailMismatchResponse(requestedEmail, email);
+  if (mismatch) return mismatch;
   const plan = String(url.searchParams.get("plan") ?? "").toLowerCase().trim();
   const role = String(url.searchParams.get("role") ?? "").toLowerCase().trim();
 
@@ -193,11 +224,11 @@ export async function GET(request: Request) {
   const filteredRows = (rows ?? []).filter((row) => {
     const mode = String(row.mode ?? "").toLowerCase();
 
-    if (plan === "seller_premium" || plan === "seller_pro") {
+    if ((plan === "seller_premium" || plan === "seller_beta") || plan === "seller_beta" || (plan === "seller_pro" || plan === "seller_beta")) {
       return mode === "seller" || mode === "both" || mode.includes("seller");
     }
 
-    if (role === "buyer" || plan === "free_buyer" || plan === "buyer_pro") {
+    if (role === "buyer" || plan === "free_buyer" || (plan === "buyer_pro" || plan === "buyer_beta") || plan === "buyer_beta") {
       return mode !== "seller" && !mode.includes("seller");
     }
 
@@ -226,7 +257,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  const email = String(body?.email ?? body?.profile_email ?? "").toLowerCase().trim();
+  const requestedEmail = String(body?.email ?? body?.profile_email ?? "").toLowerCase().trim();
+  const email = getAuthenticatedAccountEmail(request);
+  const mismatch = emailMismatchResponse(requestedEmail, email);
+  if (mismatch) return mismatch;
 
   if (!email) {
     return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
@@ -279,7 +313,10 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const body = await request.json().catch(() => null);
-  const email = String(body?.email ?? "").toLowerCase().trim();
+  const requestedEmail = String(body?.email ?? "").toLowerCase().trim();
+  const email = getAuthenticatedAccountEmail(request);
+  const mismatch = emailMismatchResponse(requestedEmail, email);
+  if (mismatch) return mismatch;
   const id = String(body?.id ?? "").trim();
   const all = Boolean(body?.all);
 

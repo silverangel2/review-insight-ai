@@ -1,55 +1,124 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { getClientAccount, logoutEverywhere } from "@/lib/clientAccount";
+import type { ClientAccount } from "@/lib/account";
 
-const topNavLinks = [
-  { href: "/analyze", label: "Analyze" },
-  { href: "/results", label: "Results" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/advertise", label: "Advertise" },
-  { href: "/account", label: "Profile" },
-];
+function hasSellerAccess(account: ClientAccount | null) {
+  const role = String(account?.role ?? "").toLowerCase();
+  const plan = String(account?.plan ?? "").toLowerCase();
+
+  return (
+    role === "seller" ||
+    role === "admin" ||
+    plan.includes("seller_pro") ||
+    plan.includes("seller premium") ||
+    plan.includes("seller_premium")
+  );
+}
+
+function isShopperPremiumAccount(account: ClientAccount | null) {
+  const role = String(account?.role ?? "").toLowerCase();
+  const plan = String(account?.plan ?? "").toLowerCase();
+
+  const isAdmin = role === "admin";
+
+  return (
+    !isAdmin &&
+    !hasSellerAccess(account) &&
+    (
+      plan.includes("buyer_pro") ||
+      plan.includes("shopper premium") ||
+      plan.includes("shopper_premium") ||
+      plan.includes("premium")
+    )
+  );
+}
+
+function logout() {
+  void logoutEverywhere("/login");
+}
 
 export default function MobileTinyNav() {
   const pathname = usePathname();
+  const isPublicMarketingPage = pathname === "/" || pathname === "/reviews" || pathname === "/advertise" || pathname === "/pricing";
+  const [account, setAccount] = useState<ClientAccount | null>(null);
 
-  function handleLogout() {
-    const buttons = Array.from(document.querySelectorAll("button, a"));
-    const logoutButton = buttons.find((element) =>
-      element.textContent?.trim().toLowerCase().includes("log out")
-    ) as HTMLElement | undefined;
+  useEffect(() => {
+    setAccount(getClientAccount());
 
-    if (logoutButton) {
-      logoutButton.click();
-      return;
+    function refreshAccount() {
+      setAccount(getClientAccount());
     }
 
-    window.location.href = "/";
-  }
+    window.addEventListener("storage", refreshAccount);
+    window.addEventListener("focus", refreshAccount);
+
+    return () => {
+      window.removeEventListener("storage", refreshAccount);
+      window.removeEventListener("focus", refreshAccount);
+    };
+  }, []);
+
+  const links = useMemo(() => {
+    if (isPublicMarketingPage) {
+      return [
+        ["Pricing", "/pricing"],
+        ["Advertise", "/advertise"],
+        ["Reviews", "/reviews"],
+      ];
+    }
+
+    if (hasSellerAccess(account)) {
+      return [
+        ["Analyze", "/seller/analyze"],
+        ["Dashboard", "/dashboard/seller"],
+        ["Results", "/results"],
+        ["Profile", "/account"],
+      ];
+    }
+
+    if (isShopperPremiumAccount(account)) {
+      return [
+        ["Analyze", "/analyze"],
+        ["Compare", "/compare"],
+        ["Dashboard", "/dashboard/customer"],
+        ["Results", "/results"],
+        ["Account", "/account"],
+      ];
+    }
+
+    return [
+      ["Analyze", "/analyze"],
+      ["Results", "/results"],
+      ["Pricing", "/pricing"],
+      ["Advertise", "/advertise"],
+      ["Profile", "/account"],
+    ];
+  }, [account, isPublicMarketingPage]);
 
   return (
-    <nav className="ri-mobile-tiny-nav" aria-label="Mobile top navigation">
+    <nav className="ri-mobile-tiny-nav" aria-label="Mobile navigation">
       <div className="ri-mobile-tiny-nav-scroll">
-        {topNavLinks.map((link) => {
-          const active =
-            pathname === link.href ||
-            (link.href !== "/" && pathname?.startsWith(link.href));
+        {links.map(([label, href]) => (
+          <Link
+            key={href}
+            href={href}
+            aria-current={pathname === href ? "page" : undefined}
+            className={pathname === href ? "active" : undefined}
+            prefetch
+          >
+            {label}
+          </Link>
+        ))}
 
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={active ? "active" : ""}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-
-        <button type="button" onClick={handleLogout}>
-          Log out
-        </button>
+        {!isPublicMarketingPage ? (
+          <button type="button" onClick={logout}>
+            Log out
+          </button>
+        ) : null}
       </div>
     </nav>
   );

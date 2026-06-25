@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizePlan } from "@/lib/account";
+import { sendReviewIntelEmail } from "@/lib/emailDelivery";
 import {isSupabaseConfigured,
   scanUsageForEmail,
   supabaseInsert,
@@ -174,6 +175,32 @@ export async function POST(request: Request) {
       ...baseUpdate,
       admin_notes: note || reason,
     };
+  } else if (action === "make_beta_shopper" || action === "make_beta_seller" || action === "remove_beta") {
+    const nowDate = new Date();
+    const betaExpiresAt = new Date(nowDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const isRemovingBeta = action === "remove_beta";
+    const currentPlan = plan || "free_buyer";
+    const fallbackPlan = currentPlan.startsWith("seller") ? "seller_premium" : "free_buyer";
+    const betaPlan =
+      action === "make_beta_shopper"
+        ? "buyer_beta"
+        : action === "make_beta_seller"
+          ? "seller_beta"
+          : fallbackPlan;
+
+    update = {
+      ...baseUpdate,
+      plan: betaPlan,
+      subscription_plan: betaPlan,
+      subscription_status: isRemovingBeta ? "active" : "beta",
+      beta_started_at: isRemovingBeta ? null : nowDate.toISOString(),
+      beta_expires_at: isRemovingBeta ? null : betaExpiresAt,
+      beta_original_plan: isRemovingBeta ? null : currentPlan,
+      beta_original_status: isRemovingBeta ? null : "active",
+      beta_last_notified_at: null,
+      beta_last_survey_sent_at: isRemovingBeta ? null : null,
+      beta_survey_count: isRemovingBeta ? 0 : 0,
+    };
   } else {
     return NextResponse.json({ error: "Unknown admin action." }, { status: 400 });
   }
@@ -196,6 +223,33 @@ export async function POST(request: Request) {
   await supabaseUpsert("profiles", update);
   await logAdminAction(action, email, reason || note);
 
+  if (action === "make_beta_shopper" || action === "make_beta_seller") {
+    const betaPlanName = action === "make_beta_shopper" ? "Beta Shopper Premium" : "Beta Seller Premium";
+    const betaExpiry = update.beta_expires_at ? new Date(String(update.beta_expires_at)).toLocaleDateString() : "in 30 days";
+
+    await sendReviewIntelEmail({
+      emailType: "beta_welcome",
+      to: email,
+      subject: `Welcome to ReviewIntel ${betaPlanName}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
+          <h2>Welcome to ReviewIntel ${betaPlanName}</h2>
+          <p>Your beta access is now active.</p>
+          <p><strong>Beta expiry:</strong> ${betaExpiry}</p>
+          <p>During beta, please send observations, bugs, confusing parts, wrong results, or feature requests from your Account page.</p>
+          <p>Weekly beta surveys may also be sent so we can improve ReviewIntel based on your testing.</p>
+          <p>Thank you for helping improve ReviewIntel.</p>
+        </div>
+      `,
+      text: `Welcome to ReviewIntel ${betaPlanName}. Your beta access is active until ${betaExpiry}. Please send beta observations from your Account page.`,
+      metadata: {
+        action,
+        betaPlanName,
+        betaExpiresAt: update.beta_expires_at || null
+      }
+    });
+  }
+
   const messages: Record<string, string> = {
     refresh: "Profile refreshed. Live scan counts were recalculated from usage events.",
     force_logout: "Force logout timestamp saved. The user will be pushed out on their next account check.",
@@ -203,7 +257,10 @@ export async function POST(request: Request) {
     suspend: "Account suspended.",
     ban: "Account banned.",
     unban: "Account restored to active.",
-    note: "Admin note saved."
+    note: "Admin note saved.",
+    make_beta_shopper: "Beta Shopper Premium started. Welcome email sent if email delivery is configured.",
+    make_beta_seller: "Beta Seller Premium started. Welcome email sent if email delivery is configured.",
+    remove_beta: "Beta access removed."
   };
 
   return NextResponse.json({

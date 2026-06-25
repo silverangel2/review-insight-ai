@@ -90,6 +90,10 @@ function clientAccountFromProfile(profile: Record<string, unknown>, fallback: { 
     preferredCurrency: asString(profile.preferred_currency) || "CAD",
     profileNotes: asString(profile.profile_notes),
     marketingConsent: Boolean(profile.marketing_consent),
+    betaStartedAt: asString(profile.beta_started_at),
+    betaExpiresAt: asString(profile.beta_expires_at),
+    betaOriginalPlan: asString(profile.beta_original_plan),
+    betaOriginalStatus: asString(profile.beta_original_status),
     trusted: true
   };
 }
@@ -211,7 +215,7 @@ export async function POST(request: NextRequest) {
     ? normalizePlan(String(existing.plan ?? "free_buyer"))
     : normalizePlan(String(postTestOverride?.plan ?? headerAccount.plan ?? "free_buyer"));
   const preservedRole = existing
-    ? normalizeRole(String(existing.role ?? (preservedPlan === "seller_premium" || preservedPlan === "seller_pro" ? "seller" : "buyer")))
+    ? normalizeRole(String(existing.role ?? (preservedPlan === "seller_premium" || preservedPlan === "seller_beta" || preservedPlan === "seller_pro" ? "seller" : "buyer")))
     : requestedRole === "seller" ? "seller" : "buyer";
 
   const profile = await supabaseUpsert("profiles", {

@@ -5,13 +5,17 @@ import type { SubscriptionPlan } from "@/lib/types";
 
 const priceEnv: Record<Exclude<SubscriptionPlan, "free_buyer">, string> = {
   buyer_pro: "STRIPE_BUYER_PREMIUM_PRICE_ID",
+  buyer_beta: "",
   seller_premium: "STRIPE_SELLER_PREMIUM_PRICE_ID",
+  seller_beta: "",
   seller_pro: "STRIPE_SELLER_PRO_PRICE_ID"
 };
 
 const localizedPriceEnvKeys: Record<Exclude<SubscriptionPlan, "free_buyer">, string> = {
   buyer_pro: "STRIPE_BUYER_PREMIUM",
+  buyer_beta: "",
   seller_premium: "STRIPE_SELLER_PREMIUM",
+  seller_beta: "",
   seller_pro: "STRIPE_SELLER_PRO"
 };
 
@@ -21,7 +25,7 @@ function localizedPriceEnv(plan: Exclude<SubscriptionPlan, "free_buyer">, curren
 }
 
 export function planPriceId(plan: SubscriptionPlan, rawCurrency: unknown = "CAD") {
-  if (plan === "free_buyer") return null;
+  if (plan === "free_buyer" || plan === "buyer_beta" || plan === "seller_beta") return null;
   const currency = normalizeCurrency(rawCurrency);
   return process.env[localizedPriceEnv(plan, currency)] || process.env[localizedPriceEnv(plan, "CAD")] || process.env[localizedPriceEnv(plan, "USD")] || null;
 }
@@ -41,6 +45,10 @@ export async function createCheckoutSession(plan: SubscriptionPlan, email?: stri
 
   if (plan === "free_buyer") {
     return { url: `${getPublicAppUrl()}/account?plan=free_buyer`, mode: "free" };
+  }
+
+  if (plan === "buyer_beta" || plan === "seller_beta") {
+    return { url: `${getPublicAppUrl()}/account?plan=${plan}`, mode: "beta" };
   }
 
   if (!hasStripeEnv()) throw new Error("Stripe Checkout is not configured for paid subscriptions.");
