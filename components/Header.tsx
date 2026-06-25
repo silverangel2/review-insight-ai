@@ -73,6 +73,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
     headerRole === "seller" ||
     headerPlan === "seller_premium" ||
     headerPlan === "seller_pro" ||
+    headerPlan === "seller_beta" ||
     headerEmail === "seller.starter@reviewintel.test";
 
   const headerAccountBlob = JSON.stringify(authenticatedAccount || {}).toLowerCase();
@@ -82,10 +83,12 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
     authenticatedAccount?.role === "seller" ||
     authenticatedAccount?.plan === "seller_premium" ||
     authenticatedAccount?.plan === "seller_pro" ||
+    authenticatedAccount?.plan === "seller_beta" ||
     authenticatedAccount?.email === "seller.starter@reviewintel.test" ||
     headerAccountBlob.includes("seller.starter@reviewintel.test") ||
     headerAccountBlob.includes("seller_premium") ||
     headerAccountBlob.includes("seller_pro") ||
+    headerAccountBlob.includes("seller_beta") ||
     headerAccountBlob.includes('"role":"seller"') ||
     headerAccountBlob.includes('"role": "seller"');
 
@@ -93,6 +96,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
     !hasSellerAccess &&
     (
       accountPlanText.includes("buyer_pro") ||
+      accountPlanText.includes("buyer_beta") ||
       accountPlanText.includes("shopper premium")
     );
 
@@ -181,7 +185,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
         </nav>
 
         <div className="flex shrink-0 items-center justify-end gap-2 whitespace-nowrap">
-          <span className="hidden md:inline-flex"><LanguageSwitcher compact initialLocale={locale} /></span>
+          <span className="inline-flex"><LanguageSwitcher compact initialLocale={locale} /></span>
           {authenticatedAccount ? (
             <Link
               href="/account"
@@ -195,7 +199,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
             <button
               type="button"
               onClick={() => void logoutEverywhere()}
-              className="hidden rounded-2xl bg-ink px-4 py-2.5 text-xs font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink md:inline-flex sm:text-sm"
+              className="inline-flex rounded-2xl bg-ink px-3 py-2 text-[11px] font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink sm:px-4 sm:py-2.5 sm:text-sm"
             >
               {labelFor("Log out")}
             </button>
