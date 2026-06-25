@@ -510,37 +510,95 @@ function ShopperCompareDetail({ result }: { result: AnalyzeResponse }) {
   const record = recordOf(result);
   const productA = record.productA || record.resultA || record.a;
   const productB = record.productB || record.resultB || record.b;
-  const winner = String(record.winner || "");
-  const verdict = String(record.verdict || (winner && winner !== "TIE" ? `Winner: Product ${winner}` : "Comparison result"));
-  const summary = String(record.summary || record.bottomLine || "ReviewIntel compared both products using the saved buying-confidence signals.");
+  const nameA = compareSideName(productA, "Product A");
+  const nameB = compareSideName(productB, "Product B");
+
+  const winner = String(record.winner || record.recommendedProduct || record.bestChoice || "").trim();
+  const verdict = String(
+    record.verdict ||
+      record.finalVerdict ||
+      (winner && winner !== "TIE" ? `I would choose Product ${winner}.` : "Both products are close, but one may still fit you better.")
+  );
+
+  const summary = String(
+    record.summary ||
+      record.bottomLine ||
+      record.reason ||
+      record.why ||
+      "ReviewIntel compared both products using review quality, buyer confidence, value, risk signals, and common complaint patterns."
+  );
+
+  const whyWinner = String(
+    record.whyWinner ||
+      record.winnerReason ||
+      record.reasonWhy ||
+      record.explanation ||
+      record.recommendationReason ||
+      summary
+  );
+
+  const productAReason = String(
+    record.productAReason ||
+      record.reasonA ||
+      record.productAStrength ||
+      record.aReason ||
+      "Product A may still be worth considering if its features, price, or brand fit your needs better."
+  );
+
+  const productBReason = String(
+    record.productBReason ||
+      record.reasonB ||
+      record.productBStrength ||
+      record.bReason ||
+      "Product B may be stronger if it has better buyer confidence, cleaner review patterns, or better value."
+  );
+
+  const riskReason = String(
+    record.riskReason ||
+      record.biggestRisk ||
+      record.warning ||
+      record.redFlag ||
+      "Before buying, check repeated complaints, durability issues, return policy, and review authenticity signals."
+  );
+
   const code = displayCodeForResult({ ...record, type: "compare" }, compareResultTitle(record));
 
   return (
-    <section className="ri-reveal-pop rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:p-7">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-ocean dark:text-cyan-300">Compare result</p>
-          <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">{compareResultTitle(record)}</h2>
-          <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">{code}</p>
-        </div>
-        <Badge tone="info">Shopper Compare</Badge>
+    <section className="shopper-compare-ai-result ri-reveal-pop rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:p-7">
+      <div className="space-y-2">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">AI compare result</p>
+        <h2 className="text-2xl font-semibold leading-tight text-ink dark:text-white">{compareResultTitle(record)}</h2>
+        <p className="text-sm font-normal leading-6 text-slate-500 dark:text-slate-400">{code}</p>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Product A</p>
-          <h3 className="mt-2 text-lg font-black text-ink dark:text-white">{compareSideName(productA, "Product A")}</h3>
+      <div className="mt-5 rounded-[1.5rem] border border-ocean/15 bg-gradient-to-br from-ocean/8 via-white to-cyan-50 p-5 dark:border-cyan-300/20 dark:from-cyan-300/10 dark:via-slate-950 dark:to-slate-900">
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Recommendation</p>
+        <h3 className="mt-2 text-xl font-semibold leading-snug text-ink dark:text-white">{verdict}</h3>
+        <p className="mt-3 text-sm font-normal leading-6 text-slate-700 dark:text-slate-200">{whyWinner}</p>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border border-line bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">Product A</p>
+          <h3 className="mt-2 text-base font-semibold leading-snug text-ink dark:text-white">{nameA}</h3>
+          <p className="mt-2 text-sm font-normal leading-6 text-slate-600 dark:text-slate-300">{productAReason}</p>
         </div>
-        <div className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Product B</p>
-          <h3 className="mt-2 text-lg font-black text-ink dark:text-white">{compareSideName(productB, "Product B")}</h3>
+
+        <div className="rounded-2xl border border-line bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">Product B</p>
+          <h3 className="mt-2 text-base font-semibold leading-snug text-ink dark:text-white">{nameB}</h3>
+          <p className="mt-2 text-sm font-normal leading-6 text-slate-600 dark:text-slate-300">{productBReason}</p>
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-ocean/20 bg-ocean/5 p-5 dark:border-cyan-300/20 dark:bg-cyan-300/10">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-ocean dark:text-cyan-300">Verdict</p>
-        <h3 className="mt-2 text-xl font-black text-ink dark:text-white">{verdict}</h3>
-        <p className="mt-3 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">{summary}</p>
+      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-300/20 dark:bg-amber-300/10">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">Check before buying</p>
+        <p className="mt-2 text-sm font-normal leading-6 text-amber-950 dark:text-amber-100">{riskReason}</p>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">AI explanation</p>
+        <p className="mt-2 text-sm font-normal leading-6 text-slate-700 dark:text-slate-200">{summary}</p>
       </div>
     </section>
   );
@@ -830,7 +888,7 @@ export function ResultsClient() {
       : "/dashboard/customer";
 
   const customerNav = (
-    <div className="mb-5 flex flex-wrap items-center gap-2">
+    <div className="reviewintel-results-secondary-nav mb-5 flex flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={() => window.history.back()}

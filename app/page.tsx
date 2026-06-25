@@ -172,8 +172,8 @@ export default async function LandingPage() {
 
       <PlatformLogoOrbit initialLocale={locale} />
 
-      <section className="home-premium-payoff bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-6 py-12 text-ink">
-        <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-5 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+      <section className="home-premium-payoff bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-14 text-ink sm:px-6 sm:py-12">
+        <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
             <Badge tone="warn">{t("payoff.eyebrow")}</Badge>
             <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">{t("payoff.title")}</h2>
@@ -181,13 +181,13 @@ export default async function LandingPage() {
               {t("payoff.body")}
             </p>
           </div>
-          <div className="ri-reveal-pop grid gap-4 md:grid-cols-3">
+          <div className="ri-reveal-pop home-payoff-card-grid grid gap-4 sm:grid-cols-3">
             {[
               ["87%", t("cards.worthBuying"), t("cards.lowFakeRisk"), "bg-teal"],
               [t("cards.topComplaint"), t("cards.batteryLife"), t("cards.checkBeforeBuying"), "bg-coral"],
               [t("cards.bestFor"), t("cards.studentsOfficeTravel"), t("cards.greatValue"), "bg-ocean"]
             ].map(([eyebrow, title, detail, color]) => (
-              <article key={title} className="relative overflow-hidden rounded-[1.6rem] border border-line bg-white p-5 shadow-soft">
+              <article key={title} className="home-payoff-card relative min-h-[9.25rem] overflow-visible rounded-[1.6rem] border border-line bg-white p-5 shadow-soft">
                 <div className={`absolute right-4 top-4 size-10 rounded-2xl ${color}`} />
                 <p className="text-xs font-black uppercase text-slate-500">{eyebrow}</p>
                 <h3 className="mt-5 text-3xl font-black">{title}</h3>

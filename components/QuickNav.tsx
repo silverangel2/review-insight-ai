@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isSellerPlan } from "@/lib/account";
@@ -78,8 +80,23 @@ export function QuickNav({ mode = "general", current = "" }: QuickNavProps) {
             ...(isPendingSeller ? [{ label: "Activate Seller", href: "/pricing?plan=seller_premium" }] : []),
           ];
 
+  const [hideQuickNavOnMobile, setHideQuickNavOnMobile] = useState(false);
+
+  useEffect(() => {
+    function updateQuickNavVisibility() {
+      const mode = document.documentElement.getAttribute("data-layout-mode");
+      setHideQuickNavOnMobile(mode === "mobile" || window.innerWidth <= 640);
+    }
+
+    updateQuickNavVisibility();
+    window.addEventListener("resize", updateQuickNavVisibility);
+    return () => window.removeEventListener("resize", updateQuickNavVisibility);
+  }, []);
+
+  if (hideQuickNavOnMobile) return null;
+
   return (
-    <nav className="mb-5 rounded-[1.5rem] border border-line bg-white/90 p-3 shadow-soft backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
+    <nav className="reviewintel-quick-nav mb-5 rounded-[1.5rem] border border-line bg-white/90 p-3 shadow-soft backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
       <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
         <button
           type="button"

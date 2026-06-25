@@ -214,7 +214,7 @@ export default function SellerCompareResultPage() {
         </div>
 
         {history.length > 0 ? (
-          <section className="seller-compare-history mt-6 rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="seller-compare-history reviewintel-result-history-anchor mt-6 rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-black text-slate-950">Compare history</h2>
             <div className="mt-4 grid gap-3">
               {history.map((item) => (

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getClientAccount, logoutEverywhere } from "@/lib/clientAccount";
+import { getClientAccount } from "@/lib/clientAccount";
 import type { ClientAccount } from "@/lib/account";
 
 function hasSellerAccess(account: ClientAccount | null) {
@@ -35,10 +35,6 @@ function isShopperPremiumAccount(account: ClientAccount | null) {
       plan.includes("premium")
     )
   );
-}
-
-function logout() {
-  void logoutEverywhere("/login");
 }
 
 export default function MobileTinyNav() {
@@ -100,7 +96,7 @@ export default function MobileTinyNav() {
   }, [account, isPublicMarketingPage]);
 
   return (
-    <nav className="ri-mobile-tiny-nav" aria-label="Mobile navigation">
+    <nav data-mobile-nav="primary" className="reviewintel-mobile-nav ri-mobile-tiny-nav" aria-label="Mobile navigation">
       <div className="ri-mobile-tiny-nav-scroll">
         {links.map(([label, href]) => (
           <Link
@@ -114,11 +110,7 @@ export default function MobileTinyNav() {
           </Link>
         ))}
 
-        {!isPublicMarketingPage ? (
-          <button type="button" onClick={logout}>
-            Log out
-          </button>
-        ) : null}
+
       </div>
     </nav>
   );

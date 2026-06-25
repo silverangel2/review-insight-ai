@@ -181,7 +181,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
         </nav>
 
         <div className="flex shrink-0 items-center justify-end gap-2 whitespace-nowrap">
-          <LanguageSwitcher compact initialLocale={locale} />
+          <span className="hidden md:inline-flex"><LanguageSwitcher compact initialLocale={locale} /></span>
           {authenticatedAccount ? (
             <Link
               href="/account"
@@ -195,7 +195,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
             <button
               type="button"
               onClick={() => void logoutEverywhere()}
-              className="rounded-2xl bg-ink px-4 py-2.5 text-xs font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink sm:text-sm"
+              className="hidden rounded-2xl bg-ink px-4 py-2.5 text-xs font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink md:inline-flex sm:text-sm"
             >
               {labelFor("Log out")}
             </button>

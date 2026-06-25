@@ -320,7 +320,7 @@ export function ShopperResultHistoryCorner() {
   if (!items.length) return null;
 
   return (
-    <div className="fixed left-5 top-28 z-50 w-[280px] max-w-[calc(100vw-2rem)]">
+    <div className="reviewintel-result-history-anchor fixed left-5 top-28 z-50 w-[280px] max-w-[calc(100vw-2rem)]">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -330,7 +330,7 @@ export function ShopperResultHistoryCorner() {
       </button>
 
       {open ? (
-        <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
+        <div className="reviewintel-history-popup-panel mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
               {shopperHistoryCopy(readStoredLocale()).savedTests}

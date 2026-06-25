@@ -111,7 +111,7 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
   const locale = normalizeLocale(initialLocale);
 
   return (
-    <section className="relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/70 bg-[radial-gradient(circle_at_16%_14%,rgba(45,212,191,0.36),transparent_30%),radial-gradient(circle_at_78%_14%,rgba(96,165,250,0.34),transparent_33%),radial-gradient(circle_at_54%_94%,rgba(251,191,36,0.36),transparent_34%),radial-gradient(circle_at_92%_82%,rgba(244,114,182,0.20),transparent_26%),linear-gradient(135deg,#d6fff8_0%,#f8fdff_42%,#fff1c8_100%)] px-6 py-10 text-ink shadow-[0_40px_130px_rgba(35,86,163,0.16)]">
+    <section className="ri-orbit-section relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/70 bg-[radial-gradient(circle_at_16%_14%,rgba(45,212,191,0.36),transparent_30%),radial-gradient(circle_at_78%_14%,rgba(96,165,250,0.34),transparent_33%),radial-gradient(circle_at_54%_94%,rgba(251,191,36,0.36),transparent_34%),radial-gradient(circle_at_92%_82%,rgba(244,114,182,0.20),transparent_26%),linear-gradient(135deg,#d6fff8_0%,#f8fdff_42%,#fff1c8_100%)] px-6 py-10 text-ink shadow-[0_40px_130px_rgba(35,86,163,0.16)]">
       <style jsx>{`
         @keyframes riCarouselPan {
           0% { transform: translateX(0) rotateZ(-0.6deg); }
@@ -141,13 +141,130 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
         @keyframes riCenterFloat { 0%, 100% { transform: translate(-50%, -50%) translateY(0) scale(1); } 50% { transform: translate(-50%, -50%) translateY(-8px) scale(1.025); } }
         .ri-carousel-track { animation: riCarouselPan 30s linear infinite; transform-origin: center; will-change: transform; }
         .ri-carousel-track:hover { animation-play-state: paused; }
-        .ri-flip-shell { perspective: 1050px; }
-        .ri-glass-card { position: relative; transform-style: preserve-3d; will-change: transform; }
+        .ri-flip-shell { perspective: 1050px; -webkit-perspective: 1050px; }
+        .ri-glass-card { position: relative; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; will-change: transform; }
         .ri-glass-card:nth-child(odd) { animation-name: riRandomFlipA; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
         .ri-glass-card:nth-child(even) { animation-name: riRandomFlipB; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
-        .ri-card-face { position: absolute; inset: 0; backface-visibility: hidden; transform-style: preserve-3d; overflow: hidden; border-radius: 2rem; }
-        .ri-card-back { transform: rotateY(180deg); }
+        .ri-card-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; overflow: hidden; border-radius: 2rem; }
+        .ri-card-back { transform: rotateY(180deg); -webkit-transform: rotateY(180deg); }
         .ri-card-shine { animation-name: riGlassSweep; animation-duration: 9s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+        @media (max-width: 640px) {
+          .ri-orbit-section {
+            min-height: 430px !important;
+            border-radius: 1.7rem !important;
+            padding: 1.25rem 0.75rem !important;
+          }
+
+          .ri-orbit-title {
+            max-width: 19rem !important;
+          }
+
+          .ri-orbit-title h2 {
+            margin-top: 0.85rem !important;
+            font-size: 1.55rem !important;
+            line-height: 1.05 !important;
+            letter-spacing: -0.05em !important;
+          }
+
+          .ri-orbit-title p {
+            font-size: 0.62rem !important;
+            padding: 0.45rem 0.65rem !important;
+          }
+
+          .ri-carousel-window {
+            margin-top: 1.25rem !important;
+            padding-top: 1.7rem !important;
+            padding-bottom: 1.7rem !important;
+          }
+
+          .ri-carousel-track {
+            gap: 1rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            animation-duration: 20s !important;
+          }
+
+          .ri-flip-shell {
+            width: 8.2rem !important;
+            height: 9.25rem !important;
+          }
+
+          .ri-glass-card:nth-child(odd) {
+            animation-duration: 7.5s !important;
+          }
+
+          .ri-glass-card:nth-child(even) {
+            animation-duration: 8.2s !important;
+          }
+
+          .ri-card-face {
+            border-radius: 1.35rem !important;
+            padding: 0.85rem !important;
+          }
+
+          .ri-card-face > div[style],
+          .ri-card-face > div.absolute {
+            border-radius: 1.35rem !important;
+          }
+
+          .ri-logo-mark {
+            width: 3.1rem !important;
+            height: 3.1rem !important;
+            border-radius: 1rem !important;
+            font-size: 1.55rem !important;
+          }
+
+          .ri-platform-name {
+            margin-top: 0.75rem !important;
+            font-size: 0.9rem !important;
+            line-height: 1.05 !important;
+          }
+
+          .ri-platform-sub {
+            margin-top: 0.35rem !important;
+            font-size: 0.48rem !important;
+            letter-spacing: 0.12em !important;
+          }
+
+          .ri-review-text {
+            margin-top: 0.65rem !important;
+            font-size: 0.68rem !important;
+            line-height: 1.35 !important;
+          }
+
+          .ri-review-chip {
+            font-size: 0.48rem !important;
+            line-height: 1.15 !important;
+            padding: 0.45rem 0.55rem !important;
+          }
+
+          .ri-center-core {
+            width: 7.15rem !important;
+            height: 7.15rem !important;
+            border-radius: 1.45rem !important;
+            left: 50% !important;
+            top: 52% !important;
+          }
+
+          .ri-center-core > div:nth-child(2) {
+            width: 3rem !important;
+            height: 3rem !important;
+            border-radius: 1rem !important;
+            font-size: 1.25rem !important;
+          }
+
+          .ri-center-core p:nth-of-type(1) {
+            margin-top: 0.65rem !important;
+            font-size: 0.58rem !important;
+            letter-spacing: 0.12em !important;
+          }
+
+          .ri-center-core p:nth-of-type(2) {
+            font-size: 0.45rem !important;
+            letter-spacing: 0.12em !important;
+          }
+        }
       `}</style>
 
       <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,.36)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.36)_1px,transparent_1px)] [background-size:38px_38px]" />
@@ -156,7 +273,7 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
       <div className="absolute bottom-[-14%] left-[20%] h-96 w-96 rounded-full bg-amber/34 blur-3xl" style={{ animation: "riOrbFloatThree 17s ease-in-out infinite" }} />
       <div className="absolute bottom-[4%] right-[18%] h-72 w-72 rounded-full bg-fuchsia-400/18 blur-3xl" style={{ animation: "riOrbFloatOne 18s ease-in-out infinite reverse" }} />
 
-      <div className="relative z-20 mx-auto max-w-3xl text-center">
+      <div className="ri-orbit-title relative z-20 mx-auto max-w-3xl text-center">
         <p className="mx-auto inline-flex rounded-full border border-white/70 bg-white/60 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-ocean shadow-sm backdrop-blur-lg">
           {t(locale, "Marketplace intelligence")}
         </p>
@@ -165,7 +282,7 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
         </h2>
       </div>
 
-      <div className="relative z-10 mt-12 overflow-hidden py-16">
+      <div className="ri-carousel-window relative z-10 mt-12 overflow-hidden py-16">
         <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-28 bg-gradient-to-r from-[#e4fffb] to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 z-20 h-full w-28 bg-gradient-to-l from-[#fff1cd] to-transparent" />
         <div className="ri-carousel-track flex w-max gap-8 px-8">
@@ -180,11 +297,11 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
                   <div className="absolute inset-[1px] rounded-[1.95rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.05)_48%,rgba(255,255,255,0.14))]" />
                   <div className="ri-card-shine absolute inset-0 z-[3] rounded-[2rem] bg-[linear-gradient(115deg,transparent_10%,rgba(255,255,255,0.52)_33%,transparent_58%)]" style={{ animationDelay: platform.shineDelay }} />
                   <div className="relative z-[4] flex h-full flex-col items-center justify-center">
-                    <div className="grid h-20 w-20 place-items-center rounded-3xl border border-white/70 shadow-[0_18px_55px_rgba(15,23,42,0.12)] bg-white/18 text-4xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_18px_60px_rgba(0,0,0,0.25)]">
+                    <div className="ri-logo-mark grid h-20 w-20 place-items-center rounded-3xl border border-white/70 shadow-[0_18px_55px_rgba(15,23,42,0.12)] bg-white/18 text-4xl font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_18px_60px_rgba(0,0,0,0.25)]">
                       {platform.mark}
                     </div>
-                    <p className="mt-5 text-lg font-black">{platform.name}</p>
-                    <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-900/75">{t(locale, platform.sub)}</p>
+                    <p className="ri-platform-name mt-5 text-lg font-black">{platform.name}</p>
+                    <p className="ri-platform-sub mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-900/75">{t(locale, platform.sub)}</p>
                   </div>
                 </div>
 
@@ -193,9 +310,9 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
                   <div className="relative z-[4] flex h-full flex-col justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-900">{t(locale, "Review signal")}</p>
-                      <p className="mt-4 text-sm font-black leading-6 text-white">{t(locale, platform.review)}</p>
+                      <p className="ri-review-text mt-4 text-sm font-black leading-6 text-white">{t(locale, platform.review)}</p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-900">
+                    <div className="ri-review-chip rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-900">
                       {t(locale, "AI extracts risk + buyer signal")}
                     </div>
                   </div>
@@ -205,7 +322,7 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
           ))}
         </div>
 
-        <div className="pointer-events-none absolute left-1/2 top-1/2 z-30 flex h-48 w-48 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[2.25rem] border border-white/35 bg-white/16 text-center shadow-[0_0_110px_rgba(20,184,166,0.52)] backdrop-blur-2xl" style={{ animation: "riCenterFloat 5s ease-in-out infinite" }}>
+        <div className="ri-center-core pointer-events-none absolute left-1/2 top-1/2 z-30 flex h-48 w-48 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[2.25rem] border border-white/35 bg-white/16 text-center shadow-[0_0_110px_rgba(20,184,166,0.52)] backdrop-blur-2xl" style={{ animation: "riCenterFloat 5s ease-in-out infinite" }}>
           <div className="absolute inset-0 rounded-[2.25rem] bg-[linear-gradient(135deg,rgba(255,255,255,0.34),rgba(255,255,255,0.06))]" />
           <div className="relative grid h-20 w-20 place-items-center rounded-3xl bg-[linear-gradient(135deg,#08b7a8,#2356a3_54%,#ffb238)] text-3xl font-black text-white shadow-glow">RI</div>
           <p className="relative mt-4 text-sm font-black tracking-[0.22em]">REVIEWINTEL</p>

@@ -305,7 +305,7 @@ export function SellerResultHistoryCorner() {
   }
 
   return (
-    <div className="fixed left-5 top-28 z-50 w-[280px] max-w-[calc(100vw-2rem)]">
+    <div className="reviewintel-result-history-anchor fixed left-5 top-28 z-50 w-[280px] max-w-[calc(100vw-2rem)]">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -315,7 +315,7 @@ export function SellerResultHistoryCorner() {
       </button>
 
       {open ? (
-        <div className="mt-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
+        <div className="reviewintel-history-popup-panel mt-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
               {sellerHistoryCopy(readStoredLocale()).savedTests}

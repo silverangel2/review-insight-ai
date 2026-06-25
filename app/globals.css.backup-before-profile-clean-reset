@@ -1,0 +1,3768 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f2fbff;
+  --ri-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ri-fast: 180ms;
+  --ri-medium: 360ms;
+}
+
+.dark {
+  color-scheme: dark;
+  background: #050816;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 10% 8%, rgba(8, 183, 168, 0.16), transparent 26%),
+    radial-gradient(circle at 88% 10%, rgba(255, 178, 56, 0.22), transparent 24%),
+    radial-gradient(circle at 72% 80%, rgba(35, 86, 163, 0.16), transparent 28%),
+    linear-gradient(180deg, rgba(250, 254, 255, 0.96), rgba(241, 247, 255, 1)),
+    #f2fbff;
+  color: #172033;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(8, 183, 168, 0.22), transparent 32%),
+    radial-gradient(circle at top right, rgba(255, 178, 56, 0.13), transparent 26%),
+    radial-gradient(circle at 74% 72%, rgba(118, 87, 184, 0.22), transparent 34%),
+    #050816;
+  color: #e5eefb;
+}
+
+::selection {
+  background: rgba(15, 159, 154, 0.18);
+}
+
+.ri-scan-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(180deg, black, transparent 82%);
+}
+
+.ri-scan-beam {
+  animation: scanBeam 5.5s ease-in-out infinite;
+  background: linear-gradient(180deg, transparent, rgba(15, 159, 154, 0.22), transparent);
+  filter: blur(2px);
+}
+
+.ri-shimmer {
+  background-size: 220% 100%;
+  animation: shimmerSweep 6s ease-in-out infinite;
+}
+
+.ri-reveal-pop {
+  animation: revealPop var(--ri-medium) var(--ri-ease) both;
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
+.ri-premium-motion,
+.ri-reveal-pop,
+a,
+button {
+  transition-duration: var(--ri-fast);
+  transition-timing-function: var(--ri-ease);
+}
+
+.ri-score-orbit {
+  position: relative;
+  animation: scoreFloat 4.5s ease-in-out infinite;
+}
+
+.ri-score-orbit::before,
+.ri-score-orbit::after {
+  position: absolute;
+  content: "";
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.ri-score-orbit::before {
+  inset: -14px;
+  border: 2px dashed rgba(255, 255, 255, 0.46);
+  animation: orbitSpin 10s linear infinite;
+}
+
+.ri-score-orbit::after {
+  inset: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  animation: orbitSpin 7s linear infinite reverse;
+}
+
+.ri-result-firework {
+  width: 9rem;
+  height: 9rem;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.9) 0deg 4deg, transparent 4deg 18deg),
+    radial-gradient(circle, rgba(255, 255, 255, 0.5) 0 2px, transparent 3px);
+  mask-image: radial-gradient(circle, transparent 0 18%, black 19% 48%, transparent 49%);
+  animation: fireworkSpin 9s linear infinite;
+}
+
+.ri-mini-bot {
+  min-height: 13rem;
+}
+
+.ri-mini-bot-head {
+  position: relative;
+  display: flex;
+  width: 8.5rem;
+  height: 6rem;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  margin: 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 1.6rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(204, 252, 255, 0.84)),
+    #ffffff;
+  box-shadow: 0 18px 60px rgba(8, 183, 168, 0.25);
+  animation: botNod 3s ease-in-out infinite;
+}
+
+.ri-mini-bot-head::before {
+  position: absolute;
+  top: -1.4rem;
+  left: 50%;
+  width: 2px;
+  height: 1.4rem;
+  content: "";
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.ri-mini-bot-head::after {
+  position: absolute;
+  top: -1.75rem;
+  left: calc(50% - 0.35rem);
+  width: 0.7rem;
+  height: 0.7rem;
+  content: "";
+  border-radius: 999px;
+  background: #ffb238;
+  box-shadow: 0 0 22px rgba(255, 178, 56, 0.9);
+}
+
+.ri-mini-bot-head span {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  background: #172033;
+  box-shadow: 0 0 0 7px rgba(8, 183, 168, 0.16);
+  animation: botBlink 4.6s ease-in-out infinite;
+}
+
+.ri-hero-aurora {
+  background:
+    radial-gradient(circle at 18% 24%, rgba(15, 159, 154, 0.28), transparent 28%),
+    radial-gradient(circle at 72% 18%, rgba(118, 87, 184, 0.26), transparent 30%),
+    radial-gradient(circle at 82% 76%, rgba(214, 139, 31, 0.16), transparent 26%),
+    linear-gradient(135deg, rgba(5, 8, 22, 0.65), rgba(23, 32, 51, 0.86));
+  animation: heroAurora 12s ease-in-out infinite;
+}
+
+.ri-orb-haze {
+  background:
+    radial-gradient(circle at 50% 28%, rgba(15, 159, 154, 0.22), transparent 30%),
+    radial-gradient(circle at 40% 64%, rgba(118, 87, 184, 0.24), transparent 34%),
+    radial-gradient(circle at 72% 58%, rgba(214, 139, 31, 0.12), transparent 28%);
+  animation: orbHaze 7s ease-in-out infinite;
+}
+
+.ri-ai-orb {
+  position: relative;
+  display: grid;
+  width: 8.5rem;
+  height: 8.5rem;
+  place-items: center;
+  animation: orbVibrate 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 42px rgba(15, 159, 154, 0.55));
+}
+
+.ri-ai-orb-core {
+  position: absolute;
+  inset: 1.1rem;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.98), rgba(180, 255, 250, 0.9) 18%, transparent 19%),
+    radial-gradient(circle at 68% 68%, rgba(118, 87, 184, 0.65), transparent 24%),
+    radial-gradient(circle at 48% 48%, #d9fffb, #0f9f9a 52%, #2356a3);
+  box-shadow:
+    inset -16px -20px 38px rgba(5, 8, 22, 0.45),
+    inset 10px 12px 24px rgba(255, 255, 255, 0.28),
+    0 0 68px rgba(15, 159, 154, 0.6);
+}
+
+.ri-ai-orb-ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 999px;
+  animation: orbPulse 2.6s ease-out infinite;
+}
+
+.ri-ai-orb-ring-delay {
+  animation-delay: 1.1s;
+  border-color: rgba(118, 87, 184, 0.5);
+}
+
+.ri-progress-ring {
+  animation: progressGlow 5.2s ease-in-out infinite;
+  border-radius: 999px;
+}
+
+.ri-progress-segment {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.34rem;
+  height: 1.2rem;
+  margin-top: -0.6rem;
+  margin-left: -0.17rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 18px rgba(8, 183, 168, 0);
+  animation: segmentFill 2.9s ease-in-out infinite;
+}
+
+.ri-pixie-field span,
+.ri-loading-particles span {
+  position: absolute;
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 0 16px rgba(143, 255, 244, 0.7),
+    0 0 30px rgba(118, 87, 184, 0.34);
+  animation: pixieDrift 7.8s ease-in-out infinite;
+}
+
+.ri-pixie-field span:nth-child(3n),
+.ri-loading-particles span:nth-child(3n) {
+  background: #8ffff4;
+  box-shadow: 0 0 20px rgba(143, 255, 244, 0.9);
+}
+
+.ri-pixie-field span:nth-child(4n),
+.ri-loading-particles span:nth-child(4n) {
+  background: #ffd2e3;
+  box-shadow: 0 0 22px rgba(255, 93, 143, 0.58);
+}
+
+.ri-home-orb {
+  position: absolute;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 999px;
+  opacity: 0.72;
+  filter: blur(18px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.ri-home-orb-one {
+  left: 62%;
+  top: 14%;
+  background: radial-gradient(circle at 32% 28%, #ffffff, #8ffff4 18%, #2356a3 54%, transparent 72%);
+  animation: homeOrbOne 14s ease-in-out infinite;
+}
+
+.ri-home-orb-two {
+  left: 8%;
+  bottom: 10%;
+  background: radial-gradient(circle at 62% 35%, #ffffff, #ffd2e3 22%, #7657b8 55%, transparent 74%);
+  animation: homeOrbTwo 16s ease-in-out infinite;
+}
+
+.ri-scan-fog {
+  background:
+    radial-gradient(circle at 18% 30%, rgba(8, 183, 168, 0.24), transparent 28%),
+    radial-gradient(circle at 78% 24%, rgba(118, 87, 184, 0.25), transparent 30%),
+    radial-gradient(circle at 60% 82%, rgba(255, 93, 143, 0.16), transparent 30%),
+    radial-gradient(circle at 38% 68%, rgba(255, 255, 255, 0.12), transparent 34%);
+  animation: scanFogShift 9s ease-in-out infinite;
+}
+
+.ri-loading-particles span {
+  width: 0.28rem;
+  height: 0.28rem;
+  animation-name: loadingParticleDrift;
+}
+
+.ri-energy-wave {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44rem;
+  height: 44rem;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 255, 244, 0.15);
+  box-shadow:
+    inset 0 0 70px rgba(8, 183, 168, 0.08),
+    0 0 90px rgba(118, 87, 184, 0.12);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: energyWave 7s ease-in-out infinite;
+}
+
+.ri-energy-wave-two {
+  width: 58rem;
+  height: 58rem;
+  border-color: rgba(255, 178, 56, 0.12);
+  animation-delay: 1.8s;
+  animation-duration: 9s;
+}
+
+.ri-scan-corner {
+  position: absolute;
+  width: 9rem;
+  height: 9rem;
+  border-radius: 999px;
+  opacity: 0.76;
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+.ri-scan-corner-a {
+  left: -3rem;
+  top: -3rem;
+  background: rgba(8, 183, 168, 0.42);
+  animation: cornerPulse 5.5s ease-in-out infinite;
+}
+
+.ri-scan-corner-b {
+  right: -3rem;
+  top: -2rem;
+  background: rgba(118, 87, 184, 0.42);
+  animation: cornerPulse 6.1s ease-in-out infinite reverse;
+}
+
+.ri-scan-corner-c {
+  bottom: -3rem;
+  left: 4rem;
+  background: rgba(255, 93, 143, 0.28);
+  animation: cornerPulse 6.8s ease-in-out infinite;
+}
+
+.ri-scan-corner-d {
+  right: 3rem;
+  bottom: -3rem;
+  background: rgba(255, 178, 56, 0.3);
+  animation: cornerPulse 7.2s ease-in-out infinite reverse;
+}
+
+@keyframes scanBeam {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  74% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(440%);
+    opacity: 0;
+  }
+}
+
+@keyframes heroAurora {
+  0%,
+  100% {
+    filter: saturate(1) brightness(1);
+    transform: scale(1);
+  }
+  50% {
+    filter: saturate(1.18) brightness(1.08);
+    transform: scale(1.03);
+  }
+}
+
+@keyframes orbHaze {
+  0%,
+  100% {
+    filter: hue-rotate(0deg) blur(0);
+    opacity: 0.9;
+  }
+  50% {
+    filter: hue-rotate(22deg) blur(1px);
+    opacity: 1;
+  }
+}
+
+@keyframes orbPulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.72) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45) rotate(18deg);
+  }
+}
+
+@keyframes orbVibrate {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  20% {
+    transform: translate3d(1px, -2px, 0) scale(1.02);
+  }
+  40% {
+    transform: translate3d(-2px, 1px, 0) scale(0.99);
+  }
+  60% {
+    transform: translate3d(2px, 2px, 0) scale(1.03);
+  }
+  80% {
+    transform: translate3d(-1px, -1px, 0) scale(1);
+  }
+}
+
+@keyframes segmentFill {
+  0%,
+  18% {
+    background: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 0 14px rgba(8, 183, 168, 0);
+    opacity: 0.46;
+  }
+  45%,
+  78% {
+    background: linear-gradient(180deg, #ffffff, #8ffff4 48%, #ffdc8a);
+    box-shadow: 0 0 24px rgba(8, 183, 168, 0.9);
+    opacity: 1;
+  }
+  100% {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 14px rgba(8, 183, 168, 0.1);
+    opacity: 0.62;
+  }
+}
+
+@keyframes progressGlow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 18px rgba(8, 183, 168, 0.24));
+  }
+  50% {
+    filter: drop-shadow(0 0 36px rgba(255, 178, 56, 0.45));
+  }
+}
+
+@keyframes pixieDrift {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: translate3d(0, 0, 0) scale(0.8);
+  }
+  45% {
+    opacity: 1;
+    transform: translate3d(24px, -32px, 0) scale(1.28);
+  }
+  72% {
+    opacity: 0.78;
+    transform: translate3d(-18px, 20px, 0) scale(0.92);
+  }
+}
+
+@keyframes loadingParticleDrift {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translate3d(0, 0, 0) scale(0.8);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate3d(34px, -44px, 0) scale(1.22);
+  }
+}
+
+@keyframes homeOrbOne {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-42px, 36px, 0) scale(1.08);
+  }
+}
+
+@keyframes homeOrbTwo {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.94);
+  }
+  50% {
+    transform: translate3d(52px, -28px, 0) scale(1.06);
+  }
+}
+
+@keyframes scanFogShift {
+  0%,
+  100% {
+    filter: hue-rotate(0deg) saturate(1);
+    transform: scale(1);
+  }
+  50% {
+    filter: hue-rotate(18deg) saturate(1.18);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes energyWave {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: translate(-50%, -50%) scale(0.82) rotate(0deg);
+  }
+  48% {
+    opacity: 0.44;
+    transform: translate(-50%, -50%) scale(1.04) rotate(14deg);
+  }
+}
+
+@keyframes cornerPulse {
+  0%,
+  100% {
+    opacity: 0.36;
+    transform: translate3d(0, 0, 0) scale(0.92);
+  }
+  50% {
+    opacity: 0.78;
+    transform: translate3d(18px, 12px, 0) scale(1.12);
+  }
+}
+
+@keyframes shimmerSweep {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes revealPop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.992);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes scoreFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes orbitSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fireworkSpin {
+  0% {
+    opacity: 0.72;
+    transform: rotate(0deg) scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(180deg) scale(1.04);
+  }
+  100% {
+    opacity: 0.72;
+    transform: rotate(360deg) scale(0.92);
+  }
+}
+
+@keyframes botNod {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(1deg);
+  }
+}
+
+@keyframes botBlink {
+  0%,
+  88%,
+  100% {
+    transform: scaleY(1);
+  }
+  92% {
+    transform: scaleY(0.12);
+  }
+}
+
+.ri-platform-orbit {
+  --orbit-radius: 13rem;
+  position: relative;
+  min-height: 36rem;
+  overflow: hidden;
+  border: 1px solid rgba(143, 255, 244, 0.18);
+  border-radius: 2rem;
+  background:
+    linear-gradient(rgba(143, 255, 244, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143, 255, 244, 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgba(8, 183, 168, 0.26), transparent 22%),
+    radial-gradient(circle at 20% 24%, rgba(118, 87, 184, 0.24), transparent 28%),
+    radial-gradient(circle at 78% 76%, rgba(255, 178, 56, 0.16), transparent 30%),
+    linear-gradient(135deg, rgba(5, 8, 22, 0.96), rgba(12, 32, 62, 0.94));
+  background-size: 38px 38px, 38px 38px, auto, auto, auto, auto;
+  box-shadow: 0 34px 110px rgba(35, 86, 163, 0.26);
+}
+
+.ri-platform-spark {
+  position: absolute;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 999px;
+  filter: blur(34px);
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.ri-platform-spark-a {
+  left: 8%;
+  top: 12%;
+  background: radial-gradient(circle, rgba(8, 183, 168, 0.45), transparent 62%);
+  animation: platformSparkDrift 9s ease-in-out infinite;
+}
+
+.ri-platform-spark-b {
+  right: 4%;
+  bottom: 8%;
+  background: radial-gradient(circle, rgba(255, 178, 56, 0.42), transparent 62%);
+  animation: platformSparkDrift 10s ease-in-out infinite reverse;
+}
+
+.dark .ri-platform-orbit {
+  border-color: rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(rgba(143, 255, 244, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143, 255, 244, 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgba(8, 183, 168, 0.18), transparent 24%),
+    radial-gradient(circle at 20% 24%, rgba(118, 87, 184, 0.2), transparent 28%),
+    radial-gradient(circle at 78% 74%, rgba(255, 178, 56, 0.12), transparent 28%),
+    #0b1220;
+  background-size: 38px 38px, 38px 38px, auto, auto, auto, auto;
+}
+
+.ri-platform-orbit::before,
+.ri-platform-orbit::after {
+  position: absolute;
+  inset: 4.5rem;
+  content: "";
+  border: 1px solid rgba(143, 255, 244, 0.16);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 34px rgba(8, 183, 168, 0.1),
+    0 0 44px rgba(8, 183, 168, 0.1);
+  animation: orbitSpin 18s linear infinite;
+}
+
+.ri-platform-orbit::after {
+  inset: 8rem;
+  border-color: rgba(118, 87, 184, 0.24);
+  animation-duration: 12s;
+  animation-direction: reverse;
+}
+
+.ri-platform-scanline {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 0 42%, rgba(143, 255, 244, 0.16) 48%, transparent 56% 100%);
+  filter: blur(4px);
+  opacity: 0.7;
+  transform: translateX(-120%);
+  animation: platformScanSweep 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ri-platform-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  width: 10rem;
+  height: 10rem;
+  place-items: center;
+  border: 1px solid rgba(143, 255, 244, 0.28);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.9), transparent 9%),
+    radial-gradient(circle at 50% 50%, rgba(8, 183, 168, 0.82), rgba(35, 86, 163, 0.88) 56%, rgba(5, 8, 22, 0.96));
+  color: #ffffff;
+  box-shadow:
+    0 0 0 10px rgba(143, 255, 244, 0.04),
+    0 0 70px rgba(8, 183, 168, 0.34),
+    0 26px 90px rgba(8, 183, 168, 0.28);
+  transform: translate(-50%, -50%);
+  animation: platformCorePulse 4.8s ease-in-out infinite;
+}
+
+.ri-platform-center span {
+  display: grid;
+  width: 3.4rem;
+  height: 3.4rem;
+  place-items: center;
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.16);
+  font-weight: 900;
+}
+
+.ri-platform-center strong {
+  margin-top: -1.8rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ri-platform-center em {
+  margin-top: -2.3rem;
+  color: rgba(210, 245, 255, 0.74);
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ri-platform-node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  display: inline-flex;
+  min-width: 8.4rem;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.82rem;
+  border: 1px solid color-mix(in srgb, var(--brand), white 40%);
+  border-radius: 1rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04)),
+    rgba(6, 14, 28, 0.84);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.26),
+    0 0 30px color-mix(in srgb, var(--brand), transparent 74%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: center;
+  backdrop-filter: blur(14px);
+  transform:
+    translate(-50%, -50%)
+    rotate(var(--angle))
+    translateY(calc(-1 * var(--orbit-radius)))
+    rotate(var(--reverse-angle));
+  animation: platformNodeOrbit 14s linear infinite;
+  will-change: transform;
+}
+
+.dark .ri-platform-node {
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04)),
+    rgba(6, 14, 28, 0.84);
+  color: #ffffff;
+}
+
+.ri-platform-mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.8rem;
+  background: var(--brand);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 950;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--brand), transparent 55%);
+}
+
+@media (max-width: 700px) {
+  .ri-platform-orbit {
+    --orbit-radius: 7.6rem;
+    min-height: 27rem;
+  }
+
+  .ri-platform-center {
+    width: 7rem;
+    height: 7rem;
+  }
+
+  .ri-platform-center span {
+    width: 2.8rem;
+    height: 2.8rem;
+  }
+
+  .ri-platform-center strong {
+    margin-top: -1.5rem;
+    font-size: 0.7rem;
+  }
+
+  .ri-platform-center em {
+    margin-top: -1.9rem;
+    max-width: 5rem;
+    font-size: 0.5rem;
+    text-align: center;
+  }
+
+  .ri-platform-node {
+    min-width: 6.35rem;
+    gap: 0.45rem;
+    padding: 0.52rem 0.58rem;
+    font-size: 0.62rem;
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--angle))
+      translateY(calc(-1 * var(--orbit-radius)))
+      rotate(var(--reverse-angle));
+  }
+
+  .ri-platform-mark {
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 0.62rem;
+    font-size: 0.72rem;
+  }
+}
+
+@keyframes platformNodeOrbit {
+  0% {
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--angle))
+      translateY(calc(-1 * var(--orbit-radius)))
+      rotate(var(--reverse-angle));
+  }
+  100% {
+    transform:
+      translate(-50%, -50%)
+      rotate(calc(var(--angle) + 360deg))
+      translateY(calc(-1 * var(--orbit-radius)))
+      rotate(calc(var(--reverse-angle) - 360deg));
+  }
+}
+
+@keyframes platformScanSweep {
+  0%,
+  24% {
+    transform: translateX(-120%);
+  }
+  72%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes platformCorePulse {
+  0%,
+  100% {
+    filter: saturate(1);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    filter: saturate(1.22);
+    transform: translate(-50%, -50%) scale(1.035);
+  }
+}
+
+@keyframes platformSparkDrift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(1.4rem, -1rem, 0) scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes reviewintel-soft-flip {
+  0%, 38% {
+    transform: rotateY(0deg) translateY(0);
+    opacity: 1;
+  }
+  45%, 55% {
+    transform: rotateY(90deg) translateY(-2px);
+    opacity: 0.35;
+  }
+  62%, 100% {
+    transform: rotateY(0deg) translateY(0);
+    opacity: 1;
+  }
+}
+
+.reviewintel-flip-card {
+  animation: reviewintel-soft-flip 8s ease-in-out infinite;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reviewintel-flip-card {
+    animation: none;
+  }
+}
+
+
+/* ReviewIntel premium scan animation */
+@keyframes reviewintel-orb-vibrate {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); filter: saturate(1.08); }
+  20% { transform: translate3d(1px, -1px, 0) scale(1.015); }
+  40% { transform: translate3d(-1px, 1px, 0) scale(0.995); }
+  60% { transform: translate3d(1px, 1px, 0) scale(1.02); }
+  80% { transform: translate3d(-1px, -1px, 0) scale(1.005); }
+}
+
+@keyframes reviewintel-orb-glow {
+  0%, 100% { box-shadow: 0 0 38px rgba(8,183,168,0.38), inset 0 0 28px rgba(255,255,255,0.34); }
+  50% { box-shadow: 0 0 78px rgba(8,183,168,0.68), inset 0 0 42px rgba(255,255,255,0.46); }
+}
+
+@keyframes reviewintel-ring-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes reviewintel-bar-flow {
+  0% { transform: translateX(-100%); opacity: 0.2; }
+  35% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0.15; }
+}
+
+.ri-house-ad-slot {
+  position: relative;
+  overflow: hidden;
+}
+
+.ri-house-ad-slot::after {
+  content: "";
+  position: absolute;
+  inset: -45% auto -45% -30%;
+  width: 34%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  
+}
+
+/* removed reviewintel-house-ad-sweep */ {
+  0%, 44% {
+    opacity: 0;
+    transform: translateX(-40%) rotate(18deg);
+  }
+  56% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(430%) rotate(18deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ri-house-ad-slot::after {
+    display: none;
+    animation: none;
+  }
+}
+
+.reviewintel-scan-orb {
+  animation: reviewintel-orb-vibrate 0.9s ease-in-out infinite, reviewintel-orb-glow 2.4s ease-in-out infinite;
+}
+
+.reviewintel-scan-ring {
+  animation: reviewintel-ring-sweep 2.2s linear infinite;
+}
+
+.reviewintel-scan-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent);
+  animation: reviewintel-bar-flow 1.6s ease-in-out infinite;
+}
+
+
+/* ReviewIntel scan: only control appearance of circular Apple Watch update bars */
+.ri-watch-progress-controlled {
+  animation: none !important;
+}
+
+.ri-watch-progress-controlled .ri-watch-progress-segment-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.ri-watch-progress-controlled .ri-watch-progress-segment-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* ReviewIntel global layout mode system */
+html[data-layout-mode="mobile"] body {
+  overflow-x: hidden;
+}
+
+html[data-layout-mode="mobile"] main,
+html[data-layout-mode="mobile"] section,
+html[data-layout-mode="mobile"] article,
+html[data-layout-mode="mobile"] form {
+  max-width: 100%;
+}
+
+html[data-layout-mode="mobile"] .grid {
+  grid-template-columns: 1fr !important;
+}
+
+html[data-layout-mode="mobile"] [class*="grid-cols-"] {
+  grid-template-columns: 1fr !important;
+}
+
+html[data-layout-mode="mobile"] [class*="xl:grid-cols-"],
+html[data-layout-mode="mobile"] [class*="lg:grid-cols-"],
+html[data-layout-mode="mobile"] [class*="md:grid-cols-"],
+html[data-layout-mode="mobile"] [class*="sm:grid-cols-"] {
+  grid-template-columns: 1fr !important;
+}
+
+html[data-layout-mode="mobile"] button,
+html[data-layout-mode="mobile"] a[role="button"],
+html[data-layout-mode="mobile"] input,
+html[data-layout-mode="mobile"] select,
+html[data-layout-mode="mobile"] textarea {
+  max-width: 100%;
+}
+
+html[data-layout-mode="mobile"] table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+html[data-layout-mode="mobile"] [class*="text-5xl"],
+html[data-layout-mode="mobile"] [class*="text-6xl"],
+html[data-layout-mode="mobile"] [class*="text-7xl"] {
+  font-size: 2rem !important;
+  line-height: 2.35rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="p-8"],
+html[data-layout-mode="mobile"] [class*="p-10"],
+html[data-layout-mode="mobile"] [class*="p-12"] {
+  padding: 1rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="gap-8"],
+html[data-layout-mode="mobile"] [class*="gap-10"],
+html[data-layout-mode="mobile"] [class*="gap-12"] {
+  gap: 1rem !important;
+}
+
+html[data-layout-mode="desktop"] body {
+  min-width: 1180px;
+}
+
+html[data-layout-mode="desktop"] main {
+  min-width: 0;
+}
+
+html[data-layout-mode="desktop"] .grid {
+  min-width: 0;
+}
+
+/* Compact mobile global navigation */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 6.25rem;
+  }
+
+  html[data-layout-mode="mobile"] body {
+    padding-bottom: 6.25rem;
+  }
+
+  html[data-layout-mode="desktop"] body {
+    padding-bottom: 6.25rem;
+  }
+}
+
+/* Better desktop-mode behavior when forced on a phone */
+html[data-layout-mode="desktop"] {
+  overflow-x: auto;
+}
+
+html[data-layout-mode="desktop"] body {
+  min-width: 1180px;
+}
+
+
+/* FINAL ReviewIntel mobile containment fix
+   Keeps normal mobile pages inside the viewport.
+   Desktop mode stays available from the mobile menu, but Auto/Mobile must never overflow. */
+@media (max-width: 767px) {
+  html:not([data-layout-mode="desktop"]),
+  html:not([data-layout-mode="desktop"]) body {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) body {
+    padding-bottom: 4.25rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main,
+  html:not([data-layout-mode="desktop"]) header,
+  html:not([data-layout-mode="desktop"]) footer,
+  html:not([data-layout-mode="desktop"]) section,
+  html:not([data-layout-mode="desktop"]) article,
+  html:not([data-layout-mode="desktop"]) aside,
+  html:not([data-layout-mode="desktop"]) form,
+  html:not([data-layout-mode="desktop"]) div {
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="max-w-"],
+  html:not([data-layout-mode="desktop"]) [class*="w-["],
+  html:not([data-layout-mode="desktop"]) [class*="min-w-"],
+  html:not([data-layout-mode="desktop"]) [class*="mx-auto"] {
+    max-width: 100vw !important;
+    min-width: 0 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) .grid,
+  html:not([data-layout-mode="desktop"]) [class*="grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="sm:grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="md:grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="lg:grid-cols-"],
+  html:not([data-layout-mode="desktop"]) [class*="xl:grid-cols-"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) .flex {
+    min-width: 0 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) img,
+  html:not([data-layout-mode="desktop"]) video,
+  html:not([data-layout-mode="desktop"]) canvas,
+  html:not([data-layout-mode="desktop"]) svg {
+    max-width: 100% !important;
+    height: auto;
+  }
+
+  html:not([data-layout-mode="desktop"]) input,
+  html:not([data-layout-mode="desktop"]) select,
+  html:not([data-layout-mode="desktop"]) textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) button,
+  html:not([data-layout-mode="desktop"]) a {
+    max-width: 100% !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) table {
+    display: block !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    white-space: nowrap;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="px-10"],
+  html:not([data-layout-mode="desktop"]) [class*="px-12"],
+  html:not([data-layout-mode="desktop"]) [class*="px-16"],
+  html:not([data-layout-mode="desktop"]) [class*="px-20"],
+  html:not([data-layout-mode="desktop"]) [class*="px-24"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="text-5xl"],
+  html:not([data-layout-mode="desktop"]) [class*="text-6xl"],
+  html:not([data-layout-mode="desktop"]) [class*="text-7xl"],
+  html:not([data-layout-mode="desktop"]) [class*="text-8xl"] {
+    font-size: 2.25rem !important;
+    line-height: 2.6rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="translate-x"],
+  html:not([data-layout-mode="desktop"]) [class*="-translate-x"] {
+    transform: none !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) [class*="absolute"],
+  html:not([data-layout-mode="desktop"]) [class*="fixed"] {
+    max-width: 100vw !important;
+  }
+}
+
+/* Desktop mode is still available, but it is intentionally a wide preview. */
+@media (max-width: 767px) {
+  html[data-layout-mode="desktop"] {
+    overflow-x: auto !important;
+  }
+
+  html[data-layout-mode="desktop"] body {
+    min-width: 1180px !important;
+    overflow-x: auto !important;
+    padding-bottom: 4.25rem !important;
+  }
+}
+
+
+/* ReviewIntel mobile analyze final sizing */
+@media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  [data-mobile-global-nav="true"] {
+    position: fixed !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    bottom: calc(5.75rem + env(safe-area-inset-bottom)) !important;
+    z-index: 9999 !important;
+  }
+
+  /* Shopper analyze hero */
+  .reviewintel-analyze-mobile h1,
+  main h1 {
+    font-size: clamp(2rem, 9vw, 3rem) !important;
+    line-height: 1.05 !important;
+  }
+
+  .reviewintel-analyze-mobile p,
+  main h1 + p {
+    font-size: 1rem !important;
+    line-height: 1.45 !important;
+  }
+
+  /* Upload screenshot box */
+  .reviewintel-upload-zone,
+  label:has(input[type="file"]),
+  div:has(> input[type="file"]) {
+    min-height: 220px !important;
+    padding: 1.25rem !important;
+    border-radius: 1.75rem !important;
+  }
+
+  label:has(input[type="file"]) h2,
+  label:has(input[type="file"]) h3,
+  div:has(> input[type="file"]) h2,
+  div:has(> input[type="file"]) h3 {
+    font-size: 1.55rem !important;
+    line-height: 1.15 !important;
+  }
+
+  /* Analyze button not too huge */
+  button {
+    min-height: 3.25rem;
+  }
+}
+
+
+/* ReviewIntel global mobile final layout */
+@media (max-width: 640px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+
+  main,
+  section,
+  article {
+    max-width: 100vw;
+  }
+
+  /* Global mobile typography */
+  h1 {
+    font-size: clamp(2rem, 9vw, 3rem) !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.04em !important;
+  }
+
+  h2 {
+    font-size: clamp(1.45rem, 7vw, 2.15rem) !important;
+    line-height: 1.1 !important;
+  }
+
+  h3 {
+    font-size: clamp(1.15rem, 5.5vw, 1.55rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  p {
+    line-height: 1.45 !important;
+  }
+
+  /* Global card/container compacting */
+  .rounded-3xl {
+    border-radius: 1.5rem !important;
+  }
+
+  .p-8,
+  .p-10,
+  .p-12 {
+    padding: 1.25rem !important;
+  }
+
+  .px-8,
+  .px-10,
+  .px-12 {
+    padding-left: 1.25rem !important;
+    padding-right: 1.25rem !important;
+  }
+
+  .py-8,
+  .py-10,
+  .py-12,
+  .py-16,
+  .py-20,
+  .py-24 {
+    padding-top: 1.75rem !important;
+    padding-bottom: 1.75rem !important;
+  }
+
+  .gap-8,
+  .gap-10,
+  .gap-12 {
+    gap: 1.25rem !important;
+  }
+
+  /* Prevent wide tables/cards/forms from breaking mobile */
+  table,
+  pre,
+  code,
+  textarea,
+  input,
+  select {
+    max-width: 100%;
+  }
+
+  pre,
+  table {
+    overflow-x: auto;
+  }
+
+  /* Global mobile nav always visible above browser toolbar */
+  [data-mobile-global-nav="true"] {
+    position: fixed !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+    bottom: calc(5.75rem + env(safe-area-inset-bottom)) !important;
+    z-index: 9999 !important;
+  }
+
+  /* Keep primary actions reachable but not oversized */
+  button,
+  a {
+    max-width: 100%;
+  }
+
+  button {
+    min-height: 2.85rem;
+  }
+
+  /* Upload/file cards compact everywhere */
+  label:has(input[type="file"]),
+  div:has(> input[type="file"]) {
+    max-width: 100%;
+    min-height: 210px !important;
+    padding: 1.25rem !important;
+    border-radius: 1.5rem !important;
+  }
+}
+
+/* ReviewIntel mobile results readability fix */
+@media (max-width: 640px) {
+  /* Stop result titles from becoming huge desktop hero text */
+  main .text-9xl,
+  main .text-8xl,
+  main .text-7xl,
+  main .text-6xl,
+  main .text-5xl {
+    font-size: clamp(1.45rem, 6vw, 2rem) !important;
+    line-height: 1.12 !important;
+    letter-spacing: -0.035em !important;
+  }
+
+  main .text-4xl {
+    font-size: clamp(1.3rem, 5.5vw, 1.7rem) !important;
+    line-height: 1.15 !important;
+  }
+
+  main .text-3xl {
+    font-size: clamp(1.15rem, 5vw, 1.45rem) !important;
+    line-height: 1.18 !important;
+  }
+
+  main .text-2xl {
+    font-size: clamp(1rem, 4.5vw, 1.25rem) !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Result cards must wrap long product names cleanly */
+  main h1,
+  main h2,
+  main h3,
+  main p,
+  main span,
+  main a,
+  main button,
+  main li,
+  main div {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Compact result cards */
+  main .rounded-3xl,
+  main .rounded-\[2rem\],
+  main .rounded-\[2\.5rem\] {
+    border-radius: 1.35rem !important;
+  }
+
+  main .p-10,
+  main .p-8,
+  main .p-7,
+  main .p-6 {
+    padding: 1rem !important;
+  }
+
+  main .px-10,
+  main .px-8,
+  main .px-7,
+  main .px-6 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  main .py-10,
+  main .py-8,
+  main .py-7,
+  main .py-6 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+  }
+
+  /* Keep result action buttons readable but not huge */
+  main button,
+  main a {
+    min-height: 2.75rem;
+    font-size: 0.88rem;
+  }
+
+  /* Long latest-scan/product titles should not dominate the screen */
+  main h1 {
+    max-width: 100%;
+  }
+
+  /* Result chips/badges smaller */
+  main .tracking-\[0\.24em\],
+  main .tracking-\[0\.28em\],
+  main .tracking-\[0\.32em\] {
+    letter-spacing: 0.12em !important;
+  }
+}
+
+/* ReviewIntel consolidated mobile readability + real desktop mode */
+@media (max-width: 640px) {
+  html:not([data-layout-mode="desktop"]) main h1,
+  html:not([data-layout-mode="desktop"]) main .text-9xl,
+  html:not([data-layout-mode="desktop"]) main .text-8xl,
+  html:not([data-layout-mode="desktop"]) main .text-7xl,
+  html:not([data-layout-mode="desktop"]) main .text-6xl,
+  html:not([data-layout-mode="desktop"]) main .text-5xl {
+    font-size: 1.55rem !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.035em !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main h2,
+  html:not([data-layout-mode="desktop"]) main .text-4xl,
+  html:not([data-layout-mode="desktop"]) main .text-3xl {
+    font-size: 1.25rem !important;
+    line-height: 1.18 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main h3,
+  html:not([data-layout-mode="desktop"]) main .text-2xl {
+    font-size: 1.05rem !important;
+    line-height: 1.2 !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) main p,
+  html:not([data-layout-mode="desktop"]) main li,
+  html:not([data-layout-mode="desktop"]) main span {
+    font-size: 0.88rem;
+    line-height: 1.35;
+  }
+
+  html:not([data-layout-mode="desktop"]) main h1,
+  html:not([data-layout-mode="desktop"]) main h2,
+  html:not([data-layout-mode="desktop"]) main h3,
+  html:not([data-layout-mode="desktop"]) main p,
+  html:not([data-layout-mode="desktop"]) main div {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  html:not([data-layout-mode="desktop"]) label:has(input[type="file"]),
+  html:not([data-layout-mode="desktop"]) div:has(> input[type="file"]) {
+    min-height: 180px !important;
+    padding: 1rem !important;
+    border-radius: 1.25rem !important;
+  }
+
+  html:not([data-layout-mode="desktop"]) label:has(input[type="file"]) h2,
+  html:not([data-layout-mode="desktop"]) label:has(input[type="file"]) h3,
+  html:not([data-layout-mode="desktop"]) div:has(> input[type="file"]) h2,
+  html:not([data-layout-mode="desktop"]) div:has(> input[type="file"]) h3 {
+    font-size: 1.25rem !important;
+    line-height: 1.15 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  html[data-layout-mode="desktop"],
+  html[data-layout-mode="desktop"] body {
+    min-width: 1180px !important;
+    overflow-x: auto !important;
+  }
+
+  html[data-layout-mode="desktop"] main {
+    min-width: 1180px !important;
+    max-width: none !important;
+  }
+}
+
+/* ReviewIntel Apple-style mobile floating nav */
+.reviewintel-apple-float-button {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  padding: 0 !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #020617 !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1 !important;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  transform: none !important;
+  scale: 1 !important;
+}
+
+.reviewintel-apple-menu {
+  width: 184px !important;
+  max-width: 184px !important;
+  padding: 10px !important;
+  border-radius: 28px !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #020617 !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  transform: none !important;
+  scale: 1 !important;
+}
+
+.reviewintel-apple-menu * {
+  color: inherit;
+}
+
+html[data-layout-mode="desktop"] [data-mobile-global-nav="apple"] {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  max-width: 56px !important;
+  transform: none !important;
+  scale: 1 !important;
+  zoom: 1 !important;
+}
+
+html[data-layout-mode="desktop"] .reviewintel-apple-float-button {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  min-height: 56px !important;
+  max-width: 56px !important;
+  max-height: 56px !important;
+  font-size: 9px !important;
+  color: #020617 !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+}
+
+/* ReviewIntel final mobile account nav + result fit */
+@media (max-width: 640px) {
+  .reviewintel-mobile-account-top-nav {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    width: 100%;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(18px);
+  }
+
+  .dark .reviewintel-mobile-account-top-nav {
+    background: rgba(2, 6, 23, 0.92);
+  }
+
+  [data-mobile-global-nav],
+  [data-mobile-global-nav="true"],
+  [data-mobile-global-nav="compact"] {
+    display: none !important;
+  }
+
+  /* Make result pages fit phones better */
+  .results-page,
+  .result-page,
+  [data-results-page="true"],
+  main:has(.reviewintel-result-card),
+  main:has([data-result-card="true"]) {
+    font-size: 12px !important;
+    line-height: 1.28 !important;
+  }
+
+  .results-page h1,
+  .result-page h1,
+  [data-results-page="true"] h1,
+  main:has(.reviewintel-result-card) h1,
+  main:has([data-result-card="true"]) h1 {
+    font-size: 1.65rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .results-page h2,
+  .result-page h2,
+  [data-results-page="true"] h2,
+  main:has(.reviewintel-result-card) h2,
+  main:has([data-result-card="true"]) h2 {
+    font-size: 1.15rem !important;
+    line-height: 1.12 !important;
+  }
+
+  .results-page h3,
+  .result-page h3,
+  [data-results-page="true"] h3,
+  main:has(.reviewintel-result-card) h3,
+  main:has([data-result-card="true"]) h3 {
+    font-size: 0.95rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .results-page p,
+  .result-page p,
+  [data-results-page="true"] p,
+  main:has(.reviewintel-result-card) p,
+  main:has([data-result-card="true"]) p {
+    font-size: 0.78rem !important;
+    line-height: 1.28 !important;
+  }
+
+  .results-page .rounded-3xl,
+  .result-page .rounded-3xl,
+  [data-results-page="true"] .rounded-3xl,
+  main:has(.reviewintel-result-card) .rounded-3xl,
+  main:has([data-result-card="true"]) .rounded-3xl {
+    border-radius: 1.15rem !important;
+    padding: 0.85rem !important;
+  }
+
+  .results-page .gap-6,
+  .results-page .gap-8,
+  .result-page .gap-6,
+  .result-page .gap-8,
+  [data-results-page="true"] .gap-6,
+  [data-results-page="true"] .gap-8 {
+    gap: 0.75rem !important;
+  }
+}
+
+
+/* =========================================================
+   ReviewIntel Local/Admin Mobile/Desktop View Settings
+   Uses existing html[data-layout-mode] system.
+   Desktop stays normal unless a mode is selected.
+   ========================================================= */
+
+.reviewintel-layout-root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.reviewintel-layout-canvas {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Local/admin floating switcher */
+.reviewintel-view-switcher {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2147483647;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.reviewintel-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 15px;
+  cursor: pointer;
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
+}
+
+.reviewintel-view-panel {
+  width: 236px;
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.96);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+}
+
+.reviewintel-view-panel-title {
+  font-size: 13px;
+  font-weight: 900;
+  margin-bottom: 3px;
+}
+
+.reviewintel-view-panel-subtitle {
+  font-size: 11px;
+  opacity: 0.72;
+  margin-bottom: 10px;
+}
+
+.reviewintel-view-panel button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 7px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: white;
+  font-size: 12px;
+  font-weight: 750;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.reviewintel-view-panel button.active {
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  font-weight: 950;
+}
+
+.reviewintel-view-panel .reviewintel-view-reset {
+  justify-content: center;
+  margin-top: 2px;
+  margin-bottom: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+}
+
+/* Icons */
+.reviewintel-phone-icon,
+.reviewintel-desktop-icon,
+.reviewintel-mini-icon,
+.reviewintel-auto-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.reviewintel-phone-icon {
+  width: 12px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+}
+
+.reviewintel-desktop-icon {
+  width: 22px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+}
+
+.reviewintel-mini-icon {
+  width: 22px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  transform: scale(0.82);
+  opacity: 0.88;
+}
+
+.reviewintel-auto-icon {
+  width: 19px;
+  height: 19px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+/* Force mobile mode: compact vertical phone appearance */
+html[data-layout-mode="mobile"] {
+  overflow-x: hidden;
+}
+
+html[data-layout-mode="mobile"] body {
+  min-width: 0 !important;
+  width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-layout-root {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-layout-canvas {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  overflow-x: hidden;
+}
+
+html[data-layout-mode="mobile"] main,
+html[data-layout-mode="mobile"] section,
+html[data-layout-mode="mobile"] article {
+  max-width: 100% !important;
+}
+
+html[data-layout-mode="mobile"] h1 {
+  font-size: clamp(1.45rem, 7vw, 2.05rem) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.045em !important;
+}
+
+html[data-layout-mode="mobile"] h2 {
+  font-size: clamp(1.2rem, 5.7vw, 1.55rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.035em !important;
+}
+
+html[data-layout-mode="mobile"] h3 {
+  font-size: clamp(1rem, 4.8vw, 1.25rem) !important;
+  line-height: 1.12 !important;
+}
+
+html[data-layout-mode="mobile"] p,
+html[data-layout-mode="mobile"] li,
+html[data-layout-mode="mobile"] label,
+html[data-layout-mode="mobile"] input,
+html[data-layout-mode="mobile"] textarea,
+html[data-layout-mode="mobile"] select {
+  font-size: 0.86rem !important;
+  line-height: 1.36 !important;
+}
+
+html[data-layout-mode="mobile"] button,
+html[data-layout-mode="mobile"] a {
+  font-size: 0.82rem;
+}
+
+html[data-layout-mode="mobile"] .text-7xl,
+html[data-layout-mode="mobile"] .text-6xl,
+html[data-layout-mode="mobile"] .text-5xl,
+html[data-layout-mode="mobile"] .text-4xl {
+  font-size: 1.9rem !important;
+  line-height: 1.02 !important;
+}
+
+html[data-layout-mode="mobile"] .text-3xl {
+  font-size: 1.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .text-2xl {
+  font-size: 1.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .p-10,
+html[data-layout-mode="mobile"] .p-8,
+html[data-layout-mode="mobile"] .p-7,
+html[data-layout-mode="mobile"] .p-6 {
+  padding: 1rem !important;
+}
+
+html[data-layout-mode="mobile"] .px-10,
+html[data-layout-mode="mobile"] .px-8,
+html[data-layout-mode="mobile"] .px-7,
+html[data-layout-mode="mobile"] .px-6 {
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+html[data-layout-mode="mobile"] .py-10,
+html[data-layout-mode="mobile"] .py-8,
+html[data-layout-mode="mobile"] .py-7,
+html[data-layout-mode="mobile"] .py-6 {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+html[data-layout-mode="mobile"] .gap-10,
+html[data-layout-mode="mobile"] .gap-8,
+html[data-layout-mode="mobile"] .gap-7,
+html[data-layout-mode="mobile"] .gap-6 {
+  gap: 1rem !important;
+}
+
+html[data-layout-mode="mobile"] .grid {
+  grid-template-columns: 1fr !important;
+}
+
+html[data-layout-mode="mobile"] img,
+html[data-layout-mode="mobile"] video,
+html[data-layout-mode="mobile"] canvas,
+html[data-layout-mode="mobile"] svg {
+  max-width: 100%;
+}
+
+/* Auto mode still becomes compact on real phone screens */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] {
+    overflow-x: hidden;
+  }
+
+  html[data-layout-mode="auto"] body {
+    min-width: 0 !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-layout-canvas {
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+
+  html[data-layout-mode="auto"] h1 {
+    font-size: clamp(1.45rem, 7vw, 2.05rem) !important;
+    line-height: 1.02 !important;
+    letter-spacing: -0.045em !important;
+  }
+
+  html[data-layout-mode="auto"] h2 {
+    font-size: clamp(1.2rem, 5.7vw, 1.55rem) !important;
+    line-height: 1.08 !important;
+  }
+
+  html[data-layout-mode="auto"] p,
+  html[data-layout-mode="auto"] li,
+  html[data-layout-mode="auto"] label,
+  html[data-layout-mode="auto"] input,
+  html[data-layout-mode="auto"] textarea,
+  html[data-layout-mode="auto"] select {
+    font-size: 0.86rem !important;
+    line-height: 1.36 !important;
+  }
+
+  html[data-layout-mode="auto"] .text-7xl,
+  html[data-layout-mode="auto"] .text-6xl,
+  html[data-layout-mode="auto"] .text-5xl,
+  html[data-layout-mode="auto"] .text-4xl {
+    font-size: 1.9rem !important;
+    line-height: 1.02 !important;
+  }
+
+  html[data-layout-mode="auto"] .grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Desktop full mode: preserve existing desktop behavior */
+html[data-layout-mode="desktop"] body {
+  min-width: 1180px;
+}
+
+/* Desktop miniature mode: desktop layout scaled into the screen */
+html[data-layout-mode="desktop-mini"] {
+  overflow-x: hidden;
+}
+
+html[data-layout-mode="desktop-mini"] body {
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  background: #020617;
+}
+
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+  width: 100vw;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at top, rgba(124, 58, 237, 0.18), transparent 34rem),
+    #020617;
+}
+
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+  width: 1180px;
+  min-width: 1180px;
+  min-height: calc(100vh / var(--reviewintel-mini-scale, 1));
+  transform: scale(var(--reviewintel-mini-scale, 0.33));
+  transform-origin: top left;
+}
+
+/* Best-fit scales for common phone/tablet widths */
+@media (max-width: 380px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.315;
+  }
+}
+
+@media (min-width: 381px) and (max-width: 410px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.33;
+  }
+}
+
+@media (min-width: 411px) and (max-width: 480px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.365;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 820px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.65;
+  }
+}
+
+@media (min-width: 821px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 1;
+    width: 1180px;
+    min-width: 1180px;
+    margin: 0 auto;
+  }
+}
+
+
+/* =========================================================
+   Analyze Page Mobile Vertical Compression
+   Makes the upload/analyze page much smaller on phone view.
+   Desktop mode stays unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-analyze .reviewintel-layout-canvas,
+html[data-layout-mode="auto"] .reviewintel-route-analyze .reviewintel-layout-canvas {
+  max-width: 390px;
+}
+
+/* Reduce whole analyze page vertical crowding */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze main,
+html[data-layout-mode="auto"] .reviewintel-route-analyze main {
+  padding-top: 0.75rem !important;
+  padding-bottom: 1rem !important;
+  min-height: auto !important;
+}
+
+/* Smaller heading area */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze h1,
+html[data-layout-mode="auto"] .reviewintel-route-analyze h1 {
+  font-size: 1.18rem !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.04em !important;
+  margin-bottom: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-analyze h2,
+html[data-layout-mode="auto"] .reviewintel-route-analyze h2 {
+  font-size: 1rem !important;
+  line-height: 1.08 !important;
+  margin-bottom: 0.25rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-analyze p,
+html[data-layout-mode="mobile"] .reviewintel-route-analyze label,
+html[data-layout-mode="auto"] .reviewintel-route-analyze p,
+html[data-layout-mode="auto"] .reviewintel-route-analyze label {
+  font-size: 0.68rem !important;
+  line-height: 1.25 !important;
+}
+
+/* Reduce large spacing */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze .space-y-8 > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="mobile"] .reviewintel-route-analyze .space-y-7 > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="mobile"] .reviewintel-route-analyze .space-y-6 > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-analyze .space-y-8 > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-analyze .space-y-7 > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-analyze .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.7rem !important;
+}
+
+/* Upload screenshot dashed box: make it phone-sized */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze [class*="border-dashed"],
+html[data-layout-mode="auto"] .reviewintel-route-analyze [class*="border-dashed"] {
+  max-width: 260px !important;
+  min-height: 125px !important;
+  padding: 0.65rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  border-radius: 1.1rem !important;
+}
+
+/* Shrink the big plus/upload circle */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze [class*="border-dashed"] .rounded-full,
+html[data-layout-mode="auto"] .reviewintel-route-analyze [class*="border-dashed"] .rounded-full {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  font-size: 1rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+/* Smaller input and analyze button */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze input,
+html[data-layout-mode="auto"] .reviewintel-route-analyze input {
+  max-width: 260px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0.45rem 0.65rem !important;
+  font-size: 0.68rem !important;
+  border-radius: 0.7rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-analyze button,
+html[data-layout-mode="auto"] .reviewintel-route-analyze button {
+  min-height: 36px !important;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.68rem !important;
+  border-radius: 0.85rem !important;
+}
+
+/* Main analyze button width */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze button[type="submit"],
+html[data-layout-mode="auto"] .reviewintel-route-analyze button[type="submit"] {
+  max-width: 260px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Avoid full-page crowding */
+html[data-layout-mode="mobile"] .reviewintel-route-analyze .max-w-xl,
+html[data-layout-mode="mobile"] .reviewintel-route-analyze .max-w-2xl,
+html[data-layout-mode="mobile"] .reviewintel-route-analyze .max-w-3xl,
+html[data-layout-mode="auto"] .reviewintel-route-analyze .max-w-xl,
+html[data-layout-mode="auto"] .reviewintel-route-analyze .max-w-2xl,
+html[data-layout-mode="auto"] .reviewintel-route-analyze .max-w-3xl {
+  max-width: 300px !important;
+}
+
+/* Keep the local/admin view switcher normal size */
+html[data-layout-mode="mobile"] .reviewintel-view-switcher button,
+html[data-layout-mode="auto"] .reviewintel-view-switcher button {
+  font-size: 12px !important;
+  min-height: auto !important;
+}
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   Results Page Mobile Compact Repair
+   Goal: 2-3 scroll mobile experience WITHOUT crushed vertical text.
+   Desktop unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-results,
+html[data-layout-mode="auto"] .reviewintel-route-results {
+  overflow-x: hidden;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-results .reviewintel-layout-canvas,
+html[data-layout-mode="auto"] .reviewintel-route-results .reviewintel-layout-canvas {
+  width: 100%;
+  max-width: 390px;
+  margin: 0 auto;
+  overflow-x: hidden;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-results main,
+html[data-layout-mode="auto"] .reviewintel-route-results main {
+  width: 100% !important;
+  max-width: 390px !important;
+  margin: 0 auto !important;
+  padding: 0.55rem !important;
+  overflow-x: hidden !important;
+}
+
+/* Basic mobile card behavior */
+html[data-layout-mode="mobile"] .reviewintel-route-results section,
+html[data-layout-mode="mobile"] .reviewintel-route-results article,
+html[data-layout-mode="mobile"] .reviewintel-route-results main > div,
+html[data-layout-mode="auto"] .reviewintel-route-results section,
+html[data-layout-mode="auto"] .reviewintel-route-results article,
+html[data-layout-mode="auto"] .reviewintel-route-results main > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Stop the ugly vertical-letter effect */
+html[data-layout-mode="mobile"] .reviewintel-route-results h1,
+html[data-layout-mode="mobile"] .reviewintel-route-results h2,
+html[data-layout-mode="mobile"] .reviewintel-route-results h3,
+html[data-layout-mode="mobile"] .reviewintel-route-results p,
+html[data-layout-mode="mobile"] .reviewintel-route-results span,
+html[data-layout-mode="mobile"] .reviewintel-route-results li,
+html[data-layout-mode="auto"] .reviewintel-route-results h1,
+html[data-layout-mode="auto"] .reviewintel-route-results h2,
+html[data-layout-mode="auto"] .reviewintel-route-results h3,
+html[data-layout-mode="auto"] .reviewintel-route-results p,
+html[data-layout-mode="auto"] .reviewintel-route-results span,
+html[data-layout-mode="auto"] .reviewintel-route-results li {
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  white-space: normal;
+  hyphens: none !important;
+  min-width: 0 !important;
+}
+
+/* Product title: readable but compact */
+html[data-layout-mode="mobile"] .reviewintel-route-results h1,
+html[data-layout-mode="auto"] .reviewintel-route-results h1 {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  font-size: 0.95rem !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.03em !important;
+  margin: 0 !important;
+}
+
+/* Section headings */
+html[data-layout-mode="mobile"] .reviewintel-route-results h2,
+html[data-layout-mode="auto"] .reviewintel-route-results h2 {
+  font-size: 0.86rem !important;
+  line-height: 1.12 !important;
+  margin: 0 0 0.25rem 0 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-results h3,
+html[data-layout-mode="auto"] .reviewintel-route-results h3 {
+  font-size: 0.76rem !important;
+  line-height: 1.14 !important;
+  margin: 0 0 0.2rem 0 !important;
+}
+
+/* Body text */
+html[data-layout-mode="mobile"] .reviewintel-route-results p,
+html[data-layout-mode="mobile"] .reviewintel-route-results li,
+html[data-layout-mode="auto"] .reviewintel-route-results p,
+html[data-layout-mode="auto"] .reviewintel-route-results li {
+  font-size: 0.62rem !important;
+  line-height: 1.26 !important;
+}
+
+/* Labels */
+html[data-layout-mode="mobile"] .reviewintel-route-results .uppercase,
+html[data-layout-mode="auto"] .reviewintel-route-results .uppercase {
+  font-size: 0.5rem !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0.14em !important;
+  margin-bottom: 0.22rem !important;
+}
+
+/* Keep flex rows from crushing text */
+html[data-layout-mode="mobile"] .reviewintel-route-results .flex,
+html[data-layout-mode="auto"] .reviewintel-route-results .flex {
+  min-width: 0 !important;
+}
+
+/* Top header can wrap naturally, not squeeze into vertical columns */
+html[data-layout-mode="mobile"] .reviewintel-route-results .justify-between,
+html[data-layout-mode="auto"] .reviewintel-route-results .justify-between {
+  gap: 0.45rem !important;
+  flex-wrap: wrap !important;
+}
+
+/* Do NOT force result grids into tiny 2-column report columns */
+html[data-layout-mode="mobile"] .reviewintel-route-results .grid,
+html[data-layout-mode="auto"] .reviewintel-route-results .grid {
+  grid-template-columns: 1fr !important;
+  gap: 0.5rem !important;
+}
+
+/* Compact cards */
+html[data-layout-mode="mobile"] .reviewintel-route-results .p-12,
+html[data-layout-mode="mobile"] .reviewintel-route-results .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-results .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-results .p-7,
+html[data-layout-mode="mobile"] .reviewintel-route-results .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-results .p-5,
+html[data-layout-mode="auto"] .reviewintel-route-results .p-12,
+html[data-layout-mode="auto"] .reviewintel-route-results .p-10,
+html[data-layout-mode="auto"] .reviewintel-route-results .p-8,
+html[data-layout-mode="auto"] .reviewintel-route-results .p-7,
+html[data-layout-mode="auto"] .reviewintel-route-results .p-6,
+html[data-layout-mode="auto"] .reviewintel-route-results .p-5 {
+  padding: 0.65rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-results .gap-12,
+html[data-layout-mode="mobile"] .reviewintel-route-results .gap-10,
+html[data-layout-mode="mobile"] .reviewintel-route-results .gap-8,
+html[data-layout-mode="mobile"] .reviewintel-route-results .gap-7,
+html[data-layout-mode="mobile"] .reviewintel-route-results .gap-6,
+html[data-layout-mode="mobile"] .reviewintel-route-results .gap-5,
+html[data-layout-mode="mobile"] .reviewintel-route-results .gap-4,
+html[data-layout-mode="auto"] .reviewintel-route-results .gap-12,
+html[data-layout-mode="auto"] .reviewintel-route-results .gap-10,
+html[data-layout-mode="auto"] .reviewintel-route-results .gap-8,
+html[data-layout-mode="auto"] .reviewintel-route-results .gap-7,
+html[data-layout-mode="auto"] .reviewintel-route-results .gap-6,
+html[data-layout-mode="auto"] .reviewintel-route-results .gap-5,
+html[data-layout-mode="auto"] .reviewintel-route-results .gap-4 {
+  gap: 0.5rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-results [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-results [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.5rem !important;
+}
+
+/* Screenshot should be visible but not eat the whole phone */
+html[data-layout-mode="mobile"] .reviewintel-route-results img,
+html[data-layout-mode="auto"] .reviewintel-route-results img {
+  max-width: 100% !important;
+  max-height: 115px !important;
+  object-fit: contain !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Large screenshot containers reduced but not broken */
+html[data-layout-mode="mobile"] .reviewintel-route-results [class*="aspect-"],
+html[data-layout-mode="auto"] .reviewintel-route-results [class*="aspect-"] {
+  max-height: 140px !important;
+  overflow: hidden !important;
+}
+
+/* Buttons compact */
+html[data-layout-mode="mobile"] .reviewintel-route-results button,
+html[data-layout-mode="mobile"] .reviewintel-route-results a,
+html[data-layout-mode="auto"] .reviewintel-route-results button,
+html[data-layout-mode="auto"] .reviewintel-route-results a {
+  min-height: 30px !important;
+  padding: 0.4rem 0.65rem !important;
+  font-size: 0.6rem !important;
+  line-height: 1.05 !important;
+  border-radius: 0.65rem !important;
+}
+
+/* Big score/confidence texts reduced */
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-8xl,
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-7xl,
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-6xl,
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-5xl,
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-4xl,
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-3xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-8xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-7xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-6xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-5xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-4xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-3xl {
+  font-size: 1.05rem !important;
+  line-height: 1.05 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-2xl,
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-xl,
+html[data-layout-mode="mobile"] .reviewintel-route-results .text-lg,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-2xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-xl,
+html[data-layout-mode="auto"] .reviewintel-route-results .text-lg {
+  font-size: 0.75rem !important;
+  line-height: 1.1 !important;
+}
+
+/* Keep the floating view switcher normal */
+html[data-layout-mode="mobile"] .reviewintel-view-switcher button,
+html[data-layout-mode="auto"] .reviewintel-view-switcher button {
+  font-size: 12px !important;
+  min-height: auto !important;
+  max-width: none !important;
+}
+
+
+/* =========================================================
+   Results Mobile/Desktop Layout Switch
+   Real component layout switch. Do not squeeze desktop report.
+   ========================================================= */
+
+.ri-results-mobile {
+  display: none;
+}
+
+.ri-results-desktop {
+  display: block;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile {
+  display: block;
+}
+
+html[data-layout-mode="mobile"] .ri-results-desktop {
+  display: none;
+}
+
+html[data-layout-mode="desktop"] .ri-results-mobile,
+html[data-layout-mode="desktop-mini"] .ri-results-mobile {
+  display: none;
+}
+
+html[data-layout-mode="desktop"] .ri-results-desktop,
+html[data-layout-mode="desktop-mini"] .ri-results-desktop {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .ri-results-mobile {
+    display: block;
+  }
+
+  html[data-layout-mode="auto"] .ri-results-desktop {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) {
+  html[data-layout-mode="auto"] .ri-results-mobile {
+    display: none;
+  }
+
+  html[data-layout-mode="auto"] .ri-results-desktop {
+    display: block;
+  }
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-results main,
+html[data-layout-mode="auto"] .reviewintel-route-results main {
+  max-width: 430px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile,
+html[data-layout-mode="mobile"] .ri-results-mobile *,
+html[data-layout-mode="auto"] .ri-results-mobile,
+html[data-layout-mode="auto"] .ri-results-mobile * {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+  box-sizing: border-box;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile .line-clamp-2,
+html[data-layout-mode="auto"] .ri-results-mobile .line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   Mobile Results Verdict Polish
+   Fix old global mobile grid overrides inside the new mobile layout.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .ri-results-mobile .ri-mobile-metric-grid,
+html[data-layout-mode="auto"] .ri-results-mobile .ri-mobile-metric-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile .grid-cols-2,
+html[data-layout-mode="auto"] .ri-results-mobile .grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile .grid-cols-\[104px_minmax\(0\,1fr\)\],
+html[data-layout-mode="auto"] .ri-results-mobile .grid-cols-\[104px_minmax\(0\,1fr\)\] {
+  grid-template-columns: 104px minmax(0, 1fr) !important;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile h1,
+html[data-layout-mode="auto"] .ri-results-mobile h1 {
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile section,
+html[data-layout-mode="auto"] .ri-results-mobile section {
+  max-width: 100% !important;
+}
+
+html[data-layout-mode="mobile"] .ri-results-mobile [class*="rounded-full"],
+html[data-layout-mode="auto"] .ri-results-mobile [class*="rounded-full"] {
+  flex-shrink: 0;
+}
+
+
+/* =========================================================
+   Desktop Miniature Light Mode Fix
+   Desktop Miniature should NOT use dark preview background.
+   It should look like the normal ReviewIntel app, just scaled.
+   ========================================================= */
+
+html[data-layout-mode="desktop-mini"] {
+  overflow-x: hidden !important;
+  background: transparent !important;
+}
+
+html[data-layout-mode="desktop-mini"] body {
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  background: var(--background, #ffffff) !important;
+}
+
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+  width: 100vw !important;
+  min-height: 100vh !important;
+  overflow-x: hidden !important;
+  background: inherit !important;
+}
+
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+  width: 1180px !important;
+  min-width: 1180px !important;
+  max-width: none !important;
+  min-height: calc(100vh / var(--reviewintel-mini-scale, 1)) !important;
+  transform: scale(var(--reviewintel-mini-scale, 0.33)) !important;
+  transform-origin: top left !important;
+  background: var(--background, #ffffff) !important;
+}
+
+/* Fit desktop miniature to common phone widths */
+@media (max-width: 380px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.315;
+  }
+}
+
+@media (min-width: 381px) and (max-width: 410px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.33;
+  }
+}
+
+@media (min-width: 411px) and (max-width: 480px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.365;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 820px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.65;
+  }
+}
+
+@media (min-width: 821px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 1;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+/* Do not force dark cards/backgrounds in Desktop Miniature */
+html[data-layout-mode="desktop-mini"] .ri-results-desktop {
+  background: transparent !important;
+}
+
+html[data-layout-mode="desktop-mini"] .reviewintel-view-switcher {
+  z-index: 2147483647 !important;
+}
+
+
+/* =========================================================
+   TRUE Desktop Miniature Mode
+   Purpose:
+   - Same desktop design
+   - But previewed inside a phone-sized mobile frame
+   - NOT full desktop size on Mac
+   - NOT dark
+   ========================================================= */
+
+html[data-layout-mode="desktop-mini"] {
+  overflow-x: hidden !important;
+  background: var(--background, #ffffff) !important;
+}
+
+html[data-layout-mode="desktop-mini"] body {
+  min-width: 0 !important;
+  width: 100% !important;
+  overflow-x: hidden !important;
+  background: var(--background, #ffffff) !important;
+}
+
+/* The visible phone-sized frame */
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+  width: min(390px, 100vw) !important;
+  max-width: min(390px, 100vw) !important;
+  min-height: 100vh !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  overflow-x: hidden !important;
+  background: var(--background, #ffffff) !important;
+}
+
+/* The real desktop app is still 1180px wide, but zoomed down */
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+  width: 1180px !important;
+  min-width: 1180px !important;
+  max-width: none !important;
+  min-height: 100vh !important;
+  background: var(--background, #ffffff) !important;
+
+  zoom: var(--reviewintel-mini-scale, 0.33) !important;
+  transform: none !important;
+  transform-origin: top left !important;
+}
+
+/* Safari/Chrome support zoom. Fallback for browsers without zoom. */
+@supports not (zoom: 1) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    zoom: normal !important;
+    transform: scale(var(--reviewintel-mini-scale, 0.33)) !important;
+    transform-origin: top left !important;
+  }
+}
+
+/* Phone-sized scaling */
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+  --reviewintel-mini-scale: 0.33;
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(375px, 100vw) !important;
+    max-width: min(375px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.318;
+  }
+}
+
+/* Standard phones */
+@media (min-width: 381px) and (max-width: 410px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(390px, 100vw) !important;
+    max-width: min(390px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.33;
+  }
+}
+
+/* Large phones */
+@media (min-width: 411px) and (max-width: 480px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(430px, 100vw) !important;
+    max-width: min(430px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.364;
+  }
+}
+
+/* Tablet preview still shows desktop miniature, not full desktop */
+@media (min-width: 481px) and (max-width: 820px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(768px, 100vw) !important;
+    max-width: min(768px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.65;
+  }
+}
+
+/* IMPORTANT: On Mac/desktop browser, keep it phone-sized.
+   Do NOT return scale to 1. */
+@media (min-width: 821px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: 390px !important;
+    max-width: 390px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.33 !important;
+    width: 1180px !important;
+    min-width: 1180px !important;
+  }
+}
+
+/* Keep the local tester button outside/above everything */
+html[data-layout-mode="desktop-mini"] .reviewintel-view-switcher {
+  position: fixed !important;
+  right: 18px !important;
+  bottom: 18px !important;
+  z-index: 2147483647 !important;
+  zoom: 1 !important;
+  transform: none !important;
+}
+
+
+/* =========================================================
+   Desktop Miniature Smaller Scale Fix
+   Desktop Miniature should look like a tiny desktop inside
+   the mobile-sized preview, not like crowded mobile text.
+   ========================================================= */
+
+/* Phone-sized preview frame */
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+  width: min(390px, 100vw) !important;
+  max-width: min(390px, 100vw) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  overflow-x: hidden !important;
+  background: var(--background, #ffffff) !important;
+}
+
+/* The desktop canvas stays desktop-sized, then gets scaled smaller */
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+  width: 1180px !important;
+  min-width: 1180px !important;
+  max-width: none !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  background: var(--background, #ffffff) !important;
+
+  zoom: var(--reviewintel-mini-scale, 0.27) !important;
+  transform: none !important;
+  transform-origin: top center !important;
+}
+
+/* Make miniature smaller than exact phone fit */
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+  --reviewintel-mini-scale: 0.27 !important;
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(375px, 100vw) !important;
+    max-width: min(375px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.255 !important;
+  }
+}
+
+/* Standard phones */
+@media (min-width: 381px) and (max-width: 410px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(390px, 100vw) !important;
+    max-width: min(390px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.27 !important;
+  }
+}
+
+/* Large phones */
+@media (min-width: 411px) and (max-width: 480px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(430px, 100vw) !important;
+    max-width: min(430px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.29 !important;
+  }
+}
+
+/* Tablet miniature */
+@media (min-width: 481px) and (max-width: 820px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: min(768px, 100vw) !important;
+    max-width: min(768px, 100vw) !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.5 !important;
+  }
+}
+
+/* On Mac/desktop browser, still show phone-sized miniature, not full desktop */
+@media (min-width: 821px) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-root {
+    width: 390px !important;
+    max-width: 390px !important;
+  }
+
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    --reviewintel-mini-scale: 0.27 !important;
+  }
+}
+
+/* Fallback if zoom is not supported */
+@supports not (zoom: 1) {
+  html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+    zoom: normal !important;
+    transform: scale(var(--reviewintel-mini-scale, 0.27)) !important;
+    transform-origin: top center !important;
+  }
+}
+
+/* Keep the View Settings button normal size */
+html[data-layout-mode="desktop-mini"] .reviewintel-view-switcher,
+html[data-layout-mode="desktop-mini"] .reviewintel-view-switcher * {
+  zoom: 1 !important;
+  transform: none !important;
+}
+
+
+/* =========================================================
+   Emergency Disable Desktop Miniature
+   Desktop Miniature was causing broken compressed layouts.
+   If old localStorage still says desktop-mini, make it behave safely.
+   ========================================================= */
+
+html[data-layout-mode="desktop-mini"] body {
+  min-width: 0 !important;
+  width: 100% !important;
+  overflow-x: hidden !important;
+  background: var(--background, #ffffff) !important;
+}
+
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-root,
+html[data-layout-mode="desktop-mini"] .reviewintel-layout-canvas {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 430px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  zoom: 1 !important;
+  transform: none !important;
+  background: var(--background, #ffffff) !important;
+}
+
+/* If desktop-mini is still active from old saved localStorage, show the mobile result layout safely. */
+html[data-layout-mode="desktop-mini"] .ri-results-mobile {
+  display: block !important;
+}
+
+html[data-layout-mode="desktop-mini"] .ri-results-desktop {
+  display: none !important;
+}
+
+
+/* =========================================================
+   Pricing + Advertise Mobile Compact Fix
+   Mobile only. Desktop unchanged.
+   ========================================================= */
+
+/* Shared mobile page shell */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .reviewintel-layout-canvas,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .reviewintel-layout-canvas,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .reviewintel-layout-canvas,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .reviewintel-layout-canvas {
+  max-width: 430px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing main,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise main,
+html[data-layout-mode="auto"] .reviewintel-route-pricing main,
+html[data-layout-mode="auto"] .reviewintel-route-advertise main {
+  max-width: 430px !important;
+  width: 100% !important;
+  padding: 0.8rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Hero sections should not eat the whole phone screen */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing section:first-of-type,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise section:first-of-type,
+html[data-layout-mode="auto"] .reviewintel-route-pricing section:first-of-type,
+html[data-layout-mode="auto"] .reviewintel-route-advertise section:first-of-type {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+  min-height: auto !important;
+}
+
+/* Huge headings reduced */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h1,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h1,
+html[data-layout-mode="auto"] .reviewintel-route-pricing h1,
+html[data-layout-mode="auto"] .reviewintel-route-advertise h1 {
+  font-size: 1.55rem !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.055em !important;
+  margin-bottom: 0.5rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h2,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h2,
+html[data-layout-mode="auto"] .reviewintel-route-pricing h2,
+html[data-layout-mode="auto"] .reviewintel-route-advertise h2 {
+  font-size: 1.1rem !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.035em !important;
+  margin-bottom: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h3,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h3,
+html[data-layout-mode="auto"] .reviewintel-route-pricing h3,
+html[data-layout-mode="auto"] .reviewintel-route-advertise h3 {
+  font-size: 0.92rem !important;
+  line-height: 1.12 !important;
+}
+
+/* Paragraphs and helper text */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing p,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing li,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise p,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise li,
+html[data-layout-mode="auto"] .reviewintel-route-pricing p,
+html[data-layout-mode="auto"] .reviewintel-route-pricing li,
+html[data-layout-mode="auto"] .reviewintel-route-advertise p,
+html[data-layout-mode="auto"] .reviewintel-route-advertise li {
+  font-size: 0.76rem !important;
+  line-height: 1.32 !important;
+}
+
+/* Tailwind large text utilities inside pricing/advertise */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-7xl,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-6xl,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-5xl,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-4xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-7xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-6xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-5xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-4xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-7xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-6xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-5xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-4xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-7xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-6xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-5xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-4xl {
+  font-size: 1.55rem !important;
+  line-height: 1.02 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-3xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-3xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-3xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-3xl {
+  font-size: 1.15rem !important;
+  line-height: 1.08 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-2xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-2xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-2xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-2xl {
+  font-size: 0.98rem !important;
+  line-height: 1.12 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-xl {
+  font-size: 0.86rem !important;
+  line-height: 1.18 !important;
+}
+
+/* Cards: less huge */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-12,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-7,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-12,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-7,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-6,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-12,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-10,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-8,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-7,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-6,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-12,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-10,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-8,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-7,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-6 {
+  padding: 0.9rem !important;
+}
+
+/* Reduce vertical spacing */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-12,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-10,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-7,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-12,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-7,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-6,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-12,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-10,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-8,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-7,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-6,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-12,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-10,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-8,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-7,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-6 {
+  gap: 0.85rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="mobile"] .reviewintel-route-advertise [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-pricing [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-advertise [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.85rem !important;
+}
+
+/* Pricing/advertise grids should stack cleanly on mobile */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .grid,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .grid,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .grid,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* Buttons compact but still tappable */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing button,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing a,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise button,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise a,
+html[data-layout-mode="auto"] .reviewintel-route-pricing button,
+html[data-layout-mode="auto"] .reviewintel-route-pricing a,
+html[data-layout-mode="auto"] .reviewintel-route-advertise button,
+html[data-layout-mode="auto"] .reviewintel-route-advertise a {
+  font-size: 0.74rem !important;
+  min-height: 36px !important;
+  padding: 0.55rem 0.8rem !important;
+  border-radius: 0.85rem !important;
+}
+
+/* Price numbers should be visible but not giant */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing [class*="text-"][class*="font-black"],
+html[data-layout-mode="auto"] .reviewintel-route-pricing [class*="text-"][class*="font-black"] {
+  line-height: 1.05 !important;
+}
+
+/* Rounded boxes less bulky */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .rounded-\[,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .rounded-\[,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .rounded-\[,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .rounded-\[ {
+  border-radius: 1rem !important;
+}
+
+/* Avoid horizontal overflow */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing *,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise *,
+html[data-layout-mode="auto"] .reviewintel-route-pricing *,
+html[data-layout-mode="auto"] .reviewintel-route-advertise * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   Pricing + Advertise Mobile Smaller Tuning
+   Makes both pages a little more tiny on mobile only.
+   Desktop unchanged.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing main,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise main,
+html[data-layout-mode="auto"] .reviewintel-route-pricing main,
+html[data-layout-mode="auto"] .reviewintel-route-advertise main {
+  padding: 0.55rem !important;
+}
+
+/* Smaller hero */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing section:first-of-type,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise section:first-of-type,
+html[data-layout-mode="auto"] .reviewintel-route-pricing section:first-of-type,
+html[data-layout-mode="auto"] .reviewintel-route-advertise section:first-of-type {
+  padding-top: 0.65rem !important;
+  padding-bottom: 0.65rem !important;
+}
+
+/* Headings slightly smaller */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h1,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h1,
+html[data-layout-mode="auto"] .reviewintel-route-pricing h1,
+html[data-layout-mode="auto"] .reviewintel-route-advertise h1 {
+  font-size: 1.28rem !important;
+  line-height: 1.02 !important;
+  margin-bottom: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h2,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h2,
+html[data-layout-mode="auto"] .reviewintel-route-pricing h2,
+html[data-layout-mode="auto"] .reviewintel-route-advertise h2 {
+  font-size: 0.96rem !important;
+  line-height: 1.08 !important;
+  margin-bottom: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing h3,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise h3,
+html[data-layout-mode="auto"] .reviewintel-route-pricing h3,
+html[data-layout-mode="auto"] .reviewintel-route-advertise h3 {
+  font-size: 0.82rem !important;
+  line-height: 1.1 !important;
+}
+
+/* Text slightly smaller */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing p,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing li,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise p,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise li,
+html[data-layout-mode="auto"] .reviewintel-route-pricing p,
+html[data-layout-mode="auto"] .reviewintel-route-pricing li,
+html[data-layout-mode="auto"] .reviewintel-route-advertise p,
+html[data-layout-mode="auto"] .reviewintel-route-advertise li {
+  font-size: 0.66rem !important;
+  line-height: 1.25 !important;
+}
+
+/* Huge Tailwind text utilities smaller */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-7xl,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-6xl,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-5xl,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-4xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-7xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-6xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-5xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-4xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-7xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-6xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-5xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-4xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-7xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-6xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-5xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-4xl {
+  font-size: 1.28rem !important;
+  line-height: 1.02 !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-3xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-3xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-3xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-3xl {
+  font-size: 0.98rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-2xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-2xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-2xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-2xl {
+  font-size: 0.86rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .text-xl,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .text-xl,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .text-xl,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .text-xl {
+  font-size: 0.76rem !important;
+}
+
+/* Cards smaller */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-12,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-7,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .p-5,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-12,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-7,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .p-5,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-12,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-10,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-8,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-7,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-6,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .p-5,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-12,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-10,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-8,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-7,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-6,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .p-5 {
+  padding: 0.65rem !important;
+}
+
+/* Less spacing */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-12,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-10,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-8,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-7,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-6,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .gap-5,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-12,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-10,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-8,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-7,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-6,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .gap-5,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-12,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-10,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-8,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-7,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-6,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .gap-5,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-12,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-10,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-8,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-7,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-6,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .gap-5 {
+  gap: 0.6rem !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-pricing [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="mobile"] .reviewintel-route-advertise [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-pricing [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] .reviewintel-route-advertise [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.6rem !important;
+}
+
+/* Smaller buttons */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing button,
+html[data-layout-mode="mobile"] .reviewintel-route-pricing a,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise button,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise a,
+html[data-layout-mode="auto"] .reviewintel-route-pricing button,
+html[data-layout-mode="auto"] .reviewintel-route-pricing a,
+html[data-layout-mode="auto"] .reviewintel-route-advertise button,
+html[data-layout-mode="auto"] .reviewintel-route-advertise a {
+  font-size: 0.64rem !important;
+  min-height: 31px !important;
+  padding: 0.42rem 0.62rem !important;
+  border-radius: 0.7rem !important;
+}
+
+/* Smaller badges/pills */
+html[data-layout-mode="mobile"] .reviewintel-route-pricing .rounded-full,
+html[data-layout-mode="mobile"] .reviewintel-route-advertise .rounded-full,
+html[data-layout-mode="auto"] .reviewintel-route-pricing .rounded-full,
+html[data-layout-mode="auto"] .reviewintel-route-advertise .rounded-full {
+  font-size: 0.6rem !important;
+  padding: 0.28rem 0.55rem !important;
+}
+
+
+/* =========================================================
+   Account / Profile Mobile Half-Size Fix
+   Mobile only. Desktop unchanged.
+   Targets /account and nested account/profile/settings pages.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .reviewintel-layout-canvas,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .reviewintel-layout-canvas {
+  max-width: 430px !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  overflow-x: hidden !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] main,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] main {
+  max-width: 430px !important;
+  width: 100% !important;
+  padding: 0.55rem !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Reduce hero/profile headers */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] h1,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] h1 {
+  font-size: 1.25rem !important;
+  line-height: 1.03 !important;
+  letter-spacing: -0.05em !important;
+  margin-bottom: 0.35rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] h2,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] h2 {
+  font-size: 0.95rem !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.035em !important;
+  margin-bottom: 0.3rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] h3,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] h3 {
+  font-size: 0.8rem !important;
+  line-height: 1.1 !important;
+}
+
+/* Reduce text */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] p,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] li,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] label,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] p,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] li,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] label {
+  font-size: 0.66rem !important;
+  line-height: 1.25 !important;
+}
+
+/* Reduce huge Tailwind text utilities */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-7xl,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-6xl,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-5xl,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-4xl,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-7xl,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-6xl,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-5xl,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-4xl {
+  font-size: 1.25rem !important;
+  line-height: 1.03 !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-3xl,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-3xl {
+  font-size: 0.98rem !important;
+  line-height: 1.06 !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-2xl,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-2xl {
+  font-size: 0.85rem !important;
+  line-height: 1.1 !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-xl,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-xl {
+  font-size: 0.74rem !important;
+  line-height: 1.14 !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-lg,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-lg {
+  font-size: 0.68rem !important;
+  line-height: 1.16 !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .text-base,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .text-base {
+  font-size: 0.64rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Cards and panels smaller */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .p-12,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .p-10,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .p-8,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .p-7,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .p-6,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .p-5,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .p-12,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .p-10,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .p-8,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .p-7,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .p-6,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .p-5 {
+  padding: 0.62rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .px-12,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .px-10,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .px-8,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .px-7,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .px-6,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .px-5,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .px-12,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .px-10,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .px-8,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .px-7,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .px-6,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .px-5 {
+  padding-left: 0.62rem !important;
+  padding-right: 0.62rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .py-12,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .py-10,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .py-8,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .py-7,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .py-6,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .py-5,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .py-12,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .py-10,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .py-8,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .py-7,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .py-6,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .py-5 {
+  padding-top: 0.62rem !important;
+  padding-bottom: 0.62rem !important;
+}
+
+/* Less spacing */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .gap-12,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .gap-10,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .gap-8,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .gap-7,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .gap-6,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .gap-5,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .gap-12,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .gap-10,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .gap-8,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .gap-7,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .gap-6,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .gap-5 {
+  gap: 0.6rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [class*="space-y-"] > :not([hidden]) ~ :not([hidden]),
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [class*="space-y-"] > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.6rem !important;
+}
+
+/* Grids stack cleanly */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .grid,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* Buttons and links smaller but tappable */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] button,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] a,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] button,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] a {
+  font-size: 0.64rem !important;
+  min-height: 31px !important;
+  padding: 0.42rem 0.62rem !important;
+  border-radius: 0.7rem !important;
+}
+
+/* Forms smaller */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] input,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] textarea,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] select,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] input,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] textarea,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] select {
+  font-size: 0.66rem !important;
+  min-height: 32px !important;
+  padding: 0.42rem 0.6rem !important;
+  border-radius: 0.7rem !important;
+}
+
+/* Avatars/icons/profile circles smaller */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .size-20,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .size-16,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .h-20,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .w-20,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .h-16,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .w-16,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .size-20,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .size-16,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .h-20,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .w-20,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .h-16,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .w-16 {
+  width: 2.6rem !important;
+  height: 2.6rem !important;
+}
+
+/* Badges/pills smaller */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] .rounded-full,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] .rounded-full {
+  font-size: 0.58rem !important;
+  padding: 0.25rem 0.5rem !important;
+}
+
+/* Prevent overflow */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] *,
+html[data-layout-mode="auto"] [class*="reviewintel-route-account"] * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   ReviewIntel Tiny Mobile Nav
+   Shows a small sticky nav only in Mobile Vertical / phone Auto.
+   Desktop unchanged.
+   ========================================================= */
+
+.ri-mobile-tiny-nav {
+  display: none;
+}
+
+/* Mobile mode */
+html[data-layout-mode="mobile"] .ri-mobile-tiny-nav {
+  position: sticky;
+  top: 0;
+  z-index: 9998;
+  display: block;
+  width: 100%;
+  max-width: 430px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0.32rem 0.38rem;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+/* Auto mode on real phone screens */
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .ri-mobile-tiny-nav {
+    position: sticky;
+    top: 0;
+    z-index: 9998;
+    display: block;
+    width: 100%;
+    max-width: 430px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0.32rem 0.38rem;
+    background: rgba(255, 255, 255, 0.92);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(14px);
+  }
+}
+
+.ri-mobile-tiny-nav-scroll {
+  display: flex;
+  gap: 0.32rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ri-mobile-tiny-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.ri-mobile-tiny-nav a {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.28rem 0.52rem;
+  font-size: 0.56rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #475569;
+  background: rgba(15, 23, 42, 0.055);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ri-mobile-tiny-nav a.active {
+  color: white;
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.16);
+}
+
+.dark .ri-mobile-tiny-nav {
+  background: rgba(2, 6, 23, 0.9);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .ri-mobile-tiny-nav a {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .ri-mobile-tiny-nav a.active {
+  color: white;
+}
+
+/* Prevent the tiny nav from being shrunk by previous mobile page patches */
+html[data-layout-mode="mobile"] .ri-mobile-tiny-nav a,
+html[data-layout-mode="auto"] .ri-mobile-tiny-nav a {
+  font-size: 0.56rem !important;
+  min-height: auto !important;
+  padding: 0.28rem 0.52rem !important;
+  border-radius: 999px !important;
+}
+
+/* Add a little breathing room below tiny nav */
+html[data-layout-mode="mobile"] .ri-mobile-tiny-nav + *,
+html[data-layout-mode="auto"] .ri-mobile-tiny-nav + * {
+  margin-top: 0.15rem;
+}
+
+
+/* =========================================================
+   Tiny Mobile Nav Mirror Top Nav Fix
+   Make mobile quick nav match the visible desktop top nav.
+   ========================================================= */
+
+.ri-mobile-tiny-nav-scroll button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.28rem 0.52rem;
+  font-size: 0.56rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #475569;
+  background: rgba(15, 23, 42, 0.055);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+html[data-layout-mode="mobile"] .ri-mobile-tiny-nav-scroll button,
+html[data-layout-mode="auto"] .ri-mobile-tiny-nav-scroll button {
+  font-size: 0.56rem !important;
+  min-height: auto !important;
+  padding: 0.28rem 0.52rem !important;
+  border-radius: 999px !important;
+}
+
+.dark .ri-mobile-tiny-nav-scroll button {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+}

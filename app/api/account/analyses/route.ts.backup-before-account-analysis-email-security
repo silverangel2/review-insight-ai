@@ -1,0 +1,297 @@
+import { NextResponse } from "next/server";
+import { deleteAnalysisHistory, saveAnalysisRecord, supabaseDelete, supabaseSelect } from "@/lib/supabaseServer";
+
+
+function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
+  if (!item || typeof item !== "object") return item;
+
+  const row = item as Record<string, unknown>;
+
+  const mode = row.mode || row.type || row.analysisType || row.reportType || "";
+  const isSellerCompare =
+    String(mode).toLowerCase() === "seller_compare" ||
+    String(row.product_name || row.productName || "").toLowerCase().includes("seller compare");
+
+  if (!isSellerCompare) return row;
+
+  const rawId = String(row.id || "");
+  const cmrCode =
+    row.displayCode ||
+    row.code ||
+    row.refCode ||
+    (rawId.toUpperCase().startsWith("CMR-")
+      ? rawId.toUpperCase()
+      : `CMR-${rawId.replace(/[^a-z0-9]/gi, "").slice(0, 4).toUpperCase() || Math.random().toString(36).slice(2, 6).toUpperCase()}`);
+
+  return {
+    ...row,
+    id: row.id,
+    code: cmrCode,
+    displayCode: cmrCode,
+    refCode: cmrCode,
+
+    type: "seller_compare",
+    mode: "seller_compare",
+    source: "seller_compare",
+    analysisType: "seller_compare",
+    reportType: "seller_compare",
+    category: "seller_compare",
+
+    title: row.title || row.productName || row.product_name || "Seller Compare",
+    productName: row.productName || row.product_name || "Seller Compare",
+    product_name: row.product_name || row.productName || "Seller Compare",
+    summary: row.summary || "Seller competitor comparison",
+
+    createdAt: row.createdAt || row.created_at || row.timestamp || new Date().toISOString(),
+    created_at: row.created_at || row.createdAt || new Date().toISOString(),
+
+    result: row.result || row.analysis || row.report || row.analysis_json,
+    analysis: row.analysis || row.result || row.analysis_json,
+    report: row.report || row.result || row.analysis_json,
+
+    counted: true,
+    scanCount: 1,
+    isCompare: true,
+    isSellerCompare: true,
+  };
+}
+
+function normalizeAnalysesForDashboard(payload: unknown) {
+  if (Array.isArray(payload)) return payload.map(normalizeAnalysisForDashboard);
+
+  if (!payload || typeof payload !== "object") return payload;
+
+  const row = payload as Record<string, unknown>;
+
+  if (Array.isArray(row.analyses)) {
+    return {
+      ...row,
+      analyses: row.analyses.map((item) =>
+        normalizeAnalysisForDashboard(item as Record<string, unknown>)
+      ),
+    };
+  }
+
+  if (Array.isArray(row.history)) {
+    return {
+      ...row,
+      history: row.history.map((item) =>
+        normalizeAnalysisForDashboard(item as Record<string, unknown>)
+      ),
+    };
+  }
+
+  if (Array.isArray(row.items)) {
+    return {
+      ...row,
+      items: row.items.map((item) =>
+        normalizeAnalysisForDashboard(item as Record<string, unknown>)
+      ),
+    };
+  }
+
+  return row;
+}
+
+
+export const runtime = "nodejs";
+
+function recordOf(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function compareSideName(value: unknown, fallback: string) {
+  const record = recordOf(value);
+  const product = recordOf(record.product);
+  return String(
+    product.title ||
+      product.name ||
+      record.productName ||
+      record.title ||
+      record.name ||
+      record.fileName ||
+      fallback
+  );
+}
+
+function compareHistoryTitle(analysis: Record<string, unknown>) {
+  const productA = analysis.productA || analysis.resultA || analysis.a;
+  const productB = analysis.productB || analysis.resultB || analysis.b;
+
+  if (productA || productB) {
+    return `Compare: ${compareSideName(productA, "Product A")} vs ${compareSideName(productB, "Product B")}`;
+  }
+
+  return "Compare result";
+}
+
+
+function weekKey(value: unknown) {
+  const date = new Date(String(value || ""));
+  if (Number.isNaN(date.getTime())) return "unknown";
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() - date.getUTCDay());
+  return date.toISOString().slice(0, 10);
+}
+
+function retainByPlan(rows: Record<string, unknown>[], plan: string) {
+  if (plan === "free_buyer") return [];
+
+  // Shopper Premium / Buyer Pro history should not be capped to 10 per week.
+  // Keep the newest 50 records total so new product scans and compare scans appear immediately.
+  if (plan === "buyer_pro") {
+    return rows.slice(0, 50);
+  }
+
+  const counts = new Map<string, number>();
+  const retained: Record<string, unknown>[] = [];
+
+  for (const row of rows) {
+    const key = weekKey(row.created_at);
+    const count = counts.get(key) || 0;
+
+    if (count < 10) {
+      retained.push(row);
+      counts.set(key, count + 1);
+    }
+  }
+
+  return retained.slice(0, 50);
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const email = String(url.searchParams.get("email") ?? "").toLowerCase().trim();
+  const plan = String(url.searchParams.get("plan") ?? "").toLowerCase().trim();
+  const role = String(url.searchParams.get("role") ?? "").toLowerCase().trim();
+
+  if (!email) {
+    return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
+  }
+
+  await supabaseDelete(
+    "analyses",
+    [
+      `profile_email=eq.${encodeURIComponent(email)}`,
+      `created_at=lt.${encodeURIComponent(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())}`
+    ].join("&")
+  ).catch(() => false);
+  await supabaseDelete(
+    "usage_events",
+    [
+      `profile_email=eq.${encodeURIComponent(email)}`,
+      "event_type=eq.analysis",
+      `created_at=lt.${encodeURIComponent(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())}`
+    ].join("&")
+  ).catch(() => false);
+
+  const rows = await supabaseSelect(
+    "analyses",
+    `select=*&profile_email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=500`
+  );
+
+  const filteredRows = (rows ?? []).filter((row) => {
+    const mode = String(row.mode ?? "").toLowerCase();
+
+    if (plan === "seller_premium" || plan === "seller_pro") {
+      return mode === "seller" || mode === "both" || mode.includes("seller");
+    }
+
+    if (role === "buyer" || plan === "free_buyer" || plan === "buyer_pro") {
+      return mode !== "seller" && !mode.includes("seller");
+    }
+
+    return true;
+  });
+
+  const limitedRows = retainByPlan(filteredRows, plan);
+  const retainedIds = new Set(limitedRows.map((row) => String(row.id ?? "")).filter(Boolean));
+  const rowsToDrop = filteredRows.filter((row) => {
+    const id = String(row.id ?? "").trim();
+    return id && !retainedIds.has(id);
+  });
+
+  if (rowsToDrop.length) {
+    await Promise.all(
+      rowsToDrop.map((row) => {
+        const id = String(row.id ?? "").trim();
+        return id ? deleteAnalysisHistory({ email, id }) : Promise.resolve(null);
+      })
+    );
+  }
+
+  return NextResponse.json(normalizeAnalysesForDashboard({ analyses: limitedRows }));
+}
+
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const email = String(body?.email ?? body?.profile_email ?? "").toLowerCase().trim();
+
+  if (!email) {
+    return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
+  }
+
+  const analysis = body?.analysis && typeof body.analysis === "object" ? body.analysis : body;
+  const analysisRecord = recordOf(analysis);
+  const modeText = String(body?.mode ?? analysisRecord.mode ?? "").toLowerCase();
+  const typeText = String(analysisRecord.type ?? "").toLowerCase();
+  const compareIdText = String(analysisRecord.compareId ?? "");
+
+  const isComparePayload =
+    Boolean(analysisRecord.productA && analysisRecord.productB) &&
+    (
+      typeText === "compare" ||
+      modeText === "buyer_compare" ||
+      compareIdText.startsWith("CMR-")
+    );
+
+  const compareTitle = compareHistoryTitle(analysisRecord);
+
+  const result = await saveAnalysisRecord({
+    profile_email: email,
+    email,
+    mode: isComparePayload ? "buyer_compare" : body?.mode ?? analysisRecord.mode ?? "buyer",
+    audience: isComparePayload ? "buyer" : body?.audience ?? analysisRecord.audience ?? "buyer",
+    product_name: isComparePayload
+      ? String(analysisRecord.title ?? analysisRecord.fileName ?? analysisRecord.productName ?? compareTitle)
+      : body?.product_name ??
+        body?.productName ??
+        analysisRecord.fileName ??
+        analysisRecord.title ??
+        analysisRecord.productName ??
+        "Analyzed product",
+    platform: isComparePayload ? "compare" : body?.platform ?? analysisRecord.platform ?? null,
+    product_score: isComparePayload ? null : body?.product_score ?? body?.productScore ?? analysisRecord.score ?? null,
+    recommendation: isComparePayload
+      ? String(body?.recommendation ?? analysisRecord.verdict ?? analysisRecord.winner ?? "")
+      : body?.recommendation ?? analysisRecord.verdict ?? null,
+    summary: isComparePayload
+      ? String(body?.summary ?? analysisRecord.summary ?? "")
+      : body?.summary ?? analysisRecord.summary ?? null,
+    analysis_json: analysis,
+    account: body?.account ?? null
+  });
+
+  return NextResponse.json(normalizeAnalysesForDashboard({ ok: true, analysis: result }));
+}
+
+
+export async function DELETE(request: Request) {
+  const body = await request.json().catch(() => null);
+  const email = String(body?.email ?? "").toLowerCase().trim();
+  const id = String(body?.id ?? "").trim();
+  const all = Boolean(body?.all);
+
+  if (!email) {
+    return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
+  }
+
+  if (!all && !id) {
+    return NextResponse.json(normalizeAnalysesForDashboard({ error: "Analysis id is required unless clear-all is requested." }), { status: 400 });
+  }
+
+  const result = await deleteAnalysisHistory({ email, id, all });
+
+  return NextResponse.json(normalizeAnalysesForDashboard(result));
+}
