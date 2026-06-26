@@ -324,7 +324,11 @@ export function AccountDashboard() {
         preferredCurrency: serverTrusted ? (serverAccount.preferredCurrency ?? existing?.preferredCurrency ?? "CAD") : (existing?.preferredCurrency ?? "CAD"),
         profileNotes: serverTrusted ? (serverAccount.profileNotes ?? existing?.profileNotes) : existing?.profileNotes,
         marketingConsent: serverTrusted ? (serverAccount.marketingConsent ?? existing?.marketingConsent) : existing?.marketingConsent,
-        passwordUpdatedAt: existing?.passwordUpdatedAt
+        passwordUpdatedAt: existing?.passwordUpdatedAt,
+        betaStartedAt: serverTrusted ? (serverAccount.betaStartedAt ?? existing?.betaStartedAt) : existing?.betaStartedAt,
+        betaExpiresAt: serverTrusted ? (serverAccount.betaExpiresAt ?? existing?.betaExpiresAt) : existing?.betaExpiresAt,
+        betaOriginalPlan: serverTrusted ? (serverAccount.betaOriginalPlan ?? existing?.betaOriginalPlan) : existing?.betaOriginalPlan,
+        betaOriginalStatus: serverTrusted ? (serverAccount.betaOriginalStatus ?? existing?.betaOriginalStatus) : existing?.betaOriginalStatus
       };
       saveClientAccount(nextAccount);
       setAccount(nextAccount);
