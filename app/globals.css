@@ -10511,3 +10511,152 @@ html[data-layout-mode="auto"] .seller-result-page .seller-insight-card::-webkit-
   background: rgba(15, 23, 42, 0.18) !important;
   border-radius: 999px !important;
 }
+
+/* =========================================================
+   Shopper Dashboard Mobile Nav Size Match
+   Scope: /dashboard/customer nav only.
+   Fixes broad dashboard button sizing overriding top nav.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer [data-mobile-nav="primary"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .reviewintel-mobile-nav {
+  min-height: 2.65rem !important;
+  padding: 0.45rem 0.45rem !important;
+  gap: 0.35rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow-x: auto !important;
+  white-space: nowrap !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer [data-mobile-nav="primary"] a,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer [data-mobile-nav="primary"] button,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .reviewintel-mobile-nav a,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .reviewintel-mobile-nav button {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 1.75rem !important;
+  height: 1.75rem !important;
+  border-radius: 999px !important;
+  padding: 0.38rem 0.72rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.01em !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer [data-mobile-nav="primary"],
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer .reviewintel-mobile-nav {
+    min-height: 2.65rem !important;
+    padding: 0.45rem 0.45rem !important;
+    gap: 0.35rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer [data-mobile-nav="primary"] a,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer [data-mobile-nav="primary"] button,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer .reviewintel-mobile-nav a,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-customer .reviewintel-mobile-nav button {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 1.75rem !important;
+    height: 1.75rem !important;
+    border-radius: 999px !important;
+    padding: 0.38rem 0.72rem !important;
+    font-size: 0.68rem !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.01em !important;
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+  }
+}
+
+/* =========================================================
+   Seller Dashboard Mobile Nav Size Match
+   Scope: /dashboard/seller nav only.
+   Fixes dashboard button/card sizing overriding top nav.
+   Does not touch seller dashboard cards or result pages.
+   ========================================================= */
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [data-mobile-nav="primary"],
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .reviewintel-mobile-nav {
+  min-height: 2.65rem !important;
+  padding: 0.45rem 0.45rem !important;
+  gap: 0.35rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow-x: auto !important;
+  white-space: nowrap !important;
+}
+
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [data-mobile-nav="primary"] a,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller [data-mobile-nav="primary"] button,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .reviewintel-mobile-nav a,
+html[data-layout-mode="mobile"] .reviewintel-route-dashboard-seller .reviewintel-mobile-nav button {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 1.75rem !important;
+  height: 1.75rem !important;
+  border-radius: 999px !important;
+  padding: 0.38rem 0.72rem !important;
+  font-size: 0.68rem !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.01em !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller [data-mobile-nav="primary"],
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller .reviewintel-mobile-nav {
+    min-height: 2.65rem !important;
+    padding: 0.45rem 0.45rem !important;
+    gap: 0.35rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller [data-mobile-nav="primary"] a,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller [data-mobile-nav="primary"] button,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller .reviewintel-mobile-nav a,
+  html[data-layout-mode="auto"] .reviewintel-route-dashboard-seller .reviewintel-mobile-nav button {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 1.75rem !important;
+    height: 1.75rem !important;
+    border-radius: 999px !important;
+    padding: 0.38rem 0.72rem !important;
+    font-size: 0.68rem !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.01em !important;
+    white-space: nowrap !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto !important;
+  }
+}

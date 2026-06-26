@@ -72,6 +72,7 @@ export default function MobileTinyNav() {
     if (hasSellerAccess(account)) {
       return [
         ["Analyze", "/seller/analyze"],
+        ["Compare", "/dashboard/seller/compare"],
         ["Dashboard", "/dashboard/seller"],
         ["Results", "/results"],
         ["Profile", "/account"],
@@ -81,7 +82,7 @@ export default function MobileTinyNav() {
     if (isShopperPremiumAccount(account)) {
       return [
         ["Analyze", "/analyze"],
-        ["Compare", "/compare"],
+        ["Compare", "/dashboard/seller/compare"],
         ["Dashboard", "/dashboard/customer"],
         ["Results", "/results"],
         ["Account", "/account"],
