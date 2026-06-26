@@ -69,21 +69,29 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
   }
 
   useEffect(() => {
-    const saved = safeMode(window.localStorage.getItem(STORAGE_KEY));
+    const initialMode = showTester
+      ? safeMode(window.localStorage.getItem(STORAGE_KEY))
+      : "auto";
 
-    setMode(saved);
-    document.documentElement.dataset.layoutMode = saved;
+    if (!showTester) {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+
+    setMode(initialMode);
+    document.documentElement.dataset.layoutMode = initialMode;
 
     function onStorage(event: StorageEvent) {
       if (event.key !== STORAGE_KEY) return;
-      const next = safeMode(event.newValue);
+
+      const next = showTester ? safeMode(event.newValue) : "auto";
       setMode(next);
       document.documentElement.dataset.layoutMode = next;
     }
 
     function onLayoutModeChange(event: Event) {
       const detail = (event as CustomEvent<{ mode?: string }>).detail;
-      const next = safeMode(detail?.mode ?? null);
+      const next = showTester ? safeMode(detail?.mode ?? null) : "auto";
+
       setMode(next);
       document.documentElement.dataset.layoutMode = next;
     }
@@ -95,7 +103,7 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("reviewintel-layout-mode", onLayoutModeChange);
     };
-  }, []);
+  }, [showTester]);
 
   return (
     <>
