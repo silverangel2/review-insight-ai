@@ -7,78 +7,6 @@ import { readStoredLocale } from "@/lib/i18n";
 import { saveLatestSellerResult } from "@/lib/sellerResultStorage";
 import { incrementSellerScanAudit } from "@/lib/sellerScanAudit";
 
-
-function makePrdCode() {
-  return `PRD-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
-
-function getStoredSellerAccount() {
-  if (typeof window === "undefined") return null;
-
-  const raw =
-    localStorage.getItem("reviewintel:account") ||
-    localStorage.getItem("reviewintel-account") ||
-    localStorage.getItem("reviewintel_account") ||
-    "";
-
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as { email?: string; plan?: string; role?: string };
-  } catch {
-    return null;
-  }
-}
-
-async function saveSellerProductToAccountHistory(result: SellerResult, fileName: string) {
-  const account = getStoredSellerAccount();
-  const prdCode = makePrdCode();
-
-  const productName =
-    fileName ||
-    "Seller Product";
-
-  await fetch("/api/account/analyses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      id: prdCode,
-      code: prdCode,
-      displayCode: prdCode,
-      refCode: prdCode,
-
-      type: "seller_analyze",
-      mode: "seller_analyze",
-      source: "seller_analyze",
-      analysisType: "seller_analyze",
-      reportType: "seller_analyze",
-      category: "seller_analyze",
-
-      title: productName,
-      productName,
-      product_name: productName,
-
-      createdAt: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      timestamp: Date.now(),
-
-      email: account?.email || "seller.pro@reviewintel.test",
-      plan: account?.plan || "seller_pro",
-      role: account?.role || "seller",
-
-      counted: true,
-      scanCount: 1,
-
-      result,
-      analysis: result,
-      report: result,
-      request: { source: "seller_analyze", fileName },
-    }),
-  });
-}
-
 type SellerResult = {
   summary: string;
   reviewsAnalyzed: number;
@@ -131,9 +59,6 @@ export default function SellerDashboardPage() {
         createdAt: new Date().toISOString()
       });
 
-      // SELLER_PRODUCT_PRD_ACCOUNT_HISTORY_SAVE
-      await saveSellerProductToAccountHistory(data as SellerResult, fileName);
-
       incrementSellerScanAudit();
 
       const stillOnSellerAnalyze =
@@ -141,7 +66,7 @@ export default function SellerDashboardPage() {
         ["/seller/analyze", "/dashboard/seller/upload"].includes(window.location.pathname);
 
       if (stillOnSellerAnalyze) {
-        router.push("/seller/result");
+        router.push("/dashboard/seller/result");
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Seller CSV analysis failed.");

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { setAccountSessionCookie } from "@/lib/accountSession";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { accountFromOAuthAccessToken, accountFromOAuthCode } from "@/lib/supabaseAuth";
 import { supabaseFetch, supabaseUpsert } from "@/lib/supabaseServer";
@@ -228,25 +229,25 @@ export async function POST(request: Request) {
     valueAsString(oauthAccount.id) ||
     normalizedEmail;
 
-  return jsonWithClearedOAuthCookies({
-    ok: true,
-    account: {
-      ...account,
-      userId: finalUserId,
-      authUserId: authUserId || finalUserId,
-      profileId,
-      email: normalizedEmail,
-      role: finalRole,
-      plan,
-      name: finalName,
-      createdAt:
-        valueAsString(profile?.created_at) ||
-        valueAsString(oauthAccount.createdAt) ||
-        new Date().toISOString(),
-      subscriptionStatus:
-        valueAsString(profile?.subscription_status) ||
-        (plan === "free_buyer" ? requestedSubscriptionStatus : "active"),
-      marketingConsent: Boolean(profile?.marketing_consent)
-    }
-  });
+  const finalAccount = {
+    ...account,
+    userId: finalUserId,
+    authUserId: authUserId || finalUserId,
+    profileId,
+    email: normalizedEmail,
+    role: finalRole,
+    plan,
+    name: finalName,
+    createdAt:
+      valueAsString(profile?.created_at) ||
+      valueAsString(oauthAccount.createdAt) ||
+      new Date().toISOString(),
+    subscriptionStatus:
+      valueAsString(profile?.subscription_status) ||
+      (plan === "free_buyer" ? requestedSubscriptionStatus : "active"),
+    marketingConsent: Boolean(profile?.marketing_consent)
+  };
+  const response = jsonWithClearedOAuthCookies({ ok: true, account: finalAccount });
+  setAccountSessionCookie(response, finalAccount);
+  return response;
 }

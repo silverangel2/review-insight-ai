@@ -285,7 +285,12 @@ export default function SellerDashboardPage() {
 
     async function loadAccountAnalyses() {
       try {
-        const response = await fetch(`/api/account/analyses?email=${encodeURIComponent(accountEmail)}`, {
+        const query = new URLSearchParams({
+          email: accountEmail,
+          plan: String(account?.plan || ""),
+          role: String(account?.role || ""),
+        });
+        const response = await fetch(`/api/account/analyses?${query.toString()}`, {
           cache: "no-store",
           credentials: "include",
         });
@@ -334,7 +339,7 @@ export default function SellerDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [account?.email]);
+  }, [account?.email, account?.plan, account?.role]);
 
   const isSeller = account?.role === "seller";
   const isSellerPro = account?.plan === "seller_pro";
@@ -358,6 +363,7 @@ export default function SellerDashboardPage() {
         });
       }),
     ];
+    const productAuditScans = auditScans.filter((scan) => !isCompareScan(scan));
 
     // Product improvement tracking must stay product-only.
     // Compare results count for audit, but do not become tracked improvement products.
@@ -404,7 +410,8 @@ export default function SellerDashboardPage() {
     })[0] ?? null;
 
     return {
-      scans: auditScans,
+      scans: productAuditScans,
+      auditScans,
       latestScans,
       recentSignalScans,
       painPoints,
@@ -509,8 +516,8 @@ export default function SellerDashboardPage() {
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Priority order</p>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-2xl border border-line dark:border-white/10">
-              <div className="grid grid-cols-[1.2fr_0.6fr_0.7fr_1.4fr_0.8fr] bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/5 dark:text-slate-400">
+            <div className="seller-ranking-table mt-5 overflow-hidden rounded-2xl border border-line dark:border-white/10">
+              <div className="seller-ranking-header grid grid-cols-[1.2fr_0.6fr_0.7fr_1.4fr_0.8fr] bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:bg-white/5 dark:text-slate-400">
                 <span>Product</span>
                 <span>Latest</span>
                 <span>Trend</span>
@@ -518,20 +525,20 @@ export default function SellerDashboardPage() {
                 <span>Priority</span>
               </div>
               {dashboard.productRows.slice(0, 8).map((product) => (
-                <div key={product.name} className="grid grid-cols-[1.2fr_0.6fr_0.7fr_1.4fr_0.8fr] gap-3 border-t border-line px-4 py-4 text-sm dark:border-white/10">
-                  <div>
+                <div key={product.name} className="seller-ranking-row grid grid-cols-[1.2fr_0.6fr_0.7fr_1.4fr_0.8fr] gap-3 border-t border-line px-4 py-4 text-sm dark:border-white/10">
+                  <div className="seller-ranking-product">
                     <p className="font-black text-ink dark:text-white">{productDisplayCode(product.name)}</p>
                     <p className="mt-1 text-xs font-bold text-slate-500">{product.scanCount} scan{product.scanCount === 1 ? "" : "s"}</p>
                   </div>
-                  <p className="font-black text-ocean">{product.latestScore ? `${product.latestScore}%` : "—"}</p>
-                  <div>
+                  <p className="seller-ranking-score font-black text-ocean">{product.latestScore ? `${product.latestScore}%` : "—"}</p>
+                  <div className="seller-ranking-trend">
                     <p className="font-black text-slate-700 dark:text-slate-200">{product.trend}</p>
                     <p className="mt-1 text-xs font-bold text-slate-500">
                       {product.previousScore ? `${product.scoreChange > 0 ? "+" : ""}${product.scoreChange} pts` : "New"}
                     </p>
                   </div>
-                  <p className="font-semibold leading-6 text-slate-600 dark:text-slate-300">{product.mainConcern}</p>
-                  <p className={`font-black ${priorityTone(product.priority)}`}>{product.priority}</p>
+                  <p className="seller-ranking-concern font-semibold leading-6 text-slate-600 dark:text-slate-300">{product.mainConcern}</p>
+                  <p className={`seller-ranking-priority font-black ${priorityTone(product.priority)}`}>{product.priority}</p>
                 </div>
               ))}
             </div>
@@ -603,7 +610,7 @@ export default function SellerDashboardPage() {
         </section>
 
         {isSellerPro ? (
-          <section className="mb-6 rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="seller-calendar-workspace mb-6 rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
             <div className="mb-5">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro workspace</p>
               <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Improvement calendar</h2>
@@ -797,6 +804,207 @@ export default function SellerDashboardPage() {
         ) : null}
 
         <AdSlot placement="seller_dashboard" compact className="mt-6" />
+        <style jsx global>{`
+          @media (max-width: 640px) {
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .dashboard-shell-main {
+              display: block !important;
+              width: 100% !important;
+              max-width: 430px !important;
+              margin: 0 auto !important;
+              padding: 4.5rem 0.75rem 5rem !important;
+              overflow-x: hidden !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .dashboard-shell-sidebar {
+              display: none !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .dashboard-shell-content {
+              width: 100% !important;
+              min-width: 0 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .dashboard-shell-content
+              :is(p, span, li, label, th, td) {
+              font-size: 0.8rem !important;
+              line-height: 1.45 !important;
+              letter-spacing: 0 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .dashboard-shell-page-title,
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              :is(
+                .seller-premium-hero,
+                .seller-premium-ranking,
+                .seller-premium-focus-grid > article,
+                .seller-premium-insight-grid > article,
+                .seller-premium-utility-grid > article,
+                .seller-calendar-workspace
+              ) {
+              padding: 1rem !important;
+              border-radius: 1rem !important;
+              gap: 0.75rem !important;
+              box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07) !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .dashboard-shell-page-title {
+              margin-bottom: 0.85rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .dashboard-shell-page-title h1 {
+              margin-top: 0.55rem !important;
+              font-size: 1.55rem !important;
+              line-height: 1.12 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              :is(.seller-premium-hero h2, .seller-premium-ranking h2, .seller-calendar-workspace h2) {
+              margin-top: 0.45rem !important;
+              font-size: 1.35rem !important;
+              line-height: 1.18 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              :is(.seller-premium-focus-grid h3, .seller-premium-utility-grid h3) {
+              margin-top: 0.5rem !important;
+              font-size: 1.08rem !important;
+              line-height: 1.25 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-premium-metrics {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 0.65rem !important;
+              margin-bottom: 0.85rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-premium-metrics > article {
+              min-height: 8.3rem !important;
+              padding: 0.85rem !important;
+              border-radius: 1rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-premium-metrics > article > p:nth-child(2) {
+              margin-top: 0.45rem !important;
+              font-size: 1.55rem !important;
+              line-height: 1.05 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              :is(.seller-premium-focus-grid, .seller-premium-insight-grid, .seller-premium-utility-grid) {
+              grid-template-columns: 1fr !important;
+              gap: 0.75rem !important;
+              margin-bottom: 0.85rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-premium-insight-grid li:nth-child(n + 5) {
+              display: none !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-ranking-table {
+              margin-top: 0.8rem !important;
+              overflow: visible !important;
+              border: 0 !important;
+              border-radius: 0 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-ranking-header {
+              display: none !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-ranking-row {
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) auto !important;
+              gap: 0.45rem 0.75rem !important;
+              margin-top: 0.55rem !important;
+              padding: 0.85rem !important;
+              border: 1px solid #dbe4ee !important;
+              border-radius: 0.9rem !important;
+              background: #f8fafc !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              :is(.seller-ranking-score, .seller-ranking-priority) {
+              text-align: right !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              :is(.seller-ranking-trend, .seller-ranking-concern) {
+              grid-column: 1 / -1 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-ranking-concern {
+              padding-top: 0.45rem !important;
+              border-top: 1px solid #e2e8f0 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details > summary {
+              min-height: 3.25rem !important;
+              padding: 0.9rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details table {
+              min-width: 720px !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details :is(th, td) {
+              padding: 0.7rem !important;
+              font-size: 0.72rem !important;
+              line-height: 1.35 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              a,
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              button {
+              min-height: 2.75rem !important;
+              font-size: 0.8rem !important;
+            }
+          }
+        `}</style>
       </DashboardShell>
     </ProOnlyGate>
   );

@@ -51,12 +51,19 @@ export async function middleware(request: NextRequest) {
   const isLoggedIn = Boolean(normalizedRole && normalizedPlan);
   const isAdminAccount = normalizedRole === "admin";
   const hasSellerRole = normalizedRole === "seller";
-  const hasSellerPlan = normalizedPlan === "seller_premium" || normalizedPlan === "seller_pro";
+  const hasSellerPlan =
+    normalizedPlan === "seller_premium" ||
+    normalizedPlan === "seller_beta" ||
+    normalizedPlan === "seller_pro";
   const isPaidSellerAccount = hasSellerRole && hasSellerPlan;
   const isSellerAccount = isAdminAccount || isPaidSellerAccount;
   const isPendingSeller = hasSellerRole && !hasSellerPlan;
-  const isBuyerAccount = normalizedRole === "buyer" || normalizedPlan === "free_buyer" || normalizedPlan === "buyer_pro";
-  const isShopperPremium = normalizedPlan === "buyer_pro";
+  const isBuyerAccount =
+    normalizedRole === "buyer" ||
+    normalizedPlan === "free_buyer" ||
+    normalizedPlan === "buyer_pro" ||
+    normalizedPlan === "buyer_beta";
+  const isShopperPremium = normalizedPlan === "buyer_pro" || normalizedPlan === "buyer_beta";
 
   const protectedCustomerPaths = [
     "/analyze",

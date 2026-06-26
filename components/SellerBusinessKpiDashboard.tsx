@@ -43,6 +43,208 @@ function compactText(value: string) {
   return clean;
 }
 
+function sellerActionForTheme(theme: string, intent: "objection" | "proof" | "trust" | "support" | "fix" = "objection") {
+  const clean = compactText(theme);
+  const signal = clean.toLowerCase();
+
+  if (/durability|reliability|long.?term|last|break|broken|sturdy|quality/.test(signal)) {
+    return "Add a durability proof block near the first product image: material details, warranty or return policy, long-term use photos, and one review quote that supports reliability.";
+  }
+
+  if (/packag|shipping|delivery|damage|arrived|box/.test(signal)) {
+    return "Show packaging and delivery expectations clearly: what is included, how it is protected, replacement policy, and what buyers should do if it arrives damaged.";
+  }
+
+  if (/price|value|expensive|worth|cost/.test(signal)) {
+    return "Justify the price with a value block: what problem it solves, why it lasts, what is included, and how it compares with cheaper alternatives.";
+  }
+
+  if (/size|fit|dimension|measurement|compatib/.test(signal)) {
+    return "Add a visual size or fit guide: exact dimensions, real-life scale photo, compatibility notes, and a clear best-for / not-for section.";
+  }
+
+  if (/return|refund|warranty|support|replacement|service/.test(signal)) {
+    return "Make support feel safer before checkout: show the return window, warranty promise, replacement process, response time, and contact path.";
+  }
+
+  if (intent === "proof") {
+    return `Turn this customer-backed proof into sales copy: use "${clean}" in the headline, first image caption, bullets, and ad copy with one real review-backed example.`;
+  }
+
+  if (intent === "trust") {
+    return "Add trust builders before checkout: real-use photos, honest limits, warranty or return wording, support expectations, and balanced review proof.";
+  }
+
+  if (intent === "support") {
+    return "Clarify support before checkout: shipping expectations, return window, replacement process, warranty promise, and how buyers can contact you.";
+  }
+
+  if (intent === "fix") {
+    return `Fix or explain this issue directly: "${clean}". Show what changed, who it affects, what buyers should expect, and how you prevent repeat complaints.`;
+  }
+
+  return `Answer this buyer concern directly in the listing: explain "${clean}" in photos, bullets, FAQ, and expectation-setting copy.`;
+}
+
+function compactSignal(value: string) {
+  return compactText(value).toLowerCase();
+}
+
+function kpiTitlePreset(title: string, insight: string) {
+  const cleanTitle = compactText(title);
+  const cleanInsight = compactText(insight);
+  const titleKey = cleanTitle.toLowerCase();
+  const signal = `${titleKey} ${cleanInsight}`.toLowerCase();
+
+  if (titleKey.includes("conversion blocker")) {
+    return {
+      meaning: "This is the biggest reason buyers may hesitate before checkout. The listing is not giving enough confidence to remove doubt quickly.",
+      action: "Put the strongest proof before the buyer scrolls: first image caption, top bullet, and FAQ should directly answer the main concern with evidence, not a vague claim.",
+      impact: "This can improve conversion because buyers see the answer before they abandon the page or compare another product."
+    };
+  }
+
+  if (titleKey.includes("best opportunity")) {
+    return {
+      meaning: "This is the strongest positive signal you can turn into selling power. Buyers already respond to this benefit, so it should be more visible.",
+      action: "Move this benefit into the headline area, first image text, bullet points, and ad copy. Support it with one customer-backed example or review quote.",
+      impact: "This helps the product feel easier to choose because the best reason to buy becomes obvious faster."
+    };
+  }
+
+  if (titleKey.includes("buyer trust")) {
+    return {
+      meaning: "Buyers may like the product but still need proof before they trust the promise. The listing needs stronger evidence and expectation-setting.",
+      action: "Add trust builders: real-use photos, warranty or return wording, support expectations, honest limitations, and review-backed proof near the top of the listing.",
+      impact: "This reduces fear before checkout and makes the product feel safer to buy."
+    };
+  }
+
+  if (titleKey.includes("top complaint")) {
+    return {
+      meaning: "This repeated complaint can hurt conversion, ratings, and returns if the listing does not address it before purchase.",
+      action: "Address the complaint directly in the listing: explain what buyers should expect, what has been improved, who the product is best for, and how support handles the issue.",
+      impact: "This prevents surprise after purchase and reduces negative reviews from buyers who expected something different."
+    };
+  }
+
+  if (titleKey.includes("repeat praise")) {
+    return {
+      meaning: "This is a repeated buyer-approved strength. It should become a clear selling point instead of staying buried inside reviews.",
+      action: "Turn this praise into a visible claim in the first image, product bullets, A+ content, and ad angle. Use one review-backed phrase as proof.",
+      impact: "This helps the listing sell from real customer evidence, not just seller claims."
+    };
+  }
+
+  if (titleKey.includes("business support") || titleKey.includes("support risk")) {
+    return {
+      meaning: "This card shows whether buyers may need reassurance after purchase: returns, warranty, replacement, support, shipping, or setup help.",
+      action: "Make support expectations clear before checkout: return window, warranty promise, replacement steps, response time, and what buyers should do if something goes wrong.",
+      impact: "This lowers risk anxiety and makes the purchase feel safer, especially for cautious buyers."
+    };
+  }
+
+  if (/durability|reliability|long.?term|quality|break|broken|sturdy|last/.test(signal)) {
+    return {
+      meaning: "Buyers may be unsure whether the product will hold up over time. The listing needs concrete reliability proof.",
+      action: "Add a durability proof block near the first product image: material details, warranty or return policy, long-term use photos, and one review quote that supports reliability.",
+      impact: "This reduces hesitation from buyers who need proof before trusting the product."
+    };
+  }
+
+  return null;
+}
+
+function kpiPopupMeaningText(title: string, insight: string) {
+  const cleanTitle = compactText(title);
+  const cleanInsight = compactText(insight);
+  const signal = `${cleanTitle} ${cleanInsight}`.toLowerCase();
+
+  const preset = kpiTitlePreset(cleanTitle, cleanInsight);
+  const weak =
+    !cleanInsight ||
+    cleanInsight.length < 28 ||
+    /business proof|durability and long-term reliability proof|durability proof|trust gap|conversion blocker|repeat praise|top complaint|buyer trust gap/i.test(cleanInsight);
+
+  if (preset) return preset.meaning;
+  if (!weak) return cleanInsight;
+
+  if (/durability|reliability|long.?term|quality|break|broken|sturdy|last/.test(signal)) {
+    return "Buyers may be unsure whether the product will hold up over time. The listing needs concrete reliability proof, not just a claim.";
+  }
+
+  if (/packag|shipping|delivery|damage|arrived|box/.test(signal)) {
+    return "Buyers may be worried about delivery condition or what happens if the item arrives damaged.";
+  }
+
+  if (/price|value|expensive|worth|cost/.test(signal)) {
+    return "Buyers may need a stronger reason to believe the product is worth the price.";
+  }
+
+  return `This card shows a review signal that can affect buyer confidence. The seller should turn it into visible proof and clearer expectation-setting.`;
+}
+
+function kpiPopupActionText(title: string, action: string, insight: string) {
+  const cleanTitle = compactText(title);
+  const cleanAction = compactText(action);
+  const cleanInsight = compactText(insight);
+  const signal = `${cleanTitle} ${cleanAction} ${cleanInsight}`.toLowerCase();
+
+  const weakAction =
+    !cleanAction ||
+    cleanAction.length < 28 ||
+    compactSignal(cleanAction) === compactSignal(cleanTitle) ||
+    /business proof|durability proof|trust gap|conversion blocker|repeat praise|top complaint|buyer trust gap/i.test(cleanAction);
+
+  const labelLikeProof =
+    /proof$/i.test(cleanAction.trim()) ||
+    /durability and long-term reliability proof/i.test(cleanAction) ||
+    /business proof/i.test(cleanAction);
+
+  if (!weakAction && !labelLikeProof) return cleanAction;
+
+  if (/durability|reliability|long.?term|quality|break|broken|sturdy|last/.test(signal)) {
+    return "Add a durability proof block near the first product image: material details, warranty or return policy, long-term use photos, and one review quote that supports reliability.";
+  }
+
+  if (/packag|shipping|delivery|damage|arrived|box/.test(signal)) {
+    return "Show packaging and delivery expectations clearly: what is included, how it is protected, replacement policy, and what buyers should do if it arrives damaged.";
+  }
+
+  if (/price|value|expensive|worth|cost/.test(signal)) {
+    return "Justify the price with a value block: what problem it solves, why it lasts, what is included, and how it compares with cheaper alternatives.";
+  }
+
+  if (/size|fit|dimension|measurement|compatib/.test(signal)) {
+    return "Add a visual size or fit guide: exact dimensions, real-life scale photo, compatibility notes, and a clear best-for / not-for section.";
+  }
+
+  if (/return|refund|warranty|support|replacement|service/.test(signal)) {
+    return "Make support feel safer before checkout: show the return window, warranty promise, replacement process, response time, and contact path.";
+  }
+
+  return `Turn this signal into visible proof: explain ${cleanTitle.toLowerCase()} in the images, bullets, FAQ, and expectation-setting copy with one customer-backed example.`;
+}
+
+function kpiPopupImpactText(title: string, impact: string, insight: string) {
+  const cleanTitle = compactText(title);
+  const cleanImpact = cleanReviewInsightText(impact, "");
+  const cleanInsight = compactText(insight);
+
+  const weakImpact =
+    !cleanImpact ||
+    cleanImpact.length < 28 ||
+    compactSignal(cleanImpact) === compactSignal(cleanTitle) ||
+    compactSignal(cleanImpact) === compactSignal(cleanInsight) ||
+    /business proof|trust gap|conversion blocker|repeat praise|top complaint|buyer trust gap/i.test(cleanImpact);
+
+  const preset = kpiTitlePreset(cleanTitle, cleanInsight);
+  if (preset) return preset.impact;
+  if (!weakImpact) return cleanImpact;
+
+  return `This helps buyers understand ${cleanTitle.toLowerCase()} before checkout, reduces hesitation, and makes the seller's proof feel more credible.`;
+}
+
 function unique(items: string[]) {
   return sanitizeSellerInsightList(items, [], 8);
 }
@@ -239,11 +441,46 @@ function KpiCard({
   const [flipped, setFlipped] = useState(false);
   const numeric = metricToGaugeScore(metric);
 
+  function handleCardClick() {
+    if (typeof window === "undefined") {
+      setFlipped((value) => !value);
+      return;
+    }
+
+    const isMobileLayout =
+      document.documentElement.dataset.layoutMode === "mobile" ||
+      window.matchMedia("(max-width: 640px)").matches;
+
+    if (isMobileLayout) {
+      window.dispatchEvent(
+        new CustomEvent("reviewintel:seller-result-card-detail", {
+          detail: {
+            title,
+            details: [
+              `Score / signal: ${metric}`,
+              `What this means: ${kpiPopupMeaningText(title, insight)}`,
+              `What to do: ${kpiPopupActionText(title, action, insight)}`,
+              `Why it matters: ${kpiPopupImpactText(title, impact, insight)}`
+            ].filter(Boolean)
+          }
+        })
+      );
+      return;
+    }
+
+    setFlipped((value) => !value);
+  }
+
   return (
     <button
       type="button"
-      onClick={() => setFlipped((value) => !value)}
+      onClick={handleCardClick}
       aria-pressed={flipped}
+      data-popup-title={title}
+      data-popup-metric={metric}
+      data-popup-insight={kpiPopupMeaningText(title, insight)}
+      data-popup-action={kpiPopupActionText(title, action, insight)}
+      data-popup-impact={kpiPopupImpactText(title, impact, insight)}
       className="seller-kpi-card h-[260px] rounded-[1.35rem] text-left [perspective:1200px] focus:outline-none focus:ring-4 focus:ring-ocean/20"
     >
       <div className={`relative h-full transition-transform duration-500 [transform-style:preserve-3d] ${flipped ? "[transform:rotateY(180deg)]" : ""}`}>
@@ -271,9 +508,9 @@ function KpiCard({
             <span className="rounded-full bg-white/75 px-3 py-1.5 text-[10px] font-black uppercase text-slate-600 shadow-inner">Back</span>
           </div>
           <div className="mt-3 space-y-2 text-[11px] leading-5 text-slate-700">
-            <p><span className="font-black">Meaning:</span> {compactText(insight)}</p>
-            <p><span className="font-black">Action:</span> {compactText(action)}</p>
-            <p><span className="font-black">Impact:</span> {cleanReviewInsightText(impact, "Protects trust without overstating the sample.")}</p>
+            <p><span className="font-black">Meaning:</span> {kpiPopupMeaningText(title, insight)}</p>
+            <p><span className="font-black">Action:</span> {kpiPopupActionText(title, action, insight)}</p>
+            <p><span className="font-black">Impact:</span> {kpiPopupImpactText(title, impact, insight)}</p>
           </div>
         </article>
       </div>
@@ -307,7 +544,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       tone: "border-coral/35 from-orange-100 via-white to-rose-100",
       gauge: "heat" as const,
       insight: `Buyers may hesitate because the sample points to ${topComplaint}.`,
-      action: `Answer this objection directly in photos, bullets, FAQ, and expectation-setting copy: ${topComplaint}.`,
+      action: sellerActionForTheme(topComplaint, "objection"),
       impact: "Reduces pre-checkout doubt and prevents surprise complaints after purchase."
     },
     {
@@ -316,7 +553,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       tone: "border-teal/35 from-emerald-100 via-white to-teal/20",
       gauge: "bars" as const,
       insight: `The strongest sales proof is ${topPraise}.`,
-      action: `Turn this customer-backed benefit into headline copy, image captions, benefit bullets, and ads: ${topPraise}.`,
+      action: sellerActionForTheme(topPraise, "proof"),
       impact: "Makes customer proof easier to see before shoppers leave the page."
     },
     {
@@ -325,7 +562,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       tone: "border-blue-300 from-sky-100 via-white to-blue-100",
       gauge: "needle" as const,
       insight: "Buyers are checking whether the product feels real, reliable, worth the price, and supported.",
-      action: "Add real-use proof, honest limits, warranty language, support clarity, and balanced review evidence.",
+      action: sellerActionForTheme("real-use proof, warranty, support clarity, balanced review evidence", "trust"),
       impact: "Closes doubts before checkout and makes the product feel safer to try."
     },
     {
@@ -334,7 +571,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       tone: "border-coral/35 from-rose-100 via-white to-orange-100",
       gauge: "priority" as const,
       insight: complaints.length ? `The most visible complaint area is ${secondaryComplaint === "the next visible buyer objection" ? topComplaint : secondaryComplaint}.` : "No strong repeated complaint cluster was detected.",
-      action: complaints.length ? `Fix or clearly explain this issue first: ${topComplaint}.` : "Keep collecting reviews and watch for repeated objections.",
+      action: complaints.length ? sellerActionForTheme(topComplaint, "fix") : "Keep collecting reviews and watch for repeated objections before changing the listing.",
       impact: "Prioritizes the issue most likely to hurt ratings, returns, and conversion."
     },
     {
@@ -343,7 +580,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       tone: "border-amber/40 from-yellow-100 via-white to-amber/20",
       gauge: "wave" as const,
       insight: `Positive buyer language supports highlighting ${topPraise}.`,
-      action: "Use only clean customer-backed claims in product copy, images, and ads.",
+      action: sellerActionForTheme(topPraise, "proof"),
       impact: "Converts review praise into marketing proof without inventing claims."
     },
     {
@@ -352,7 +589,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       tone: "border-violet-300 from-violet-100 via-white to-blue-100",
       gauge: "signal" as const,
       insight: `Customer care signal: ${topSupport}.`,
-      action: "Clarify shipping, returns, replacement, warranty, and contact expectations before checkout.",
+      action: sellerActionForTheme(topSupport, "support"),
       impact: "Protects trust after purchase and can reduce refunds, disputes, and negative reviews."
     }
   ];

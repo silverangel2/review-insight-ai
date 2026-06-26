@@ -4,17 +4,6 @@ import { createCustomerNotification, listCustomerNotifications, markCustomerNoti
 
 export const runtime = "nodejs";
 
-function readRequestCookie(request: Request, name: string) {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  for (const part of cookieHeader.split(";")) {
-    const [rawName, ...rawValue] = part.trim().split("=");
-    if (rawName === name) {
-      return decodeURIComponent(rawValue.join("="));
-    }
-  }
-  return "";
-}
-
 function getAuthenticatedAccountEmail(request: Request) {
   const session = readAccountSession(request);
   return String(session?.email ?? "").toLowerCase().trim();

@@ -6,7 +6,6 @@ import { getClientAccount, incrementStoredScanTally } from "@/lib/clientAccount"
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { displayCodeForResult } from "@/lib/productDisplay";
-import { shortProductName } from "@/lib/productName";
 import { readStoredLocale } from "@/lib/i18n";
 
 type Verdict = "BUY" | "CONSIDER" | "AVOID";
@@ -43,6 +42,16 @@ type CompareSide = {
   preview: string;
   link: string;
   result: AnalyzeResult | null;
+};
+
+type ShopperComparison = {
+  winner: "A" | "B" | "TIE" | "INCOMPARABLE";
+  directSubstitutes: boolean;
+  confidence: number;
+  verdictHeadline: string;
+  summary: string;
+  reasons: string[];
+  nextSteps: string[];
 };
 
 function emptySide(label: "A" | "B"): CompareSide {
@@ -119,7 +128,10 @@ function compareCopy(locale: string) {
     missingInputs: "Add a screenshot or link for both products.",
     comparisonFailed: "Comparison failed.",
     productDetailsChecked: "Product details checked",
-    noConcern: "No major concern found from available signals."
+    noConcern: "No major concern found from available signals.",
+    notDirectlyComparable: "Not Directly Comparable",
+    whyThisResult: "Why this result",
+    nextSteps: "Next steps"
   };
 
   switch (locale) {
@@ -154,7 +166,10 @@ function compareCopy(locale: string) {
         missingInputs: "Ajoutez une capture ou un lien pour les deux produits.",
         comparisonFailed: "La comparaison a échoué.",
         productDetailsChecked: "Détails du produit vérifiés",
-        noConcern: "Aucune préoccupation majeure trouvée avec les signaux disponibles."
+        noConcern: "Aucune préoccupation majeure trouvée avec les signaux disponibles.",
+        notDirectlyComparable: "Pas directement comparables",
+        whyThisResult: "Pourquoi ce résultat",
+        nextSteps: "Prochaines étapes"
       };
     case "es":
       return {
@@ -187,7 +202,10 @@ function compareCopy(locale: string) {
         missingInputs: "Agrega una captura o enlace para ambos productos.",
         comparisonFailed: "La comparación falló.",
         productDetailsChecked: "Detalles del producto revisados",
-        noConcern: "No se encontró una preocupación importante con las señales disponibles."
+        noConcern: "No se encontró una preocupación importante con las señales disponibles.",
+        notDirectlyComparable: "No son directamente comparables",
+        whyThisResult: "Por qué este resultado",
+        nextSteps: "Próximos pasos"
       };
     case "zh":
       return {
@@ -220,7 +238,10 @@ function compareCopy(locale: string) {
         missingInputs: "请为两个产品都添加截图或链接。",
         comparisonFailed: "对比失败。",
         productDetailsChecked: "产品详情已检查",
-        noConcern: "根据现有信号，未发现重大问题。"
+        noConcern: "根据现有信号，未发现重大问题。",
+        notDirectlyComparable: "不能直接比较",
+        whyThisResult: "为什么是这个结果",
+        nextSteps: "下一步"
       };
     case "de":
       return {
@@ -253,7 +274,10 @@ function compareCopy(locale: string) {
         missingInputs: "Füge für beide Produkte einen Screenshot oder Link hinzu.",
         comparisonFailed: "Vergleich fehlgeschlagen.",
         productDetailsChecked: "Produktdetails geprüft",
-        noConcern: "Keine größeren Bedenken aus den verfügbaren Signalen gefunden."
+        noConcern: "Keine größeren Bedenken aus den verfügbaren Signalen gefunden.",
+        notDirectlyComparable: "Nicht direkt vergleichbar",
+        whyThisResult: "Warum dieses Ergebnis",
+        nextSteps: "Nächste Schritte"
       };
     case "hi":
       return {
@@ -286,7 +310,10 @@ function compareCopy(locale: string) {
         missingInputs: "दोनों products के लिए screenshot या link जोड़ें।",
         comparisonFailed: "Comparison failed.",
         productDetailsChecked: "Product details checked",
-        noConcern: "Available signals से कोई major concern नहीं मिला।"
+        noConcern: "Available signals से कोई major concern नहीं मिला।",
+        notDirectlyComparable: "सीधे तुलना योग्य नहीं",
+        whyThisResult: "यह result क्यों",
+        nextSteps: "Next steps"
       };
     default:
       return en;
@@ -533,31 +560,95 @@ function areLikelyDirectSubstitutes(a: AnalyzeResult, b: AnalyzeResult) {
   return true;
 }
 
+function localComparison(productA: AnalyzeResult, productB: AnalyzeResult, copy: ReturnType<typeof compareCopy>): ShopperComparison {
+  const directSubstitutes = areLikelyDirectSubstitutes(productA, productB);
+  const picked = directSubstitutes ? pickWinner(productA, productB) : "INCOMPARABLE";
+  const winner = picked || "TIE";
+  const aRisk = Math.round(productA.reviewAuthenticity?.score || 0);
+  const bRisk = Math.round(productB.reviewAuthenticity?.score || 0);
+
+  return {
+    winner,
+    directSubstitutes,
+    confidence: directSubstitutes ? 68 : 82,
+    verdictHeadline:
+      winner === "INCOMPARABLE"
+        ? copy.notDirectlyComparable
+        : winner === "A" || winner === "B"
+          ? copy.winner(winner)
+          : copy.tooClose,
+    summary:
+      winner === "INCOMPARABLE"
+        ? copy.differentTypes
+        : winner === "A" || winner === "B"
+          ? copy.directWinner(winner)
+          : copy.tieSummary,
+    reasons: [
+      `Product A score ${Math.round(productA.productScore || 0)}/100 vs Product B ${Math.round(productB.productScore || 0)}/100.`,
+      `AI-generated review signs: Product A ${aRisk}% vs Product B ${bRisk}%.`,
+      `Main concerns: A has ${(productA.topComplaints || []).slice(0, 2).join(", ") || "no major concern"}; B has ${(productB.topComplaints || []).slice(0, 2).join(", ") || "no major concern"}.`,
+    ],
+    nextSteps: directSubstitutes
+      ? [
+          "Check the latest reviews, return policy, warranty, and exact model before checkout.",
+          "Choose the product that matches your real use case, not only the higher score.",
+        ]
+      : [
+          "Decide the job you need the product to do before choosing.",
+          "Compare each product against a direct alternative in its own category.",
+        ],
+  };
+}
+
+async function compareProductsWithAi(productA: AnalyzeResult, productB: AnalyzeResult, locale: string) {
+  const response = await fetch("/api/shopper-compare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ productA, productB, locale }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error || "AI comparison failed.");
+  }
+
+  return data as ShopperComparison;
+}
+
 
 export function CompareForm() {
   const locale = readStoredLocale();
   const copy = compareCopy(locale);
   const [productA, setProductA] = useState<CompareSide>(emptySide("A"));
   const [productB, setProductB] = useState<CompareSide>(emptySide("B"));
+  const [comparison, setComparison] = useState<ShopperComparison | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const winner = useMemo(() => pickWinner(productA.result, productB.result), [productA.result, productB.result]);
+  const winner = useMemo(() => {
+    if (comparison?.winner === "INCOMPARABLE") return "TIE";
+    if (comparison?.winner) return comparison.winner;
+    return pickWinner(productA.result, productB.result);
+  }, [comparison, productA.result, productB.result]);
 
   const directSubstitutes = useMemo(() => {
+    if (comparison) return comparison.directSubstitutes;
     if (!productA.result || !productB.result) return true;
     return areLikelyDirectSubstitutes(productA.result, productB.result);
-  }, [productA.result, productB.result]);
+  }, [comparison, productA.result, productB.result]);
 
   const canCompare = Boolean((productA.file || productA.link.trim()) && (productB.file || productB.link.trim()));
 
   function setFile(label: "A" | "B", file: File | null) {
     const preview = file ? URL.createObjectURL(file) : "";
+    setComparison(null);
     if (label === "A") setProductA((current) => ({ ...current, file, preview, result: null }));
     if (label === "B") setProductB((current) => ({ ...current, file, preview, result: null }));
   }
 
   function setLink(label: "A" | "B", link: string) {
+    setComparison(null);
     if (label === "A") setProductA((current) => ({ ...current, link, result: null }));
     if (label === "B") setProductB((current) => ({ ...current, link, result: null }));
   }
@@ -595,9 +686,16 @@ export function CompareForm() {
     try {
       const [resultA, resultB] = await Promise.all([analyzeSide(productA), analyzeSide(productB)]);
       const createdAt = new Date().toISOString();
-      const winnerNow = pickWinner(resultA, resultB);
-      const winnerLetterNow = winnerLetter(winnerNow);
-      const directSubstitutesNow = areLikelyDirectSubstitutes(resultA, resultB);
+      let comparisonNow: ShopperComparison;
+
+      try {
+        comparisonNow = await compareProductsWithAi(resultA, resultB, locale);
+      } catch (comparisonError) {
+        console.warn("AI shopper comparison failed; using scan-grounded fallback", comparisonError);
+        comparisonNow = localComparison(resultA, resultB, copy);
+      }
+
+      const directSubstitutesNow = comparisonNow.directSubstitutes;
       const account = getClientAccount();
 
       const resultARecord = resultA as unknown as Record<string, unknown>;
@@ -629,21 +727,14 @@ export function CompareForm() {
         savedAt: createdAt,
         createdAt,
         locale,
-        winner: winnerNow,
+        winner: comparisonNow.winner,
         directSubstitutes: directSubstitutesNow,
+        comparison: comparisonNow,
         productA: resultA,
         productB: resultB,
         score: Math.max(scoreA, scoreB),
-        verdict:
-          winnerLetterNow
-            ? copy.winner(winnerLetterNow)
-            : copy.tooClose,
-        summary:
-          winnerLetterNow
-            ? directSubstitutesNow
-              ? copy.directWinner(winnerLetterNow)
-              : copy.confidenceWinner(winnerLetterNow)
-            : copy.tieSummary
+        verdict: comparisonNow.verdictHeadline,
+        summary: comparisonNow.summary,
       };
 
       const compareHistoryPayload = compareHistoryResult as unknown as Parameters<typeof saveLatestResult>[0];
@@ -652,6 +743,7 @@ export function CompareForm() {
       await saveShopperCompareToServerHistory(compareHistoryResult as unknown as Record<string, unknown>, account);
       incrementStoredScanTally();
 
+      setComparison(comparisonNow);
       setProductA((current) => ({ ...current, result: resultA }));
       setProductB((current) => ({ ...current, result: resultB }));
     } catch (error) {
@@ -685,7 +777,7 @@ export function CompareForm() {
             {copy.compareIntro}
           </p>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-8 sm:gap-5 lg:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:mt-8 sm:grid-cols-2 sm:gap-5">
             <SideInput
               side={productA}
               disabled={isLoading}
@@ -722,10 +814,14 @@ export function CompareForm() {
             <div className="mb-6 rounded-[2rem] border border-line bg-teal-50 p-5 text-center shadow-soft sm:p-6 dark:border-white/10">
               <p className="text-xs font-black uppercase tracking-[0.3em] text-teal dark:text-cyan-200">{compareCopy(readStoredLocale()).comparisonVerdict}</p>
               <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl dark:text-ink">
-                {winnerLetter(winner) ? compareCopy(readStoredLocale()).winner(winnerLetter(winner)!) : compareCopy(readStoredLocale()).tooClose}
+                {comparison?.verdictHeadline ||
+                  (winnerLetter(winner)
+                    ? compareCopy(readStoredLocale()).winner(winnerLetter(winner)!)
+                    : compareCopy(readStoredLocale()).tooClose)}
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-slate-700 dark:text-slate-100">
-                {winner === "TIE"
+                {comparison?.summary ||
+                (winner === "TIE"
                   ? compareCopy(readStoredLocale()).tieSummary
                   : directSubstitutes
                     ? winnerLetter(winner)
@@ -733,11 +829,32 @@ export function CompareForm() {
                       : compareCopy(readStoredLocale()).tieSummary
                     : winnerLetter(winner)
                       ? compareCopy(readStoredLocale()).confidenceWinner(winnerLetter(winner)!)
-                      : compareCopy(readStoredLocale()).tieSummary}
+                      : compareCopy(readStoredLocale()).tieSummary)}
               </p>
               {!directSubstitutes ? (
                 <div className="mx-auto mt-4 max-w-2xl rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-black leading-6 text-amber-950 shadow-sm">
-                  Different product types detected. ReviewIntel is comparing buying confidence only — not saying these products are direct substitutes or do the same job.
+                  {copy.differentTypes}
+                </div>
+              ) : null}
+
+              {comparison ? (
+                <div className="mx-auto mt-4 grid max-w-4xl gap-3 text-left sm:grid-cols-2">
+                  <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-teal">{copy.whyThisResult}</p>
+                    <ul className="mt-2 space-y-2 text-sm font-semibold text-slate-700 dark:text-slate-100">
+                      {comparison.reasons.slice(0, 3).map((reason, index) => (
+                        <li key={`${reason}-${index}`}>• {reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-teal">{copy.nextSteps}</p>
+                    <ul className="mt-2 space-y-2 text-sm font-semibold text-slate-700 dark:text-slate-100">
+                      {comparison.nextSteps.slice(0, 3).map((step, index) => (
+                        <li key={`${step}-${index}`}>• {step}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               ) : null}
 
@@ -746,6 +863,7 @@ export function CompareForm() {
                 onClick={() => {
                   setProductA(emptySide("A"));
                   setProductB(emptySide("B"));
+                  setComparison(null);
                   setError("");
                 }}
                 className="mt-5 rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-teal dark:border-white/10 dark:bg-white/5 dark:text-ink"

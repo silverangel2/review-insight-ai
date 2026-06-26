@@ -79,5 +79,5 @@ export function readLatestSellerResult(account: unknown = getClientAccount()) {
 
 export function openSellerResult(result: unknown, account: unknown = getClientAccount()) {
   saveLatestSellerResult(result, account);
-  window.location.href = "/seller/result";
+  window.location.href = "/dashboard/seller/result";
 }

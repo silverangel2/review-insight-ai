@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import Link from "next/link";
 import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
 import { saveStoredSellerResultToJournal } from "@/lib/sellerJournal";
@@ -25,6 +26,11 @@ type StoredSellerResult = {
   result: SellerResult;
   fileName: string;
   createdAt: string;
+};
+
+type MobileResultCardDetail = {
+  title: string;
+  details: string[];
 };
 
 function clampScore(score: number) {
@@ -86,7 +92,7 @@ function InsightBlock({
 
       <div className="mt-4 space-y-2">
         {safeItems.slice(0, 6).map((item, index) => (
-          <div key={index} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+          <div key={index} className="seller-insight-item rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
             {item}
           </div>
         ))}
@@ -119,6 +125,7 @@ function PriorityPlan({ items }: { items: string[] }) {
 
 export default function SellerResultPage() {
   const [stored, setStored] = useState<StoredSellerResult | null>(null);
+  const [mobileCardDetail, setMobileCardDetail] = useState<MobileResultCardDetail | null>(null);
 
   useEffect(() => {
     try {
@@ -134,9 +141,79 @@ export default function SellerResultPage() {
   const result = stored?.result || null;
   const status = useMemo(() => (result ? statusFor(result) : null), [result]);
 
+  useEffect(() => {
+    function handleSellerCardDetail(event: Event) {
+      const detail = (event as CustomEvent<MobileResultCardDetail>).detail;
+
+      if (!detail?.title || !Array.isArray(detail.details)) return;
+
+      setMobileCardDetail({
+        title: detail.title,
+        details: detail.details.filter(Boolean)
+      });
+    }
+
+    window.addEventListener("reviewintel:seller-result-card-detail", handleSellerCardDetail);
+
+    return () => {
+      window.removeEventListener("reviewintel:seller-result-card-detail", handleSellerCardDetail);
+    };
+  }, []);
+
+  function openMobileResultCardDetail(event: MouseEvent<HTMLElement>) {
+    if (typeof window === "undefined") return;
+
+    const isMobileLayout =
+      document.documentElement.dataset.layoutMode === "mobile" ||
+      window.matchMedia("(max-width: 640px)").matches;
+
+    if (!isMobileLayout) return;
+
+    const target = event.target as HTMLElement | null;
+    const card = target?.closest(
+      ".seller-insight-card"
+    ) as HTMLElement | null;
+
+    if (!card) return;
+
+    const title =
+      card.querySelector("h2, h3")?.textContent?.replace(/\s+/g, " ").trim() ||
+      "Seller insight";
+
+    const subtitle =
+      card.querySelector("p")?.textContent?.replace(/\s+/g, " ").trim() || "";
+
+    const itemTexts = Array.from(card.querySelectorAll(".seller-insight-item"))
+      .map((node) => node.textContent?.replace(/\s+/g, " ").trim() || "")
+      .map((line) => line.replace(/^[-•\d.\s]+/, "").trim())
+      .filter(Boolean)
+      .filter((line) => line.length > 6);
+
+    const fallbackTexts = Array.from(card.querySelectorAll("li, p, span, div"))
+      .filter((node) => node.children.length === 0)
+      .map((node) => node.textContent?.replace(/\s+/g, " ").trim() || "")
+      .map((line) => line.replace(/^[-•\d.\s]+/, "").trim())
+      .filter(Boolean)
+      .filter((line) => line.length > 6)
+      .filter((line) => line.toLowerCase() !== title.toLowerCase())
+      .filter((line) => !subtitle || line.toLowerCase() !== subtitle.toLowerCase());
+
+    const details = Array.from(new Set(itemTexts.length ? itemTexts : fallbackTexts))
+      .filter((line) => line.length < 320)
+      .slice(0, 8);
+
+    setMobileCardDetail({
+      title,
+      details: [
+        ...(subtitle ? [subtitle] : []),
+        ...(details.length ? details : ["No detailed items found for this card."])
+      ]
+    });
+  }
+
   if (!result || !status) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 px-4 py-10 text-slate-950">
+      <main onClick={openMobileResultCardDetail} className="seller-result-page min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 px-4 py-10 text-slate-950">
         <div className="mx-auto max-w-3xl rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-xl">
           <h1 className="text-3xl font-black">No seller result found.</h1>
           <p className="mt-3 text-slate-600">Upload a CSV first to generate a seller intelligence report.</p>
@@ -153,7 +230,7 @@ export default function SellerResultPage() {
   const fixFirst = result.productFixes?.[0] || result.listingFixes?.[0] || "Improve the clearest buyer friction point first.";
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
+    <main onClick={openMobileResultCardDetail} className="seller-result-page min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link
@@ -237,6 +314,377 @@ export default function SellerResultPage() {
         <section className="mt-6">
           <PriorityPlan items={result.nextActions} />
         </section>
+
+        {mobileCardDetail ? (
+          <div
+            className="seller-mobile-card-modal fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setMobileCardDetail(null)}
+          >
+            <div
+              className="max-h-[76vh] w-full max-w-[25rem] overflow-y-auto rounded-[1.75rem] border border-white/50 bg-white p-5 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[0.68rem] font-black uppercase tracking-[0.22em] text-cyan-700">
+                    Seller result detail
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black leading-tight text-slate-950">
+                    {mobileCardDetail.title}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileCardDetail(null)}
+                  className="rounded-full bg-slate-950 px-3 py-2 text-xs font-black text-white"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {mobileCardDetail.details.map((detail, index) => (
+                  <div
+                    key={`${detail}-${index}`}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-[0.95rem] font-semibold leading-relaxed text-slate-800"
+                  >
+                    {detail}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <style jsx global>{`
+          @media (max-width: 640px) {
+            html[data-layout-mode="mobile"] .seller-result-page,
+            html[data-layout-mode="auto"] .seller-result-page {
+              padding: 3.75rem 0.75rem 4rem !important;
+              overflow-x: hidden !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-hero,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-hero {
+              padding: 1rem !important;
+              border-radius: 1.25rem !important;
+              box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08) !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-hero-grid,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-hero-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 0.9rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-hero h1,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-hero h1 {
+              margin-top: 0.45rem !important;
+              font-size: 2rem !important;
+              line-height: 1.05 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-hero p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-hero p {
+              margin-top: 0.55rem !important;
+              font-size: 0.86rem !important;
+              line-height: 1.45 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-summary-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-summary-card {
+              padding: 1rem !important;
+              border-radius: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-summary-card p:first-child,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-summary-card p:first-child {
+              font-size: 0.68rem !important;
+              line-height: 1.2 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-summary-card p:last-child,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-summary-card p:last-child {
+              display: block !important;
+              margin-top: 0.5rem !important;
+              font-size: 1rem !important;
+              line-height: 1.35 !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-kpi-section,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-kpi-section {
+              margin-top: 1rem !important;
+              padding: 0.9rem !important;
+              border-radius: 1.25rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-kpi-section h2,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-kpi-section h2 {
+              margin-top: 0.35rem !important;
+              font-size: 1.4rem !important;
+              line-height: 1.12 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-kpi-section p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-kpi-section p {
+              font-size: 0.78rem !important;
+              line-height: 1.35 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-grid,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 0.65rem !important;
+              margin-top: 0.8rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card {
+              height: 13.5rem !important;
+              min-height: 13.5rem !important;
+              max-height: none !important;
+              border-radius: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card article,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card article {
+              padding: 0.75rem !important;
+              border-radius: 1rem !important;
+              overflow-y: auto !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card svg,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card svg {
+              width: 100% !important;
+              height: 3.4rem !important;
+              max-width: none !important;
+              max-height: none !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card p {
+              display: block !important;
+              margin-top: 0.35rem !important;
+              font-size: 0.7rem !important;
+              line-height: 1.35 !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card p:nth-of-type(2),
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card p:nth-of-type(2) {
+              font-size: 1.2rem !important;
+              line-height: 1.05 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card h3,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card h3 {
+              font-size: 0.9rem !important;
+              line-height: 1.2 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-summary-grid,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-summary-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 0.65rem !important;
+              margin-top: 0.8rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-summary-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-summary-card {
+              padding: 0.9rem !important;
+              border-radius: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-summary-card h3,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-summary-card h3 {
+              font-size: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-summary-card li,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-money-summary-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-summary-card li,
+            html[data-layout-mode="auto"] .seller-result-page .seller-money-summary-card p {
+              font-size: 0.78rem !important;
+              line-height: 1.4 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-top-cards,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-top-cards {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 0.6rem !important;
+              margin-top: 0.9rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card {
+              min-height: 0 !important;
+              max-height: none !important;
+              padding: 0.85rem !important;
+              border-radius: 1rem !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card p {
+              font-size: 0.66rem !important;
+              line-height: 1.15 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card h2,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card h2 {
+              display: block !important;
+              margin-top: 0.35rem !important;
+              font-size: 1rem !important;
+              line-height: 1.3 !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-grid,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 0.65rem !important;
+              margin-top: 0.9rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card {
+              min-height: 13rem !important;
+              max-height: none !important;
+              padding: 0.75rem !important;
+              border-radius: 1rem !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card h3,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card h3 {
+              font-size: 0.9rem !important;
+              line-height: 1.15 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card p,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-item {
+              display: block !important;
+              font-size: 0.7rem !important;
+              line-height: 1.3 !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item:nth-child(n + 4),
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-item:nth-child(n + 4) {
+              display: none !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-plan,
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-plan {
+              margin-top: 0.9rem !important;
+              padding: 1rem !important;
+              border-radius: 1.25rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-plan h3,
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-plan h3 {
+              font-size: 1.35rem !important;
+              line-height: 1.15 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-list,
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-list {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 0.5rem !important;
+              margin-top: 0.75rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item,
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-item {
+              min-height: 0 !important;
+              max-height: none !important;
+              padding: 0.7rem !important;
+              border-radius: 0.85rem !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-item p {
+              display: block !important;
+              font-size: 0.78rem !important;
+              line-height: 1.35 !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item:nth-child(n + 5),
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-item:nth-child(n + 5) {
+              display: none !important;
+            }
+
+            /* Mobile seller result card readability override */
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-grid,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-grid,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-top-cards,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-grid,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-grid,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-top-cards {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 0.85rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-item {
+              min-height: 0 !important;
+              max-height: none !important;
+              padding: 1rem !important;
+              border-radius: 1.15rem !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card p,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card p,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card p,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-item,
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-item p {
+              display: block !important;
+              font-size: 0.92rem !important;
+              line-height: 1.45 !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card h2,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card h3,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card h2,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card h3,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card h2,
+            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card h3,
+            html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card h2,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card h3 {
+              font-size: 1.15rem !important;
+              line-height: 1.25 !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item:nth-child(n + 4),
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item:nth-child(n + 5),
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-item:nth-child(n + 4),
+            html[data-layout-mode="auto"] .seller-result-page .seller-priority-item:nth-child(n + 5) {
+              display: block !important;
+            }
+
+          }
+        `}</style>
       </div>
     </main>
   );

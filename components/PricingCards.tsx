@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/Badge";
 import { accountHeaders, getClientAccount, setClientPlan } from "@/lib/clientAccount";
-import { CURRENCY_LABELS, SUPPORTED_CURRENCIES, localizedPriceNote, pricingLabelForPlan, type SupportedCurrency } from "@/lib/pricing";
+import { pricingLabelForPlan, type SupportedCurrency } from "@/lib/pricing";
 import type { SubscriptionPlan } from "@/lib/types";
 
 const tiers: Array<{
@@ -47,7 +47,7 @@ const tiers: Array<{
 export function PricingCards() {
   const [error, setError] = useState("");
   const [busyPlan, setBusyPlan] = useState<SubscriptionPlan | null>(null);
-  const [currency, setCurrency] = useState<SupportedCurrency>("CAD");
+  const currency: SupportedCurrency = "CAD";
 
   async function choosePlan(plan: SubscriptionPlan) {
     setError("");

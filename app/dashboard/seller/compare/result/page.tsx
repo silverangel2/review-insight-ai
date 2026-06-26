@@ -96,10 +96,10 @@ export default function SellerCompareResultPage() {
   const ninetyDayPlan = list(comparison.ninetyDayPlan);
 
   return (
-    <main className="min-h-screen bg-[#f7f3ea] px-4 py-8 text-[#172033]">
+    <main className="seller-compare-result-page min-h-screen bg-[#f7f3ea] px-4 py-8 text-[#172033]">
       <section className="mx-auto max-w-7xl">
         <div className="seller-compare-result-shell overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-          <div className="bg-slate-950 px-6 py-7 text-white md:px-8">
+          <div className="seller-compare-hero bg-slate-950 px-6 py-7 text-white md:px-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.35em] text-teal-300">
@@ -214,7 +214,7 @@ export default function SellerCompareResultPage() {
         </div>
 
         {history.length > 0 ? (
-          <section className="seller-compare-history reviewintel-result-history-anchor mt-6 rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="seller-compare-history mt-6 rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-black text-slate-950">Compare history</h2>
             <div className="mt-4 grid gap-3">
               {history.map((item) => (
@@ -253,6 +253,178 @@ export default function SellerCompareResultPage() {
             </div>
           </section>
         ) : null}
+
+        <style jsx global>{`
+          @media (max-width: 640px) {
+            html[data-layout-mode="mobile"] .seller-compare-result-page,
+            html[data-layout-mode="auto"] .seller-compare-result-page {
+              padding: 3.75rem 0.75rem 4rem !important;
+              overflow-x: hidden !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-result-shell,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-result-shell {
+              border-radius: 1.25rem !important;
+              box-shadow: 0 14px 36px rgba(15, 23, 42, 0.08) !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-hero,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-hero {
+              padding: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-hero h1,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-hero h1 {
+              margin-top: 0.45rem !important;
+              font-size: 2rem !important;
+              line-height: 1.05 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-hero p,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-hero p {
+              font-size: 0.8rem !important;
+              line-height: 1.35 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-score-card,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-score-card {
+              width: 100% !important;
+              padding: 0.8rem !important;
+              border-radius: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-score-card p:first-child,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-score-card p:first-child {
+              font-size: 0.66rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-score-card p:nth-child(2),
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-score-card p:nth-child(2) {
+              font-size: 1.35rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-summary-grid,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-summary-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-summary-grid > section,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-summary-grid > section {
+              padding: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-summary-grid h2,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-summary-grid h2 {
+              font-size: 1.45rem !important;
+              line-height: 1.2 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-summary-grid p,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-summary-grid p {
+              font-size: 0.82rem !important;
+              line-height: 1.45 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-summary-card,
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-risk-card,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-summary-card,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-risk-card {
+              margin-top: 0.75rem !important;
+              padding: 0.9rem !important;
+              border-radius: 1rem !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-strategy-grid,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-strategy-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 0.65rem !important;
+              padding: 0.9rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-strategy-card,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-strategy-card {
+              min-height: 11rem !important;
+              max-height: none !important;
+              padding: 0.75rem !important;
+              border-radius: 1rem !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-strategy-card h3,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-strategy-card h3 {
+              font-size: 0.9rem !important;
+              line-height: 1.2 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-strategy-card li,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-strategy-card li {
+              font-size: 0.72rem !important;
+              line-height: 1.35 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-plan-section,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-plan-section {
+              padding: 0.9rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-plan-grid,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-plan-grid,
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-roadmap-grid,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-roadmap-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 0.65rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-plan-section section,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-plan-section section {
+              max-height: none !important;
+              padding: 0.8rem !important;
+              border-radius: 1rem !important;
+              overflow: visible !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-plan-section p,
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-plan-section li,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-plan-section p,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-plan-section li {
+              font-size: 0.76rem !important;
+              line-height: 1.4 !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-action-item:nth-child(n + 5),
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-action-item:nth-child(n + 5) {
+              display: none !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-actions,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-actions {
+              padding: 0.9rem !important;
+              gap: 0.55rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-actions a,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-actions a {
+              flex: 1 1 100% !important;
+              padding: 0.75rem 0.9rem !important;
+              border-radius: 0.85rem !important;
+              font-size: 0.78rem !important;
+              text-align: center !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-compare-result-page .seller-compare-history,
+            html[data-layout-mode="auto"] .seller-compare-result-page .seller-compare-history {
+              position: static !important;
+              width: auto !important;
+              max-width: none !important;
+              max-height: none !important;
+              margin-top: 0.9rem !important;
+              padding: 0.9rem !important;
+              border-radius: 1rem !important;
+              overflow: visible !important;
+            }
+          }
+        `}</style>
       </section>
     </main>
   );
@@ -319,7 +491,7 @@ function ActionList({
   return (
     <ul className="mt-4 space-y-3">
       {items.slice(0, limit).map((item, index) => (
-        <li key={`${item}-${index}`} className={`flex gap-3 text-sm font-semibold leading-6 ${textClass}`}>
+        <li key={`${item}-${index}`} className={`seller-compare-action-item flex gap-3 text-sm font-semibold leading-6 ${textClass}`}>
           <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
           <span>{item}</span>
         </li>

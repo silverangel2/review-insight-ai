@@ -2,191 +2,30 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { saveSellerCompareHistoryItem, setActiveSellerCompare } from "@/lib/sellerCompareHistory";
+import {
+  saveSellerCompareHistoryItem,
+  setActiveSellerCompare,
+  type SellerCompareHistoryItem,
+} from "@/lib/sellerCompareHistory";
 import { sellerHistoryKey } from "@/lib/sellerResultStorage";
 import { readStoredLocale } from "@/lib/i18n";
-
-
-
-
-function makeSellerPrdCode() {
-  return `PRD-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
-
-function getSellerAccountForPrdSave() {
-  if (typeof window === "undefined") return null;
-
-  const raw =
-    localStorage.getItem("reviewintel:account") ||
-    localStorage.getItem("reviewintel-account") ||
-    localStorage.getItem("reviewintel_account") ||
-    "";
-
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as { email?: string; plan?: string; role?: string };
-  } catch {
-    return null;
-  }
-}
-
-async function saveSellerProductPrdHistory(result: unknown) {
-  const account = getSellerAccountForPrdSave();
-  const prdCode = makeSellerPrdCode();
-  const row = (result || {}) as Record<string, unknown>;
-
-  const productName = String(
-    row.productName ||
-      row.product_name ||
-      row.title ||
-      row.name ||
-      row.fileName ||
-      row.filename ||
-      "Seller Product"
-  );
-
-  await fetch("/api/account/analyses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      id: prdCode,
-      code: prdCode,
-      displayCode: prdCode,
-      refCode: prdCode,
-
-      type: "seller_analyze",
-      mode: "seller_analyze",
-      source: "seller_analyze",
-      analysisType: "seller_analyze",
-      reportType: "seller_analyze",
-      category: "seller_analyze",
-
-      title: productName,
-      productName,
-      product_name: productName,
-      product: productName,
-      name: productName,
-
-      createdAt: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      timestamp: Date.now(),
-
-      email: account?.email || "seller.pro@reviewintel.test",
-      plan: account?.plan || "seller_pro",
-      role: account?.role || "seller",
-
-      counted: true,
-      scanCount: 1,
-      isCompare: false,
-      isSellerCompare: false,
-
-      result,
-      analysis: result,
-      report: result,
-      request: { source: "seller_analyze" },
-    }),
-  });
-}
-
-function sellerAnalyzeRecordId() {
-  return `PRD-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
-
-function getStoredSellerAccountForHistory() {
-  if (typeof window === "undefined") return null;
-
-  const raw =
-    localStorage.getItem("reviewintel:account") ||
-    localStorage.getItem("reviewintel-account") ||
-    localStorage.getItem("reviewintel_account") ||
-    "";
-
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as { email?: string; plan?: string; role?: string };
-  } catch {
-    return null;
-  }
-}
-
-async function saveSellerAnalyzeToAccountHistory(result: unknown, request?: unknown) {
-  const account = getStoredSellerAccountForHistory();
-  const prdId = sellerAnalyzeRecordId();
-  const row = (result || {}) as Record<string, unknown>;
-
-  const productName = String(
-    row.productName ||
-      row.product_name ||
-      row.title ||
-      row.fileName ||
-      row.filename ||
-      "Seller Product"
-  );
-
-  const record = {
-    id: prdId,
-    code: prdId,
-    displayCode: prdId,
-    refCode: prdId,
-
-    type: "seller_analyze",
-    mode: "seller_analyze",
-    source: "seller_analyze",
-    analysisType: "seller_analyze",
-    reportType: "seller_analyze",
-    category: "seller_analyze",
-
-    title: productName,
-    productName,
-    product_name: productName,
-    product: productName,
-    name: productName,
-
-    createdAt: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    timestamp: Date.now(),
-
-    email: account?.email || "seller.pro@reviewintel.test",
-    plan: account?.plan || "seller_pro",
-    role: account?.role || "seller",
-
-    counted: true,
-    scanCount: 1,
-    isCompare: false,
-    isSellerCompare: false,
-
-    result,
-    analysis: result,
-    report: result,
-    request,
-  };
-
-  await fetch("/api/account/analyses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(record),
-  });
-}
 
 function sellerCompareRecordId() {
   return `CMR-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 }
 
 async function saveSellerCompareToHistory(payload: {
-  email?: string;
+  email: string;
   plan?: string;
   role?: string;
-  result?: unknown;
+  result: SellerCompareHistoryItem;
   request?: unknown;
 }) {
-  const email = payload.email || "seller.pro@reviewintel.test";
+  const email = payload.email.trim().toLowerCase();
+  if (!email) return;
+
   const cmrId = sellerCompareRecordId();
+  const title = `Compare: ${payload.result.yourLabel} vs ${payload.result.competitorLabel}`;
 
 
   const record = {
@@ -202,12 +41,18 @@ async function saveSellerCompareToHistory(payload: {
     reportType: "seller_compare",
     category: "seller_compare",
 
-    title: "Seller Compare",
-    productName: "Seller Compare",
-    product: "Seller Compare",
-    name: "Seller Compare",
+    title,
+    productName: title,
+    product: title,
+    name: title,
     summary: "Seller competitor comparison",
     verdict: "Seller Compare",
+    yourLabel: payload.result.yourLabel,
+    competitorLabel: payload.result.competitorLabel,
+    comparison: payload.result.comparison,
+    yourProduct: payload.result.yourProduct,
+    competitorProduct: payload.result.competitorProduct,
+    compareId: payload.result.id,
 
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -217,8 +62,8 @@ async function saveSellerCompareToHistory(payload: {
     plan: payload.plan || "seller_pro",
     role: payload.role || "seller",
 
-    counted: true,
-    scanCount: 1,
+    counted: false,
+    scanCount: 0,
     isCompare: true,
     isSellerCompare: true,
 
@@ -228,34 +73,15 @@ async function saveSellerCompareToHistory(payload: {
     request: payload.request,
   };
 
-  await fetch("/api/account/analyses", {
+  const response = await fetch("/api/account/analyses", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(record),
   });
-
-  // SELLER_COMPARE_LOCAL_SELLER_HISTORY_SYNC
-  if (typeof window !== "undefined") {
-    const sellerHistoryKeys = [
-      "reviewintel_seller_result_history",
-      `reviewintel_seller_result_history:${email}`,
-      `reviewintel_seller_result_history:${email.toLowerCase()}`,
-    ];
-
-    for (const key of sellerHistoryKeys) {
-      try {
-        const previous = JSON.parse(window.localStorage.getItem(key) || "[]");
-        const list = Array.isArray(previous) ? previous : [];
-        const next = [record, ...list.filter((item) => item?.id !== record.id)].slice(0, 50);
-        window.localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        window.localStorage.setItem(key, JSON.stringify([record]));
-      }
-    }
-
-    window.localStorage.setItem("reviewintel_selected_history_id", record.id);
-    window.localStorage.setItem("reviewintel_latest_seller_history_id", record.id);
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.error || "Seller compare cloud history save failed.");
   }
 }
 
@@ -294,13 +120,7 @@ type AiComparison = {
 };
 
 
-function saveCompareToNormalSellerHistory(input: {
-  compareId: string;
-  yourLabel: string;
-  competitorLabel: string;
-  comparison: unknown;
-  createdAt: string;
-}) {
+function saveCompareToNormalSellerHistory(item: SellerCompareHistoryItem) {
   if (typeof window === "undefined") return;
 
   try {
@@ -309,26 +129,25 @@ function saveCompareToNormalSellerHistory(input: {
     const current = raw ? JSON.parse(raw) : [];
 
     const historyItem = {
-      id: input.compareId,
-      type: "compare",
-      source: "seller-pro-compare",
-      fileName: `Compare: ${input.yourLabel} vs ${input.competitorLabel}`,
-      savedAt: input.createdAt,
-      createdAt: input.createdAt,
-      compareId: input.compareId,
+      id: item.id,
+      type: "seller_compare",
+      mode: "seller_compare",
+      source: "seller_compare",
+      fileName: `Compare: ${item.yourLabel} vs ${item.competitorLabel}`,
+      savedAt: item.createdAt,
+      createdAt: item.createdAt,
+      compareId: item.id,
       result: {
-        type: "compare",
-        compareId: input.compareId,
-        yourLabel: input.yourLabel,
-        competitorLabel: input.competitorLabel,
-        comparison: input.comparison,
-        createdAt: input.createdAt
-      }
+        ...item,
+        type: "seller_compare",
+        mode: "seller_compare",
+        compareId: item.id,
+      },
     };
 
     const next = [
       historyItem,
-      ...(Array.isArray(current) ? current.filter((item) => item?.id !== input.compareId) : [])
+      ...(Array.isArray(current) ? current.filter((entry) => entry?.id !== item.id) : [])
     ].slice(0, 40);
 
     window.localStorage.setItem(key, JSON.stringify(next));
@@ -352,6 +171,7 @@ async function analyzeSellerCsv(file: File) {
   formData.append("file", file, file.name);
   formData.append("csv", file, file.name);
   formData.append("locale", readStoredLocale());
+  formData.append("purpose", "seller_compare_side");
 
   const response = await fetch("/api/seller-analyze", {
     method: "POST",
@@ -359,21 +179,6 @@ async function analyzeSellerCsv(file: File) {
   });
 
   const data = await response.json();
-
-      // SELLER_PRODUCT_PRD_HISTORY_SAVE
-      try {
-        await saveSellerProductPrdHistory(data);
-      } catch (historyError) {
-        console.warn("Seller product PRD history save failed", historyError);
-      }
-
-
-      // SELLER_ANALYZE_ACCOUNT_HISTORY_SAVE
-      try {
-        await saveSellerAnalyzeToAccountHistory(data, { source: "seller_analyze" });
-      } catch (historyError) {
-        console.warn("Seller analyze account history save failed", historyError);
-      }
 
 if (!response.ok) {
     throw new Error(data?.error || "Seller analysis failed.");
@@ -391,34 +196,10 @@ async function compareWithAi(params: {
   const response = await fetch("/api/seller-compare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, locale: readStoredLocale() }),
   });
 
   const data = await response.json();
-
-      // SELLER_COMPARE_HISTORY_SAVE_REAL
-      try {
-        const storedAccount =
-          typeof window !== "undefined"
-            ? JSON.parse(
-                localStorage.getItem("reviewintel:account") ||
-                  localStorage.getItem("reviewintel-account") ||
-                  localStorage.getItem("reviewintel_account") ||
-                  "null"
-              )
-            : null;
-
-        await saveSellerCompareToHistory({
-          email: storedAccount?.email || "seller.pro@reviewintel.test",
-          plan: storedAccount?.plan || "seller_pro",
-          role: storedAccount?.role || "seller",
-          result: data,
-          request: { source: "seller_compare" },
-        });
-      } catch (historyError) {
-        console.warn("Seller compare history save failed", historyError);
-      }
-
 
   if (!response.ok) {
     throw new Error(data?.error || "AI competitor strategy failed.");
@@ -526,14 +307,32 @@ export default function SellerComparePage() {
         throw new Error("Could not save compare result. Please check browser storage.");
       }
 
+      try {
+        const storedAccount =
+          typeof window !== "undefined"
+            ? JSON.parse(
+                localStorage.getItem("reviewintel:account") ||
+                  localStorage.getItem("reviewintel-account") ||
+                  localStorage.getItem("reviewintel_account") ||
+                  "null"
+              )
+            : null;
+
+        if (storedAccount?.email) {
+          await saveSellerCompareToHistory({
+            email: storedAccount.email,
+            plan: storedAccount.plan || "seller_pro",
+            role: storedAccount.role || "seller",
+            result: item,
+            request: { source: "seller_compare", yourLabel, competitorLabel },
+          });
+        }
+      } catch (historyError) {
+        console.warn("Seller compare history save failed", historyError);
+      }
+
       setActiveSellerCompare(item.id);
-      saveCompareToNormalSellerHistory({
-        compareId: item.id,
-        yourLabel,
-        competitorLabel,
-        comparison: item.comparison,
-        createdAt: item.createdAt
-      });
+      saveCompareToNormalSellerHistory(item);
       router.push("/dashboard/seller/compare/result");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Seller compare failed.");

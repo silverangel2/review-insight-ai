@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { canAccessSellerAnalytics, type ClientAccount } from "@/lib/account";
 import { getClientAccount, saveActiveMode, saveClientAccount } from "@/lib/clientAccount";
 import { clearLatestResult } from "@/lib/resultStorage";
@@ -43,7 +42,6 @@ function isProfileComplete(account: Partial<ClientAccount> | null | undefined) {
 }
 
 export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode }) {
-  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -52,7 +50,6 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -71,7 +68,6 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
       return;
     }
 
-    setCheckingSession(false);
   }, []);
 
 

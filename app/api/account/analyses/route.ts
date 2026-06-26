@@ -8,13 +8,24 @@ function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
   if (!item || typeof item !== "object") return item;
 
   const row = item as Record<string, unknown>;
+  const analysisJson = recordOf(row.analysis_json);
 
   const mode = row.mode || row.type || row.analysisType || row.reportType || "";
   const isSellerCompare =
     String(mode).toLowerCase() === "seller_compare" ||
     String(row.product_name || row.productName || "").toLowerCase().includes("seller compare");
 
-  if (!isSellerCompare) return row;
+  if (!isSellerCompare) {
+    const result = row.result || row.analysis || row.report || row.analysis_json;
+
+    return {
+      ...row,
+      result,
+      analysis: row.analysis || result,
+      report: row.report || result,
+      createdAt: row.createdAt || row.created_at || row.timestamp,
+    };
+  }
 
   const rawId = String(row.id || "");
   const cmrCode =
@@ -51,8 +62,8 @@ function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
     analysis: row.analysis || row.result || row.analysis_json,
     report: row.report || row.result || row.analysis_json,
 
-    counted: true,
-    scanCount: 1,
+    counted: row.counted ?? analysisJson.counted ?? false,
+    scanCount: row.scanCount ?? analysisJson.scanCount ?? 0,
     isCompare: true,
     isSellerCompare: true,
   };
@@ -161,17 +172,6 @@ function retainByPlan(rows: Record<string, unknown>[], plan: string) {
   return retained.slice(0, 50);
 }
 
-
-function readRequestCookie(request: Request, name: string) {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  for (const part of cookieHeader.split(";")) {
-    const [rawName, ...rawValue] = part.trim().split("=");
-    if (rawName === name) {
-      return decodeURIComponent(rawValue.join("="));
-    }
-  }
-  return "";
-}
 
 function getAuthenticatedAccountEmail(request: Request) {
   const session = readAccountSession(request);

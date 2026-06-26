@@ -7928,12 +7928,87 @@ const dynamicAdParts = {
   }
 >;
 
+const dynamicSellerParts = {
+  fr: {
+    focusFirst: (product: string, score: string, concern: string) =>
+      `Priorité à ${product}. Score actuel : ${score} %. Principale préoccupation acheteur : ${concern}.`,
+    strongestProduct: (product: string, score: string) =>
+      `${product} est actuellement votre signal produit le plus fort avec ${score} %. Utilisez les meilleurs retours acheteurs comme preuve dans la fiche, les publicités et le positionnement.`,
+    strongestConcern: (concern: string) =>
+      `La préoccupation acheteur répétée la plus forte est ${concern}. Transformez-la en une amélioration visible de la fiche et en une action produit ou support.`,
+    averageConcern: (score: string, concern: string) => `${score} % de moyenne. Préoccupation principale : ${concern}`,
+    averageSignal: (score: string, signal: string) => `${score} % de moyenne. Meilleur signal : ${signal}`,
+    reviewsScanned: (count: string) => `${count} avis analysés`,
+    scanDay: (count: string) => `${count} analyse${count === "1" ? "" : "s"} ce jour`,
+  },
+  es: {
+    focusFirst: (product: string, score: string, concern: string) =>
+      `Prioriza ${product}. Puntuación actual: ${score} %. Principal preocupación del comprador: ${concern}.`,
+    strongestProduct: (product: string, score: string) =>
+      `${product} es ahora tu señal de producto más fuerte con ${score} %. Usa los mejores comentarios como prueba en el listado, anuncios y posicionamiento.`,
+    strongestConcern: (concern: string) =>
+      `La preocupación repetida más fuerte es ${concern}. Conviértela en una mejora visible del listado y una acción de producto o soporte.`,
+    averageConcern: (score: string, concern: string) => `${score} % de promedio. Preocupación principal: ${concern}`,
+    averageSignal: (score: string, signal: string) => `${score} % de promedio. Mejor señal: ${signal}`,
+    reviewsScanned: (count: string) => `${count} reseñas analizadas`,
+    scanDay: (count: string) => `${count} análisis del día`,
+  },
+  zh: {
+    focusFirst: (product: string, score: string, concern: string) =>
+      `优先处理 ${product}。当前评分：${score}%。主要买家担忧：${concern}。`,
+    strongestProduct: (product: string, score: string) =>
+      `${product} 是目前最强的产品信号，评分为 ${score}%。请将最佳买家反馈用于商品页、广告和定位证明。`,
+    strongestConcern: (concern: string) =>
+      `最强的重复买家担忧是 ${concern}。把它转化为一项可见的商品页改进和一项产品或支持行动。`,
+    averageConcern: (score: string, concern: string) => `平均 ${score}%。主要担忧：${concern}`,
+    averageSignal: (score: string, signal: string) => `平均 ${score}%。最佳信号：${signal}`,
+    reviewsScanned: (count: string) => `已分析 ${count} 条评论`,
+    scanDay: (count: string) => `当天 ${count} 次分析`,
+  },
+  de: {
+    focusFirst: (product: string, score: string, concern: string) =>
+      `Konzentriere dich zuerst auf ${product}. Aktueller Wert: ${score} %. Wichtigstes Käuferproblem: ${concern}.`,
+    strongestProduct: (product: string, score: string) =>
+      `${product} ist derzeit dein stärkstes Produktsignal mit ${score} %. Nutze das beste Käuferfeedback als Beleg in Listing, Anzeigen und Positionierung.`,
+    strongestConcern: (concern: string) =>
+      `Das stärkste wiederholte Käuferproblem ist ${concern}. Mache daraus eine sichtbare Listing-Verbesserung und eine Produkt- oder Supportmaßnahme.`,
+    averageConcern: (score: string, concern: string) => `${score} % Durchschnitt. Hauptproblem: ${concern}`,
+    averageSignal: (score: string, signal: string) => `${score} % Durchschnitt. Bestes Signal: ${signal}`,
+    reviewsScanned: (count: string) => `${count} Bewertungen analysiert`,
+    scanDay: (count: string) => `${count} Analyse${count === "1" ? "" : "n"} an diesem Tag`,
+  },
+  hi: {
+    focusFirst: (product: string, score: string, concern: string) =>
+      `पहले ${product} पर ध्यान दें। मौजूदा स्कोर: ${score} प्रतिशत। मुख्य खरीदार चिंता: ${concern}।`,
+    strongestProduct: (product: string, score: string) =>
+      `${product} अभी ${score} प्रतिशत के साथ आपका सबसे मजबूत उत्पाद संकेत है। सर्वोत्तम खरीदार प्रतिक्रिया को लिस्टिंग, विज्ञापन और पोजिशनिंग में प्रमाण बनाएं।`,
+    strongestConcern: (concern: string) =>
+      `सबसे मजबूत दोहराई गई खरीदार चिंता ${concern} है। इसे एक स्पष्ट लिस्टिंग सुधार और एक उत्पाद या सहायता कार्रवाई में बदलें।`,
+    averageConcern: (score: string, concern: string) => `${score} प्रतिशत औसत। मुख्य चिंता: ${concern}`,
+    averageSignal: (score: string, signal: string) => `${score} प्रतिशत औसत। सर्वोत्तम संकेत: ${signal}`,
+    reviewsScanned: (count: string) => `${count} समीक्षाएँ विश्लेषित`,
+    scanDay: (count: string) => `इस दिन ${count} विश्लेषण`,
+  },
+} satisfies Record<
+  Exclude<ReviewIntelLocale, "en">,
+  {
+    focusFirst: (product: string, score: string, concern: string) => string;
+    strongestProduct: (product: string, score: string) => string;
+    strongestConcern: (concern: string) => string;
+    averageConcern: (score: string, concern: string) => string;
+    averageSignal: (score: string, signal: string) => string;
+    reviewsScanned: (count: string) => string;
+    scanDay: (count: string) => string;
+  }
+>;
+
 function translateDynamicUiText(locale: ReviewIntelLocale, source: string) {
   if (locale === "en") return undefined;
 
   const parts = dynamicPhraseParts[locale];
   const resultParts = dynamicResultParts[locale];
   const adParts = dynamicAdParts[locale];
+  const sellerParts = dynamicSellerParts[locale];
   const translateSegment = (value: string) => getUiTextTranslation(locale, value) || value;
   const withTranslatedSegment = (label: string, value: string) => `${label}: ${translateSegment(value)}`;
 
@@ -8028,6 +8103,33 @@ function translateDynamicUiText(locale: ReviewIntelLocale, source: string) {
   if (safety && typeof resultParts.safety === "function") {
     return resultParts.safety(safety[1]);
   }
+
+  const focusFirst = source.match(
+    /^Focus first on (.+)\. Latest score is (\d+)%\.(?: Trend: .+?\.| This is a newly tracked product\.) Main buyer concern: (.+)\.$/
+  );
+  if (focusFirst) return sellerParts.focusFirst(focusFirst[1], focusFirst[2], focusFirst[3]);
+
+  const strongestProduct = source.match(
+    /^(.+) is your strongest product signal right now at (\d+)%\. Use its best buyer feedback as proof in your listing, ads, and product positioning\.$/
+  );
+  if (strongestProduct) return sellerParts.strongestProduct(strongestProduct[1], strongestProduct[2]);
+
+  const strongestConcern = source.match(
+    /^The strongest repeated buyer concern is (.+)\. Turn that into one visible listing improvement and one product\/support action\.$/
+  );
+  if (strongestConcern) return sellerParts.strongestConcern(strongestConcern[1]);
+
+  const averageConcern = source.match(/^(\d+)% average\. Main concern: (.+)$/);
+  if (averageConcern) return sellerParts.averageConcern(averageConcern[1], averageConcern[2]);
+
+  const averageSignal = source.match(/^(\d+)% average\. Best signal: (.+)$/);
+  if (averageSignal) return sellerParts.averageSignal(averageSignal[1], averageSignal[2]);
+
+  const reviewsScanned = source.match(/^([\d,.]+) reviews scanned$/);
+  if (reviewsScanned) return sellerParts.reviewsScanned(reviewsScanned[1]);
+
+  const scanDay = source.match(/^(\d+) scan day$/);
+  if (scanDay) return sellerParts.scanDay(scanDay[1]);
 
   return undefined;
 }

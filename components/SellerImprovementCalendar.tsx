@@ -353,8 +353,14 @@ export function SellerImprovementCalendar() {
       if (!email) return;
 
       try {
-        const response = await fetch(`/api/account/analyses?email=${encodeURIComponent(email)}`, {
-          cache: "no-store"
+        const query = new URLSearchParams({
+          email,
+          plan: String(account?.plan || ""),
+          role: String(account?.role || ""),
+        });
+        const response = await fetch(`/api/account/analyses?${query.toString()}`, {
+          cache: "no-store",
+          credentials: "include",
         });
 
         const data = await response.json().catch(() => ({}));
@@ -383,7 +389,24 @@ export function SellerImprovementCalendar() {
     };
   }, []);
 
-    const scans = useMemo(() => savedScans, [savedScans]);
+  useEffect(() => {
+    if (!selectedDate) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedDate(null);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [selectedDate]);
+
+  const scans = useMemo(() => savedScans, [savedScans]);
   const cells = useMemo(() => buildCalendar(month, scans), [month, scans]);
   const monthScans = useMemo(() => scans.filter((scan) => scan.date.startsWith(dateKey(month).slice(0, 7))), [month, scans]);
   const selectedScans = selectedDate ? scans.filter((scan) => scan.date === selectedDate) : [];
@@ -426,14 +449,14 @@ export function SellerImprovementCalendar() {
             Track real seller scans by date. Click any scan day to open the full product insight, buyer concern, score, and next action.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => moveMonth(-1)} className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white">
+        <div className="seller-calendar-controls flex items-center gap-2">
+          <button type="button" aria-label="Previous month" onClick={() => moveMonth(-1)} className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white">
             Prev
           </button>
-          <div className="min-w-44 rounded-xl bg-ink px-5 py-3 text-center text-sm font-black text-white dark:bg-white dark:text-ink">
+          <div className="seller-calendar-month-label min-w-44 rounded-xl bg-ink px-5 py-3 text-center text-sm font-black text-white dark:bg-white dark:text-ink">
             {monthTitle(month)}
           </div>
-          <button type="button" onClick={() => moveMonth(1)} className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white">
+          <button type="button" aria-label="Next month" onClick={() => moveMonth(1)} className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white">
             Next
           </button>
         </div>
@@ -492,6 +515,7 @@ export function SellerImprovementCalendar() {
               <button
                 key={cell.date}
                 type="button"
+                aria-label={`${cell.date}: ${mobileStatus}${hasScans ? `, ${cell.scans.length} scans` : ""}`}
                 onClick={() => setSelectedDate(cell.date)}
                 className={`seller-calendar-day-cell min-h-36 border-b border-r border-line p-3 text-left transition hover:bg-cyan-50 dark:border-white/10 dark:hover:bg-white/[0.04] ${
                   cell.inMonth ? "bg-white dark:bg-slate-950" : "bg-slate-50 text-slate-400 dark:bg-white/[0.02]"
@@ -594,7 +618,7 @@ export function SellerImprovementCalendar() {
                     </p>
                   </div>
                 ) : null}
-                {selectedScans.length ? selectedScans.map((scan) => (
+                {selectedScans.length ? selectedScans.slice(0, 4).map((scan) => (
                   <article key={scan.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -645,7 +669,7 @@ export function SellerImprovementCalendar() {
                 <div key={title as string} className="rounded-2xl border border-line p-4 dark:border-white/10">
                   <h4 className="font-black text-ink dark:text-white">{title as string}</h4>
                   <div className="mt-3 grid gap-2">
-                    {((items as string[]).length ? (items as string[]) : ["No clear signal saved yet."]).slice(0, 5).map((item) => (
+                    {((items as string[]).length ? (items as string[]) : ["No clear signal saved yet."]).slice(0, 3).map((item) => (
                       <p key={item} className="rounded-xl bg-mist px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">{sellerCalendarText(item)}</p>
                     ))}
                   </div>
@@ -665,6 +689,236 @@ export function SellerImprovementCalendar() {
           </div>
         </div>
       ) : null}
+      <style jsx global>{`
+        @media (max-width: 640px) {
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-shell {
+            padding: 0.9rem !important;
+            border-radius: 1rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-shell h2 {
+            margin-top: 0.65rem !important;
+            font-size: 1.3rem !important;
+            line-height: 1.18 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-controls {
+            display: grid !important;
+            grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem !important;
+            width: 100% !important;
+            gap: 0.45rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-controls button {
+            width: 2.75rem !important;
+            min-width: 2.75rem !important;
+            min-height: 2.75rem !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            font-size: 0 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-controls button:first-child::after {
+            content: "‹";
+            font-size: 1.35rem;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-controls button:last-child::after {
+            content: "›";
+            font-size: 1.35rem;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-month-label {
+            min-width: 0 !important;
+            min-height: 2.75rem !important;
+            padding: 0.8rem 0.45rem !important;
+            font-size: 0.82rem !important;
+            line-height: 1.1 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.55rem !important;
+            margin-top: 0.8rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-stats > div {
+            min-height: 5.2rem !important;
+            padding: 0.75rem !important;
+            border-radius: 0.85rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .reviewintel-route-dashboard-seller
+            .seller-calendar-stats > div > p:last-child {
+            margin-top: 0.35rem !important;
+            font-size: 1.35rem !important;
+            line-height: 1.05 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-box {
+            margin-top: 0.8rem !important;
+            border-radius: 0.85rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-weekdays {
+            height: auto !important;
+            min-height: 2rem !important;
+            max-height: none !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-weekdays > div {
+            height: 2rem !important;
+            min-height: 2rem !important;
+            max-height: none !important;
+            padding: 0.5rem 0 !important;
+            font-size: 0.62rem !important;
+            line-height: 1 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-month-grid {
+            grid-auto-rows: 3.35rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-day-cell {
+            min-height: 3.35rem !important;
+            height: 3.35rem !important;
+            max-height: 3.35rem !important;
+            padding: 0.35rem 0.2rem !important;
+            border-radius: 0 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-day-cell > div:first-child {
+            display: flex !important;
+            height: 1rem !important;
+            max-height: 1rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-day-cell > div:first-child span:first-child {
+            display: inline !important;
+            font-size: 0.7rem !important;
+            line-height: 1 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-day-cell > .seller-calendar-mobile-status {
+            display: inline-flex !important;
+            margin-top: 0.35rem !important;
+            padding: 0.2rem 0.3rem !important;
+            font-size: 0.55rem !important;
+            line-height: 1 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-day-cell .seller-calendar-scan-count,
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-day-cell .seller-calendar-full-details {
+            display: none !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-overlay {
+            align-items: end !important;
+            justify-items: stretch !important;
+            padding: 0 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-panel {
+            width: 100% !important;
+            max-width: none !important;
+            max-height: 88dvh !important;
+            padding: 1rem !important;
+            border-radius: 1.25rem 1.25rem 0 0 !important;
+            box-shadow: 0 -18px 60px rgba(15, 23, 42, 0.28) !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-panel :is(p, span, div, li) {
+            font-size: 0.78rem !important;
+            line-height: 1.45 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-panel h3 {
+            margin-top: 0.45rem !important;
+            font-size: 1.45rem !important;
+            line-height: 1.15 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-panel button {
+            min-height: 2.75rem !important;
+            padding: 0.7rem 1rem !important;
+            font-size: 0.8rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.55rem !important;
+            margin-top: 0.8rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-stats > div {
+            min-height: 5.5rem !important;
+            padding: 0.75rem !important;
+            border-radius: 0.85rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            :is(.seller-calendar-modal-main-grid, .seller-calendar-modal-signal-grid) {
+            grid-template-columns: 1fr !important;
+            gap: 0.65rem !important;
+            margin-top: 0.85rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-main-grid :is(article, div[class*="rounded-2xl"], p[class*="rounded"]),
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-signal-grid > div {
+            max-height: none !important;
+            padding: 0.75rem !important;
+            border-radius: 0.85rem !important;
+            overflow: visible !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-note textarea {
+            min-height: 6rem !important;
+            max-height: 10rem !important;
+            padding: 0.8rem !important;
+            font-size: 0.82rem !important;
+            line-height: 1.45 !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }

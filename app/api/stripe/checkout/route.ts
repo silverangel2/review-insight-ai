@@ -33,8 +33,8 @@ export async function POST(request: Request) {
     const session = await createCheckoutSession(
       plan,
       checkoutEmail,
-      String(body.userId || account?.userId || account?.authUserId || checkoutEmail || ""),
-      body.customerId ? String(body.customerId) : account?.stripeCustomerId,
+      String(account?.userId || account?.authUserId || checkoutEmail || ""),
+      account?.stripeCustomerId,
       body.currency
     );
     return NextResponse.json(session);

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getClientAccount } from "@/lib/clientAccount";
-import { openSellerResult, readLatestSellerResult, sellerHistoryKey } from "@/lib/sellerResultStorage";
-import { setActiveSellerCompare } from "@/lib/sellerCompareHistory";
+import { readLatestSellerResult, saveLatestSellerResult, sellerHistoryKey } from "@/lib/sellerResultStorage";
+import { readSellerCompareHistory, saveSellerCompareHistoryItem, setActiveSellerCompare } from "@/lib/sellerCompareHistory";
 import {} from "@/lib/productDisplay";
 import { readStoredLocale } from "@/lib/i18n";
 import { shortProductName } from "@/lib/productName";
@@ -99,6 +99,66 @@ function makeId(result: unknown) {
   );
 }
 
+function recordOf(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function isSellerAnalysis(value: unknown) {
+  const record = recordOf(value);
+  return Boolean(
+    record.summary ||
+      record.healthScore !== undefined ||
+      record.buyerSatisfaction !== undefined ||
+      record.refundRisk !== undefined ||
+      Array.isArray(record.topComplaints)
+  );
+}
+
+function normalizeStoredSellerResult(item: SellerHistoryItem) {
+  const row = item as Record<string, unknown>;
+  const candidate =
+    item.result ||
+    row.report ||
+    row.analysis ||
+    row.payload ||
+    row.data ||
+    row.analysis_json ||
+    item;
+  const candidateRecord = recordOf(candidate);
+  const nestedResult =
+    candidateRecord.result ||
+    candidateRecord.analysis ||
+    candidateRecord.report ||
+    candidateRecord.analysis_json;
+  const result = isSellerAnalysis(nestedResult)
+    ? nestedResult
+    : isSellerAnalysis(candidateRecord)
+      ? candidateRecord
+      : null;
+
+  if (!result) return null;
+
+  return {
+    result,
+    fileName: String(
+      candidateRecord.fileName ||
+        row.fileName ||
+        row.productName ||
+        row.product_name ||
+        row.title ||
+        "Saved seller report"
+    ),
+    createdAt: String(
+      candidateRecord.createdAt ||
+        candidateRecord.savedAt ||
+        row.createdAt ||
+        row.created_at ||
+        item.savedAt ||
+        new Date().toISOString()
+    ),
+  };
+}
+
 async function deleteServerHistory(account: unknown, id: string | null, all = false) {
   const value = account as { email?: string } | null;
   if (!value?.email) return;
@@ -134,7 +194,7 @@ export function SellerResultHistoryCorner() {
   const [apiHistoryItems, setApiHistoryItems] = useState<SellerHistoryItem[]>([]);
   const [items, setItems] = useState<SellerHistoryItem[]>([]);
 
-  const shouldShow = pathname === "/dashboard/seller/result" || pathname === "/seller/result";
+  const shouldShow = pathname.startsWith("/dashboard/seller") || pathname === "/seller/result";
 
   useEffect(() => {
     if (!shouldShow) return;
@@ -174,9 +234,18 @@ export function SellerResultHistoryCorner() {
           "";
 
         const account = accountRaw ? JSON.parse(accountRaw) : null;
-        const email = account?.email || "seller.pro@reviewintel.test";
+        const email = String(account?.email || "").trim();
+        if (!email) {
+          if (!cancelled) setApiHistoryItems([]);
+          return;
+        }
 
-        const response = await fetch(`/api/account/analyses?email=${encodeURIComponent(email)}`, {
+        const query = new URLSearchParams({
+          email,
+          plan: String(account?.plan || ""),
+          role: String(account?.role || ""),
+        });
+        const response = await fetch(`/api/account/analyses?${query.toString()}`, {
           cache: "no-store",
           credentials: "include",
         });
@@ -219,6 +288,21 @@ export function SellerResultHistoryCorner() {
                 ""
             ).toUpperCase();
 
+            const resultPayload = (
+              entry.result ||
+              entry.report ||
+              entry.analysis ||
+              entry.payload ||
+              entry.data ||
+              entry ||
+              {}
+            ) as Record<string, unknown>;
+            const mode = String(entry.mode || entry.type || (code.startsWith("CMR-") ? "seller_compare" : "seller_analyze"));
+            const compareId =
+              mode === "seller_compare"
+                ? String(entry.compareId || resultPayload.compareId || resultPayload.id || "")
+                : undefined;
+
             return {
               ...(entry as SellerHistoryItem),
               id: String(entry.id || code),
@@ -233,9 +317,13 @@ export function SellerResultHistoryCorner() {
                   (code.startsWith("CMR-") ? "Seller Compare" : "Seller Test")
               ),
               createdAt: String(entry.createdAt || entry.created_at || new Date().toISOString()),
-              type: String(entry.type || entry.mode || (code.startsWith("CMR-") ? "seller_compare" : "seller_analyze")),
-              mode: String(entry.mode || entry.type || (code.startsWith("CMR-") ? "seller_compare" : "seller_analyze")),
-            } as SellerHistoryItem;
+              type: mode,
+              mode,
+              compareId,
+              result: resultPayload,
+              report: entry.report || resultPayload,
+              analysis: entry.analysis || resultPayload,
+            } as unknown as SellerHistoryItem;
           })
           .slice(0, 10);
 
@@ -260,7 +348,14 @@ export function SellerResultHistoryCorner() {
     () =>
       [
         ...apiHistoryItems,
-        ...items.filter((item) => !apiHistoryItems.some((apiItem) => apiItem.id === item.id)),
+        ...items.filter(
+          (item) =>
+            !apiHistoryItems.some(
+              (apiItem) =>
+                apiItem.id === item.id ||
+                Boolean(item.compareId && apiItem.compareId === item.compareId)
+            )
+        ),
       ].slice(0, 10),
     [apiHistoryItems, items]
   );
@@ -268,6 +363,8 @@ export function SellerResultHistoryCorner() {
   if (!shouldShow || !visibleItems.length) return null;
 
   function openSaved(item: SellerHistoryItem) {
+    const row = item as Record<string, unknown>;
+    const resultRow = (item.result || {}) as Record<string, unknown>;
     const compareId = item.compareId || item.result?.compareId;
 
     if (
@@ -279,14 +376,100 @@ export function SellerResultHistoryCorner() {
       String((item.result as { mode?: string } | undefined)?.mode || "") === "seller_compare" ||
       compareId
     ) {
-      if (compareId) {
+      const compareExists =
+        compareId &&
+        readSellerCompareHistory().some((entry) => entry.id === compareId);
+
+      if (compareExists) {
         setActiveSellerCompare(compareId);
+      } else {
+        const comparePayload =
+          row.result ||
+          row.report ||
+          row.analysis ||
+          row.payload ||
+          row.data ||
+          row;
+
+        const compareRecord = comparePayload as Record<string, unknown>;
+        const nestedResult = (
+          compareRecord.result ||
+          compareRecord.report ||
+          compareRecord.analysis ||
+          {}
+        ) as Record<string, unknown>;
+
+        const rebuilt = saveSellerCompareHistoryItem({
+          id: compareId || String(row.compareId || resultRow.compareId || resultRow.id || nestedResult.compareId || nestedResult.id || ""),
+          yourLabel: String(
+            row.yourLabel ||
+              row.productAName ||
+              row.product_a_name ||
+              resultRow.yourLabel ||
+              resultRow.productAName ||
+              compareRecord.yourLabel ||
+              compareRecord.productAName ||
+              nestedResult.yourLabel ||
+              nestedResult.productAName ||
+              "Your product"
+          ),
+          competitorLabel: String(
+            row.competitorLabel ||
+              row.productBName ||
+              row.product_b_name ||
+              resultRow.competitorLabel ||
+              resultRow.productBName ||
+              compareRecord.competitorLabel ||
+              compareRecord.productBName ||
+              nestedResult.competitorLabel ||
+              nestedResult.productBName ||
+              "Competitor product"
+          ),
+          yourProduct:
+            compareRecord.yourProduct ||
+            compareRecord.productA ||
+            resultRow.yourProduct ||
+            resultRow.productA ||
+            nestedResult.yourProduct ||
+            nestedResult.productA ||
+            row.yourProduct ||
+            row.productA ||
+            {},
+          competitorProduct:
+            compareRecord.competitorProduct ||
+            compareRecord.productB ||
+            resultRow.competitorProduct ||
+            resultRow.productB ||
+            nestedResult.competitorProduct ||
+            nestedResult.productB ||
+            row.competitorProduct ||
+            row.productB ||
+            {},
+          comparison: (
+            compareRecord.comparison ||
+            nestedResult.comparison ||
+            compareRecord.result ||
+            compareRecord.report ||
+            compareRecord.analysis ||
+            comparePayload ||
+            ({ summary: "Saved seller comparison" } as Record<string, unknown>)
+          ) as import("@/lib/sellerCompareHistory").SellerComparePlan,
+        });
+
+        if (rebuilt?.id) {
+          setActiveSellerCompare(rebuilt.id);
+        }
       }
+
       window.location.href = "/dashboard/seller/compare/result";
       return;
     }
 
-    openSellerResult(item.result, getClientAccount());
+    const sellerPayload = normalizeStoredSellerResult(item);
+    if (!sellerPayload) return;
+
+    saveLatestSellerResult(sellerPayload, getClientAccount());
+    window.location.href = "/dashboard/seller/result";
   }
 
   function deleteOne(id: string) {

@@ -293,7 +293,11 @@ function summarizeProductMemory(memory: unknown[]) {
   };
 }
 
-function applyProductMemory(result: ReturnType<typeof normalizeVerdictWithScores>, memorySummary: ReturnType<typeof summarizeProductMemory>) {
+function applyProductMemory(
+  result: ReturnType<typeof normalizeVerdictWithScores>,
+  memorySummary: ReturnType<typeof summarizeProductMemory>,
+  locale = "en",
+) {
   if (!memorySummary.scanCount) return result;
 
   let verdict = result.verdict;
@@ -315,11 +319,13 @@ function applyProductMemory(result: ReturnType<typeof normalizeVerdictWithScores
     productScore = Math.min(productScore, 74);
   }
 
-  if (memorySummary.repeatedComplaints.length) {
+  if (normalizedLocaleCode(locale) === "en" && memorySummary.repeatedComplaints.length) {
     topComplaints = Array.from(new Set([...memorySummary.repeatedComplaints, ...topComplaints])).slice(0, 6);
   }
 
-  bottomLine = `${bottomLine} ${memorySummary.memoryNote}`;
+  if (normalizedLocaleCode(locale) === "en") {
+    bottomLine = `${bottomLine} ${memorySummary.memoryNote}`;
+  }
 
   return {
     ...result,
@@ -488,8 +494,7 @@ function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
   const sourcesCount = result.sourcesUsed.length;
   const seriousComplaintCount = countSeriousComplaints([
     ...result.topComplaints,
-    ...result.notIdealFor,
-    ...result.reviewAuthenticity.reasons
+    ...result.notIdealFor
   ]);
 
   let productScore = rating === null ? 50 : Math.round((rating / 5) * 100);
@@ -562,8 +567,7 @@ function hasSeriousBuyingComplaints(result: ReturnType<typeof normalizeResult>) 
 
   const combined = [
     ...result.topComplaints,
-    ...result.notIdealFor,
-    ...result.reviewAuthenticity.reasons
+    ...result.notIdealFor
   ]
     .join(" ")
     .toLowerCase();
@@ -571,9 +575,10 @@ function hasSeriousBuyingComplaints(result: ReturnType<typeof normalizeResult>) 
   return seriousWords.some((word) => combined.includes(word));
 }
 
-function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>) {
+function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, locale = "en") {
   const aiReviewSigns = clampScore(result.reviewAuthenticity.score);
   const hasSeriousComplaints = hasSeriousBuyingComplaints(result);
+  const canRewriteCopy = normalizedLocaleCode(locale) === "en";
 
   let verdict: Verdict = result.verdict;
   let productScore = clampScore(result.productScore);
@@ -588,8 +593,10 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>) {
     verdict = "CONSIDER";
     productScore = Math.min(productScore, 74);
     buyingConfidence = Math.min(buyingConfidence, 65);
-    bottomLine =
-      "This product may still be okay, but the reviews show enough AI-like signs that the rating should not be trusted by itself. Check low-star reviews, buyer photos, and the return policy before buying.";
+    if (canRewriteCopy) {
+      bottomLine =
+        "This product may still be okay, but the reviews show enough AI-like signs that the rating should not be trusted by itself. Check low-star reviews, buyer photos, and the return policy before buying.";
+    }
   }
 
   if (aiReviewSigns >= 75) {
@@ -597,16 +604,20 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>) {
     productScore = Math.min(productScore, 45);
     buyingConfidence = Math.min(buyingConfidence, 45);
     valueForMoney = "Poor";
-    bottomLine =
-      "The review evidence shows strong AI-like signs, so the rating may not be reliable enough for a confident purchase decision. Compare alternatives before buying.";
+    if (canRewriteCopy) {
+      bottomLine =
+        "The review evidence shows strong AI-like signs, so the rating may not be reliable enough for a confident purchase decision. Compare alternatives before buying.";
+    }
   }
 
   if (hasSeriousComplaints && verdict === "BUY") {
     verdict = "CONSIDER";
     productScore = Math.min(productScore, 74);
     buyingConfidence = Math.min(buyingConfidence, 65);
-    bottomLine =
-      "This product has useful features, but repeated complaint signals mean it is not a clean buy. Compare alternatives before purchasing.";
+    if (canRewriteCopy) {
+      bottomLine =
+        "This product has useful features, but repeated complaint signals mean it is not a clean buy. Compare alternatives before purchasing.";
+    }
   }
 
   if (verdict === "BUY" && productScore < 75) {
@@ -617,9 +628,11 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>) {
     productScore = Math.min(productScore, 49);
     buyingConfidence = Math.min(buyingConfidence, 50);
     valueForMoney = "Poor";
-    bestFor = ["Not recommended based on the current buying evidence."];
+    if (canRewriteCopy) {
+      bestFor = ["Not recommended based on the current buying evidence."];
+    }
 
-    if (!notIdealFor.length) {
+    if (canRewriteCopy && !notIdealFor.length) {
       notIdealFor = [
         "People who need a reliable purchase.",
         "Frequent users or heavy-use buyers.",
@@ -632,11 +645,11 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>) {
     productScore = Math.min(productScore, 74);
     if (valueForMoney === "Excellent") valueForMoney = "Good";
 
-    if (!bestFor.length) {
+    if (canRewriteCopy && !bestFor.length) {
       bestFor = ["Shoppers who are willing to compare alternatives first."];
     }
 
-    if (!notIdealFor.length) {
+    if (canRewriteCopy && !notIdealFor.length) {
       notIdealFor = ["People who need proven long-term reliability."];
     }
   }
@@ -653,8 +666,9 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>) {
   };
 }
 
-function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>) {
+function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, locale = "en") {
   const calculated = calculateReviewIntelScore(result);
+  const canRewriteCopy = normalizedLocaleCode(locale) === "en";
 
   let valueForMoney = result.valueForMoney;
 
@@ -682,33 +696,39 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>) 
   let bottomLine = legalSafeText(result.bottomLine);
 
   if (calculated.verdict === "AVOID") {
-    bestFor = ["Not recommended based on the current buying evidence."];
+    if (canRewriteCopy) {
+      bestFor = ["Not recommended based on the current buying evidence."];
+    }
     topStrengths = topStrengths.slice(0, 2);
 
-    if (!notIdealFor.length) {
+    if (canRewriteCopy && !notIdealFor.length) {
       notIdealFor = [
         "Shoppers who need a reliable purchase.",
         "People buying for frequent use or heavy use."
       ];
     }
 
-    if (!topComplaints.length) {
+    if (canRewriteCopy && !topComplaints.length) {
       topComplaints = [
         "The available buying signals are weak.",
         "Public review evidence does not support a confident purchase."
       ];
     }
 
-    bottomLine =
-      "Based on the visible listing and public review signals available now, this product does not have enough strong buying evidence. Safer choice: compare alternatives before buying.";
+    if (canRewriteCopy) {
+      bottomLine =
+        "Based on the visible listing and public review signals available now, this product does not have enough strong buying evidence. Safer choice: compare alternatives before buying.";
+    }
   }
 
   if (calculated.verdict === "CONSIDER") {
-    bestFor = bestFor.length ? bestFor : ["Shoppers who are willing to compare alternatives first."];
-    bottomLine = bottomLine || "This may work for some buyers, but the evidence is mixed. Compare similar products before buying.";
+    if (canRewriteCopy) {
+      bestFor = bestFor.length ? bestFor : ["Shoppers who are willing to compare alternatives first."];
+      bottomLine = bottomLine || "This may work for some buyers, but the evidence is mixed. Compare similar products before buying.";
+    }
   }
 
-  if (calculated.verdict === "BUY") {
+  if (canRewriteCopy && calculated.verdict === "BUY") {
     notIdealFor = notIdealFor.length ? notIdealFor : ["Shoppers who need features not shown in the listing."];
   }
 
@@ -729,14 +749,14 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>) 
     bottomLine
   };
 
-  return applyReviewIntelBrain(normalized);
+  return applyReviewIntelBrain(normalized, locale);
 }
 
 function hasContradictoryNegativeLanguage(text: string) {
   return /\b(hard to recommend|not recommended|not a clean buy|compare alternatives|weak satisfaction|heavy complaint|complaint pressure|risk signals|poor value|avoid|skip|unreliable|not enough strong buying evidence)\b/i.test(text);
 }
 
-function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdictWithScores>) {
+function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdictWithScores>, locale = "en") {
   const productScore = clampScore(result.productScore);
   const buyingConfidence = clampScore(result.buyingConfidence);
   const evidenceText = [
@@ -765,7 +785,7 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
 
   if (verdict === "CONSIDER") {
     valueForMoney = valueForMoney === "Excellent" ? "Good" : valueForMoney;
-    if (result.verdict === "BUY") {
+    if (normalizedLocaleCode(locale) === "en" && result.verdict === "BUY") {
       bottomLine =
         "The AI research found useful buying signals, but the score and confidence do not support a clean BUY. Compare alternatives, review the complaints, and check return terms before purchasing.";
     }
@@ -773,7 +793,7 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
 
   if (verdict === "AVOID") {
     valueForMoney = poorValue || productScore < 45 ? "Poor" : valueForMoney;
-    if (result.verdict === "BUY" || result.verdict === "CONSIDER") {
+    if (normalizedLocaleCode(locale) === "en" && (result.verdict === "BUY" || result.verdict === "CONSIDER")) {
       bottomLine =
         "The final evidence score, buyer confidence, or complaint signals do not support a BUY verdict. Safer choice: compare alternatives before purchasing.";
     }
@@ -950,7 +970,7 @@ function normalizeVision(rawValue: unknown): VisionFacts {
 
 async function extractScreenshotFacts(imageDataUrl: string) {
   const raw = await openAIResponse({
-    model: "gpt-4.1",
+    model: process.env.OPENAI_MODEL || "gpt-4.1",
     input: [
       {
         role: "user",
@@ -999,7 +1019,7 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
     [vision.brand, vision.name, vision.category].filter(Boolean).join(" ");
 
   const raw = await openAIResponse({
-    model: "gpt-4.1",
+    model: process.env.OPENAI_MODEL || "gpt-4.1",
     tools: [{ type: "web_search_preview" }],
     input: [
       {
@@ -1314,7 +1334,7 @@ export async function POST(request: Request) {
         sourcesUsed: []
       };
 
-      return NextResponse.json(await recordCompletedScan(attachLanguageMeta(enforceFinalResultConsistency(fallbackResult), locale, outputLanguage)));
+      return NextResponse.json(await recordCompletedScan(attachLanguageMeta(enforceFinalResultConsistency(fallbackResult, locale), locale, outputLanguage)));
     }
 
     const productKey = createProductKey([
@@ -1327,8 +1347,12 @@ export async function POST(request: Request) {
     const memory = await getProductMemory(productKey);
     const memorySummary = summarizeProductMemory(memory);
 
-    const freshResult = normalizeVerdictWithScores(await researchAndVerdict(vision, productLink, outputLanguage, locale));
-    const result = attachLanguageMeta(enforceFinalResultConsistency(applyProductMemory(freshResult, memorySummary)), locale, outputLanguage);
+    const freshResult = normalizeVerdictWithScores(await researchAndVerdict(vision, productLink, outputLanguage, locale), locale);
+    const result = attachLanguageMeta(
+      enforceFinalResultConsistency(applyProductMemory(freshResult, memorySummary, locale), locale),
+      locale,
+      outputLanguage,
+    );
 
     await saveProductMemory({
       productKey,
