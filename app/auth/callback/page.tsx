@@ -69,6 +69,27 @@ export default function AuthCallbackPage() {
       }
 
       const account = data.account as ClientAccount;
+      const isAdminAccount = String(account.role || "").toLowerCase() === "admin";
+
+      // Security cleanup:
+      // A normal Google buyer/seller login must never inherit an old admin/owner session
+      // from the same browser. Only a real admin account may keep admin access.
+      if (!isAdminAccount) {
+        await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
+
+        try {
+          Object.keys(window.localStorage)
+            .filter((key) => key.toLowerCase().includes("admin") || key.toLowerCase().includes("owner"))
+            .forEach((key) => window.localStorage.removeItem(key));
+
+          Object.keys(window.sessionStorage)
+            .filter((key) => key.toLowerCase().includes("admin") || key.toLowerCase().includes("owner"))
+            .forEach((key) => window.sessionStorage.removeItem(key));
+        } catch {
+          // Ignore browser storage cleanup failures.
+        }
+      }
+
       saveClientAccount(account);
       const hasSellerAccess = canAccessSellerAnalytics(account.role, account.plan);
       saveActiveMode(hasSellerAccess ? "seller" : "buyer");
