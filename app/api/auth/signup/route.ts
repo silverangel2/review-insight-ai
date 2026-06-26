@@ -148,7 +148,7 @@ export async function POST(request: Request) {
       if (!profileVerified && existsInAuth && !authStatus.emailConfirmed) {
         return NextResponse.json(
           {
-            error: "This email is already waiting for verification. Please check your inbox and approve the ReviewIntel verification link before signing in.",
+            error: "This email is already waiting for verification. ReviewIntel already sent the verification email automatically. Please check your inbox or spam folder before signing in.",
             code: "email_verification_pending",
           },
           { status: 409 }
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
       result,
       emailConfirmationRequired,
       message: emailConfirmationRequired
-        ? "Account created. Please check your email and approve the ReviewIntel verification link before signing in."
+        ? "Account created. ReviewIntel sent the verification email automatically. Please check your inbox or spam folder before signing in."
         : role === "seller"
           ? "Seller account created. Choose a seller plan to activate seller tools."
           : "Account created."

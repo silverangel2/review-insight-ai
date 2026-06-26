@@ -115,7 +115,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
       }
 
       if (mode === "signup" && data.emailConfirmationRequired) {
-        setNotice(data.message || "Account created. Check your email and approve the verification link before signing in.");
+        setNotice(data.message || "Account created. ReviewIntel sent the verification email automatically. Check your inbox or spam folder before signing in.");
         setMode("login");
         setPassword("");
         return;
@@ -333,7 +333,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
 
 
       <div className="mt-5 flex flex-wrap justify-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-        <Link href="/auth/verify-email" className="hover:text-ocean">Email verification</Link>
+        
         <Link href="/auth/reset-password" className="hover:text-ocean">Password reset</Link>
       </div>
     </section>
