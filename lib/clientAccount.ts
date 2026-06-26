@@ -92,7 +92,11 @@ function getClientAccountRaw(): ClientAccount | null {
       website: parsed.website,
       profileNotes: parsed.profileNotes,
       marketingConsent: Boolean(parsed.marketingConsent),
-      passwordUpdatedAt: parsed.passwordUpdatedAt
+      passwordUpdatedAt: parsed.passwordUpdatedAt,
+      betaStartedAt: parsed.betaStartedAt,
+      betaExpiresAt: parsed.betaExpiresAt,
+      betaOriginalPlan: parsed.betaOriginalPlan,
+      betaOriginalStatus: parsed.betaOriginalStatus
     };
   } catch {
     return null;
