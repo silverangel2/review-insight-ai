@@ -747,37 +747,79 @@ export async function upsertSubscriptionByStripeCustomer(input: SupabaseRow) {
 
   const email = String(input.profile_email ?? input.email ?? input.customer_email ?? "").trim();
   const profileId = String(input.userId ?? input.user_id ?? input.profile_id ?? "").trim();
-  const rawPlan = normalizePlan(String(input.plan ?? (input.metadata as Record<string, unknown> | undefined)?.["plan"] ?? "free_buyer"));
+  const metadata = input.metadata as Record<string, unknown> | undefined;
+  const explicitPlanValue = input.plan ?? metadata?.["plan"] ?? null;
+  const hasExplicitPlan = typeof explicitPlanValue === "string" && explicitPlanValue.trim().length > 0;
+  const requestedPlan = hasExplicitPlan ? normalizePlan(String(explicitPlanValue)) : null;
   const subscriptionStatus = String(input.status ?? "active");
   const inactive = !["active", "trialing"].includes(subscriptionStatus);
-  const plan = inactive ? "free_buyer" : rawPlan;
-  const role = rawPlan === "seller_premium" || rawPlan === "seller_beta" || rawPlan === "seller_pro" ? "seller" : roleForPlan(plan);
   const stripeCustomerId = input.stripe_customer_id ?? input.customer ?? input.customerId ?? null;
+
+  let existingProfile: SupabaseRow | null = null;
+
+  try {
+    const profileQuery = email
+      ? `email=eq.${encodeURIComponent(email)}`
+      : profileId
+        ? `id=eq.${encodeURIComponent(profileId)}`
+        : "";
+
+    if (profileQuery) {
+      const response = await supabaseFetch(
+        `/rest/v1/profiles?${profileQuery}&select=id,email,plan,role,subscription_status,stripe_customer_id&limit=1`
+      );
+
+      if (response.ok) {
+        const rows = (await response.json()) as SupabaseRow[];
+        existingProfile = rows[0] ?? null;
+      }
+    }
+  } catch {
+    existingProfile = null;
+  }
+
+  const existingPlan = existingProfile?.plan ? normalizePlan(String(existingProfile.plan)) : "";
+  const existingRole = existingProfile?.role ? String(existingProfile.role) : "";
+  const protectedManualPlan = existingPlan.includes("beta");
+
+  // Critical safety rule:
+  // Missing Stripe metadata must never reset an existing user to free/basic.
+  // Only use free_buyer as a default when there is no existing profile at all.
+  const activePlan = requestedPlan ?? (existingPlan || "free_buyer");
+  const finalPlan =
+    inactive && requestedPlan && !protectedManualPlan
+      ? "free_buyer"
+      : activePlan;
+
+  const finalRole =
+    finalPlan === "seller_premium" || finalPlan === "seller_beta" || finalPlan === "seller_pro"
+      ? "seller"
+      : existingRole || roleForPlan(finalPlan);
+
+  const profilePatch: SupabaseRow = {
+    subscription_status: subscriptionStatus,
+    stripe_customer_id: stripeCustomerId,
+    updated_at: new Date().toISOString()
+  };
+
+  // Preserve existing plan/role unless there is a safe final plan.
+  profilePatch.plan = finalPlan;
+  profilePatch.role = finalRole;
 
   if (email) {
     await supabaseUpsert("profiles", {
       email,
-      plan,
-      role,
-      subscription_status: subscriptionStatus,
-      stripe_customer_id: stripeCustomerId,
-      updated_at: new Date().toISOString()
+      ...profilePatch
     });
   } else if (profileId) {
-    await supabaseUpdate("profiles", `id=eq.${encodeURIComponent(profileId)}`, {
-      plan,
-      role,
-      subscription_status: subscriptionStatus,
-      stripe_customer_id: stripeCustomerId,
-      updated_at: new Date().toISOString()
-    });
+    await supabaseUpdate("profiles", `id=eq.${encodeURIComponent(profileId)}`, profilePatch);
   }
 
   return supabaseInsert("payments", {
     profile_email: email || null,
     stripe_customer_id: stripeCustomerId,
     stripe_payment_id: input.stripe_payment_id ?? input.subscription ?? input.id ?? null,
-    plan: rawPlan,
+    plan: requestedPlan ?? (existingPlan || null),
     amount: input.amount ?? input.amount_total ?? null,
     currency: input.currency ?? "CAD",
     status: input.status ?? "active",
