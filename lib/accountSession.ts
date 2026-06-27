@@ -102,13 +102,45 @@ export function setAccountSessionCookie(
     userId?: string;
   }
 ) {
+  const maxAge = 7 * 24 * 60 * 60;
+  const role = String(account.role ?? "").toLowerCase().trim();
+  const plan = String(account.plan ?? "").toLowerCase().trim();
+  const email = String(account.email ?? "").toLowerCase().trim();
+
   response.cookies.set(ACCOUNT_SESSION_COOKIE, createAccountSession(account), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 7 * 24 * 60 * 60
+    maxAge
   });
+
+  if (role) {
+    response.cookies.set("reviewintel_account_role", role, {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge
+    });
+  }
+
+  if (plan) {
+    response.cookies.set("reviewintel_account_plan", plan, {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge
+    });
+  }
+
+  if (email) {
+    response.cookies.set("reviewintel_account_email", email, {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge
+    });
+  }
 }
 
 export function clearAccountSessionCookie(response: NextResponse) {

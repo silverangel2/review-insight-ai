@@ -59,7 +59,7 @@ function normalizeWinner(value: unknown) {
 function normalize(rawValue: unknown) {
   const raw = recordOf(rawValue);
   const winner = normalizeWinner(raw.winner);
-  const directSubstitutes = winner === "INCOMPARABLE" ? false : Boolean(raw.directSubstitutes);
+  const directSubstitutes = winner === "INCOMPARABLE" ? false : raw.directSubstitutes !== false;
 
   return {
     winner,
@@ -67,8 +67,8 @@ function normalize(rawValue: unknown) {
     confidence: typeof raw.confidence === "number" ? Math.max(0, Math.min(100, Math.round(raw.confidence))) : 70,
     verdictHeadline: text(raw.verdictHeadline, winner === "INCOMPARABLE" ? "Not directly comparable" : "Comparison complete"),
     summary: text(raw.summary, "ReviewIntel compared both products using the available AI scan results."),
-    reasons: list(raw.reasons, ["Compare score, complaints, value, review trust, and evidence quality."]),
-    nextSteps: list(raw.nextSteps, ["Check exact use case, return policy, warranty, and recent reviews before buying."]),
+    reasons: list(raw.reasons, ["Compare score, complaints, value, review trust, and evidence quality."]).slice(0, 4),
+    nextSteps: list(raw.nextSteps, ["Check exact use case, return policy, warranty, and recent reviews before buying."]).slice(0, 3),
   };
 }
 
@@ -127,8 +127,8 @@ const shopperCompareSchema = {
     confidence: { type: "number" },
     verdictHeadline: { type: "string" },
     summary: { type: "string" },
-    reasons: { type: "array", items: { type: "string" } },
-    nextSteps: { type: "array", items: { type: "string" } },
+    reasons: { type: "array", minItems: 3, maxItems: 4, items: { type: "string" } },
+    nextSteps: { type: "array", minItems: 2, maxItems: 3, items: { type: "string" } },
   },
   required: [
     "winner",
@@ -203,8 +203,11 @@ Comparison rules:
 - If they are unrelated or serve materially different needs, return winner "INCOMPARABLE" and directSubstitutes false.
 - If comparable, compare score, verdict, valueForMoney, complaints, strengths, reviewAuthenticity, price, rating, review count, bottomLine, and evidence quality.
 - Do not force a BUY-style answer when both products have weak evidence.
-- Reasons must mention concrete signals from the two scan results, not generic shopping advice.
-- Next steps must tell the shopper what to check before checkout.
+- Reasons must read like a side-by-side analysis: name Product A and Product B, state which signal gives an edge, and explain why.
+- Include at least one reason about risk/review trust and one reason about practical use-case or value.
+- If the products are direct substitutes but the evidence is close, use winner "TIE" and explain the tradeoff.
+- Next steps must tell the shopper what to check before checkout, based on the specific weakness in these two scans.
+- Never output generic filler such as "compare reviews" unless you also say which exact risk, concern, or specification to compare.
 
 Product A:
 ${JSON.stringify(productA, null, 2)}
@@ -219,8 +222,8 @@ Return JSON only:
   "confidence": 0-100,
   "verdictHeadline": "short headline, max 10 words",
   "summary": "one clear shopper-facing explanation, max 38 words",
-  "reasons": ["specific reason with A/B contrast"],
-  "nextSteps": ["specific checkout or evidence step"]
+  "reasons": ["specific A/B contrast with a named signal", "specific A/B contrast with another named signal", "specific practical tradeoff", "optional final evidence note"],
+  "nextSteps": ["specific checkout or evidence step", "specific model/warranty/recent-review step", "optional final use-case step"]
 }
 `;
 

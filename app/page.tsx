@@ -29,10 +29,10 @@ export default async function LandingPage() {
 
   return (
     <>
-    <main className="bg-[linear-gradient(135deg,#a8eee8_0%,#e7fbff_34%,#c7e2ff_66%,#fff0c9_100%)] text-ink">
+    <main className="reviewintel-home-main bg-[linear-gradient(135deg,#a8eee8_0%,#e7fbff_34%,#c7e2ff_66%,#fff0c9_100%)] text-ink">
       <SponsorAnalytics placement="landing" />
 
-      <section className="relative isolate min-h-[calc(100vh-73px)] overflow-hidden border-b border-white/60">
+      <section className="reviewintel-home-hero relative isolate min-h-[calc(100vh-73px)] overflow-hidden border-b border-white/60">
         <div
           className="absolute inset-0 opacity-35"
           aria-hidden="true"
@@ -91,9 +91,96 @@ export default async function LandingPage() {
           .ri-hero-copy-slide {
             animation: riHeroCopySlide 5.2s ease-in-out both;
           }
+          @media (max-width: 640px) {
+            .reviewintel-home-main {
+              touch-action: pan-y;
+              overflow-x: hidden;
+            }
+            .reviewintel-home-hero {
+              min-height: auto !important;
+              overflow: visible !important;
+            }
+            .reviewintel-home-hero-grid {
+              min-height: auto !important;
+              gap: .95rem !important;
+              padding: 1.15rem 1rem 1.75rem !important;
+            }
+            .reviewintel-home-hero h1 {
+              font-size: clamp(2.05rem, 10.5vw, 2.65rem) !important;
+              line-height: 1.02 !important;
+              letter-spacing: 0 !important;
+            }
+            .reviewintel-home-hero .reviewintel-home-hero-grid > div:first-child > .mt-8 {
+              margin-top: 1rem !important;
+            }
+            .reviewintel-home-hero .ri-pixie-field,
+            .reviewintel-home-hero .ri-hero-spark {
+              display: none !important;
+            }
+            .reviewintel-home-hero .ri-home-crystal {
+              right: -5.25rem !important;
+              top: 4.25rem !important;
+              width: 18rem !important;
+              height: 18rem !important;
+              opacity: .58 !important;
+              animation: none !important;
+              pointer-events: none !important;
+            }
+            .reviewintel-home-hero .ri-hero-visual {
+              min-height: 21.75rem !important;
+              max-height: none !important;
+              border-radius: 1.5rem !important;
+              box-shadow: 0 18px 48px rgba(12, 36, 68, .22) !important;
+            }
+            .reviewintel-home-card-stage {
+              min-height: 21.75rem !important;
+              gap: .7rem !important;
+              padding: .85rem !important;
+            }
+            .reviewintel-home-card-stage .ri-home-card {
+              transform: none !important;
+              animation: none !important;
+              filter: none !important;
+              border-radius: 1rem !important;
+              padding: .85rem !important;
+              min-height: auto !important;
+            }
+            .reviewintel-home-card-stage .ri-home-card:nth-of-type(n + 3) {
+              display: none !important;
+            }
+            .reviewintel-home-card-stage .ri-home-card p {
+              letter-spacing: 0 !important;
+            }
+            .reviewintel-home-card-stage .ri-home-card .text-6xl {
+              font-size: 2.4rem !important;
+              line-height: .95 !important;
+            }
+            .home-premium-payoff,
+            .home-premium-audience,
+            .home-premium-mode,
+            .home-premium-ad-section {
+              padding-left: 1rem !important;
+              padding-right: 1rem !important;
+            }
+            .home-premium-payoff {
+              padding-top: 2rem !important;
+              padding-bottom: 2rem !important;
+            }
+            .home-premium-audience,
+            .home-premium-mode {
+              padding-top: 1.75rem !important;
+              padding-bottom: 1.75rem !important;
+            }
+            .home-premium-audience-card,
+            .home-premium-mode-card,
+            .home-payoff-card {
+              border-radius: 1.15rem !important;
+              padding: 1rem !important;
+            }
+          }
         `}</style>
 
-        <div className="relative mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl gap-10 px-6 py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+        <div className="reviewintel-home-hero-grid relative mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl gap-10 px-6 py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
           <div>
             <HomepageHeroCopy initialLocale={locale} />
 
@@ -134,7 +221,7 @@ export default async function LandingPage() {
               />
             ))}
 
-            <div className="relative z-10 grid min-h-[620px] grid-cols-1 grid-rows-[auto_auto_auto_auto_auto] gap-4 p-5 sm:grid-cols-2 sm:grid-rows-[auto_auto_auto] md:min-h-[690px] md:gap-5 md:p-8">
+            <div className="reviewintel-home-card-stage relative z-10 grid min-h-[620px] grid-cols-1 grid-rows-[auto_auto_auto_auto_auto] gap-4 p-5 sm:grid-cols-2 sm:grid-rows-[auto_auto_auto] md:min-h-[690px] md:gap-5 md:p-8">
               <article className="ri-home-card self-start rounded-[2rem] bg-[#11182a] p-5 text-white shadow-[0_30px_90px_rgba(4,10,24,0.42)] ring-1 ring-white/10 [--ri-end:-1deg] [--ri-rot:-24deg] [--ri-x:-340px] [--ri-y:210px]">
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-900">Live AI product check</p>
                 <p className="mt-3 text-sm font-black text-white/70">Review score</p>

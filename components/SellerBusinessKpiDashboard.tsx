@@ -634,6 +634,110 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
           </div>
         </article>
       </div>
+      <style jsx global>{`
+        @media (max-width: 640px) {
+          html[data-layout-mode="mobile"] .seller-money-kpi-section,
+          html[data-layout-mode="auto"] .seller-money-kpi-section {
+            padding: 0.9rem !important;
+            border-radius: 1.2rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-money-kpi-section h2,
+          html[data-layout-mode="auto"] .seller-money-kpi-section h2 {
+            font-size: 1.35rem !important;
+            line-height: 1.12 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-money-kpi-section > div:first-child,
+          html[data-layout-mode="auto"] .seller-money-kpi-section > div:first-child {
+            gap: 0.75rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-grid,
+          html[data-layout-mode="auto"] .seller-kpi-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 0.75rem !important;
+            margin-top: 0.85rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-card,
+          html[data-layout-mode="auto"] .seller-kpi-card {
+            height: auto !important;
+            min-height: 0 !important;
+            border-radius: 1rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-card > div,
+          html[data-layout-mode="auto"] .seller-kpi-card > div {
+            min-height: 0 !important;
+            transform: none !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-card article,
+          html[data-layout-mode="auto"] .seller-kpi-card article {
+            position: relative !important;
+            inset: auto !important;
+            padding: 0.9rem !important;
+            border-radius: 1rem !important;
+            overflow: visible !important;
+            transform: none !important;
+            backface-visibility: visible !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-card article:nth-child(2),
+          html[data-layout-mode="auto"] .seller-kpi-card article:nth-child(2) {
+            display: none !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-card p,
+          html[data-layout-mode="auto"] .seller-kpi-card p {
+            max-width: none !important;
+            font-size: 0.82rem !important;
+            line-height: 1.42 !important;
+            letter-spacing: 0 !important;
+            word-break: normal !important;
+            overflow-wrap: break-word !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-card p:first-child,
+          html[data-layout-mode="auto"] .seller-kpi-card p:first-child {
+            font-size: 0.7rem !important;
+            line-height: 1.2 !important;
+            letter-spacing: 0.12em !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-card svg,
+          html[data-layout-mode="auto"] .seller-kpi-card svg {
+            height: 4.1rem !important;
+            max-height: 4.1rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-money-summary-grid,
+          html[data-layout-mode="auto"] .seller-money-summary-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 0.75rem !important;
+            margin-top: 0.85rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-money-summary-card,
+          html[data-layout-mode="auto"] .seller-money-summary-card {
+            padding: 0.95rem !important;
+            border-radius: 1rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-money-summary-card h3,
+          html[data-layout-mode="auto"] .seller-money-summary-card h3 {
+            font-size: 1.05rem !important;
+            line-height: 1.2 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-money-summary-card :is(p, li),
+          html[data-layout-mode="auto"] .seller-money-summary-card :is(p, li) {
+            font-size: 0.82rem !important;
+            line-height: 1.45 !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }

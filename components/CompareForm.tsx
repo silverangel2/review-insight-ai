@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { readStoredLocale } from "@/lib/i18n";
+import { shortProductName, shortCompareTitle } from "@/lib/productName";
 
 type Verdict = "BUY" | "CONSIDER" | "AVOID";
 
@@ -131,7 +132,25 @@ function compareCopy(locale: string) {
     noConcern: "No major concern found from available signals.",
     notDirectlyComparable: "Not Directly Comparable",
     whyThisResult: "Why this result",
-    nextSteps: "Next steps"
+    nextSteps: "Next steps",
+    decisionSnapshot: "Decision snapshot",
+    confidenceLabel: "Confidence",
+    compareType: "Compare type",
+    directCompare: "Direct substitute",
+    buyingConfidenceOnly: "Buying confidence only",
+    sideBySide: "Side-by-side analysis",
+    productA: "Product A",
+    productB: "Product B",
+    edge: "Edge",
+    buyScore: "Buy score",
+    reviewTrust: "Review trust",
+    valueLabel: "Value",
+    topConcern: "Top concern",
+    bestUse: "Best use",
+    scoreGap: "Score gap",
+    similar: "Similar",
+    stronger: (label: "A" | "B") => `Product ${label} stronger`,
+    checkBoth: "Check both"
   };
 
   switch (locale) {
@@ -169,7 +188,25 @@ function compareCopy(locale: string) {
         noConcern: "Aucune préoccupation majeure trouvée avec les signaux disponibles.",
         notDirectlyComparable: "Pas directement comparables",
         whyThisResult: "Pourquoi ce résultat",
-        nextSteps: "Prochaines étapes"
+        nextSteps: "Prochaines étapes",
+        decisionSnapshot: "Résumé de décision",
+        confidenceLabel: "Confiance",
+        compareType: "Type de comparaison",
+        directCompare: "Substitut direct",
+        buyingConfidenceOnly: "Confiance d’achat seulement",
+        sideBySide: "Analyse côte à côte",
+        productA: "Produit A",
+        productB: "Produit B",
+        edge: "Avantage",
+        buyScore: "Score d’achat",
+        reviewTrust: "Fiabilité des avis",
+        valueLabel: "Valeur",
+        topConcern: "Préoccupation principale",
+        bestUse: "Meilleur usage",
+        scoreGap: "Écart de score",
+        similar: "Similaire",
+        stronger: (label: "A" | "B") => `Produit ${label} plus fort`,
+        checkBoth: "Vérifier les deux"
       };
     case "es":
       return {
@@ -205,7 +242,25 @@ function compareCopy(locale: string) {
         noConcern: "No se encontró una preocupación importante con las señales disponibles.",
         notDirectlyComparable: "No son directamente comparables",
         whyThisResult: "Por qué este resultado",
-        nextSteps: "Próximos pasos"
+        nextSteps: "Próximos pasos",
+        decisionSnapshot: "Resumen de decisión",
+        confidenceLabel: "Confianza",
+        compareType: "Tipo de comparación",
+        directCompare: "Sustituto directo",
+        buyingConfidenceOnly: "Solo confianza de compra",
+        sideBySide: "Análisis lado a lado",
+        productA: "Producto A",
+        productB: "Producto B",
+        edge: "Ventaja",
+        buyScore: "Puntuación de compra",
+        reviewTrust: "Confianza en reseñas",
+        valueLabel: "Valor",
+        topConcern: "Principal preocupación",
+        bestUse: "Mejor uso",
+        scoreGap: "Diferencia de puntuación",
+        similar: "Similar",
+        stronger: (label: "A" | "B") => `Producto ${label} más fuerte`,
+        checkBoth: "Revisar ambos"
       };
     case "zh":
       return {
@@ -241,7 +296,25 @@ function compareCopy(locale: string) {
         noConcern: "根据现有信号，未发现重大问题。",
         notDirectlyComparable: "不能直接比较",
         whyThisResult: "为什么是这个结果",
-        nextSteps: "下一步"
+        nextSteps: "下一步",
+        decisionSnapshot: "决策摘要",
+        confidenceLabel: "信心",
+        compareType: "对比类型",
+        directCompare: "直接替代品",
+        buyingConfidenceOnly: "仅比较购买信心",
+        sideBySide: "并排分析",
+        productA: "产品 A",
+        productB: "产品 B",
+        edge: "优势",
+        buyScore: "购买分数",
+        reviewTrust: "评论可信度",
+        valueLabel: "价值",
+        topConcern: "主要担忧",
+        bestUse: "最适合",
+        scoreGap: "分数差距",
+        similar: "相近",
+        stronger: (label: "A" | "B") => `产品 ${label} 更强`,
+        checkBoth: "两者都检查"
       };
     case "de":
       return {
@@ -277,7 +350,25 @@ function compareCopy(locale: string) {
         noConcern: "Keine größeren Bedenken aus den verfügbaren Signalen gefunden.",
         notDirectlyComparable: "Nicht direkt vergleichbar",
         whyThisResult: "Warum dieses Ergebnis",
-        nextSteps: "Nächste Schritte"
+        nextSteps: "Nächste Schritte",
+        decisionSnapshot: "Entscheidungsübersicht",
+        confidenceLabel: "Sicherheit",
+        compareType: "Vergleichstyp",
+        directCompare: "Direkter Ersatz",
+        buyingConfidenceOnly: "Nur Kaufzuversicht",
+        sideBySide: "Direkter Vergleich",
+        productA: "Produkt A",
+        productB: "Produkt B",
+        edge: "Vorteil",
+        buyScore: "Kaufscore",
+        reviewTrust: "Bewertungsvertrauen",
+        valueLabel: "Wert",
+        topConcern: "Hauptbedenken",
+        bestUse: "Bester Einsatz",
+        scoreGap: "Score-Abstand",
+        similar: "Ähnlich",
+        stronger: (label: "A" | "B") => `Produkt ${label} stärker`,
+        checkBoth: "Beide prüfen"
       };
     case "hi":
       return {
@@ -313,7 +404,25 @@ function compareCopy(locale: string) {
         noConcern: "Available signals से कोई major concern नहीं मिला।",
         notDirectlyComparable: "सीधे तुलना योग्य नहीं",
         whyThisResult: "यह result क्यों",
-        nextSteps: "Next steps"
+        nextSteps: "Next steps",
+        decisionSnapshot: "Decision snapshot",
+        confidenceLabel: "Confidence",
+        compareType: "Compare type",
+        directCompare: "Direct substitute",
+        buyingConfidenceOnly: "Buying confidence only",
+        sideBySide: "Side-by-side analysis",
+        productA: "Product A",
+        productB: "Product B",
+        edge: "Edge",
+        buyScore: "Buy score",
+        reviewTrust: "Review trust",
+        valueLabel: "Value",
+        topConcern: "Top concern",
+        bestUse: "Best use",
+        scoreGap: "Score gap",
+        similar: "Similar",
+        stronger: (label: "A" | "B") => `Product ${label} stronger`,
+        checkBoth: "Check both"
       };
     default:
       return en;
@@ -379,9 +488,13 @@ function verdictClass(verdict: Verdict) {
   return "border-rose-300 bg-rose-50 text-rose-950";
 }
 
-function productTitle(result: AnalyzeResult | null, fallback: string) {
+function rawProductTitle(result: AnalyzeResult | null, fallback: string) {
   if (!result) return fallback;
   return result.product?.name || result.product?.brand || fallback;
+}
+
+function productTitle(result: AnalyzeResult | null, fallback: string) {
+  return shortProductName(rawProductTitle(result, fallback), fallback);
 }
 
 function SideInput({
@@ -398,7 +511,7 @@ function SideInput({
   const hasInput = Boolean(side.file || side.link.trim());
 
   return (
-    <div className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-5 dark:border-white/10 dark:bg-slate-950">
+    <div className="w-full rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-5 dark:border-white/10 dark:bg-slate-950">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.3em] text-teal dark:text-cyan-200">{displayCodeForResult({ productName: `Product ${side.label}` }, `Product ${side.label}`)}</p>
@@ -409,7 +522,7 @@ function SideInput({
         </div>
       </div>
 
-      <label className="group flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-teal/40 bg-white p-5 text-center transition hover:border-teal hover:bg-teal/5">
+      <label className="group flex min-h-[220px] w-full cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-teal/40 bg-white p-5 text-center transition hover:border-teal hover:bg-teal/5">
         {side.preview ? (
           <img src={side.preview} alt={compareCopy(readStoredLocale()).productPreview(side.label)} className="max-h-[190px] rounded-2xl object-contain" />
         ) : (
@@ -469,7 +582,7 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
 
         {winner && (
           <span className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-slate-950">
-            Winner
+            {compareCopy(readStoredLocale()).stronger(label)}
           </span>
         )}
       </div>
@@ -481,17 +594,17 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900">
-          <p className="text-xs text-slate-700">Buy Score</p>
+          <p className="text-xs text-slate-700">{compareCopy(readStoredLocale()).buyScore}</p>
           <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-ink">{Math.round(result.productScore || 0)}/100</p>
         </div>
         <div className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900">
-          <p className="text-xs text-slate-700">AI-Generated Reviews</p>
+          <p className="text-xs text-slate-700">{compareCopy(readStoredLocale()).reviewTrust}</p>
           <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-ink">{Math.round(result.reviewAuthenticity?.score || 0)}% signs</p>
         </div>
       </div>
 
       <div className="mt-4">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Main concerns</p>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">{compareCopy(readStoredLocale()).topConcern}</p>
         <ul className="mt-2 space-y-2 text-sm text-slate-700 dark:text-slate-100">
           {(result.topComplaints || []).slice(0, 3).map((item, index) => (
             <li key={index} className="rounded-xl bg-slate-50 px-3 py-2 text-slate-700 dark:bg-white dark:text-slate-100">• {item}</li>
@@ -506,47 +619,96 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
 }
 
 
+function comparisonSearchText(result: AnalyzeResult) {
+  const product = result.product || {};
+  return [
+    product.name,
+    product.brand,
+    product.category,
+    product.store,
+    product.price,
+    product.rating,
+    product.reviewCount,
+    result.valueForMoney,
+    result.bottomLine,
+    ...(result.topStrengths || []),
+    ...(result.topComplaints || []),
+    ...(result.bestFor || []),
+    ...(result.notIdealFor || []),
+    ...(result.sourcesUsed || [])
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+const productCategoryRules = [
+  { id: "battery_power", keywords: ["power bank", "power station", "portable power", "solar generator", "lifepo4", "battery pack", "mah", "wh", "ac output", "inverter"] },
+  { id: "solar_panel", keywords: ["solar panel", "photovoltaic", "solar charger", "watt panel", "sunlight"] },
+  { id: "audio", keywords: ["headphone", "headphones", "earbud", "earbuds", "speaker", "soundbar", "microphone", "noise cancelling"] },
+  { id: "phone", keywords: ["smartphone", "mobile phone", "iphone", "android phone", "galaxy phone", "pixel phone"] },
+  { id: "phone_accessory", keywords: ["phone case", "screen protector", "magsafe case", "wallet case", "camera lens protector"] },
+  { id: "charger", keywords: ["wall charger", "usb-c charger", "charging cable", "wireless charger", "charging pad", "power adapter"] },
+  { id: "computer", keywords: ["laptop", "notebook computer", "chromebook", "macbook", "desktop pc", "mini pc"] },
+  { id: "tablet", keywords: ["tablet", "ipad", "galaxy tab", "kindle"] },
+  { id: "display", keywords: ["monitor", "television", "tv", "projector", "display"] },
+  { id: "camera", keywords: ["camera", "webcam", "dash cam", "security camera", "lens"] },
+  { id: "kitchen", keywords: ["air fryer", "blender", "coffee maker", "espresso", "toaster", "rice cooker", "kettle", "mixer"] },
+  { id: "home_appliance", keywords: ["vacuum", "fan", "heater", "humidifier", "air purifier", "dehumidifier", "mop"] },
+  { id: "beauty", keywords: ["serum", "skin", "skincare", "hair", "makeup", "cream", "shampoo", "conditioner"] },
+  { id: "clothing", keywords: ["shirt", "dress", "jacket", "pants", "jeans", "hoodie", "sweater", "coat"] },
+  { id: "footwear", keywords: ["shoes", "sneaker", "boots", "sandals", "slippers"] },
+  { id: "toy", keywords: ["toy", "lego", "puzzle", "doll", "remote control car"] },
+  { id: "pet", keywords: ["dog", "cat", "pet", "litter", "leash", "aquarium"] },
+  { id: "fitness", keywords: ["treadmill", "dumbbell", "exercise", "fitness", "yoga", "bike trainer"] },
+  { id: "automotive", keywords: ["car", "truck", "automotive", "tire", "jump starter", "dashcam"] },
+  { id: "furniture", keywords: ["chair", "desk", "sofa", "mattress", "bed frame", "table"] },
+  { id: "tool", keywords: ["drill", "saw", "tool", "wrench", "screwdriver", "work light"] },
+  { id: "baby", keywords: ["baby", "stroller", "crib", "diaper", "car seat"] }
+] as const;
+
 function productComparisonCategory(result: AnalyzeResult) {
-  const source = result as unknown as {
-    analysis?: {
-      summary?: string;
-      mainConcerns?: string[];
-    };
-    summary?: string;
-    mainConcerns?: string[];
-  };
+  const allText = comparisonSearchText(result);
+  return productCategoryRules.find((rule) => rule.keywords.some((keyword) => allText.includes(keyword)))?.id || "unknown";
+}
 
-  const title = productTitle(result, "");
-  const summary = source.analysis?.summary || source.summary || "";
-  const concerns = source.analysis?.mainConcerns?.join(" ") || source.mainConcerns?.join(" ") || "";
-  const allText = `${title} ${summary} ${concerns}`.toLowerCase();
+const compareStopWords = new Set([
+  "with",
+  "from",
+  "that",
+  "this",
+  "your",
+  "product",
+  "portable",
+  "include",
+  "included",
+  "without",
+  "review",
+  "reviews",
+  "amazon",
+  "walmart",
+  "best",
+  "good",
+  "high",
+  "seller",
+  "shopper",
+  "pack",
+  "black",
+  "white"
+]);
 
-  if (allText.includes("solar") || allText.includes("solar panel") || allText.includes("sunlight")) {
-    return "solar_panel";
-  }
+function importantTokens(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && !compareStopWords.has(token) && !/^\d+$/.test(token));
+}
 
-  if (
-    allText.includes("power bank") ||
-    allText.includes("power station") ||
-    allText.includes("battery") ||
-    allText.includes("ac output")
-  ) {
-    return "battery_power";
-  }
-
-  if (allText.includes("phone case") || allText.includes("iphone") || allText.includes("android")) {
-    return "phone_accessory";
-  }
-
-  if (allText.includes("serum") || allText.includes("skin") || allText.includes("hair") || allText.includes("makeup")) {
-    return "beauty";
-  }
-
-  if (allText.includes("shirt") || allText.includes("dress") || allText.includes("shoes") || allText.includes("jacket")) {
-    return "clothing";
-  }
-
-  return "unknown";
+function tokenOverlapCount(a: string[], b: string[]) {
+  const bSet = new Set(b);
+  return new Set(a.filter((token) => bSet.has(token))).size;
 }
 
 function areLikelyDirectSubstitutes(a: AnalyzeResult, b: AnalyzeResult) {
@@ -557,20 +719,73 @@ function areLikelyDirectSubstitutes(a: AnalyzeResult, b: AnalyzeResult) {
     return aCategory === bCategory;
   }
 
-  return true;
+  const aProductCategory = String(a.product?.category || "").trim().toLowerCase();
+  const bProductCategory = String(b.product?.category || "").trim().toLowerCase();
+  if (aProductCategory && bProductCategory && aProductCategory === bProductCategory) return true;
+
+  const titleOverlap = tokenOverlapCount(
+    importantTokens(rawProductTitle(a, "")),
+    importantTokens(rawProductTitle(b, ""))
+  );
+  const evidenceOverlap = tokenOverlapCount(
+    importantTokens(comparisonSearchText(a)),
+    importantTokens(comparisonSearchText(b))
+  );
+
+  return titleOverlap >= 2 || evidenceOverlap >= 4;
+}
+
+function firstSignal(items: string[] | undefined, fallback: string) {
+  return (items || []).map((item) => String(item || "").trim()).find(Boolean) || fallback;
+}
+
+function weightedBuyingScore(result: AnalyzeResult) {
+  const score = Number(result.productScore || 0);
+  const risk = Number(result.reviewAuthenticity?.score || 0);
+  const complaintPenalty = Math.min(15, (result.topComplaints?.length || 0) * 2.5);
+  const strengthLift = Math.min(8, (result.topStrengths?.length || 0) * 1.5);
+  const verdictLift = verdictRank(result.verdict) * 4;
+
+  return score - risk * 0.22 - complaintPenalty + strengthLift + verdictLift;
+}
+
+function pickFallbackWinner(productA: AnalyzeResult, productB: AnalyzeResult): "A" | "B" | "TIE" {
+  const aScore = weightedBuyingScore(productA);
+  const bScore = weightedBuyingScore(productB);
+  if (Math.abs(aScore - bScore) < 4) return "TIE";
+  return aScore > bScore ? "A" : "B";
+}
+
+type CompareEdge = "A" | "B" | "TIE";
+
+function metricEdge(aValue: number, bValue: number, higherIsBetter = true, threshold = 3): CompareEdge {
+  const gap = higherIsBetter ? aValue - bValue : bValue - aValue;
+  if (Math.abs(gap) < threshold) return "TIE";
+  return gap > 0 ? "A" : "B";
+}
+
+function edgeText(edge: CompareEdge, copy: ReturnType<typeof compareCopy>) {
+  if (edge === "A" || edge === "B") return copy.stronger(edge);
+  return copy.similar;
 }
 
 function localComparison(productA: AnalyzeResult, productB: AnalyzeResult, copy: ReturnType<typeof compareCopy>): ShopperComparison {
   const directSubstitutes = areLikelyDirectSubstitutes(productA, productB);
-  const picked = directSubstitutes ? pickWinner(productA, productB) : "INCOMPARABLE";
-  const winner = picked || "TIE";
+  const picked = directSubstitutes ? pickFallbackWinner(productA, productB) : "INCOMPARABLE";
+  const winner: ShopperComparison["winner"] = picked || "TIE";
   const aRisk = Math.round(productA.reviewAuthenticity?.score || 0);
   const bRisk = Math.round(productB.reviewAuthenticity?.score || 0);
+  const aName = productTitle(productA, copy.productA);
+  const bName = productTitle(productB, copy.productB);
+  const scoreGap = Math.abs(weightedBuyingScore(productA) - weightedBuyingScore(productB));
+  const confidence = directSubstitutes
+    ? Math.max(58, Math.min(94, Math.round(60 + scoreGap * 1.4 + Math.abs(aRisk - bRisk) * 0.18)))
+    : 88;
 
   return {
     winner,
     directSubstitutes,
-    confidence: directSubstitutes ? 68 : 82,
+    confidence,
     verdictHeadline:
       winner === "INCOMPARABLE"
         ? copy.notDirectlyComparable
@@ -581,23 +796,124 @@ function localComparison(productA: AnalyzeResult, productB: AnalyzeResult, copy:
       winner === "INCOMPARABLE"
         ? copy.differentTypes
         : winner === "A" || winner === "B"
-          ? copy.directWinner(winner)
+          ? `${winner === "A" ? aName : bName} has the stronger combined buying signal after score, verdict, complaints, value, and review-trust checks.`
           : copy.tieSummary,
-    reasons: [
-      `Product A score ${Math.round(productA.productScore || 0)}/100 vs Product B ${Math.round(productB.productScore || 0)}/100.`,
-      `AI-generated review signs: Product A ${aRisk}% vs Product B ${bRisk}%.`,
-      `Main concerns: A has ${(productA.topComplaints || []).slice(0, 2).join(", ") || "no major concern"}; B has ${(productB.topComplaints || []).slice(0, 2).join(", ") || "no major concern"}.`,
-    ],
+    reasons: directSubstitutes
+      ? [
+          `${aName} scores ${Math.round(productA.productScore || 0)}/100 with verdict ${productA.verdict}; ${bName} scores ${Math.round(productB.productScore || 0)}/100 with verdict ${productB.verdict}.`,
+          `Review trust check: ${aName} shows ${aRisk}% AI-like review signs while ${bName} shows ${bRisk}%.`,
+          `Concern contrast: ${aName} has ${firstSignal(productA.topComplaints, "no major repeated concern")}; ${bName} has ${firstSignal(productB.topComplaints, "no major repeated concern")}.`,
+          `Use-case fit: ${aName} is best for ${firstSignal(productA.bestFor, "general shoppers")}; ${bName} is best for ${firstSignal(productB.bestFor, "general shoppers")}.`
+        ]
+      : [
+          `${aName} and ${bName} appear to solve different shopping jobs, so a forced winner would be misleading.`,
+          `Compare ${aName} against another ${productComparisonCategory(productA).replace(/_/g, " ")} option and ${bName} against another ${productComparisonCategory(productB).replace(/_/g, " ")} option.`,
+          `You can still use the individual scores to judge risk, but not as a direct substitute decision.`
+        ],
     nextSteps: directSubstitutes
       ? [
           "Check the latest reviews, return policy, warranty, and exact model before checkout.",
-          "Choose the product that matches your real use case, not only the higher score.",
+          "Choose the product that fits your real use case, not only the higher headline score.",
+          "If the score gap is small, compare recent one-star reviews before buying."
         ]
       : [
           "Decide the job you need the product to do before choosing.",
-          "Compare each product against a direct alternative in its own category.",
+          "Run a second comparison using two products in the same category.",
+          "Use each individual scan to understand risk, value, and review trust separately."
         ],
   };
+}
+
+function ComparisonScorecard({
+  productA,
+  productB,
+  comparison,
+  copy
+}: {
+  productA: AnalyzeResult;
+  productB: AnalyzeResult;
+  comparison: ShopperComparison | null;
+  copy: ReturnType<typeof compareCopy>;
+}) {
+  const aRisk = Math.round(productA.reviewAuthenticity?.score || 0);
+  const bRisk = Math.round(productB.reviewAuthenticity?.score || 0);
+  const aScore = Math.round(productA.productScore || 0);
+  const bScore = Math.round(productB.productScore || 0);
+  const winner = comparison?.winner || pickFallbackWinner(productA, productB);
+  const directSubstitutes = comparison?.directSubstitutes ?? areLikelyDirectSubstitutes(productA, productB);
+  const winnerEdge: CompareEdge = winner === "A" || winner === "B" ? winner : "TIE";
+
+  const rows: Array<{ label: string; a: string; b: string; edge: CompareEdge }> = [
+    {
+      label: copy.buyScore,
+      a: `${aScore}/100`,
+      b: `${bScore}/100`,
+      edge: metricEdge(aScore, bScore, true, 4)
+    },
+    {
+      label: copy.verdictLabel,
+      a: productA.verdict,
+      b: productB.verdict,
+      edge: metricEdge(verdictRank(productA.verdict), verdictRank(productB.verdict), true, 1)
+    },
+    {
+      label: copy.reviewTrust,
+      a: `${Math.max(0, 100 - aRisk)}%`,
+      b: `${Math.max(0, 100 - bRisk)}%`,
+      edge: metricEdge(aRisk, bRisk, false, 5)
+    },
+    {
+      label: copy.valueLabel,
+      a: productA.valueForMoney || copy.checkBoth,
+      b: productB.valueForMoney || copy.checkBoth,
+      edge: directSubstitutes ? winnerEdge : "TIE"
+    },
+    {
+      label: copy.topConcern,
+      a: shortProductName(firstSignal(productA.topComplaints, copy.noConcern), copy.noConcern),
+      b: shortProductName(firstSignal(productB.topComplaints, copy.noConcern), copy.noConcern),
+      edge: directSubstitutes ? winnerEdge : "TIE"
+    },
+    {
+      label: copy.bestUse,
+      a: shortProductName(firstSignal(productA.bestFor, copy.checkBoth), copy.checkBoth),
+      b: shortProductName(firstSignal(productB.bestFor, copy.checkBoth), copy.checkBoth),
+      edge: "TIE" as const
+    }
+  ];
+
+  return (
+    <div className="shopper-compare-scorecard mt-5 rounded-[1.6rem] border border-line bg-white p-4 text-left shadow-soft dark:border-white/10 dark:bg-white/5 sm:p-5">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-teal">{copy.sideBySide}</p>
+          <h3 className="mt-1 text-xl font-black text-ink dark:text-white">{shortCompareTitle(compareDisplayTitle(productA, productB))}</h3>
+        </div>
+        <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-slate-100">
+          {directSubstitutes ? copy.directCompare : copy.buyingConfidenceOnly}
+        </span>
+      </div>
+
+      <div className="shopper-compare-matrix overflow-hidden rounded-2xl border border-line dark:border-white/10">
+        <div className="shopper-compare-row shopper-compare-head grid grid-cols-[0.82fr_1fr_1fr_0.82fr] gap-3 bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:bg-white/5 dark:text-slate-300">
+          <span>{copy.sideBySide}</span>
+          <span>{copy.productA}</span>
+          <span>{copy.productB}</span>
+          <span>{copy.edge}</span>
+        </div>
+        {rows.map((row) => (
+          <div key={row.label} className="shopper-compare-row grid grid-cols-[0.82fr_1fr_1fr_0.82fr] gap-3 border-t border-line px-4 py-3 text-sm dark:border-white/10">
+            <p className="font-black text-slate-500 dark:text-slate-300">{row.label}</p>
+            <p className="font-black text-ink dark:text-white">{row.a}</p>
+            <p className="font-black text-ink dark:text-white">{row.b}</p>
+            <p className={row.edge === "TIE" ? "font-black text-slate-500 dark:text-slate-300" : "font-black text-teal"}>
+              {edgeText(row.edge, copy)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 async function compareProductsWithAi(productA: AnalyzeResult, productB: AnalyzeResult, locale: string) {
@@ -715,7 +1031,7 @@ export function CompareForm() {
           0
       );
 
-      const compareTitle = compareDisplayTitle(resultA, resultB);
+      const compareTitle = shortCompareTitle(compareDisplayTitle(resultA, resultB));
 
       const compareHistoryResult = {
         type: "compare",
@@ -754,6 +1070,10 @@ export function CompareForm() {
   }
 
   const showResults = productA.result && productB.result;
+  const scoreGap = showResults
+    ? Math.abs(Math.round(productA.result!.productScore || 0) - Math.round(productB.result!.productScore || 0))
+    : 0;
+  const confidenceValue = comparison?.confidence ?? (directSubstitutes ? Math.min(92, 62 + scoreGap) : 88);
 
   return (
     <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-slate-950 dark:text-ink">
@@ -810,7 +1130,7 @@ export function CompareForm() {
         )}
 
         {showResults && (
-          <section className="rounded-[2.5rem] border border-line bg-white p-4 shadow-soft sm:p-8 dark:border-white/10 dark:bg-slate-950">
+          <section className="shopper-compare-result-shell rounded-[2.5rem] border border-line bg-white p-4 shadow-soft sm:p-8 dark:border-white/10 dark:bg-slate-950">
             <div className="mb-6 rounded-[2rem] border border-line bg-teal-50 p-5 text-center shadow-soft sm:p-6 dark:border-white/10">
               <p className="text-xs font-black uppercase tracking-[0.3em] text-teal dark:text-cyan-200">{compareCopy(readStoredLocale()).comparisonVerdict}</p>
               <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl dark:text-ink">
@@ -836,6 +1156,36 @@ export function CompareForm() {
                   {copy.differentTypes}
                 </div>
               ) : null}
+
+              <div className="shopper-compare-decision-grid mx-auto mt-5 grid max-w-4xl gap-3 text-left sm:grid-cols-4">
+                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.decisionSnapshot}</p>
+                  <p className="mt-2 text-xl font-black text-ink dark:text-white">
+                    {comparison?.winner === "INCOMPARABLE" ? copy.notDirectlyComparable : winnerLetter(winner) ? copy.winner(winnerLetter(winner)!) : copy.tooClose}
+                  </p>
+                </article>
+                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.confidenceLabel}</p>
+                  <p className="mt-2 text-xl font-black text-ink dark:text-white">{confidenceValue}%</p>
+                </article>
+                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.compareType}</p>
+                  <p className="mt-2 text-xl font-black text-ink dark:text-white">
+                    {directSubstitutes ? copy.directCompare : copy.buyingConfidenceOnly}
+                  </p>
+                </article>
+                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.scoreGap}</p>
+                  <p className="mt-2 text-xl font-black text-ink dark:text-white">{scoreGap} pts</p>
+                </article>
+              </div>
+
+              <ComparisonScorecard
+                productA={productA.result!}
+                productB={productB.result!}
+                comparison={comparison}
+                copy={copy}
+              />
 
               {comparison ? (
                 <div className="mx-auto mt-4 grid max-w-4xl gap-3 text-left sm:grid-cols-2">
@@ -875,9 +1225,14 @@ export function CompareForm() {
             <div className="grid gap-5 lg:grid-cols-2">
 
       <style jsx global>{`
+        .shopper-compare-result-shell,
         .compare-readable-card,
         .compare-readable-card * {
           color: #172033;
+        }
+
+        .shopper-compare-result-shell * {
+          overflow-wrap: anywhere;
         }
 
         .compare-readable-card .verdict,
@@ -895,6 +1250,56 @@ export function CompareForm() {
         .dark .compare-readable-card,
         .dark .compare-readable-card * {
           color: #f8fafc;
+        }
+
+        @media (max-width: 640px) {
+          .shopper-compare-result-shell {
+            border-radius: 1.35rem !important;
+            padding: .85rem !important;
+          }
+
+          .shopper-compare-result-shell > div:first-child {
+            border-radius: 1.1rem !important;
+            padding: 1rem !important;
+          }
+
+          .shopper-compare-result-shell h2 {
+            font-size: 1.55rem !important;
+            line-height: 1.12 !important;
+          }
+
+          .shopper-compare-decision-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: .55rem !important;
+          }
+
+          .shopper-compare-decision-grid article,
+          .shopper-compare-scorecard {
+            border-radius: .95rem !important;
+            padding: .8rem !important;
+          }
+
+          .shopper-compare-decision-grid p:last-child {
+            font-size: .98rem !important;
+            line-height: 1.2 !important;
+          }
+
+          .shopper-compare-head {
+            display: none !important;
+          }
+
+          .shopper-compare-row {
+            grid-template-columns: 1fr !important;
+            gap: .35rem !important;
+            padding: .75rem !important;
+          }
+
+          .shopper-compare-row p:first-child {
+            color: #64748b !important;
+            font-size: .68rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: .1em !important;
+          }
         }
       `}</style>
               <ResultCard label="A" result={productA.result!} winner={winner === "A"} />

@@ -135,16 +135,46 @@ export function forceSellerPremiumTesterAccount<T extends Record<string, unknown
 
   const record = account as Record<string, unknown>;
   const email = String(record.email || record.profile_email || "").toLowerCase();
-
-  if (
-    email === "seller.starter@reviewintel.test"
-  ) {
-    return {
-      ...record,
+  const testPlans: Record<string, { role: UserRole; plan: SubscriptionPlan; name: string }> = {
+    "shopper.free@reviewintel.test": {
+      role: "buyer",
+      plan: "free_buyer",
+      name: "Shopper Free Tester"
+    },
+    "shopper.premium@reviewintel.test": {
+      role: "buyer",
+      plan: "buyer_pro",
+      name: "Shopper Premium Tester"
+    },
+    "seller.starter@reviewintel.test": {
       role: "seller",
       plan: "seller_premium",
-      activePlan: "seller_premium",
-      subscriptionPlan: "seller_premium",
+      name: "Seller Premium Tester"
+    },
+    "seller.premium@reviewintel.test": {
+      role: "seller",
+      plan: "seller_premium",
+      name: "Seller Premium Tester"
+    },
+    "seller.pro@reviewintel.test": {
+      role: "seller",
+      plan: "seller_pro",
+      name: "Seller Pro Tester"
+    }
+  };
+
+  const override = testPlans[email];
+  if (override) {
+    return {
+      ...record,
+      name: record.name || override.name,
+      role: override.role,
+      plan: override.plan,
+      activePlan: override.plan,
+      subscriptionPlan: override.plan,
+      subscriptionStatus: record.subscriptionStatus || record.subscription_status || "active",
+      trusted: true,
+      testAccount: true,
     } as unknown as T;
   }
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashboard";
 import { saveStoredSellerResultToJournal } from "@/lib/sellerJournal";
 import { readLatestSellerResult } from "@/lib/sellerResultStorage";
+import { shortProductName } from "@/lib/productName";
 
 type SellerResult = {
   summary: string;
@@ -252,7 +253,7 @@ export default function SellerResultPage() {
               <h1 className="mt-3 text-5xl font-black tracking-tight text-slate-950 sm:text-6xl">{status.label}</h1>
               <p className="mt-4 max-w-3xl text-lg font-semibold text-slate-600">{status.message}</p>
               <p className="mt-4 text-sm font-bold text-slate-500">
-                CSV: {stored?.fileName || "Uploaded file"} • Reviews analyzed: {result.reviewsAnalyzed}
+                CSV: {shortProductName(stored?.fileName, "Uploaded file")} • Reviews analyzed: {result.reviewsAnalyzed}
               </p>
             </div>
 
@@ -443,8 +444,8 @@ export default function SellerResultPage() {
 
             html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card,
             html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card {
-              height: 13.5rem !important;
-              min-height: 13.5rem !important;
+              height: auto !important;
+              min-height: 12rem !important;
               max-height: none !important;
               border-radius: 1rem !important;
             }
@@ -468,14 +469,16 @@ export default function SellerResultPage() {
             html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card p {
               display: block !important;
               margin-top: 0.35rem !important;
-              font-size: 0.7rem !important;
-              line-height: 1.35 !important;
+              font-size: 0.78rem !important;
+              line-height: 1.38 !important;
               overflow: visible !important;
+              word-break: normal !important;
+              overflow-wrap: break-word !important;
             }
 
             html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card p:nth-of-type(2),
             html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card p:nth-of-type(2) {
-              font-size: 1.2rem !important;
+              font-size: 1.05rem !important;
               line-height: 1.05 !important;
             }
 
@@ -551,7 +554,7 @@ export default function SellerResultPage() {
 
             html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card,
             html[data-layout-mode="auto"] .seller-result-page .seller-insight-card {
-              min-height: 13rem !important;
+              min-height: 0 !important;
               max-height: none !important;
               padding: 0.75rem !important;
               border-radius: 1rem !important;
@@ -645,6 +648,8 @@ export default function SellerResultPage() {
               padding: 1rem !important;
               border-radius: 1.15rem !important;
               overflow: visible !important;
+              word-break: normal !important;
+              overflow-wrap: break-word !important;
             }
 
             html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card p,
@@ -674,6 +679,8 @@ export default function SellerResultPage() {
               font-size: 1.15rem !important;
               line-height: 1.25 !important;
               overflow: visible !important;
+              word-break: normal !important;
+              overflow-wrap: break-word !important;
             }
 
             html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item:nth-child(n + 4),

@@ -85,6 +85,46 @@ async function readProfileByEmail(email: string) {
   }
 }
 
+async function authUserStatusForEmail(email: string) {
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) return null;
+
+  const targetEmail = email.toLowerCase().trim();
+
+  for (let page = 1; page <= 10; page += 1) {
+    const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/admin/users?page=${page}&per_page=1000`, {
+      headers: {
+        apikey: serviceRoleKey,
+        authorization: `Bearer ${serviceRoleKey}`,
+      },
+      cache: "no-store",
+    }).catch(() => null);
+
+    if (!response?.ok) return null;
+
+    const data = await response.json().catch(() => null);
+    const users = Array.isArray(data?.users) ? data.users : [];
+    const existing = users.find((user: { email?: string }) => String(user.email || "").toLowerCase().trim() === targetEmail) as
+      | { email_confirmed_at?: string | null; confirmed_at?: string | null }
+      | undefined;
+
+    if (existing) {
+      return {
+        exists: true,
+        emailConfirmed: Boolean(existing.email_confirmed_at || existing.confirmed_at)
+      };
+    }
+
+    if (users.length < 1000) return { exists: false, emailConfirmed: false };
+  }
+
+  return { exists: false, emailConfirmed: false };
+}
+
 function isBetaPlan(plan: string) {
   return plan === "buyer_beta" || plan === "seller_beta";
 }
@@ -266,13 +306,40 @@ export async function POST(request: Request) {
       return response;
     }
 
-    const result = await mergeProfileIntoLoginResult(
-      await loginWithSupabase(body) as Record<string, unknown>
-    );
+    const preLoginProfile = await readProfileByEmail(email);
+    if (preLoginProfile && preLoginProfile.email_verified === false) {
+      const authStatus = await authUserStatusForEmail(email);
+      if (authStatus?.exists && !authStatus.emailConfirmed) {
+        return NextResponse.json(
+          {
+            error: "Please verify your email before logging in. ReviewIntel already sent the verification link, so check your inbox or spam folder first.",
+            code: "email_verification_required"
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    const authResult = await loginWithSupabase({ ...body, email }) as Record<string, unknown>;
+    const result = await mergeProfileIntoLoginResult(authResult);
     const account = result.account as { role?: string } | undefined;
     if (account?.role === "admin") {
       return NextResponse.json({ error: "Use the private admin access route for developer accounts." }, { status: 403 });
     }
+
+    const authUser = authResult.user && typeof authResult.user === "object"
+      ? (authResult.user as Record<string, unknown>)
+      : null;
+    const authEmailConfirmed = Boolean(authUser?.email_confirmed_at || authUser?.confirmed_at || valueAsString(authResult.access_token));
+    if (authEmailConfirmed) {
+      await supabaseUpsert("profiles", {
+        email,
+        email_verified: true,
+        last_login: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }).catch(() => null);
+    }
+
     const response = NextResponse.json({ ok: true, result });
     setAccountSessionCookie(response, result.account as Record<string, unknown>);
     return response;

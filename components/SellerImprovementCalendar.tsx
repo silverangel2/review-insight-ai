@@ -917,6 +917,126 @@ export function SellerImprovementCalendar() {
             font-size: 0.82rem !important;
             line-height: 1.45 !important;
           }
+
+          html[data-layout-mode="mobile"] .seller-calendar-shell {
+            padding: 0.9rem !important;
+            border-radius: 1rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-shell h2 {
+            margin-top: 0.65rem !important;
+            font-size: 1.3rem !important;
+            line-height: 1.18 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-controls {
+            display: grid !important;
+            grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem !important;
+            width: 100% !important;
+            gap: 0.45rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-controls button {
+            width: 2.75rem !important;
+            min-width: 2.75rem !important;
+            min-height: 2.75rem !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            font-size: 0 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-controls button:first-child::after {
+            content: "‹";
+            font-size: 1.35rem;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-controls button:last-child::after {
+            content: "›";
+            font-size: 1.35rem;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-month-label {
+            min-width: 0 !important;
+            min-height: 2.75rem !important;
+            padding: 0.8rem 0.45rem !important;
+            font-size: 0.82rem !important;
+            line-height: 1.1 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.55rem !important;
+            margin-top: 0.8rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-stats > div {
+            min-height: 5.2rem !important;
+            padding: 0.75rem !important;
+            border-radius: 0.85rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-stats > div > p:last-child {
+            margin-top: 0.35rem !important;
+            font-size: 1.35rem !important;
+            line-height: 1.05 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-box {
+            margin-top: 0.8rem !important;
+            border-radius: 0.85rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-weekdays > div {
+            height: 2rem !important;
+            min-height: 2rem !important;
+            padding: 0.5rem 0 !important;
+            font-size: 0.62rem !important;
+            line-height: 1 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-month-grid {
+            grid-auto-rows: 3.35rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-day-cell {
+            min-height: 3.35rem !important;
+            height: 3.35rem !important;
+            max-height: 3.35rem !important;
+            padding: 0.35rem 0.2rem !important;
+            border-radius: 0 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-day-cell .seller-calendar-scan-count,
+          html[data-layout-mode="mobile"] .seller-calendar-day-cell .seller-calendar-full-details {
+            display: none !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-modal-overlay {
+            align-items: end !important;
+            justify-items: stretch !important;
+            padding: 0 !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-modal-panel {
+            width: 100% !important;
+            max-width: none !important;
+            max-height: 88dvh !important;
+            padding: 1rem !important;
+            border-radius: 1.25rem 1.25rem 0 0 !important;
+            box-shadow: 0 -18px 60px rgba(15, 23, 42, 0.28) !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-modal-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.55rem !important;
+            margin-top: 0.8rem !important;
+          }
+
+          html[data-layout-mode="mobile"] :is(.seller-calendar-modal-main-grid, .seller-calendar-modal-signal-grid) {
+            grid-template-columns: 1fr !important;
+            gap: 0.65rem !important;
+            margin-top: 0.85rem !important;
+          }
         }
       `}</style>
     </section>

@@ -237,11 +237,11 @@ function dashboardAdvisor(rows: ReturnType<typeof productHealthRows>, concerns: 
       ? ` Trend: ${weakest.trend}${weakest.scoreChange ? ` (${weakest.scoreChange > 0 ? "+" : ""}${weakest.scoreChange} points)` : ""}.`
       : " This is a newly tracked product.";
 
-    return `Focus first on ${weakest.name}. Latest score is ${weakest.latestScore}%.${changeText} Main buyer concern: ${weakest.mainConcern}.`;
+    return `Focus first on ${sellerShortName(weakest.name, 34)}. Latest score is ${weakest.latestScore}%.${changeText} Main buyer concern: ${sellerShortName(weakest.mainConcern, 58)}.`;
   }
 
   if (strongest && strongest.latestScore >= 85) {
-    return `${strongest.name} is your strongest product signal right now at ${strongest.latestScore}%. Use its best buyer feedback as proof in your listing, ads, and product positioning.`;
+    return `${sellerShortName(strongest.name, 34)} is your strongest product signal right now at ${strongest.latestScore}%. Use its best buyer feedback as proof in your listing, ads, and product positioning.`;
   }
 
   if (concerns.length) {
@@ -455,6 +455,48 @@ export default function SellerDashboardPage() {
   const safeProductScore = typeof dashboard.productScore === "number" ? dashboard.productScore : null;
   const satisfactionTone = safeSatisfaction === null ? "warn" : safeSatisfaction >= 70 ? "good" : "warn";
   const productScoreTone = safeProductScore === null ? "warn" : safeProductScore >= 75 ? "good" : "warn";
+  const sellerCommandCards = [
+    {
+      eyebrow: "Fix first",
+      title: dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "Run seller analysis",
+      detail: dashboard.weakestProduct
+        ? `${dashboard.weakestProduct.latestScore || "No"}% latest score. Main concern: ${sellerShortName(dashboard.weakestProduct.mainConcern, 58)}.`
+        : "No saved product scan yet. Start with one seller analysis so the dashboard can rank your products.",
+      href: "/seller/analyze",
+      action: dashboard.weakestProduct ? "Improve listing" : "Run scan",
+      tone: "seller-command-card-risk"
+    },
+    {
+      eyebrow: "Promote proof",
+      title: dashboard.strongestProduct ? productDisplayCode(dashboard.strongestProduct.name) : "Find a winner",
+      detail: dashboard.strongestProduct
+        ? `Use this proof in copy: ${sellerShortName(dashboard.strongestProduct.topPositive, 58)}.`
+        : "Your strongest product proof appears after saved scans with positive buyer signals.",
+      href: "/dashboard/seller",
+      action: "Review signals",
+      tone: "seller-command-card-good"
+    },
+    {
+      eyebrow: "Buyer friction",
+      title: dashboard.painPoints[0] ? sellerShortName(dashboard.painPoints[0], 42) : "No repeated concern",
+      detail: dashboard.painPoints[0]
+        ? "Turn this into one visible listing answer, one support answer, and one product improvement note."
+        : "Repeated buyer concerns will surface here when ReviewIntel sees enough seller scan history.",
+      href: "/seller/analyze",
+      action: "Scan reviews",
+      tone: "seller-command-card-warn"
+    },
+    {
+      eyebrow: isSellerPro ? "Competitor move" : "Next upgrade",
+      title: isSellerPro ? "Compare against a rival" : "Seller Pro compare",
+      detail: isSellerPro
+        ? "Use Seller Pro Compare to find competitor weaknesses, pricing gaps, and positioning angles. It saves to history but stays out of product health averages."
+        : "Upgrade to Seller Pro when you want competitor compare, calendar tracking, and deeper positioning guidance.",
+      href: isSellerPro ? "/dashboard/seller/compare" : "/pricing",
+      action: isSellerPro ? "Compare" : "See plans",
+      tone: "seller-command-card-info"
+    }
+  ];
 
   return (
     <ProOnlyGate>
@@ -477,6 +519,19 @@ export default function SellerDashboardPage() {
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
             {dashboard.advisorNote}
           </p>
+        </section>
+
+        <section className="seller-premium-command-grid mb-6 grid gap-4 lg:grid-cols-4">
+          {sellerCommandCards.map((card) => (
+            <article key={card.eyebrow} className={`seller-command-card min-w-0 rounded-[1.35rem] border bg-white p-5 shadow-soft dark:bg-slate-950 ${card.tone}`}>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.eyebrow}</p>
+              <h3 className="mt-2 max-w-full break-words text-lg font-black leading-tight text-ink [overflow-wrap:anywhere] dark:text-white">{card.title}</h3>
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{card.detail}</p>
+              <Link href={card.href} className="mt-4 inline-flex rounded-xl bg-ink px-4 py-2.5 text-xs font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
+                {card.action}
+              </Link>
+            </article>
+          ))}
         </section>
 
         <section className="seller-premium-metrics mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -805,6 +860,26 @@ export default function SellerDashboardPage() {
 
         <AdSlot placement="seller_dashboard" compact className="mt-6" />
         <style jsx global>{`
+          .reviewintel-route-dashboard-seller .seller-command-card-risk {
+            border-color: rgba(223, 95, 99, .26);
+            background: linear-gradient(180deg, #fff7f7, #ffffff);
+          }
+
+          .reviewintel-route-dashboard-seller .seller-command-card-good {
+            border-color: rgba(16, 198, 163, .28);
+            background: linear-gradient(180deg, #f0fffb, #ffffff);
+          }
+
+          .reviewintel-route-dashboard-seller .seller-command-card-warn {
+            border-color: rgba(245, 158, 11, .3);
+            background: linear-gradient(180deg, #fff9ed, #ffffff);
+          }
+
+          .reviewintel-route-dashboard-seller .seller-command-card-info {
+            border-color: rgba(35, 86, 163, .26);
+            background: linear-gradient(180deg, #f3f8ff, #ffffff);
+          }
+
           @media (max-width: 640px) {
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
@@ -819,6 +894,7 @@ export default function SellerDashboardPage() {
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
+              .dashboard-shell-main[data-dashboard-experience="seller"]
               .dashboard-shell-sidebar {
               display: none !important;
             }
@@ -846,6 +922,7 @@ export default function SellerDashboardPage() {
               .reviewintel-route-dashboard-seller
               :is(
                 .seller-premium-hero,
+                .seller-premium-command-grid > article,
                 .seller-premium-ranking,
                 .seller-premium-focus-grid > article,
                 .seller-premium-insight-grid > article,
@@ -890,6 +967,30 @@ export default function SellerDashboardPage() {
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
+              .seller-premium-command-grid {
+              grid-template-columns: 1fr !important;
+              gap: 0.65rem !important;
+              margin-bottom: 0.85rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-premium-command-grid h3 {
+              font-size: 1.02rem !important;
+              line-height: 1.22 !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-premium-command-grid p {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 3 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
               .seller-premium-metrics {
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 0.65rem !important;
@@ -899,17 +1000,30 @@ export default function SellerDashboardPage() {
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
               .seller-premium-metrics > article {
-              min-height: 8.3rem !important;
+              min-height: 8.75rem !important;
               padding: 0.85rem !important;
               border-radius: 1rem !important;
+              overflow: hidden !important;
+              word-break: normal !important;
+              overflow-wrap: break-word !important;
             }
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
               .seller-premium-metrics > article > p:nth-child(2) {
               margin-top: 0.45rem !important;
-              font-size: 1.55rem !important;
+              font-size: 1.35rem !important;
               line-height: 1.05 !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-premium-metrics > article > p:nth-child(3) {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 3 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
             }
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
@@ -1002,6 +1116,109 @@ export default function SellerDashboardPage() {
               button {
               min-height: 2.75rem !important;
               font-size: 0.8rem !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"] {
+              display: block !important;
+              width: 100% !important;
+              max-width: 430px !important;
+              margin: 0 auto !important;
+              padding: 4.5rem 0.75rem 5rem !important;
+              overflow-x: hidden !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .dashboard-shell-sidebar {
+              display: none !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .dashboard-shell-content {
+              width: 100% !important;
+              min-width: 0 !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              :is(
+                .dashboard-shell-page-title,
+                .seller-premium-hero,
+                .seller-premium-ranking,
+                .seller-premium-focus-grid > article,
+                .seller-premium-insight-grid > article,
+                .seller-premium-utility-grid > article,
+                .seller-calendar-workspace
+              ) {
+              padding: 1rem !important;
+              border-radius: 1rem !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .seller-premium-metrics {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 0.65rem !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .seller-premium-metrics > article {
+              min-height: 8.75rem !important;
+              padding: 0.85rem !important;
+              border-radius: 1rem !important;
+              overflow: hidden !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .seller-premium-metrics > article > p:nth-child(2) {
+              font-size: 1.35rem !important;
+              line-height: 1.05 !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .seller-premium-metrics > article > p:nth-child(3) {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 3 !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              :is(.seller-premium-focus-grid, .seller-premium-insight-grid, .seller-premium-utility-grid) {
+              grid-template-columns: 1fr !important;
+              gap: 0.75rem !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .seller-ranking-header {
+              display: none !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              .seller-ranking-row {
+              display: grid !important;
+              grid-template-columns: minmax(0, 1fr) auto !important;
+              gap: 0.45rem 0.75rem !important;
+              margin-top: 0.55rem !important;
+              padding: 0.85rem !important;
+              border: 1px solid #dbe4ee !important;
+              border-radius: 0.9rem !important;
+              background: #f8fafc !important;
+            }
+
+            html[data-layout-mode="mobile"]
+              main.dashboard-shell-main[data-dashboard-experience="seller"]
+              details table {
+              min-width: 640px !important;
             }
           }
         `}</style>
