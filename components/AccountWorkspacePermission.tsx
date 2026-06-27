@@ -167,32 +167,10 @@ export default function AccountWorkspacePermission() {
       requestPrivateFileAccess(detail?.input ?? null);
     }
 
-    function onFileInputClick(event: MouseEvent) {
-      const target = event.target as Element | null;
-      const input = target?.closest?.('input[type="file"]') as HTMLInputElement | null;
-
-      if (!input) return;
-
-      const latestAccount = getCurrentAccount();
-      if (!latestAccount?.email && !latestAccount?.name) return;
-
-      if (isApproved(latestAccount)) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      setLanguage(getPrivateAccessLanguage());
-      setAccount(latestAccount);
-      pendingInputRef.current = input;
-      setVisible(true);
-    }
-
     window.addEventListener("reviewintel:private-file-access-request", onPrivateFileAccessRequest);
-    document.addEventListener("click", onFileInputClick, true);
 
     return () => {
       window.removeEventListener("reviewintel:private-file-access-request", onPrivateFileAccessRequest);
-      document.removeEventListener("click", onFileInputClick, true);
     };
   }, []);
 

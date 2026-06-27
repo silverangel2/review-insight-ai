@@ -95,7 +95,7 @@ function limitForAccount(items: HistoryItem[], account: unknown) {
 
   // Shopper Premium / Buyer Pro should show the server-backed history list.
   // Do not cap it to 10 per week; that was hiding newly saved scans.
-  if (plan === "buyer_pro") {
+  if (["buyer_pro", "buyer_beta", "shopper_beta"].includes(plan)) {
     return items.slice(0, 50);
   }
 
@@ -321,17 +321,17 @@ export function ShopperResultHistoryCorner() {
   if (!items.length) return null;
 
   return (
-    <div className="reviewintel-result-history-anchor fixed left-5 top-28 z-50 w-[280px] max-w-[calc(100vw-2rem)]">
+    <div className="reviewintel-result-history-anchor fixed left-3 right-3 top-24 z-50 w-auto max-w-[calc(100vw-1.5rem)] sm:left-5 sm:right-auto sm:top-28 sm:w-[280px] sm:max-w-[calc(100vw-2rem)]">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-lg hover:border-teal-300 hover:text-teal-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
+        className="flex max-w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-lg hover:border-teal-300 hover:text-teal-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
       >
         🕘 {shopperHistoryCopy(readStoredLocale()).history} · {items.length}
       </button>
 
       {open ? (
-        <div className="reviewintel-history-popup-panel mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
+        <div className="reviewintel-history-popup-panel mt-2 max-w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
               {shopperHistoryCopy(readStoredLocale()).savedTests}
@@ -354,7 +354,7 @@ export function ShopperResultHistoryCorner() {
                 <button
                   type="button"
                   onClick={() => openSaved(item)}
-                  className="text-left text-xs font-black text-slate-700 hover:text-teal-700 dark:text-slate-200"
+                  className="min-w-0 flex-1 text-left text-xs font-black text-slate-700 hover:text-teal-700 dark:text-slate-200"
                 >
                   <span className="block truncate">{resultTitle(item.result)}</span>
                   <span className="mt-1 block text-[10px] text-slate-400">{formatDate(item.savedAt)}</span>

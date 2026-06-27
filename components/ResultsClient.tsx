@@ -1176,12 +1176,12 @@ export function ResultsClient() {
     ? `${sellerPlanLabel} intelligence`
     : isCompareResult
       ? compareResultTitle(result)
-      : productTitle;
+      : shortProductName(productTitle, "Analyzed product");
 
   return (
     <div className="space-y-5">
       {accountPlan !== "free_buyer" ? customerNav : null}
-      {!isSellerAudience && accountPlan === "buyer_pro" ? <ShopperResultHistoryCorner /> : null}
+      {!isSellerAudience && ["buyer_pro", "buyer_beta", "shopper_beta"].includes(String(accountPlan)) ? <ShopperResultHistoryCorner /> : null}
       <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[1.6rem] sm:p-4">
         <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-b from-teal via-ocean to-amber" />
         <div className="flex flex-col gap-4 pl-2 lg:flex-row lg:items-center lg:justify-between">
@@ -1208,6 +1208,183 @@ export function ResultsClient() {
       ) : (
         <ShopperProductDetail result={result} preview={preview} />
       )}
+      <style jsx global>{`
+        @media (max-width: 640px) {
+          html[data-layout-mode="mobile"] .reviewintel-route-results main {
+            width: 100% !important;
+            max-width: 430px !important;
+            padding: 0.75rem !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+
+          html[data-layout-mode="mobile"] main:has(.ri-results-mobile),
+          html[data-layout-mode="mobile"] main:has(.shopper-compare-ai-result) {
+            width: 100% !important;
+            max-width: 430px !important;
+            padding: 0.75rem !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            overflow-x: hidden !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .reviewintel-results-secondary-nav {
+            display: grid !important;
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            gap: 0.45rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-results-secondary-nav {
+            display: grid !important;
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            gap: 0.45rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .reviewintel-results-secondary-nav :is(a, button) {
+            min-height: 2.25rem !important;
+            padding: 0.45rem 0.35rem !important;
+            font-size: 0.68rem !important;
+            line-height: 1.05 !important;
+            border-radius: 0.8rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-results-secondary-nav :is(a, button) {
+            min-height: 2.25rem !important;
+            padding: 0.45rem 0.35rem !important;
+            font-size: 0.68rem !important;
+            line-height: 1.05 !important;
+            border-radius: 0.8rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile {
+            display: block !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile {
+            display: block !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-desktop {
+            display: none !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-desktop {
+            display: none !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile {
+            max-width: 100% !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile {
+            max-width: 100% !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile section {
+            padding: 0.85rem !important;
+            border-radius: 1rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile section {
+            padding: 0.85rem !important;
+            border-radius: 1rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile h1 {
+            font-size: 1rem !important;
+            line-height: 1.12 !important;
+            letter-spacing: -0.02em !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile h1 {
+            font-size: 1rem !important;
+            line-height: 1.12 !important;
+            letter-spacing: -0.02em !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile h2 {
+            font-size: 0.9rem !important;
+            line-height: 1.18 !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile h2 {
+            font-size: 0.9rem !important;
+            line-height: 1.18 !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile p,
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile li {
+            font-size: 0.76rem !important;
+            line-height: 1.38 !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile p,
+          html[data-layout-mode="mobile"] .ri-results-mobile li {
+            font-size: 0.76rem !important;
+            line-height: 1.38 !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile .ri-mobile-metric-grid,
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile .grid-cols-2 {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.5rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile .ri-mobile-metric-grid,
+          html[data-layout-mode="mobile"] .ri-results-mobile .grid-cols-2 {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.5rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile .grid-cols-\\[104px_minmax\\(0\\,1fr\\)\\] {
+            display: grid !important;
+            grid-template-columns: 96px minmax(0, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile .grid-cols-\\[104px_minmax\\(0\\,1fr\\)\\] {
+            display: grid !important;
+            grid-template-columns: 96px minmax(0, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile img {
+            max-height: 96px !important;
+            object-fit: contain !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile img {
+            max-height: 96px !important;
+            object-fit: contain !important;
+          }
+
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile .rounded-xl,
+          html[data-layout-mode="mobile"] .reviewintel-route-results .ri-results-mobile .rounded-2xl {
+            border-radius: 0.9rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile .rounded-xl,
+          html[data-layout-mode="mobile"] .ri-results-mobile .rounded-2xl {
+            border-radius: 0.9rem !important;
+          }
+        }
+
+        html[data-layout-mode="desktop"] .reviewintel-route-results .ri-results-mobile,
+        html[data-layout-mode="desktop-mini"] .reviewintel-route-results .ri-results-mobile,
+        html[data-layout-mode="desktop"] .ri-results-mobile,
+        html[data-layout-mode="desktop-mini"] .ri-results-mobile {
+          display: none !important;
+        }
+
+        html[data-layout-mode="desktop"] .reviewintel-route-results .ri-results-desktop,
+        html[data-layout-mode="desktop-mini"] .reviewintel-route-results .ri-results-desktop,
+        html[data-layout-mode="desktop"] .ri-results-desktop,
+        html[data-layout-mode="desktop-mini"] .ri-results-desktop {
+          display: block !important;
+        }
+      `}</style>
     </div>
   );
 }

@@ -41,7 +41,13 @@ function isShopperPremiumAccount(account: ClientAccount | null) {
 
 export default function MobileTinyNav() {
   const pathname = usePathname();
-  const isPublicMarketingPage = pathname === "/" || pathname === "/reviews" || pathname === "/advertise" || pathname === "/pricing";
+  const isPublicMarketingPage =
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/reviews" ||
+    pathname === "/advertise" ||
+    pathname === "/pricing";
   const [account, setAccount] = useState<ClientAccount | null>(null);
 
   useEffect(() => {
