@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizePlan, normalizeRole } from "@/lib/account";
-import { readAccountSession } from "@/lib/accountSession";
+import { readAccountSession, setAccountSessionCookie } from "@/lib/accountSession";
 import { isSupabaseConfigured, readPersistentQuota, supabaseSelect, supabaseUpsert } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -115,6 +115,7 @@ function clientAccountFromProfile(profile: Record<string, unknown>, fallback: { 
     name: asString(profile.name) || fallback.name || email.split("@")[0],
     role: role === "guest" ? "buyer" : role,
     plan,
+    subscriptionStatus: asString(profile.subscription_status) || asString((fallback as Record<string, unknown>).subscriptionStatus),
     stripeCustomerId: asString(profile.stripe_customer_id) || null,
     companyName: asString(profile.company_name),
     phone: asString(profile.phone),
@@ -135,6 +136,16 @@ function clientAccountFromProfile(profile: Record<string, unknown>, fallback: { 
     betaOriginalStatus: asString(profile.beta_original_status),
     trusted: true
   };
+}
+
+function jsonWithFreshAccountSession(body: Record<string, unknown>, account?: Record<string, unknown> | null, status = 200) {
+  const response = NextResponse.json(body, { status });
+
+  if (account?.email) {
+    setAccountSessionCookie(response, account);
+  }
+
+  return response;
 }
 
 export async function GET(request: NextRequest) {
@@ -164,17 +175,19 @@ export async function GET(request: NextRequest) {
     : headerAccount;
 
   if (!isSupabaseConfigured()) {
-    return NextResponse.json({
-      account: {
-        ...effectiveHeaderAccount,
-        trusted: false
-      },
+    const account = {
+      ...effectiveHeaderAccount,
+      trusted: false
+    };
+
+    return jsonWithFreshAccountSession({
+      account,
       quota: await readPersistentQuota({
         email: effectiveHeaderAccount.email,
         plan: effectiveHeaderAccount.plan
       }),
       source: "local-fallback"
-    });
+    }, account);
   }
 
   const rows = await supabaseSelect(
@@ -196,25 +209,27 @@ export async function GET(request: NextRequest) {
       last_login: new Date().toISOString()
     });
 
-    return NextResponse.json({
-      account: inserted
-        ? clientAccountFromProfile(inserted as Record<string, unknown>, {
-            ...effectiveHeaderAccount,
-            role: newRole,
-            plan: newPlan
-          })
-        : {
-            ...effectiveHeaderAccount,
-            role: newRole,
-            plan: newPlan,
-            trusted: true
-          },
+    const account = inserted
+      ? clientAccountFromProfile(inserted as Record<string, unknown>, {
+          ...effectiveHeaderAccount,
+          role: newRole,
+          plan: newPlan
+        })
+      : {
+          ...effectiveHeaderAccount,
+          role: newRole,
+          plan: newPlan,
+          trusted: true
+        };
+
+    return jsonWithFreshAccountSession({
+      account,
       quota: await readPersistentQuota({
         email: effectiveHeaderAccount.email,
         plan: newPlan
       }),
       source: "supabase"
-    });
+    }, account);
   }
 
   await supabaseUpsert("profiles", {
@@ -222,14 +237,16 @@ export async function GET(request: NextRequest) {
     last_login: new Date().toISOString()
   });
 
-  return NextResponse.json({
-    account: clientAccountFromProfile(existing, effectiveHeaderAccount),
+  const account = clientAccountFromProfile(existing, effectiveHeaderAccount);
+
+  return jsonWithFreshAccountSession({
+    account,
     quota: await readPersistentQuota({
       email: effectiveHeaderAccount.email,
       plan: normalizePlan(String(existing.plan ?? effectiveHeaderAccount.plan ?? "free_buyer"))
     }),
     source: "supabase"
-  });
+  }, account);
 }
 
 export async function POST(request: NextRequest) {
@@ -289,13 +306,15 @@ export async function POST(request: NextRequest) {
     last_login: new Date().toISOString()
   });
 
-  return NextResponse.json({
+  const account = profile
+    ? clientAccountFromProfile(profile as Record<string, unknown>, { email })
+    : null;
+
+  return jsonWithFreshAccountSession({
     ok: Boolean(profile),
-    account: profile
-      ? clientAccountFromProfile(profile as Record<string, unknown>, { email })
-      : null,
+    account,
     source: "supabase"
-  });
+  }, account);
 }
 
 export async function PATCH(request: NextRequest) {

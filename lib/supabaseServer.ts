@@ -742,6 +742,22 @@ export async function adminUsageSummary() {
   };
 }
 
+function isBetaSubscriptionPlan(plan: string) {
+  return plan === "buyer_beta" || plan === "seller_beta";
+}
+
+function hasUnexpiredBetaAccess(profile: SupabaseRow | null, plan: string) {
+  if (!profile || !isBetaSubscriptionPlan(plan)) return false;
+
+  const expiresAt = String(profile.beta_expires_at ?? "").trim();
+  if (!expiresAt) {
+    return String(profile.subscription_status ?? "").trim() === "beta";
+  }
+
+  const expiry = new Date(expiresAt);
+  return !Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now();
+}
+
 export async function upsertSubscriptionByStripeCustomer(input: SupabaseRow) {
   if (!isSupabaseConfigured()) return null;
 
@@ -766,7 +782,7 @@ export async function upsertSubscriptionByStripeCustomer(input: SupabaseRow) {
 
     if (profileQuery) {
       const response = await supabaseFetch(
-        `/rest/v1/profiles?${profileQuery}&select=id,email,plan,role,subscription_status,stripe_customer_id&limit=1`
+        `/rest/v1/profiles?${profileQuery}&select=id,email,plan,role,subscription_status,stripe_customer_id,beta_expires_at&limit=1`
       );
 
       if (response.ok) {
@@ -780,16 +796,20 @@ export async function upsertSubscriptionByStripeCustomer(input: SupabaseRow) {
 
   const existingPlan = existingProfile?.plan ? normalizePlan(String(existingProfile.plan)) : "";
   const existingRole = existingProfile?.role ? String(existingProfile.role) : "";
-  const protectedManualPlan = existingPlan.includes("beta");
+  const protectedManualPlan = hasUnexpiredBetaAccess(existingProfile, existingPlan);
+  const safeExistingPlan = existingPlan || "free_buyer";
 
   // Critical safety rule:
   // Missing Stripe metadata must never reset an existing user to free/basic.
   // Only use free_buyer as a default when there is no existing profile at all.
-  const activePlan = requestedPlan ?? (existingPlan || "free_buyer");
+  const activePlan = protectedManualPlan ? safeExistingPlan : requestedPlan ?? safeExistingPlan;
   const finalPlan =
-    inactive && requestedPlan && !protectedManualPlan
+    protectedManualPlan
+      ? safeExistingPlan
+      : inactive && requestedPlan
       ? "free_buyer"
       : activePlan;
+  const finalSubscriptionStatus = protectedManualPlan ? "beta" : subscriptionStatus;
 
   const finalRole =
     finalPlan === "seller_premium" || finalPlan === "seller_beta" || finalPlan === "seller_pro"
@@ -797,7 +817,8 @@ export async function upsertSubscriptionByStripeCustomer(input: SupabaseRow) {
       : existingRole || roleForPlan(finalPlan);
 
   const profilePatch: SupabaseRow = {
-    subscription_status: subscriptionStatus,
+    subscription_status: finalSubscriptionStatus,
+    subscription_plan: finalPlan,
     stripe_customer_id: stripeCustomerId,
     updated_at: new Date().toISOString()
   };

@@ -627,67 +627,131 @@ export default function SellerResultPage() {
             /* Mobile seller result card readability override */
             html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-grid,
             html[data-layout-mode="mobile"] .seller-result-page .seller-insight-grid,
-            html[data-layout-mode="mobile"] .seller-result-page .seller-result-top-cards,
             html[data-layout-mode="auto"] .seller-result-page .seller-kpi-grid,
-            html[data-layout-mode="auto"] .seller-result-page .seller-insight-grid,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: 0.55rem !important;
+              width: min(100%, 23rem) !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-top-cards,
             html[data-layout-mode="auto"] .seller-result-page .seller-result-top-cards {
               grid-template-columns: minmax(0, 1fr) !important;
-              gap: 0.85rem !important;
+              gap: 0.55rem !important;
             }
 
             html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card,
-            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card,
             html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card,
-            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item,
             html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card {
+              min-height: 0 !important;
+              max-height: none !important;
+              aspect-ratio: 1 / 1 !important;
+              padding: 0.55rem !important;
+              border-radius: 0.95rem !important;
+              overflow: hidden !important;
+              word-break: normal !important;
+              overflow-wrap: break-word !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card,
+            html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item,
             html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card,
-            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card,
             html[data-layout-mode="auto"] .seller-result-page .seller-priority-item {
               min-height: 0 !important;
               max-height: none !important;
-              padding: 1rem !important;
-              border-radius: 1.15rem !important;
+              padding: 0.72rem !important;
+              border-radius: 0.95rem !important;
               overflow: visible !important;
               word-break: normal !important;
               overflow-wrap: break-word !important;
             }
 
-            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card p,
             html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card p,
             html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card p,
             html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item,
             html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item p,
-            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card p,
             html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card p,
             html[data-layout-mode="auto"] .seller-result-page .seller-insight-card p,
             html[data-layout-mode="auto"] .seller-result-page .seller-insight-item,
             html[data-layout-mode="auto"] .seller-result-page .seller-priority-item p {
               display: block !important;
-              font-size: 0.92rem !important;
-              line-height: 1.45 !important;
+              font-size: 0.68rem !important;
+              line-height: 1.18 !important;
               overflow: visible !important;
             }
 
-            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card h2,
-            html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card h3,
             html[data-layout-mode="mobile"] .seller-result-page .seller-result-mini-card h2,
             html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card h3,
-            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card h2,
-            html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card h3,
             html[data-layout-mode="auto"] .seller-result-page .seller-result-mini-card h2,
             html[data-layout-mode="auto"] .seller-result-page .seller-insight-card h3 {
-              font-size: 1.15rem !important;
-              line-height: 1.25 !important;
+              font-size: 0.82rem !important;
+              line-height: 1.08 !important;
               overflow: visible !important;
               word-break: normal !important;
               overflow-wrap: break-word !important;
             }
 
-            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item:nth-child(n + 4),
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card > .flex,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card > .flex {
+              gap: 0.4rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card .h-11.w-11,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card .h-11.w-11 {
+              height: 1.75rem !important;
+              width: 1.75rem !important;
+              border-radius: 0.65rem !important;
+              font-size: 0.95rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card .mt-4,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card .mt-4 {
+              margin-top: 0.45rem !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card p,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-card p {
+              display: none !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item,
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-item {
+              display: -webkit-box !important;
+              -webkit-line-clamp: 2 !important;
+              -webkit-box-orient: vertical !important;
+              padding: 0.28rem 0.34rem !important;
+              border-radius: 0.5rem !important;
+              font-size: 0.52rem !important;
+              line-height: 1.08 !important;
+              max-height: 1.45rem !important;
+              overflow: hidden !important;
+            }
+
+            html[data-layout-mode="mobile"] .seller-result-page .seller-insight-item:nth-child(n + 3),
             html[data-layout-mode="mobile"] .seller-result-page .seller-priority-item:nth-child(n + 5),
-            html[data-layout-mode="auto"] .seller-result-page .seller-insight-item:nth-child(n + 4),
+            html[data-layout-mode="auto"] .seller-result-page .seller-insight-item:nth-child(n + 3),
             html[data-layout-mode="auto"] .seller-result-page .seller-priority-item:nth-child(n + 5) {
-              display: block !important;
+              display: none !important;
+            }
+
+            @media (max-width: 360px) {
+              html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-grid,
+              html[data-layout-mode="mobile"] .seller-result-page .seller-insight-grid,
+              html[data-layout-mode="auto"] .seller-result-page .seller-kpi-grid,
+              html[data-layout-mode="auto"] .seller-result-page .seller-insight-grid {
+                gap: 0.45rem !important;
+              }
+
+              html[data-layout-mode="mobile"] .seller-result-page .seller-kpi-card,
+              html[data-layout-mode="mobile"] .seller-result-page .seller-insight-card,
+              html[data-layout-mode="auto"] .seller-result-page .seller-kpi-card,
+              html[data-layout-mode="auto"] .seller-result-page .seller-insight-card {
+                padding: 0.48rem !important;
+                border-radius: 0.85rem !important;
+              }
             }
 
           }

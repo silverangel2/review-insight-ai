@@ -1369,6 +1369,63 @@ export function ResultsClient() {
           html[data-layout-mode="mobile"] .ri-results-mobile .rounded-2xl {
             border-radius: 0.9rem !important;
           }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile > section,
+          html[data-layout-mode="auto"] .ri-results-mobile > section,
+          html[data-layout-mode="mobile"] .shopper-compare-ai-result,
+          html[data-layout-mode="auto"] .shopper-compare-ai-result {
+            border-radius: 1rem !important;
+            padding: 0.8rem !important;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile .ri-mobile-metric-grid > div,
+          html[data-layout-mode="auto"] .ri-results-mobile .ri-mobile-metric-grid > div {
+            min-height: 0 !important;
+            padding: 0.58rem !important;
+            border-radius: 0.75rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile .ri-mobile-metric-grid > div p:first-child,
+          html[data-layout-mode="auto"] .ri-results-mobile .ri-mobile-metric-grid > div p:first-child {
+            font-size: 0.52rem !important;
+            line-height: 1.08 !important;
+            letter-spacing: 0.08em !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile .ri-mobile-metric-grid > div p:nth-child(2),
+          html[data-layout-mode="auto"] .ri-results-mobile .ri-mobile-metric-grid > div p:nth-child(2) {
+            margin-top: 0.3rem !important;
+            font-size: 0.88rem !important;
+            line-height: 1.05 !important;
+          }
+
+          html[data-layout-mode="mobile"] .ri-results-mobile .ri-mobile-metric-grid > div p:nth-child(3),
+          html[data-layout-mode="auto"] .ri-results-mobile .ri-mobile-metric-grid > div p:nth-child(3) {
+            margin-top: 0.2rem !important;
+            font-size: 0.62rem !important;
+            line-height: 1.15 !important;
+          }
+
+          html[data-layout-mode="mobile"] .shopper-compare-ai-result h2,
+          html[data-layout-mode="auto"] .shopper-compare-ai-result h2 {
+            font-size: 1rem !important;
+            line-height: 1.14 !important;
+          }
+
+          html[data-layout-mode="mobile"] .shopper-compare-ai-result h3,
+          html[data-layout-mode="auto"] .shopper-compare-ai-result h3 {
+            font-size: 0.94rem !important;
+            line-height: 1.2 !important;
+          }
+
+          html[data-layout-mode="mobile"] .shopper-compare-ai-result p,
+          html[data-layout-mode="mobile"] .shopper-compare-ai-result li,
+          html[data-layout-mode="auto"] .shopper-compare-ai-result p,
+          html[data-layout-mode="auto"] .shopper-compare-ai-result li {
+            font-size: 0.73rem !important;
+            line-height: 1.38 !important;
+          }
         }
 
         html[data-layout-mode="desktop"] .reviewintel-route-results .ri-results-mobile,

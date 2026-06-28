@@ -76,6 +76,116 @@ function valueAsString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isBetaPlan(plan: string) {
+  return plan === "buyer_beta" || plan === "seller_beta";
+}
+
+function safeRestoredPlan(currentPlan: string, originalPlan: string) {
+  const rawOriginal = valueAsString(originalPlan);
+
+  if (rawOriginal) {
+    const normalizedOriginal = normalizePlan(rawOriginal);
+    if (!isBetaPlan(normalizedOriginal)) {
+      return normalizedOriginal;
+    }
+  }
+
+  if (currentPlan === "seller_beta") {
+    return "seller_premium";
+  }
+
+  return "free_buyer";
+}
+
+function roleForRestoredPlan(plan: string, fallbackRole: string) {
+  if (plan === "seller_premium" || plan === "seller_beta" || plan === "seller_pro") return "seller";
+  if (fallbackRole === "admin") return "admin";
+  return "buyer";
+}
+
+function isExpiredBetaProfile(profile: Record<string, unknown>, plan: string) {
+  if (!isBetaPlan(plan)) return false;
+
+  const expiresAt = valueAsString(profile.beta_expires_at);
+  if (!expiresAt) return false;
+
+  const expiry = new Date(expiresAt);
+  if (Number.isNaN(expiry.getTime())) return false;
+
+  return expiry.getTime() <= Date.now();
+}
+
+function isActiveBetaProfile(profile: Record<string, unknown>, plan: string) {
+  if (!isBetaPlan(plan)) return false;
+
+  const expiresAt = valueAsString(profile.beta_expires_at);
+  if (!expiresAt) {
+    return valueAsString(profile.subscription_status) === "beta";
+  }
+
+  const expiry = new Date(expiresAt);
+  return !Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now();
+}
+
+async function normalizeOAuthBetaProfile(profile: Record<string, unknown>, email: string) {
+  const plan = normalizePlan(valueAsString(profile.plan));
+  const role = normalizeRole(valueAsString(profile.role));
+  const now = new Date().toISOString();
+
+  if (isExpiredBetaProfile(profile, plan)) {
+    const restoredPlan = safeRestoredPlan(plan, valueAsString(profile.beta_original_plan));
+    const restoredRole = roleForRestoredPlan(restoredPlan, role);
+    const restoredStatus = valueAsString(profile.beta_original_status) || "active";
+
+    const updated = await supabaseUpsert("profiles", {
+      email,
+      role: restoredRole,
+      plan: restoredPlan,
+      subscription_plan: restoredPlan,
+      subscription_status: restoredStatus,
+      beta_started_at: null,
+      beta_expires_at: null,
+      beta_original_plan: null,
+      beta_original_status: null,
+      beta_last_notified_at: now,
+      beta_last_survey_sent_at: null,
+      beta_survey_count: 0,
+      last_login: now,
+      updated_at: now
+    }).catch(() => null);
+
+    return (updated as Record<string, unknown> | null) ?? {
+      ...profile,
+      role: restoredRole,
+      plan: restoredPlan,
+      subscription_plan: restoredPlan,
+      subscription_status: restoredStatus,
+      beta_started_at: null,
+      beta_expires_at: null,
+      beta_original_plan: null,
+      beta_original_status: null
+    };
+  }
+
+  if (isActiveBetaProfile(profile, plan) && valueAsString(profile.subscription_status) !== "beta") {
+    const updated = await supabaseUpsert("profiles", {
+      email,
+      subscription_plan: plan,
+      subscription_status: "beta",
+      last_login: now,
+      updated_at: now
+    }).catch(() => null);
+
+    return (updated as Record<string, unknown> | null) ?? {
+      ...profile,
+      subscription_plan: plan,
+      subscription_status: "beta"
+    };
+  }
+
+  return profile;
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 
@@ -203,6 +313,10 @@ export async function POST(request: Request) {
     if (updatedProfile) profile = updatedProfile;
   }
 
+  if (profile) {
+    profile = await normalizeOAuthBetaProfile(profile as Record<string, unknown>, normalizedEmail);
+  }
+
   const role = normalizeRole(
     valueAsString(profile?.role) ||
     valueAsString(oauthAccount.role) ||
@@ -245,7 +359,11 @@ export async function POST(request: Request) {
     subscriptionStatus:
       valueAsString(profile?.subscription_status) ||
       (plan === "free_buyer" ? requestedSubscriptionStatus : "active"),
-    marketingConsent: Boolean(profile?.marketing_consent)
+    marketingConsent: Boolean(profile?.marketing_consent),
+    betaStartedAt: isBetaPlan(plan) ? valueAsString(profile?.beta_started_at) : "",
+    betaExpiresAt: isBetaPlan(plan) ? valueAsString(profile?.beta_expires_at) : "",
+    betaOriginalPlan: isBetaPlan(plan) ? valueAsString(profile?.beta_original_plan) : "",
+    betaOriginalStatus: isBetaPlan(plan) ? valueAsString(profile?.beta_original_status) : ""
   };
   const response = jsonWithClearedOAuthCookies({ ok: true, account: finalAccount });
   setAccountSessionCookie(response, finalAccount);

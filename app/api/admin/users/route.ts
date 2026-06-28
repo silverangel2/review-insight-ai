@@ -29,6 +29,8 @@ type ProfileRow = {
   last_scan_at?: string | null;
   updated_at?: string | null;
   subscription_status?: string | null;
+  beta_started_at?: string | null;
+  beta_expires_at?: string | null;
   beta_original_plan?: string | null;
   beta_original_status?: string | null;
 };
@@ -81,7 +83,7 @@ export async function GET(request: Request) {
 
   const profiles = await supabaseSelect<ProfileRow>(
     "profiles",
-    "select=email,name,role,plan,created_at,last_login,marketing_consent,status,ban_reason,suspended_reason,admin_notes,force_logout_at,daily_scan_count,monthly_scan_count,last_scan_at,updated_at,subscription_status,beta_original_plan,beta_original_status&order=created_at.desc"
+    "select=email,name,role,plan,created_at,last_login,marketing_consent,status,ban_reason,suspended_reason,admin_notes,force_logout_at,daily_scan_count,monthly_scan_count,last_scan_at,updated_at,subscription_status,beta_started_at,beta_expires_at,beta_original_plan,beta_original_status&order=created_at.desc"
   );
 
   const users = await Promise.all(profiles.map(async (profile, index) => {
@@ -109,6 +111,8 @@ export async function GET(request: Request) {
       totalScanCount: liveUsage.totalScanCount,
       lastScanAt: liveUsage.lastScanAt || profile.last_scan_at || "",
       updatedAt: profile.updated_at || "",
+      betaStartedAt: profile.beta_started_at || "",
+      betaExpiresAt: profile.beta_expires_at || "",
     };
   }));
 
@@ -205,7 +209,8 @@ export async function POST(request: Request) {
     const nowDate = new Date();
     const betaExpiresAt = new Date(nowDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const isRemovingBeta = action === "remove_beta";
-    const originalPlan = normalizePlan(String(currentProfile?.beta_original_plan || ""));
+    const rawOriginalPlan = String(currentProfile?.beta_original_plan || "").trim();
+    const originalPlan = rawOriginalPlan ? normalizePlan(rawOriginalPlan) : "";
     const originalStatus = String(currentProfile?.beta_original_status || storedStatus || "active");
     const fallbackPlan = storedPlan.startsWith("seller") ? "seller_premium" : "free_buyer";
     const restorePlan = originalPlan && originalPlan !== "buyer_beta" && originalPlan !== "seller_beta"

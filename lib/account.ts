@@ -165,14 +165,18 @@ export function forceSellerPremiumTesterAccount<T extends Record<string, unknown
 
   const override = testPlans[email];
   if (override) {
+    const existingPlan = normalizePlan(String(record.plan || record.activePlan || record.subscriptionPlan || ""));
+    const isBetaPlan = existingPlan === "buyer_beta" || existingPlan === "seller_beta";
+    const finalPlan = isBetaPlan ? existingPlan : override.plan;
+
     return {
       ...record,
       name: record.name || override.name,
-      role: override.role,
-      plan: override.plan,
-      activePlan: override.plan,
-      subscriptionPlan: override.plan,
-      subscriptionStatus: record.subscriptionStatus || record.subscription_status || "active",
+      role: isBetaPlan ? roleForPlan(finalPlan) : override.role,
+      plan: finalPlan,
+      activePlan: finalPlan,
+      subscriptionPlan: finalPlan,
+      subscriptionStatus: record.subscriptionStatus || record.subscription_status || (isBetaPlan ? "beta" : "active"),
       trusted: true,
       testAccount: true,
     } as unknown as T;

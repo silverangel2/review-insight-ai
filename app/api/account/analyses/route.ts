@@ -1,4 +1,4 @@
-import { hasCloudHistoryAccess } from "@/lib/account";
+import { hasCloudHistoryAccess, normalizePlan, normalizeRole } from "@/lib/account";
 import { NextResponse } from "next/server";
 import { readAccountSession } from "@/lib/accountSession";
 import { deleteAnalysisHistory, saveAnalysisRecord, supabaseDelete, supabaseSelect } from "@/lib/supabaseServer";
@@ -173,9 +173,30 @@ function retainByPlan(rows: Record<string, unknown>[], plan: string) {
 }
 
 
-function getAuthenticatedAccountEmail(request: Request) {
+async function getAuthenticatedHistoryAccount(request: Request) {
   const session = readAccountSession(request);
-  return String(session?.email ?? "").toLowerCase().trim();
+  const email = String(session?.email ?? "").toLowerCase().trim();
+  let plan = normalizePlan(session?.plan || "free_buyer");
+  let role = normalizeRole(session?.role || (plan.includes("seller") ? "seller" : "buyer"));
+
+  if (email) {
+    const rows = await supabaseSelect(
+      "profiles",
+      `select=plan,role&email=eq.${encodeURIComponent(email)}&limit=1`
+    ).catch(() => []);
+    const profile = rows[0] as Record<string, unknown> | undefined;
+
+    if (profile) {
+      plan = normalizePlan(String(profile.plan ?? plan));
+      role = normalizeRole(String(profile.role ?? role));
+    }
+  }
+
+  return {
+    email,
+    plan,
+    role: role === "guest" ? (plan.includes("seller") ? "seller" : "buyer") : role
+  };
 }
 
 function emailMismatchResponse(requestedEmail: string, authenticatedEmail: string) {
@@ -191,11 +212,12 @@ function emailMismatchResponse(requestedEmail: string, authenticatedEmail: strin
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const requestedEmail = String(url.searchParams.get("email") ?? "").toLowerCase().trim();
-  const email = getAuthenticatedAccountEmail(request);
+  const account = await getAuthenticatedHistoryAccount(request);
+  const email = account.email;
   const mismatch = emailMismatchResponse(requestedEmail, email);
   if (mismatch) return mismatch;
-  const plan = String(url.searchParams.get("plan") ?? "").toLowerCase().trim();
-  const role = String(url.searchParams.get("role") ?? "").toLowerCase().trim();
+  const plan = account.plan;
+  const role = account.role;
 
   if (!email) {
     return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
@@ -225,11 +247,11 @@ export async function GET(request: Request) {
   const filteredRows = (rows ?? []).filter((row) => {
     const mode = String(row.mode ?? "").toLowerCase();
 
-    if ((plan === "seller_premium" || plan === "seller_beta") || plan === "seller_beta" || (plan === "seller_pro" || plan === "seller_beta")) {
+    if (role === "seller" || plan === "seller_premium" || plan === "seller_beta" || plan === "seller_pro") {
       return mode === "seller" || mode === "both" || mode.includes("seller");
     }
 
-    if (role === "buyer" || plan === "free_buyer" || (plan === "buyer_pro" || plan === "buyer_beta") || plan === "buyer_beta") {
+    if (role === "buyer" || plan === "free_buyer" || plan === "buyer_pro" || plan === "buyer_beta") {
       return mode !== "seller" && !mode.includes("seller");
     }
 
@@ -259,25 +281,25 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const requestedEmail = String(body?.email ?? body?.profile_email ?? "").toLowerCase().trim();
-  const requestedPlan = String(body?.plan ?? body?.subscription_plan ?? "").trim();
+  const account = await getAuthenticatedHistoryAccount(request);
+  const email = account.email;
+  const mismatch = emailMismatchResponse(requestedEmail, email);
+  if (mismatch) return mismatch;
+
+  if (!email) {
+    return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
+  }
 
   // CLOUD_HISTORY_SAVE_ALLOWED:
   // Free shoppers only keep the current/latest product locally.
   // Premium and beta accounts get cloud history across devices.
-  if (requestedPlan && !hasCloudHistoryAccess(requestedPlan)) {
+  if (!hasCloudHistoryAccess(account.plan)) {
     return Response.json({
       ok: true,
       saved: false,
       cloudHistory: false,
       reason: "Cloud history is available for Premium and Beta accounts only.",
     });
-  }
-  const email = getAuthenticatedAccountEmail(request);
-  const mismatch = emailMismatchResponse(requestedEmail, email);
-  if (mismatch) return mismatch;
-
-  if (!email) {
-    return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
   }
 
   const analysis = body?.analysis && typeof body.analysis === "object" ? body.analysis : body;
@@ -328,7 +350,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const body = await request.json().catch(() => null);
   const requestedEmail = String(body?.email ?? "").toLowerCase().trim();
-  const email = getAuthenticatedAccountEmail(request);
+  const account = await getAuthenticatedHistoryAccount(request);
+  const email = account.email;
   const mismatch = emailMismatchResponse(requestedEmail, email);
   if (mismatch) return mismatch;
   const id = String(body?.id ?? "").trim();

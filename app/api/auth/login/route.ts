@@ -130,13 +130,20 @@ function isBetaPlan(plan: string) {
 }
 
 function safeRestoredPlan(currentPlan: string, originalPlan: string) {
-  const normalizedOriginal = normalizePlan(originalPlan);
+  const rawOriginal = valueAsString(originalPlan);
 
-  if (normalizedOriginal && !isBetaPlan(normalizedOriginal)) {
-    return normalizedOriginal;
+  if (rawOriginal) {
+    const normalizedOriginal = normalizePlan(rawOriginal);
+    if (!isBetaPlan(normalizedOriginal)) {
+      return normalizedOriginal;
+    }
   }
 
-  return currentPlan === "seller_beta" ? "seller_premium" : "free_buyer";
+  if (currentPlan === "seller_beta") {
+    return "seller_premium";
+  }
+
+  return "free_buyer";
 }
 
 function roleForRestoredPlan(plan: string, fallbackRole: string) {
@@ -148,9 +155,6 @@ function roleForRestoredPlan(plan: string, fallbackRole: string) {
 function isExpiredBetaProfile(profile: Record<string, unknown>, plan: string) {
   if (!isBetaPlan(plan)) return false;
 
-  const status = valueAsString(profile.subscription_status);
-  if (status !== "beta") return false;
-
   const expiresAt = valueAsString(profile.beta_expires_at);
   if (!expiresAt) return false;
 
@@ -158,6 +162,18 @@ function isExpiredBetaProfile(profile: Record<string, unknown>, plan: string) {
   if (Number.isNaN(expiry.getTime())) return false;
 
   return expiry.getTime() <= Date.now();
+}
+
+function isActiveBetaProfile(profile: Record<string, unknown>, plan: string) {
+  if (!isBetaPlan(plan)) return false;
+
+  const expiresAt = valueAsString(profile.beta_expires_at);
+  if (!expiresAt) {
+    return valueAsString(profile.subscription_status) === "beta";
+  }
+
+  const expiry = new Date(expiresAt);
+  return !Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now();
 }
 
 async function mergeProfileIntoLoginResult(result: Record<string, unknown>) {
@@ -218,6 +234,16 @@ async function mergeProfileIntoLoginResult(result: Record<string, unknown>) {
     role = restoredRole;
     plan = restoredPlan;
     subscriptionStatus = restoredStatus;
+  } else if (isActiveBetaProfile(profile, profilePlan) && subscriptionStatus !== "beta") {
+    await supabaseUpsert("profiles", {
+      email,
+      subscription_status: "beta",
+      subscription_plan: profilePlan,
+      last_login: now,
+      updated_at: now
+    }).catch(() => null);
+
+    subscriptionStatus = "beta";
   } else {
     await supabaseUpsert("profiles", {
       email,
@@ -250,6 +276,10 @@ async function mergeProfileIntoLoginResult(result: Record<string, unknown>) {
       website: valueAsString(profile.website) || valueAsString(account.website),
       profileNotes: valueAsString(profile.profile_notes) || valueAsString(account.profileNotes),
       marketingConsent: Boolean(profile.marketing_consent),
+      betaStartedAt: isBetaPlan(plan) ? valueAsString(profile.beta_started_at) : "",
+      betaExpiresAt: isBetaPlan(plan) ? valueAsString(profile.beta_expires_at) : "",
+      betaOriginalPlan: isBetaPlan(plan) ? valueAsString(profile.beta_original_plan) : "",
+      betaOriginalStatus: isBetaPlan(plan) ? valueAsString(profile.beta_original_status) : "",
       createdAt: valueAsString(profile.created_at) || valueAsString(account.createdAt) || now
     }
   };
@@ -293,16 +323,20 @@ export async function POST(request: Request) {
         country: qaAccount.country,
         marketingConsent: false
       };
+      const result = await mergeProfileIntoLoginResult({
+        mode: "qa-customer-account",
+        account
+      });
+      const finalAccount = result.account && typeof result.account === "object"
+        ? (result.account as Record<string, unknown>)
+        : account;
 
       const response = NextResponse.json({
         ok: true,
-        result: {
-          mode: "qa-customer-account",
-          account
-        }
+        result
       });
 
-      setAccountSessionCookie(response, account);
+      setAccountSessionCookie(response, finalAccount);
       return response;
     }
 

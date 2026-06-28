@@ -25,6 +25,8 @@ type AdminUserRow = {
   totalScanCount?: number;
   lastScanAt?: string;
   updatedAt?: string;
+  betaStartedAt?: string;
+  betaExpiresAt?: string;
 };
 
 type AdminAction = "refresh" | "force_logout" | "reset_quota" | "note" | "make_beta_shopper" | "make_beta_seller" | "remove_beta" | "suspend" | "ban" | "unban";
@@ -108,6 +110,14 @@ function formatDate(value?: string) {
 
 function displayRole(role: string) {
   return role === "buyer" ? "shopper" : role;
+}
+
+function betaDaysLeft(value?: string) {
+  if (!value) return "Not set";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Not set";
+  const days = Math.max(0, Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  return `${days} day${days === 1 ? "" : "s"} left`;
 }
 
 function statusTone(status?: string) {
@@ -507,6 +517,13 @@ export function AdminUserSystem() {
               {[
                 ["Role", selectedUser.role],
                 ["Plan", selectedUser.plan],
+                ...(selectedUser.rawPlan === "buyer_beta" || selectedUser.rawPlan === "seller_beta"
+                  ? [
+                      ["Beta started", formatDate(selectedUser.betaStartedAt)],
+                      ["Beta expires", formatDate(selectedUser.betaExpiresAt)],
+                      ["Beta timer", betaDaysLeft(selectedUser.betaExpiresAt)],
+                    ]
+                  : []),
                 ["Signup", formatDate(selectedUser.signupDate)],
                 ["Last login", formatDate(selectedUser.lastLogin)],
                 ["Last scan", formatDate(selectedUser.lastScanAt)],

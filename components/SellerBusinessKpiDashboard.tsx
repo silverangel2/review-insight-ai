@@ -487,15 +487,15 @@ function KpiCard({
         <article className={`absolute inset-0 overflow-y-auto rounded-[1.35rem] border bg-gradient-to-br ${tone} p-3 shadow-soft [backface-visibility:hidden] dark:border-white/10`}>
           <div className="flex h-full flex-col">
             <div className="flex items-start justify-between gap-2">
-              <p className="max-w-[8.6rem] text-[9px] font-black uppercase leading-4 tracking-[0.18em] text-slate-500">{title}</p>
-              <span className="grid size-8 place-items-center rounded-2xl bg-white/75 text-[10px] font-black text-slate-700 shadow-inner">↻</span>
+              <p className="seller-kpi-title max-w-[8.6rem] text-[9px] font-black uppercase leading-4 tracking-[0.18em] text-slate-500">{title}</p>
+              <span className="seller-kpi-flip-hint grid size-8 place-items-center rounded-2xl bg-white/75 text-[10px] font-black text-slate-700 shadow-inner">↻</span>
             </div>
             <div className="mt-2">
               <GaugeIcon kind={gauge} score={numeric} label={`${title} gauge`} />
             </div>
-            <p className="mt-1 text-[1.35rem] font-black leading-none text-slate-950">{metric}</p>
-            <p className="mt-2 text-[11px] font-bold leading-[1.35rem] text-slate-700">{compactText(insight)}</p>
-            <p className="mt-auto text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Tap for business proof</p>
+            <p className="seller-kpi-metric mt-1 text-[1.35rem] font-black leading-none text-slate-950">{metric}</p>
+            <p className="seller-kpi-insight mt-2 text-[11px] font-bold leading-[1.35rem] text-slate-700">{compactText(insight)}</p>
+            <p className="seller-kpi-tap-hint mt-auto text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Tap for business proof</p>
           </div>
         </article>
 
@@ -655,31 +655,35 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
 
           html[data-layout-mode="mobile"] .seller-kpi-grid,
           html[data-layout-mode="auto"] .seller-kpi-grid {
-            grid-template-columns: minmax(0, 1fr) !important;
-            gap: 0.75rem !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.55rem !important;
             margin-top: 0.85rem !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-card,
           html[data-layout-mode="auto"] .seller-kpi-card {
-            height: auto !important;
+            height: clamp(7.8rem, 39vw, 9.25rem) !important;
             min-height: 0 !important;
-            border-radius: 1rem !important;
+            aspect-ratio: auto !important;
+            border-radius: 0.95rem !important;
+            overflow: hidden !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-card > div,
           html[data-layout-mode="auto"] .seller-kpi-card > div {
+            height: 100% !important;
             min-height: 0 !important;
             transform: none !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-card article,
           html[data-layout-mode="auto"] .seller-kpi-card article {
+            height: 100% !important;
             position: relative !important;
             inset: auto !important;
-            padding: 0.9rem !important;
-            border-radius: 1rem !important;
-            overflow: visible !important;
+            padding: 0.55rem !important;
+            border-radius: 0.95rem !important;
+            overflow: hidden !important;
             transform: none !important;
             backface-visibility: visible !important;
           }
@@ -692,24 +696,58 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
           html[data-layout-mode="mobile"] .seller-kpi-card p,
           html[data-layout-mode="auto"] .seller-kpi-card p {
             max-width: none !important;
-            font-size: 0.82rem !important;
-            line-height: 1.42 !important;
+            font-size: 0.62rem !important;
+            line-height: 1.16 !important;
             letter-spacing: 0 !important;
             word-break: normal !important;
             overflow-wrap: break-word !important;
           }
 
-          html[data-layout-mode="mobile"] .seller-kpi-card p:first-child,
-          html[data-layout-mode="auto"] .seller-kpi-card p:first-child {
-            font-size: 0.7rem !important;
+          html[data-layout-mode="mobile"] .seller-kpi-title,
+          html[data-layout-mode="auto"] .seller-kpi-title {
+            font-size: 0.52rem !important;
             line-height: 1.2 !important;
-            letter-spacing: 0.12em !important;
+            letter-spacing: 0.1em !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-flip-hint,
+          html[data-layout-mode="auto"] .seller-kpi-flip-hint {
+            width: 1.35rem !important;
+            height: 1.35rem !important;
+            border-radius: 0.65rem !important;
+            font-size: 0.55rem !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-card svg,
           html[data-layout-mode="auto"] .seller-kpi-card svg {
-            height: 4.1rem !important;
-            max-height: 4.1rem !important;
+            height: 2.7rem !important;
+            max-height: 2.7rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-metric,
+          html[data-layout-mode="auto"] .seller-kpi-metric {
+            margin-top: 0.15rem !important;
+            font-size: 0.95rem !important;
+            line-height: 1 !important;
+            max-height: 1.1rem !important;
+            overflow: hidden !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-insight,
+          html[data-layout-mode="auto"] .seller-kpi-insight {
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2 !important;
+            -webkit-box-orient: vertical !important;
+            margin-top: 0.3rem !important;
+            font-size: 0.58rem !important;
+            line-height: 1.16 !important;
+            max-height: 1.38rem !important;
+            overflow: hidden !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-kpi-tap-hint,
+          html[data-layout-mode="auto"] .seller-kpi-tap-hint {
+            display: none !important;
           }
 
           html[data-layout-mode="mobile"] .seller-money-summary-grid,
