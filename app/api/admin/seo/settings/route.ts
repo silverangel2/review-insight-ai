@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 import {
   hasAdminSeoDatabase,
   readAdminSeoSettings,
@@ -8,7 +9,13 @@ import {
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   try {
     const result = await readAdminSeoSettings();
 
@@ -32,6 +39,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
 

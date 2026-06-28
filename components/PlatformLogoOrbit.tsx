@@ -151,20 +151,20 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
 
         @media (max-width: 640px) {
           .ri-orbit-section {
-            min-height: 430px !important;
-            border-radius: 1.7rem !important;
-            padding: 1.25rem 0.75rem !important;
+            min-height: 330px !important;
+            border-radius: 1.25rem !important;
+            padding: 1rem 0 !important;
           }
 
           .ri-orbit-title {
-            max-width: 19rem !important;
+            max-width: 18rem !important;
           }
 
           .ri-orbit-title h2 {
-            margin-top: 0.85rem !important;
-            font-size: 1.55rem !important;
-            line-height: 1.05 !important;
-            letter-spacing: -0.05em !important;
+            margin-top: 0.65rem !important;
+            font-size: 1.35rem !important;
+            line-height: 1.08 !important;
+            letter-spacing: 0 !important;
           }
 
           .ri-orbit-title p {
@@ -173,34 +173,36 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
           }
 
           .ri-carousel-window {
-            margin-top: 1.25rem !important;
-            padding-top: 1.7rem !important;
-            padding-bottom: 1.7rem !important;
+            margin-top: 0.7rem !important;
+            padding-top: 0.75rem !important;
+            padding-bottom: 0.85rem !important;
+          }
+
+          .ri-carousel-window > div:first-child,
+          .ri-carousel-window > div:nth-child(2) {
+            width: 2.5rem !important;
           }
 
           .ri-carousel-track {
-            gap: 1rem !important;
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-            animation-duration: 20s !important;
+            gap: 0.65rem !important;
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+            animation-duration: 12s !important;
           }
 
           .ri-flip-shell {
-            width: 8.2rem !important;
-            height: 9.25rem !important;
+            width: 6.35rem !important;
+            height: 7.15rem !important;
           }
 
-          .ri-glass-card:nth-child(odd) {
-            animation-duration: 7.5s !important;
-          }
-
-          .ri-glass-card:nth-child(even) {
-            animation-duration: 8.2s !important;
+          .ri-glass-card {
+            animation-name: none !important;
+            transform: none !important;
           }
 
           .ri-card-face {
-            border-radius: 1.35rem !important;
-            padding: 0.85rem !important;
+            border-radius: 1rem !important;
+            padding: 0.65rem !important;
           }
 
           .ri-card-face > div[style],
@@ -209,42 +211,38 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
           }
 
           .ri-logo-mark {
-            width: 3.1rem !important;
-            height: 3.1rem !important;
-            border-radius: 1rem !important;
-            font-size: 1.55rem !important;
+            width: 2.4rem !important;
+            height: 2.4rem !important;
+            border-radius: 0.85rem !important;
+            font-size: 1.2rem !important;
           }
 
           .ri-platform-name {
-            margin-top: 0.75rem !important;
-            font-size: 0.9rem !important;
+            margin-top: 0.5rem !important;
+            font-size: 0.78rem !important;
             line-height: 1.05 !important;
           }
 
           .ri-platform-sub {
-            margin-top: 0.35rem !important;
-            font-size: 0.48rem !important;
+            margin-top: 0.25rem !important;
+            font-size: 0.42rem !important;
             letter-spacing: 0.12em !important;
           }
 
           .ri-review-text {
-            margin-top: 0.65rem !important;
-            font-size: 0.68rem !important;
-            line-height: 1.35 !important;
+            margin-top: 0.45rem !important;
+            font-size: 0.58rem !important;
+            line-height: 1.25 !important;
           }
 
           .ri-review-chip {
-            font-size: 0.48rem !important;
+            font-size: 0.42rem !important;
             line-height: 1.15 !important;
-            padding: 0.45rem 0.55rem !important;
+            padding: 0.35rem 0.45rem !important;
           }
 
           .ri-center-core {
-            width: 7.15rem !important;
-            height: 7.15rem !important;
-            border-radius: 1.45rem !important;
-            left: 50% !important;
-            top: 52% !important;
+            display: none !important;
           }
 
           .ri-center-core > div:nth-child(2) {

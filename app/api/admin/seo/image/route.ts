@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextResponse } from "next/server";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 
 const allowedTypes = new Map([
   ["image/png", "png"],
@@ -11,6 +12,12 @@ const allowedTypes = new Map([
 ]);
 
 export async function POST(request: Request) {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("image");
 

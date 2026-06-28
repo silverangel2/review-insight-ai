@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getClientAccount } from "@/lib/clientAccount";
 
 type ClientAccountShape = {
@@ -9,15 +9,6 @@ type ClientAccountShape = {
   role?: string | null;
   plan?: string | null;
 };
-
-function permissionKey(account: ClientAccountShape | null) {
-  const identity = String(account?.email || account?.name || "guest").trim().toLowerCase();
-
-  // Stable per-account device permission.
-  // Do not include role/plan because beta/subscription/deployment changes can make
-  // the app think this is a new permission.
-  return `reviewintel:private-file-access:${identity}`;
-}
 
 function getCurrentAccount(): ClientAccountShape | null {
   try {
@@ -40,42 +31,42 @@ const privateAccessCopy: Record<PrivateAccessLanguage, {
     eyebrow: "One-time access",
     titlePrefix: "Private access for",
     fallbackAccount: "this account",
-    body: "ReviewIntel wants to access private photos, folders, screenshots, or CSV files from this device. This permission is saved only for this account on this device.",
+    body: "ReviewIntel will open your file picker for the next photo, screenshot, folder, TXT, or CSV only. This approval is not saved and does not give ongoing access.",
     allow: "Allow private file access"
   },
   fr: {
     eyebrow: "Accès unique",
     titlePrefix: "Accès privé pour",
     fallbackAccount: "ce compte",
-    body: "ReviewIntel souhaite accéder aux photos privées, dossiers, captures d’écran ou fichiers CSV de cet appareil. Cette autorisation est enregistrée uniquement pour ce compte sur cet appareil.",
+    body: "ReviewIntel ouvrira le sélecteur de fichiers pour la prochaine photo, capture, dossier, fichier TXT ou CSV seulement. Cette autorisation n’est pas enregistrée et ne donne pas d’accès permanent.",
     allow: "Autoriser l’accès aux fichiers privés"
   },
   es: {
     eyebrow: "Acceso único",
     titlePrefix: "Acceso privado para",
     fallbackAccount: "esta cuenta",
-    body: "ReviewIntel quiere acceder a fotos privadas, carpetas, capturas de pantalla o archivos CSV de este dispositivo. Este permiso se guarda solo para esta cuenta en este dispositivo.",
+    body: "ReviewIntel abrirá el selector de archivos solo para la próxima foto, captura, carpeta, TXT o CSV. Este permiso no se guarda y no concede acceso continuo.",
     allow: "Permitir acceso a archivos privados"
   },
   zh: {
     eyebrow: "一次性访问",
     titlePrefix: "私人访问：",
     fallbackAccount: "此账户",
-    body: "ReviewIntel 想要访问此设备上的私人照片、文件夹、截图或 CSV 文件。此权限只会为此账户保存在此设备上。",
+    body: "ReviewIntel 只会为下一张照片、截图、文件夹、TXT 或 CSV 打开文件选择器。此授权不会保存，也不会提供持续访问权限。",
     allow: "允许访问私人文件"
   },
   de: {
     eyebrow: "Einmaliger Zugriff",
     titlePrefix: "Privater Zugriff für",
     fallbackAccount: "dieses Konto",
-    body: "ReviewIntel möchte auf private Fotos, Ordner, Screenshots oder CSV-Dateien auf diesem Gerät zugreifen. Diese Berechtigung wird nur für dieses Konto auf diesem Gerät gespeichert.",
+    body: "ReviewIntel öffnet die Dateiauswahl nur für das nächste Foto, den nächsten Screenshot, Ordner, TXT- oder CSV-Upload. Diese Zustimmung wird nicht gespeichert und erlaubt keinen dauerhaften Zugriff.",
     allow: "Privaten Dateizugriff erlauben"
   },
   hi: {
     eyebrow: "One-time access",
     titlePrefix: "Private access for",
     fallbackAccount: "this account",
-    body: "ReviewIntel इस device से private photos, folders, screenshots या CSV files access करना चाहता है। यह permission सिर्फ इस account के लिए इसी device पर save होगी।",
+    body: "ReviewIntel सिर्फ अगले photo, screenshot, folder, TXT या CSV के लिए file picker खोलेगा। यह approval save नहीं होगा और ongoing access नहीं देगा।",
     allow: "Private file access allow करें"
   }
 };
@@ -117,13 +108,7 @@ export default function AccountWorkspacePermission() {
     return `${copy.titlePrefix} ${label}`;
   }, [account, copy.fallbackAccount, copy.titlePrefix]);
 
-  function isApproved(nextAccount: ClientAccountShape | null) {
-    if (typeof window === "undefined") return false;
-    if (!nextAccount?.email && !nextAccount?.name) return false;
-    return window.localStorage.getItem(permissionKey(nextAccount)) === "approved";
-  }
-
-  function requestPrivateFileAccess(input?: HTMLInputElement | null) {
+  const requestPrivateFileAccess = useCallback((input?: HTMLInputElement | null) => {
     const latestAccount = getCurrentAccount();
     setLanguage(getPrivateAccessLanguage());
     setAccount(latestAccount);
@@ -131,23 +116,11 @@ export default function AccountWorkspacePermission() {
 
     if (!latestAccount?.email && !latestAccount?.name) return;
 
-    if (!isApproved(latestAccount)) {
-      setVisible(true);
-      return;
-    }
-
-    if (input) {
-      input.click();
-    }
-  }
+    setVisible(true);
+  }, []);
 
   function allowPrivateFileAccess() {
     if (typeof window === "undefined") return;
-
-    const latestAccount = account ?? getCurrentAccount();
-    if (latestAccount?.email || latestAccount?.name) {
-      window.localStorage.setItem(permissionKey(latestAccount), "approved");
-    }
 
     setVisible(false);
 
@@ -172,24 +145,28 @@ export default function AccountWorkspacePermission() {
     return () => {
       window.removeEventListener("reviewintel:private-file-access-request", onPrivateFileAccessRequest);
     };
-  }, []);
+  }, [requestPrivateFileAccess]);
 
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-x-4 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-[9998] mx-auto max-w-sm rounded-3xl border border-white/60 bg-white/55 p-4 text-black shadow-2xl backdrop-blur-2xl md:hidden">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-black/55">{copy.eyebrow}</p>
-      <h2 className="mt-1 text-lg font-black text-black">{title}</h2>
-      <p className="mt-2 text-sm font-semibold leading-5 text-black/70">
+    <div className="fixed inset-x-4 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-[9998] mx-auto max-w-md overflow-hidden rounded-[1.75rem] border border-white/70 bg-white/70 p-4 text-black shadow-[0_24px_90px_rgba(15,23,42,0.24)] backdrop-blur-2xl">
+      <div className="pointer-events-none absolute -left-12 -top-12 h-32 w-32 rounded-full bg-cyan-300/35 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-14 right-4 h-36 w-36 rounded-full bg-amber-300/35 blur-2xl" />
+      <div className="relative">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{copy.eyebrow}</p>
+      <h2 className="mt-1 text-lg font-black text-ink">{title}</h2>
+      <p className="mt-2 text-sm font-semibold leading-5 text-slate-700">
         {copy.body}
       </p>
       <button
         type="button"
         onClick={allowPrivateFileAccess}
-        className="mt-4 w-full rounded-2xl bg-black px-4 py-3 text-sm font-black text-white"
+        className="mt-4 w-full rounded-2xl bg-[linear-gradient(135deg,#08b7a8,#2356a3)] px-4 py-3 text-sm font-black text-white shadow-[0_14px_35px_rgba(35,86,163,0.24)]"
       >
         {copy.allow}
       </button>
+      </div>
     </div>
   );
 }

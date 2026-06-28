@@ -8,6 +8,7 @@ import {
   defaultAdSettings,
   reviewIntelPlaceholderAds,
 } from "@/lib/adConfig";
+import { COOKIE_CONSENT_EVENT, hasOptionalCookieConsent } from "@/lib/cookieConsent";
 import type { LiveAdSettings } from "@/lib/adSettingsStore";
 
 declare global {
@@ -78,19 +79,41 @@ function pickRotatingAd(ads: SponsorAd[], placement: AdPlacement) {
 function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
   const client = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT;
   const slot = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT;
+  const [canLoadGoogleAds, setCanLoadGoogleAds] = useState(false);
 
   useEffect(() => {
-    if (!client || !slot) return;
+    setCanLoadGoogleAds(hasOptionalCookieConsent());
+
+    function onConsentChange() {
+      setCanLoadGoogleAds(hasOptionalCookieConsent());
+    }
+
+    window.addEventListener(COOKIE_CONSENT_EVENT, onConsentChange);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onConsentChange);
+  }, []);
+
+  useEffect(() => {
+    if (!client || !slot || !canLoadGoogleAds) return;
 
     try {
+      const scriptId = "reviewintel-google-adsense";
+      if (!document.getElementById(scriptId)) {
+        const script = document.createElement("script");
+        script.id = scriptId;
+        script.async = true;
+        script.crossOrigin = "anonymous";
+        script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`;
+        document.head.appendChild(script);
+      }
+
       window.adsbygoogle = window.adsbygoogle || [];
       window.adsbygoogle.push({});
     } catch {
       // Google may block ads locally or before approval. Safe to ignore.
     }
-  }, [client, slot]);
+  }, [canLoadGoogleAds, client, slot]);
 
-  if (!client || !slot) {
+  if (!client || !slot || !canLoadGoogleAds) {
     return null;
   }
 

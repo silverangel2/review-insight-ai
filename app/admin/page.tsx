@@ -82,6 +82,28 @@ export default async function AdminPage() {
       experience="admin"
     >
       <div className="space-y-6">
+        <section className="rounded-3xl border border-cyan-200 bg-[linear-gradient(135deg,rgba(8,183,168,0.12),rgba(35,86,163,0.08),rgba(255,178,56,0.12))] p-5 shadow-soft dark:border-cyan-300/20 dark:bg-white/[0.04]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
+                Beta control
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">
+                Fast access to beta shoppers and beta sellers
+              </h2>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+                Review active beta users, feedback, surveys, expiry dates, and customer observations from one clean panel.
+              </p>
+            </div>
+            <Link
+              href="/admin/beta"
+              className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-ocean dark:bg-white dark:text-ink"
+            >
+              Open Beta Panel
+            </Link>
+          </div>
+        </section>
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {primaryTools.map((tool) => (
             <Link

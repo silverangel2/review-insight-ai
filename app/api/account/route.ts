@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizePlan, normalizeRole } from "@/lib/account";
+import { readAccountSession } from "@/lib/accountSession";
 import { isSupabaseConfigured, readPersistentQuota, supabaseSelect, supabaseUpsert } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -50,11 +51,49 @@ function testAccountOverride(email: string) {
 
 
 function readHeaderAccount(request: NextRequest) {
-  const email = request.headers.get("x-reviewintel-email") || request.headers.get("x-user-email") || "";
+  const email = normalizeEmail(request.headers.get("x-reviewintel-email") || request.headers.get("x-user-email") || "");
   const plan = normalizePlan(request.headers.get("x-reviewintel-plan") || "free_buyer");
   const role = request.headers.get("x-reviewintel-role") || (plan.includes("seller") ? "seller" : "buyer");
   const name = request.headers.get("x-reviewintel-name") || "";
   return { email, plan, role, name };
+}
+
+function normalizeEmail(value: unknown) {
+  const email = String(value || "").toLowerCase().trim();
+  return email === "guest" ? "" : email;
+}
+
+function sessionBackedAccount(request: NextRequest) {
+  const session = readAccountSession(request);
+  const headerAccount = readHeaderAccount(request);
+  const sessionEmail = normalizeEmail(session?.email);
+  const headerEmail = normalizeEmail(headerAccount.email);
+
+  if (!sessionEmail) {
+    return {
+      error: headerEmail
+        ? NextResponse.json({ error: "Signed account session required." }, { status: 401 })
+        : null,
+      account: null as null | { email: string; plan: string; role: string; name: string }
+    };
+  }
+
+  if (headerEmail && headerEmail !== sessionEmail) {
+    return {
+      error: NextResponse.json({ error: "You are not allowed to access another account." }, { status: 403 }),
+      account: null as null | { email: string; plan: string; role: string; name: string }
+    };
+  }
+
+  return {
+    error: null,
+    account: {
+      email: sessionEmail,
+      plan: normalizePlan(session?.plan || headerAccount.plan || "free_buyer"),
+      role: normalizeRole(session?.role || headerAccount.role || "buyer"),
+      name: session?.name || headerAccount.name || ""
+    }
+  };
 }
 
 function asString(value: unknown) {
@@ -99,8 +138,18 @@ function clientAccountFromProfile(profile: Record<string, unknown>, fallback: { 
 }
 
 export async function GET(request: NextRequest) {
-  const headerAccount = readHeaderAccount(request);
-  const testOverride = headerAccount.email ? testAccountOverride(headerAccount.email) : null;
+  const sessionAccount = sessionBackedAccount(request);
+  if (sessionAccount.error) return sessionAccount.error;
+
+  if (!sessionAccount.account?.email) {
+    return NextResponse.json({
+      account: null,
+      source: "none"
+    });
+  }
+
+  const headerAccount = sessionAccount.account;
+  const testOverride = testAccountOverride(headerAccount.email);
 
   const effectiveHeaderAccount = testOverride
     ? {
@@ -113,13 +162,6 @@ export async function GET(request: NextRequest) {
         testAccount: true
       }
     : headerAccount;
-
-  if (!effectiveHeaderAccount.email) {
-    return NextResponse.json({
-      account: null,
-      source: "none"
-    });
-  }
 
   if (!isSupabaseConfigured()) {
     return NextResponse.json({
@@ -192,11 +234,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const headerAccount = readHeaderAccount(request);
-  const email = String(body.email || request.headers.get("x-reviewintel-email") || "").trim();
+  const sessionAccount = sessionBackedAccount(request);
+  if (sessionAccount.error) return sessionAccount.error;
+
+  const headerAccount = sessionAccount.account ?? readHeaderAccount(request);
+  const requestedEmail = normalizeEmail(body.email || request.headers.get("x-reviewintel-email") || "");
+  const email = headerAccount.email;
 
   if (!email) {
-    return NextResponse.json({ error: "Email is required." }, { status: 400 });
+    return NextResponse.json({ error: "Signed account session required." }, { status: 401 });
+  }
+
+  if (requestedEmail && requestedEmail !== email) {
+    return NextResponse.json({ error: "You are not allowed to update another account." }, { status: 403 });
   }
 
   const postTestOverride = testAccountOverride(email);

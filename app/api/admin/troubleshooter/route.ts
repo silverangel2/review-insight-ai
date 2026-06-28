@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,12 @@ function extractText(payload: unknown) {
 }
 
 export async function POST(request: Request) {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   let question = "";
 
   try {

@@ -1,5 +1,6 @@
 import LayoutModeProvider from "@/components/LayoutModeProvider";
 import AccountWorkspacePermission from "@/components/AccountWorkspacePermission";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getMessages} from "next-intl/server";
 import type { Metadata } from "next";
@@ -14,8 +15,6 @@ import { SellerResultHistoryCorner } from "@/components/SellerResultHistoryCorne
 import MobileTinyNav from "@/components/mobile/MobileTinyNav";
 import MobileUtilityMenu from "@/components/mobile/MobileUtilityMenu";
 import SessionIdleLogout from "@/components/SessionIdleLogout";
-
-const googleAdsenseClient = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT || "ca-pub-5711144364755686";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -54,15 +53,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang={locale} data-scroll-behavior="smooth">
-      {googleAdsenseClient ? (
-        <script
-          id="google-adsense"
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${googleAdsenseClient}`}
-          crossOrigin="anonymous"
-        />
-      ) : null}
-
 <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
         <LocaleSync initialLocale={locale} />
@@ -90,7 +80,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <LayoutModeProvider>
           <MobileTinyNav />
           <SessionIdleLogout />
-          <MobileUtilityMenu />{children}<AccountWorkspacePermission /></LayoutModeProvider>
+          <MobileUtilityMenu />{children}<AccountWorkspacePermission /><CookieConsentBanner /></LayoutModeProvider>
           <SellerResultHistoryCorner />
           <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact />
         <SiteFooter />

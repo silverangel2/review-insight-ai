@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adPackages, type AdPackageId } from "@/lib/adConfig";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { supabaseFetch } from "@/lib/supabaseServer";
 
 type AdminAdvertisingBody = {
@@ -126,7 +127,13 @@ async function readEventStats() {
   }, {});
 }
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   try {
     const [applications, ads, stats] = await Promise.all([
       readRows("/rest/v1/advertiser_applications?select=*&order=created_at.desc"),
@@ -154,6 +161,12 @@ export async function GET(): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   try {
     const body = (await request.json()) as AdminAdvertisingBody;
     const action = body.action;

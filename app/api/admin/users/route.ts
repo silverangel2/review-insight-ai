@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizePlan } from "@/lib/account";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
 import {isSupabaseConfigured,
   scanUsageForEmail,
@@ -27,13 +28,18 @@ type ProfileRow = {
   monthly_scan_count?: number | null;
   last_scan_at?: string | null;
   updated_at?: string | null;
+  subscription_status?: string | null;
+  beta_original_plan?: string | null;
+  beta_original_status?: string | null;
 };
 
 function planLabel(plan?: string | null) {
   if (plan === "seller_pro") return "Seller Pro";
-  if (plan === "seller_starter") return "Seller Premium";
+  if (plan === "seller_starter" || plan === "seller_premium") return "Seller Premium";
+  if (plan === "seller_beta") return "Beta Seller Premium";
   if (plan === "buyer_pro") return "Shopper Premium";
-    return "Shopper Free";
+  if (plan === "buyer_beta") return "Beta Shopper Premium";
+  return "Shopper Free";
 }
 
 function roleLabel(role?: string | null) {
@@ -46,9 +52,9 @@ function normalizeEmail(value: unknown) {
   return String(value || "").toLowerCase().trim();
 }
 
-async function logAdminAction(action: string, targetEmail: string, reason?: string) {
+async function logAdminAction(adminEmail: string, action: string, targetEmail: string, reason?: string) {
   await supabaseInsert("admin_audit_logs", {
-    admin_email: "owner",
+    admin_email: adminEmail || "owner",
     target_email: targetEmail,
     action,
     reason: reason || "",
@@ -58,7 +64,13 @@ async function logAdminAction(action: string, targetEmail: string, reason?: stri
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json({
       users: [],
@@ -69,7 +81,7 @@ export async function GET() {
 
   const profiles = await supabaseSelect<ProfileRow>(
     "profiles",
-    "select=email,name,role,plan,created_at,last_login,marketing_consent,status,ban_reason,suspended_reason,admin_notes,force_logout_at,daily_scan_count,monthly_scan_count,last_scan_at,updated_at&order=created_at.desc"
+    "select=email,name,role,plan,created_at,last_login,marketing_consent,status,ban_reason,suspended_reason,admin_notes,force_logout_at,daily_scan_count,monthly_scan_count,last_scan_at,updated_at,subscription_status,beta_original_plan,beta_original_status&order=created_at.desc"
   );
 
   const users = await Promise.all(profiles.map(async (profile, index) => {
@@ -107,6 +119,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
@@ -130,6 +148,14 @@ export async function POST(request: Request) {
     email,
     updated_at: now,
   };
+
+  const profileRows = await supabaseSelect<ProfileRow>(
+    "profiles",
+    `select=role,plan,subscription_status,beta_original_plan,beta_original_status&email=eq.${encodeURIComponent(email)}&limit=1`
+  ).catch(() => []);
+  const currentProfile = profileRows[0];
+  const storedPlan = normalizePlan(String(currentProfile?.plan || plan || "free_buyer"));
+  const storedStatus = String(currentProfile?.subscription_status || "active");
 
   let update: Record<string, unknown> = {};
   let actionQuota: unknown = null;
@@ -179,24 +205,31 @@ export async function POST(request: Request) {
     const nowDate = new Date();
     const betaExpiresAt = new Date(nowDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const isRemovingBeta = action === "remove_beta";
-    const currentPlan = plan || "free_buyer";
-    const fallbackPlan = currentPlan.startsWith("seller") ? "seller_premium" : "free_buyer";
+    const originalPlan = normalizePlan(String(currentProfile?.beta_original_plan || ""));
+    const originalStatus = String(currentProfile?.beta_original_status || storedStatus || "active");
+    const fallbackPlan = storedPlan.startsWith("seller") ? "seller_premium" : "free_buyer";
+    const restorePlan = originalPlan && originalPlan !== "buyer_beta" && originalPlan !== "seller_beta"
+      ? originalPlan
+      : fallbackPlan;
+    const betaOriginalPlan = storedPlan === "buyer_beta" || storedPlan === "seller_beta"
+      ? originalPlan || fallbackPlan
+      : storedPlan;
     const betaPlan =
       action === "make_beta_shopper"
         ? "buyer_beta"
         : action === "make_beta_seller"
           ? "seller_beta"
-          : fallbackPlan;
+          : restorePlan;
 
     update = {
       ...baseUpdate,
       plan: betaPlan,
       subscription_plan: betaPlan,
-      subscription_status: isRemovingBeta ? "active" : "beta",
+      subscription_status: isRemovingBeta ? originalStatus || "active" : "beta",
       beta_started_at: isRemovingBeta ? null : nowDate.toISOString(),
       beta_expires_at: isRemovingBeta ? null : betaExpiresAt,
-      beta_original_plan: isRemovingBeta ? null : currentPlan,
-      beta_original_status: isRemovingBeta ? null : "active",
+      beta_original_plan: isRemovingBeta ? null : betaOriginalPlan,
+      beta_original_status: isRemovingBeta ? null : storedStatus || "active",
       beta_last_notified_at: null,
       beta_last_survey_sent_at: isRemovingBeta ? null : null,
       beta_survey_count: isRemovingBeta ? 0 : 0,
@@ -221,7 +254,7 @@ export async function POST(request: Request) {
   }
 
   await supabaseUpsert("profiles", update);
-  await logAdminAction(action, email, reason || note);
+  await logAdminAction(adminSession.email, action, email, reason || note);
 
   if (action === "make_beta_shopper" || action === "make_beta_seller") {
     const betaPlanName = action === "make_beta_shopper" ? "Beta Shopper Premium" : "Beta Seller Premium";
