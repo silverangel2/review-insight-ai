@@ -21,6 +21,7 @@ type ProfileAccessRow = {
   plan?: unknown;
   subscription_status?: unknown;
   status?: unknown;
+  beta_expires_at?: unknown;
 };
 
 type VisionFacts = {
@@ -31,10 +32,22 @@ type VisionFacts = {
   price: string;
   rating: string;
   reviewCount: string;
+  priceBelongsToProduct: boolean;
+  ratingBelongsToProduct: boolean;
+  reviewCountBelongsToProduct: boolean;
   visibleFeatures: string[];
   visibleBadges: string[];
+  identityWarnings: string[];
   normalizedSearchQuery: string;
   imageConfidence: number;
+};
+
+type ResearchQuality = {
+  evidenceLevel: "verified" | "limited" | "screenshot_only" | "product_mismatch";
+  exactProductMatch: boolean;
+  sourceCount: number;
+  citationCount: number;
+  notes: string[];
 };
 
 function asRecord(value: unknown): JsonRecord {
@@ -49,21 +62,68 @@ function asTextArray(value: unknown, limit: number) {
   return asArray(value).slice(0, limit).map(String).filter(Boolean);
 }
 
+function uniqueTextArray(values: string[], limit: number) {
+  const seen = new Set<string>();
+  const clean: string[] = [];
+
+  for (const value of values) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    const key = text.toLowerCase();
+    if (!text || /^turn\d+(search|view|fetch|source)\d*$/i.test(text) || seen.has(key)) continue;
+    seen.add(key);
+    clean.push(text);
+    if (clean.length >= limit) break;
+  }
+
+  return clean;
+}
+
 function readString(source: JsonRecord, key: string) {
   return String(source[key] || "");
+}
+
+function readKnownString(source: JsonRecord, key: string) {
+  const value = readString(source, key).trim();
+  return /^(not specified|not shown|unknown|n\/a|none|null|not available)$/i.test(value) ? "" : value;
+}
+
+function normalizeConfidence(value: unknown) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return clampScore(number > 0 && number <= 1 ? number * 100 : number);
+}
+
+function readBoolean(source: JsonRecord, key: string, fallback = false) {
+  const value = source[key];
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function isShopperPremiumTestAccount(email: string) {
   return email.trim().toLowerCase() === "shopper.premium@reviewintel.test";
 }
 
-function hasActivePaidAccess(profile: ProfileAccessRow, plan: SubscriptionPlan) {
-  if (plan === "free_buyer") return true;
+function isReviewIntelTestAccount(email: string) {
+  return email.trim().toLowerCase().endsWith("@reviewintel.test");
+}
 
+function hasActivePaidAccess(profile: ProfileAccessRow, plan: SubscriptionPlan) {
   const accountStatus = String(profile.status ?? "active").toLowerCase();
   const subscriptionStatus = String(profile.subscription_status ?? "").toLowerCase();
 
   if (["banned", "suspended", "disabled"].includes(accountStatus)) return false;
+
+  if (plan === "free_buyer") return true;
+
+  if (plan === "buyer_beta" || plan === "seller_beta") {
+    const expiresAt = String(profile.beta_expires_at ?? "").trim();
+    if (!expiresAt) return subscriptionStatus === "beta";
+
+    const expiry = new Date(expiresAt);
+    if (!Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now()) {
+      return true;
+    }
+  }
+
   return ["active", "trialing", "developer"].includes(subscriptionStatus);
 }
 
@@ -84,21 +144,21 @@ async function resolveAnalyzeAccount(
     return { email, plan: requestedPlan, role: requestedRole };
   }
 
-  if (isShopperPremiumTestAccount(email)) {
-    return {
-      email: email.trim().toLowerCase(),
-      plan: "buyer_pro" as const,
-      role: "buyer" as const,
-    };
-  }
-
   const rows = await supabaseSelect<ProfileAccessRow>(
     "profiles",
-    `select=role,plan,subscription_status,status&email=eq.${encodeURIComponent(email)}&limit=1`,
+    `select=role,plan,subscription_status,status,beta_expires_at&email=eq.${encodeURIComponent(email)}&limit=1`,
   );
   const profile = rows[0];
 
   if (!profile) {
+    if (isShopperPremiumTestAccount(email)) {
+      return {
+        email: email.trim().toLowerCase(),
+        plan: "buyer_pro" as const,
+        role: "buyer" as const,
+      };
+    }
+
     return { email, plan: "free_buyer" as const, role: "buyer" as const };
   }
 
@@ -181,6 +241,7 @@ function attachLanguageMeta<T extends JsonRecord>(result: T, locale: string, out
       audience: "buyer",
       locale: normalizedLocaleCode(locale),
       outputLanguage,
+      researchQuality: asRecord(result.researchQuality),
       generatedAt: new Date().toISOString()
     }
   };
@@ -415,10 +476,10 @@ function normalizeResult(rawValue: unknown, vision: VisionFacts, locale = "en") 
       name: readString(product, "name") || vision.name,
       brand: readString(product, "brand") || vision.brand,
       category: readString(product, "category") || vision.category,
-      store: vision.store || readString(product, "store"),
-      price: vision.price || readString(product, "price"),
-      rating: vision.rating || readString(product, "rating"),
-      reviewCount: vision.reviewCount || readString(product, "reviewCount"),
+      store: vision.store || readKnownString(product, "store"),
+      price: vision.price,
+      rating: vision.rating,
+      reviewCount: vision.reviewCount,
       imageConfidence: vision.imageConfidence
     },
     verdict,
@@ -436,7 +497,44 @@ function normalizeResult(rawValue: unknown, vision: VisionFacts, locale = "en") 
     bestFor: asTextArray(raw.bestFor, 4),
     notIdealFor: asTextArray(raw.notIdealFor, 4),
     bottomLine: String(raw.bottomLine || fallbackCopy.needMoreEvidence),
-    sourcesUsed: asTextArray(raw.sourcesUsed, 10)
+    sourcesUsed: normalizeSources(raw),
+    researchQuality: normalizeResearchQuality(raw)
+  };
+}
+
+function normalizeSources(raw: JsonRecord) {
+  return uniqueTextArray([
+    ...asTextArray(raw.sourcesUsed, 12),
+    ...asTextArray(raw._webCitations, 12)
+  ], 12);
+}
+
+function normalizeResearchQuality(raw: JsonRecord): ResearchQuality {
+  const research = asRecord(raw.researchQuality);
+  const sourcesUsed = normalizeSources(raw);
+  const citationCount = asTextArray(raw._webCitations, 20).length;
+  const rawLevel = String(research.evidenceLevel || "").toLowerCase();
+  let evidenceLevel: ResearchQuality["evidenceLevel"] =
+    rawLevel === "verified" || rawLevel === "limited" || rawLevel === "screenshot_only" || rawLevel === "product_mismatch"
+      ? rawLevel
+      : sourcesUsed.length >= 2
+        ? "verified"
+        : sourcesUsed.length === 1
+          ? "limited"
+          : "screenshot_only";
+
+  if (!sourcesUsed.length && citationCount === 0) {
+    evidenceLevel = "screenshot_only";
+  } else if (evidenceLevel === "verified" && sourcesUsed.length < 2) {
+    evidenceLevel = "limited";
+  }
+
+  return {
+    evidenceLevel,
+    exactProductMatch: readBoolean(research, "exactProductMatch", evidenceLevel !== "product_mismatch"),
+    sourceCount: sourcesUsed.length,
+    citationCount,
+    notes: uniqueTextArray(asTextArray(research.notes, 6), 6)
   };
 }
 
@@ -544,6 +642,74 @@ function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
   }
 
   return { productScore, buyingConfidence, verdict };
+}
+
+function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithScores>, locale = "en") {
+  const quality = result.researchQuality;
+  const sourceCount = Math.max(result.sourcesUsed.length, quality?.sourceCount || 0);
+  const evidenceLevel = quality?.evidenceLevel || "screenshot_only";
+  const exactMatch = quality?.exactProductMatch !== false;
+  const canRewriteCopy = normalizedLocaleCode(locale) === "en";
+
+  let verdict = result.verdict;
+  let productScore = clampScore(result.productScore);
+  let buyingConfidence = clampScore(result.buyingConfidence);
+  let valueForMoney = result.valueForMoney;
+  let bottomLine = result.bottomLine;
+  let topComplaints = result.topComplaints;
+  let notIdealFor = result.notIdealFor;
+
+  if (evidenceLevel === "product_mismatch" || !exactMatch) {
+    verdict = productScore < 45 ? "AVOID" : "CONSIDER";
+    productScore = Math.min(productScore, 54);
+    buyingConfidence = Math.min(buyingConfidence, 45);
+    valueForMoney = valueForMoney === "Excellent" ? "Fair" : valueForMoney;
+
+    if (canRewriteCopy) {
+      bottomLine =
+        "ReviewIntel could not confidently match the screenshot to the public web evidence. Do not rely on this as a buy signal yet; upload the exact product page or paste the product link.";
+      topComplaints = uniqueTextArray([
+        "Product identity is uncertain across sources.",
+        "Visible screenshot details may belong to a nearby sponsored or different product.",
+        ...topComplaints
+      ], 6);
+      notIdealFor = uniqueTextArray([
+        "Anyone who needs a confident purchase decision from this scan.",
+        ...notIdealFor
+      ], 4);
+    }
+  } else if (evidenceLevel === "screenshot_only" || sourceCount === 0) {
+    if (verdict === "BUY") verdict = "CONSIDER";
+    productScore = Math.min(productScore, 59);
+    buyingConfidence = Math.min(buyingConfidence, 45);
+    if (valueForMoney === "Excellent") valueForMoney = "Fair";
+
+    if (canRewriteCopy) {
+      bottomLine =
+        "This scan did not find enough verified public review evidence. The screenshot identifies the product, but ReviewIntel needs web review sources or a product link before giving a confident buying verdict.";
+    }
+  } else if (evidenceLevel === "limited" || sourceCount < 2) {
+    if (verdict === "BUY") verdict = "CONSIDER";
+    productScore = Math.min(productScore, 69);
+    buyingConfidence = Math.min(buyingConfidence, 60);
+    if (valueForMoney === "Excellent") valueForMoney = "Good";
+
+    if (canRewriteCopy && result.verdict === "BUY") {
+      bottomLine =
+        "ReviewIntel found some public product evidence, but not enough matching review sources for a clean BUY. Compare alternatives and check the latest low-star reviews before purchasing.";
+    }
+  }
+
+  return {
+    ...result,
+    verdict,
+    productScore,
+    buyingConfidence,
+    valueForMoney,
+    bottomLine,
+    topComplaints,
+    notIdealFor
+  };
 }
 
 function hasSeriousBuyingComplaints(result: ReturnType<typeof normalizeResult>) {
@@ -830,8 +996,12 @@ const visionSchema = {
     price: { type: "string" },
     rating: { type: "string" },
     reviewCount: { type: "string" },
+    priceBelongsToProduct: { type: "boolean" },
+    ratingBelongsToProduct: { type: "boolean" },
+    reviewCountBelongsToProduct: { type: "boolean" },
     visibleFeatures: { type: "array", items: { type: "string" } },
     visibleBadges: { type: "array", items: { type: "string" } },
+    identityWarnings: { type: "array", items: { type: "string" } },
     normalizedSearchQuery: { type: "string" },
     imageConfidence: { type: "number" }
   },
@@ -843,8 +1013,12 @@ const visionSchema = {
     "price",
     "rating",
     "reviewCount",
+    "priceBelongsToProduct",
+    "ratingBelongsToProduct",
+    "reviewCountBelongsToProduct",
     "visibleFeatures",
     "visibleBadges",
+    "identityWarnings",
     "normalizedSearchQuery",
     "imageConfidence"
   ]
@@ -889,7 +1063,19 @@ const resultSchema = {
     bestFor: { type: "array", items: { type: "string" } },
     notIdealFor: { type: "array", items: { type: "string" } },
     bottomLine: { type: "string" },
-    sourcesUsed: { type: "array", items: { type: "string" } }
+    sourcesUsed: { type: "array", items: { type: "string" } },
+    researchQuality: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        evidenceLevel: { type: "string", enum: ["verified", "limited", "screenshot_only", "product_mismatch"] },
+        exactProductMatch: { type: "boolean" },
+        sourceCount: { type: "number" },
+        citationCount: { type: "number" },
+        notes: { type: "array", items: { type: "string" } }
+      },
+      required: ["evidenceLevel", "exactProductMatch", "sourceCount", "citationCount", "notes"]
+    }
   },
   required: [
     "product",
@@ -903,9 +1089,33 @@ const resultSchema = {
     "bestFor",
     "notIdealFor",
     "bottomLine",
-    "sourcesUsed"
+    "sourcesUsed",
+    "researchQuality"
   ]
 };
+
+function collectWebCitations(value: unknown, citations = new Map<string, string>()) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectWebCitations(item, citations);
+    return citations;
+  }
+
+  const record = asRecord(value);
+  if (!Object.keys(record).length) return citations;
+
+  const type = String(record.type || "").toLowerCase();
+  const url = String(record.url || "").trim();
+  if (url && (type.includes("url_citation") || "title" in record || "start_index" in record || "end_index" in record)) {
+    const title = String(record.title || "").trim();
+    citations.set(url, title ? `${title} (${url})` : url);
+  }
+
+  for (const child of Object.values(record)) {
+    if (child && typeof child === "object") collectWebCitations(child, citations);
+  }
+
+  return citations;
+}
 
 async function openAIResponse(payload: JsonRecord) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -947,24 +1157,41 @@ async function openAIResponse(payload: JsonRecord) {
     throw new Error("No structured analysis returned.");
   }
 
-  return JSON.parse(outputText) as unknown;
+  const parsed = JSON.parse(outputText) as unknown;
+  const citations = Array.from(collectWebCitations(data).values()).slice(0, 12);
+
+  if (citations.length && parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    return {
+      ...(parsed as JsonRecord),
+      _webCitations: citations
+    };
+  }
+
+  return parsed;
 }
 
 function normalizeVision(rawValue: unknown): VisionFacts {
   const raw = asRecord(rawValue);
+  const priceBelongsToProduct = readBoolean(raw, "priceBelongsToProduct", false);
+  const ratingBelongsToProduct = readBoolean(raw, "ratingBelongsToProduct", false);
+  const reviewCountBelongsToProduct = readBoolean(raw, "reviewCountBelongsToProduct", false);
 
   return {
     name: readString(raw, "name"),
     brand: readString(raw, "brand"),
     category: readString(raw, "category"),
     store: readString(raw, "store"),
-    price: readString(raw, "price"),
-    rating: readString(raw, "rating"),
-    reviewCount: readString(raw, "reviewCount"),
+    price: priceBelongsToProduct ? readString(raw, "price") : "",
+    rating: ratingBelongsToProduct ? readString(raw, "rating") : "",
+    reviewCount: reviewCountBelongsToProduct ? readString(raw, "reviewCount") : "",
+    priceBelongsToProduct,
+    ratingBelongsToProduct,
+    reviewCountBelongsToProduct,
     visibleFeatures: asTextArray(raw.visibleFeatures, 10),
     visibleBadges: asTextArray(raw.visibleBadges, 10),
+    identityWarnings: asTextArray(raw.identityWarnings, 8),
     normalizedSearchQuery: readString(raw, "normalizedSearchQuery"),
-    imageConfidence: clampScore(raw.imageConfidence)
+    imageConfidence: normalizeConfidence(raw.imageConfidence)
   };
 }
 
@@ -988,10 +1215,16 @@ Do not guess missing values.
 If a field is unclear, return an empty string.
 
 Important:
+- Identify the MAIN product being evaluated. The main product is usually the large product detail/listing area, not sponsored rows, recommendation cards, browser suggestions, carousel items, or nearby ads.
+- Do not copy price, rating, review count, brand, or title from a sponsored/nearby product if it is not the same product as the main listing.
+- Only copy price when that price is visually connected to the main product title/brand. If a visible price belongs to another product, return price as "" and priceBelongsToProduct as false.
+- Only copy rating and reviewCount when they are visually connected to the main product title/brand. If they belong to another product, return those fields as "" and their belongsToProduct flags as false.
+- If the screenshot shows a sponsored product above the real listing, ignore the sponsored product unless it is clearly the item being scanned.
 - If the browser/site shows Amazon.ca, return Amazon.ca.
 - Copy visible price exactly.
 - Copy visible rating exactly.
 - Copy visible review count exactly.
+- Add identityWarnings for ambiguous/mismatched visible facts, for example: "Visible price appears to belong to a sponsored product."
 - Build normalizedSearchQuery from visible brand + product title + model/category.
 `.trim()
           },
@@ -1055,7 +1288,9 @@ Use the screenshot facts only as the product identity seed. You must search the 
 Important matching rules:
 - Prefer sources that match the visible screenshot product name and brand.
 - If the screenshot says Amazon.ca, do not switch the product to Walmart, Ubuy, or another marketplace unless you are using that only as an extra comparison source.
-- Do not overwrite visible screenshot price, rating, review count, or store.
+- Do not overwrite visible screenshot price, rating, review count, or store when the screenshot reader marked that fact as belonging to the main product.
+- If the screenshot reader left price, rating, or reviewCount blank because it may belong to a sponsored/nearby product, you may fill it only from clearly matching public web evidence.
+- If the screenshot reader reports identityWarnings, treat those warnings seriously and lower confidence unless web research resolves them.
 - If web results refer to a different product, ignore them.
 - If trusted public review evidence is limited, do not invent certainty and do not create fake-looking scores.
 - Do not score from the screenshot alone. The screenshot identifies the product; the final verdict must come from trusted public product/review evidence plus visible screenshot facts.
@@ -1104,6 +1339,13 @@ Do not say AI-generated reviews are confirmed unless a source proves it.
 10. The final shopper score must reflect evidence quality. Limited evidence should reduce confidence and should show a cautious verdict.
 9. If the visible product and web results do not clearly match, return CONSIDER or AVOID and explain that identification is uncertain.
 10. sourcesUsed must contain real source names or URLs actually used.
+11. researchQuality must be honest:
+   - evidenceLevel "verified" only when you found at least two matching public sources or one exact product page plus enough review evidence.
+   - evidenceLevel "limited" when sources are sparse, review text is unavailable, or only one useful source matches.
+   - evidenceLevel "screenshot_only" when you could not verify the product online.
+   - evidenceLevel "product_mismatch" when public results appear to be a different product, brand, size, bundle, or model.
+   - exactProductMatch must be false if there is any unresolved mismatch between screenshot and web evidence.
+   - notes must briefly explain what was verified and what was not verified.
 
 Verdict rules:
 BUY = strong evidence across sources, good value, low serious complaints, low suspicious review risk.
@@ -1331,7 +1573,14 @@ export async function POST(request: Request) {
         bestFor: [],
         notIdealFor: [fallbackCopy.needConfidentDecision],
         bottomLine: fallbackCopy.needClearerInput,
-        sourcesUsed: []
+        sourcesUsed: [],
+        researchQuality: {
+          evidenceLevel: "screenshot_only" as const,
+          exactProductMatch: false,
+          sourceCount: 0,
+          citationCount: 0,
+          notes: [fallbackCopy.needClearerInput]
+        }
       };
 
       return NextResponse.json(await recordCompletedScan(attachLanguageMeta(enforceFinalResultConsistency(fallbackResult, locale), locale, outputLanguage)));
@@ -1347,19 +1596,24 @@ export async function POST(request: Request) {
     const memory = await getProductMemory(productKey);
     const memorySummary = summarizeProductMemory(memory);
 
-    const freshResult = normalizeVerdictWithScores(await researchAndVerdict(vision, productLink, outputLanguage, locale), locale);
+    const freshResult = enforceResearchQuality(
+      normalizeVerdictWithScores(await researchAndVerdict(vision, productLink, outputLanguage, locale), locale),
+      locale,
+    );
     const result = attachLanguageMeta(
-      enforceFinalResultConsistency(applyProductMemory(freshResult, memorySummary, locale), locale),
+      enforceFinalResultConsistency(enforceResearchQuality(applyProductMemory(freshResult, memorySummary, locale), locale), locale),
       locale,
       outputLanguage,
     );
 
-    await saveProductMemory({
-      productKey,
-      vision,
-      result,
-      productLink
-    });
+    if (!isReviewIntelTestAccount(email)) {
+      await saveProductMemory({
+        productKey,
+        vision,
+        result,
+        productLink
+      });
+    }
 
     return NextResponse.json(await recordCompletedScan(result));
   } catch (error) {

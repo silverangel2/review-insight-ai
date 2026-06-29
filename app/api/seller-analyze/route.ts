@@ -87,6 +87,7 @@ type SellerAccessProfile = {
   plan?: unknown;
   subscription_status?: unknown;
   status?: unknown;
+  beta_expires_at?: unknown;
 };
 
 type ResolvedSellerAccess = {
@@ -96,11 +97,22 @@ type ResolvedSellerAccess = {
   role: UserRole;
 };
 
-function hasActiveSellerSubscription(profile: SellerAccessProfile) {
+function hasActiveSellerSubscription(profile: SellerAccessProfile, plan: SubscriptionPlan) {
   const accountStatus = String(profile.status ?? "active").toLowerCase();
   const subscriptionStatus = String(profile.subscription_status ?? "").toLowerCase();
 
   if (["banned", "suspended", "disabled"].includes(accountStatus)) return false;
+
+  if (plan === "seller_beta") {
+    const expiresAt = String(profile.beta_expires_at ?? "").trim();
+    if (!expiresAt) return subscriptionStatus === "beta";
+
+    const expiry = new Date(expiresAt);
+    if (!Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now()) {
+      return true;
+    }
+  }
+
   return ["active", "trialing", "developer"].includes(subscriptionStatus);
 }
 
@@ -126,26 +138,29 @@ async function resolveSellerAccess(
     };
   }
 
-  const sellerTestPlan = sellerTestAccountPlan(email);
-  if (sellerTestPlan) {
-    return {
-      allowed: true,
-      email: email.trim().toLowerCase(),
-      plan: sellerTestPlan,
-      role: "seller",
-    };
-  }
-
   const rows = await supabaseSelect<SellerAccessProfile>(
     "profiles",
-    `select=role,plan,subscription_status,status&email=eq.${encodeURIComponent(email)}&limit=1`,
+    `select=role,plan,subscription_status,status,beta_expires_at&email=eq.${encodeURIComponent(email)}&limit=1`,
   );
   const profile = rows[0];
+
+  if (!profile) {
+    const sellerTestPlan = sellerTestAccountPlan(email);
+    if (sellerTestPlan) {
+      return {
+        allowed: true,
+        email: email.trim().toLowerCase(),
+        plan: sellerTestPlan,
+        role: "seller",
+      };
+    }
+  }
+
   const plan = normalizePlan(String(profile?.plan ?? "free_buyer"));
   const role = normalizeRole(String(profile?.role ?? "guest"));
 
   return {
-    allowed: role === "seller" && isSellerPlan(plan) && Boolean(profile) && hasActiveSellerSubscription(profile),
+    allowed: role === "seller" && isSellerPlan(plan) && Boolean(profile) && hasActiveSellerSubscription(profile, plan),
     email,
     plan,
     role,

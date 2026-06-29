@@ -44,6 +44,13 @@ type ShopperProductResult = {
   notIdealFor: string[];
   bottomLine: string;
   sourcesUsed: string[];
+  researchQuality: {
+    evidenceLevel: string;
+    exactProductMatch: boolean;
+    sourceCount: number;
+    citationCount: number;
+    notes: string[];
+  };
 };
 
 const shopperVerdictStyle: Record<ShopperVerdict, VerdictStyle> = {
@@ -92,6 +99,7 @@ const resultCopy: Record<
     bestForEmpty: string;
     notIdealEmpty: string;
     priceNotShown: string;
+    researchLabels: Record<string, string>;
     valueLabels: Record<string, string>;
     riskLabels: Record<string, string>;
   }
@@ -126,6 +134,7 @@ const resultCopy: Record<
     bestForEmpty: "Good for shoppers who match the product strengths.",
     notIdealEmpty: "Not enough evidence to say.",
     priceNotShown: "Price not shown",
+    researchLabels: { verified: "Verified web research", limited: "Limited web evidence", screenshot_only: "Screenshot-only warning", product_mismatch: "Product match warning" },
     valueLabels: { Excellent: "Excellent", Good: "Good", Fair: "Fair", Poor: "Poor" },
     riskLabels: { Low: "Low", Medium: "Medium", High: "High" }
   },
@@ -159,6 +168,7 @@ const resultCopy: Record<
     bestForEmpty: "Adapté aux acheteurs qui correspondent aux points forts du produit.",
     notIdealEmpty: "Pas assez de preuves pour le dire.",
     priceNotShown: "Prix non affiché",
+    researchLabels: { verified: "Recherche web vérifiée", limited: "Preuves web limitées", screenshot_only: "Avertissement capture seule", product_mismatch: "Avertissement de correspondance produit" },
     valueLabels: { Excellent: "Excellent", Good: "Bon", Fair: "Correct", Poor: "Faible" },
     riskLabels: { Low: "Faible", Medium: "Moyen", High: "Élevé" }
   },
@@ -192,6 +202,7 @@ const resultCopy: Record<
     bestForEmpty: "Bueno para compradores que coinciden con las fortalezas del producto.",
     notIdealEmpty: "No hay suficiente evidencia para decirlo.",
     priceNotShown: "Precio no mostrado",
+    researchLabels: { verified: "Investigación web verificada", limited: "Evidencia web limitada", screenshot_only: "Advertencia: solo captura", product_mismatch: "Advertencia de coincidencia del producto" },
     valueLabels: { Excellent: "Excelente", Good: "Bueno", Fair: "Aceptable", Poor: "Bajo" },
     riskLabels: { Low: "Bajo", Medium: "Medio", High: "Alto" }
   },
@@ -225,6 +236,7 @@ const resultCopy: Record<
     bestForEmpty: "适合与产品优势匹配的购物者。",
     notIdealEmpty: "证据不足，无法判断。",
     priceNotShown: "未显示价格",
+    researchLabels: { verified: "已验证网页研究", limited: "网页证据有限", screenshot_only: "仅截图警告", product_mismatch: "产品匹配警告" },
     valueLabels: { Excellent: "优秀", Good: "良好", Fair: "一般", Poor: "较差" },
     riskLabels: { Low: "低", Medium: "中", High: "高" }
   },
@@ -258,6 +270,7 @@ const resultCopy: Record<
     bestForEmpty: "Gut für Käufer, die zu den Produktstärken passen.",
     notIdealEmpty: "Nicht genug Belege für eine Aussage.",
     priceNotShown: "Preis nicht angezeigt",
+    researchLabels: { verified: "Verifizierte Webrecherche", limited: "Begrenzte Webbelege", screenshot_only: "Nur-Screenshot-Warnung", product_mismatch: "Produktabgleich-Warnung" },
     valueLabels: { Excellent: "Ausgezeichnet", Good: "Gut", Fair: "Ordentlich", Poor: "Schwach" },
     riskLabels: { Low: "Niedrig", Medium: "Mittel", High: "Hoch" }
   },
@@ -291,6 +304,7 @@ const resultCopy: Record<
     bestForEmpty: "उन खरीदारों के लिए अच्छा जो उत्पाद की खूबियों से मेल खाते हैं।",
     notIdealEmpty: "कहने के लिए पर्याप्त प्रमाण नहीं।",
     priceNotShown: "कीमत नहीं दिखाई गई",
+    researchLabels: { verified: "सत्यापित वेब शोध", limited: "सीमित वेब प्रमाण", screenshot_only: "केवल स्क्रीनशॉट चेतावनी", product_mismatch: "उत्पाद मिलान चेतावनी" },
     valueLabels: { Excellent: "उत्कृष्ट", Good: "अच्छा", Fair: "ठीक", Poor: "कमज़ोर" },
     riskLabels: { Low: "कम", Medium: "मध्यम", High: "उच्च" }
   }
@@ -343,6 +357,28 @@ function translateResultText(locale: ReviewIntelLocale, value: string) {
 
 function translateResultArray(locale: ReviewIntelLocale, values: string[]) {
   return values.map((value) => translateResultText(locale, value));
+}
+
+function normalizeResearchQuality(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+  const evidenceLevel = String(record.evidenceLevel || "screenshot_only");
+
+  return {
+    evidenceLevel,
+    exactProductMatch: record.exactProductMatch !== false,
+    sourceCount: clampScore(record.sourceCount, 0),
+    citationCount: clampScore(record.citationCount, 0),
+    notes: asTextArray(record.notes, 4)
+  };
+}
+
+function researchTone(level: string): "good" | "warn" | "bad" | "info" {
+  if (level === "verified") return "good";
+  if (level === "product_mismatch" || level === "screenshot_only") return "bad";
+  if (level === "limited") return "warn";
+  return "info";
 }
 
 function hasContradictoryNegativeLanguage(text: string) {
@@ -399,6 +435,8 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
     notIdealFor?: string[];
     bottomLine?: string;
     sourcesUsed?: string[];
+    researchQuality?: unknown;
+    meta?: { researchQuality?: unknown };
   };
 
   const analysis = source.analysis;
@@ -434,7 +472,8 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
     bestFor: translateResultArray(locale, bestFor),
     notIdealFor: translateResultArray(locale, notIdealFor),
     bottomLine: translateResultText(locale, bottomLine),
-    sourcesUsed: asTextArray(source.sourcesUsed, 10)
+    sourcesUsed: asTextArray(source.sourcesUsed, 10),
+    researchQuality: normalizeResearchQuality(source.researchQuality || source.meta?.researchQuality)
   };
 }
 
@@ -622,6 +661,9 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const sourcesLine = shopper.sourcesUsed.length
     ? copy.sourcesChecked(Math.min(shopper.sourcesUsed.length, 8), shopper.sourcesUsed.slice(0, 4), shopper.sourcesUsed.length > 4)
     : copy.sourcesLimited;
+  const researchLevel = shopper.researchQuality.evidenceLevel;
+  const researchLabel = copy.researchLabels[researchLevel] || copy.researchLabels.limited;
+  const researchNotes = shopper.researchQuality.notes.slice(0, 2);
 
   return (
     <>
@@ -668,7 +710,10 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </div>
 
           <div className="min-w-0">
-            <Badge tone="good">{copy.productIdentified}</Badge>
+            <div className="flex flex-wrap gap-1.5">
+              <Badge tone="good">{copy.productIdentified}</Badge>
+              <Badge tone={researchTone(researchLevel)}>{researchLabel}</Badge>
+            </div>
             <p className="mt-2 line-clamp-2 text-[12px] font-black leading-[1.12] text-ink dark:text-white">
               {productName}
             </p>
@@ -721,7 +766,17 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
         </section>
 
         <div className="rounded-2xl border border-ocean/20 bg-ocean/5 p-3 text-[10px] font-bold leading-4 text-slate-600 dark:border-cyan-300/20 dark:bg-cyan-300/10 dark:text-slate-200">
-          {sourcesLine}
+          <div className="mb-2">
+            <Badge tone={researchTone(researchLevel)}>{researchLabel}</Badge>
+          </div>
+          <p>{sourcesLine}</p>
+          {researchNotes.length ? (
+            <ul className="mt-2 space-y-1">
+              {researchNotes.map((note, index) => (
+                <li key={`research-note-mobile-${index}`}>• {note}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </div>
 
@@ -740,7 +795,10 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
         <div className="grid min-w-0 gap-4 sm:gap-5">
           <div className="min-w-0">
-            <Badge tone="good">{copy.productIdentified}</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="good">{copy.productIdentified}</Badge>
+              <Badge tone={researchTone(researchLevel)}>{researchLabel}</Badge>
+            </div>
             <h1 className="mt-4 break-words text-2xl font-black leading-tight text-ink dark:text-white sm:text-3xl lg:mt-5 lg:text-5xl">
               {productName}
             </h1>
@@ -753,7 +811,14 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </div>
 
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold leading-5 text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-300/10 dark:text-emerald-100 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-sm sm:leading-6">
-            {sourcesLine}
+            <p>{sourcesLine}</p>
+            {researchNotes.length ? (
+              <ul className="mt-2 space-y-1">
+                {researchNotes.map((note, index) => (
+                  <li key={`research-note-desktop-${index}`}>• {note}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
 
           <section className={`rounded-2xl border p-4 sm:rounded-[1.5rem] sm:p-6 ${verdict.soft}`}>

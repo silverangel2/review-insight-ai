@@ -9,13 +9,17 @@ import {
   type ClientAccount,
   hasUnlimitedUsage,
   makeQuotaInfo,
+  forceSellerPremiumTesterAccount,
   normalizePlan,
   normalizeRole,
   quotaLabel,
-  roleForPlan, forceSellerPremiumTesterAccount } from "@/lib/account";
+  roleForPlan,
+} from "@/lib/account";
+import { COOKIE_CONSENT_STORAGE_KEY } from "@/lib/cookieConsent";
 import type { AnalysisAudience, QuotaInfo, SubscriptionPlan, UserRole } from "@/lib/types";
 
 const SCAN_TALLY_STORAGE_KEY = "reviewintel_scan_tally";
+const LOGOUT_PRESERVED_STORAGE_KEYS = new Set([COOKIE_CONSENT_STORAGE_KEY]);
 
 export const ACCOUNT_LAST_ACTIVE_KEY = "reviewintel:account-last-active";
 export const ACCOUNT_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
@@ -159,6 +163,8 @@ export async function logoutEverywhere(redirectPath = "/login") {
     const clearReviewIntelStorage = (storage: Storage) => {
       const keys = Object.keys(storage);
       for (const key of keys) {
+        if (LOGOUT_PRESERVED_STORAGE_KEYS.has(key)) continue;
+
         if (
           key.startsWith("reviewintel") ||
           key.startsWith("reviewintel:") ||

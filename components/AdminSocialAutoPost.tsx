@@ -18,12 +18,20 @@ type SocialPost = {
   status: string;
   topic: string;
   caption: string;
+  hashtags?: string[];
+  metadata?: {
+    shortVideoScript?: string;
+    altText?: string;
+    link?: string;
+    note?: string;
+    connectorRequired?: boolean;
+  } | null;
   error?: string | null;
   external_post_id?: string | null;
 };
 
-const platformOptions = ["facebook", "tiktok", "instagram"];
-const topicOptions = ["shopper_tips", "seller_tips", "fake_review_warning"];
+const platformOptions = ["facebook", "instagram", "tiktok", "linkedin", "x", "youtube_shorts", "pinterest", "reddit"];
+const topicOptions = ["shopper_tips", "seller_tips", "fake_review_warning", "buyer_mistakes", "competitor_watch", "trust_signals"];
 
 const defaultSettings: Settings = {
   full_auto_enabled: false,
@@ -137,7 +145,7 @@ export default function AdminSocialAutoPost() {
           Full auto daily posts
         </h1>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-          Generate and publish ReviewIntel marketing posts automatically. Facebook Page posting is live when the connector keys exist. TikTok and Instagram stay logged as connector-required until approved tokens are added.
+          Generate ReviewIntel organic-growth posts automatically. Facebook can publish when connected; Instagram, TikTok, LinkedIn, X, YouTube Shorts, Pinterest, and Reddit create ready-to-post drafts until their official connectors are added.
         </p>
       </div>
 
@@ -152,7 +160,7 @@ export default function AdminSocialAutoPost() {
             />
             <span className="text-sm font-black text-ink dark:text-white">Full auto enabled</span>
             <p className="mt-2 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
-              Cron generates and posts automatically.
+              Cron generates posts automatically. Connected platforms publish; unconnected platforms save drafts.
             </p>
           </label>
 
@@ -165,7 +173,7 @@ export default function AdminSocialAutoPost() {
             />
             <span className="text-sm font-black text-ink dark:text-white">Semi-auto enabled</span>
             <p className="mt-2 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
-              Keep draft/approval mode available later.
+              Keep draft/approval mode available for platforms that need manual review.
             </p>
           </label>
 
@@ -250,7 +258,7 @@ export default function AdminSocialAutoPost() {
             disabled={saving}
             className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-60"
           >
-            Run Full Auto Now
+            Generate / Post Now
           </button>
         </div>
 
@@ -268,8 +276,16 @@ export default function AdminSocialAutoPost() {
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-black capitalize text-ink dark:bg-slate-800 dark:text-white">
                   {post.platform}
                 </span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black capitalize text-ink dark:bg-slate-800 dark:text-white">
-                  {post.status}
+                <span className={`rounded-full px-3 py-1 text-xs font-black capitalize ${
+                  post.status === "posted"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"
+                    : post.status === "draft_ready"
+                      ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-200"
+                      : post.status === "failed"
+                        ? "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-200"
+                        : "bg-white text-ink dark:bg-slate-800 dark:text-white"
+                }`}>
+                  {post.status.replaceAll("_", " ")}
                 </span>
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-300">
                   {new Date(post.created_at).toLocaleString()}
@@ -278,6 +294,24 @@ export default function AdminSocialAutoPost() {
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
                 {post.caption}
               </p>
+              {post.hashtags?.length ? (
+                <p className="mt-3 text-xs font-black leading-5 text-ocean dark:text-cyan-300">
+                  #{post.hashtags.join(" #")}
+                </p>
+              ) : null}
+              {post.metadata?.shortVideoScript ? (
+                <details className="mt-3 rounded-xl bg-white p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                  <summary className="cursor-pointer font-black text-ink dark:text-white">
+                    Short video script
+                  </summary>
+                  <pre className="mt-2 whitespace-pre-wrap font-sans">{post.metadata.shortVideoScript}</pre>
+                </details>
+              ) : null}
+              {post.metadata?.connectorRequired || post.metadata?.note ? (
+                <p className="mt-3 rounded-xl bg-cyan-50 p-3 text-xs font-black text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-200">
+                  {post.metadata.note || "Connector required before direct publishing."}
+                </p>
+              ) : null}
               {post.error ? (
                 <p className="mt-3 rounded-xl bg-rose-50 p-3 text-xs font-black text-rose-700 dark:bg-rose-400/10 dark:text-rose-200">
                   {post.error}
