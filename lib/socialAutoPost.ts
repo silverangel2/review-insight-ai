@@ -9,6 +9,12 @@ type SocialSettings = {
   platforms: string[];
   topics: string[];
   emergency_pause: boolean;
+  cycle_length?: number;
+  posts_per_day?: number;
+  recycle_after_days?: number;
+  last_queue_day?: number;
+  last_posted_at?: string | null;
+  updated_at?: string;
 };
 
 type SocialPost = {
@@ -19,7 +25,15 @@ type SocialPost = {
   topic: string;
   caption: string;
   hashtags: string[];
+  link_url?: string | null;
   external_post_id?: string | null;
+  scheduled_for?: string | null;
+  queue_day?: number | null;
+  cycle_number?: number | null;
+  recycle_count?: number | null;
+  media_id?: string | null;
+  posted_at?: string | null;
+  content_fingerprint?: string | null;
   error?: string | null;
   metadata?: Record<string, unknown>;
 };
@@ -210,6 +224,110 @@ function formatPostCaption(content: SocialContentPack) {
   return `${content.caption}\n\n#${content.hashtags.join(" #")}`;
 }
 
+
+type SocialMediaItem = {
+  id: string;
+  media_type: "image" | "video" | string;
+  file_url: string;
+  thumbnail_url?: string | null;
+  title?: string | null;
+  topic?: string | null;
+  tags?: string[] | null;
+  used_count?: number | null;
+  last_used_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+type SocialQueueState = {
+  queueDay: number;
+  cycleNumber: number;
+  recycleCount: number;
+};
+
+function sameUtcDate(a?: string | null, b = new Date()) {
+  if (!a) return false;
+  const parsed = new Date(a);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+}
+
+function makeContentFingerprint(input: {
+  platform: string;
+  topic: string;
+  queueDay: number;
+  cycleNumber: number;
+  recycleCount: number;
+}) {
+  return [
+    input.platform,
+    input.topic,
+    `day-${input.queueDay}`,
+    `cycle-${input.cycleNumber}`,
+    `recycle-${input.recycleCount}`,
+  ].join(":");
+}
+
+async function getLatestQueueState(cycleLength: number): Promise<SocialQueueState> {
+  const rows = await supabaseFetch(
+    "admin_social_posts?select=queue_day,cycle_number,recycle_count&order=created_at.desc&limit=1"
+  );
+
+  const latest = Array.isArray(rows) ? rows[0] : null;
+  const lastQueueDay = Number(latest?.queue_day || 0);
+  const lastCycleNumber = Math.max(1, Number(latest?.cycle_number || 1));
+
+  const queueDay = lastQueueDay >= cycleLength ? 1 : lastQueueDay + 1;
+  const cycleNumber = lastQueueDay >= cycleLength ? lastCycleNumber + 1 : lastCycleNumber;
+  const recycleCount = Math.max(0, cycleNumber - 1);
+
+  return { queueDay, cycleNumber, recycleCount };
+}
+
+async function pickSocialMedia(topic: string): Promise<SocialMediaItem | null> {
+  const topicQuery = encodeURIComponent(topic);
+  const topicRows = await supabaseFetch(
+    `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}&order=last_used_at.asc.nullsfirst,used_count.asc&limit=20`
+  ).catch(() => []);
+
+  const fallbackRows = await supabaseFetch(
+    "admin_social_media?select=*&is_active=eq.true&order=last_used_at.asc.nullsfirst,used_count.asc&limit=20"
+  ).catch(() => []);
+
+  const rows = Array.isArray(topicRows) && topicRows.length ? topicRows : fallbackRows;
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  const pool = rows as SocialMediaItem[];
+  return pool[Math.floor(Math.random() * pool.length)] || pool[0] || null;
+}
+
+async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
+  if (!media?.id) return;
+
+  await supabaseFetch(`admin_social_media?id=eq.${encodeURIComponent(media.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      used_count: Number(media.used_count || 0) + 1,
+      last_used_at: usedAt,
+      updated_at: usedAt,
+    }),
+  }).catch(() => null);
+}
+
+function recycleCaption(caption: string, queue: SocialQueueState) {
+  if (queue.recycleCount <= 0) return caption;
+
+  const recycleHooks = [
+    "Fresh angle:",
+    "Reminder for smart shoppers:",
+    "Worth repeating:",
+    "Before your next checkout:",
+    "New version, same warning:",
+  ];
+
+  const hook = recycleHooks[queue.queueDay % recycleHooks.length];
+  return `${hook} ${caption}`;
+}
+
 export async function getSocialSettings(): Promise<SocialSettings> {
   const rows = await supabaseFetch("admin_social_settings?id=eq.default&select=*&limit=1");
 
@@ -329,38 +447,75 @@ export async function runSocialAutoPost() {
   }
 
   if (!settings.full_auto_enabled) {
-    return { ok: true, skipped: true, reason: "Full auto posting is disabled." };
+    return { ok: true, skipped: true, reason: "Full auto-post is disabled." };
+  }
+
+  if (sameUtcDate(settings.last_posted_at)) {
+    return { ok: true, skipped: true, reason: "A social auto-post already ran today." };
   }
 
   const topics = settings.topics?.length ? settings.topics : ["shopper_tips"];
   const platforms = settings.platforms?.length ? settings.platforms : ["facebook"];
-  const topic = topics[new Date().getDate() % topics.length];
-
+  const cycleLength = Math.max(1, Number(settings.cycle_length || 100));
+  const topic = topics[new Date().getUTCDate() % topics.length];
+  const queue = await getLatestQueueState(cycleLength);
+  const media = await pickSocialMedia(topic);
+  const now = new Date().toISOString();
   const results = [];
 
   for (const platform of platforms) {
     const content = generateReviewIntelContentPack(platform, topic);
+    const caption = recycleCaption(formatPostCaption(content), queue);
+    const fingerprint = makeContentFingerprint({
+      platform,
+      topic,
+      queueDay: queue.queueDay,
+      cycleNumber: queue.cycleNumber,
+      recycleCount: queue.recycleCount,
+    });
+
     const draft = await createSocialPost({
       platform,
       mode: "full_auto",
-      status: "posting",
+      status: "draft_ready",
       topic,
-      caption: content.caption,
+      caption,
       hashtags: content.hashtags,
+      link_url: content.link,
+      queue_day: queue.queueDay,
+      cycle_number: queue.cycleNumber,
+      recycle_count: queue.recycleCount,
+      media_id: media?.id ?? null,
+      content_fingerprint: fingerprint,
       metadata: {
-        source: "vercel_cron",
-        shortVideoScript: content.shortVideoScript,
-        altText: content.altText,
-        link: content.link,
+        content,
+        queue,
+        media: media
+          ? {
+              id: media.id,
+              type: media.media_type,
+              file_url: media.file_url,
+              thumbnail_url: media.thumbnail_url ?? null,
+              title: media.title ?? null,
+              topic: media.topic ?? null,
+              tags: media.tags ?? [],
+            }
+          : null,
+        recycle_note:
+          queue.recycleCount > 0
+            ? "This post is from a recycled 100-day cycle with a refreshed caption angle."
+            : null,
       },
     });
 
-    const published = await postToPlatform(platform, formatPostCaption(content));
+    const published = await postToPlatform(platform, caption);
 
     if (published.ok) {
       const updated = await updateSocialPost(draft.id, {
-        status: published.draftOnly ? "draft_ready" : "posted",
-        external_post_id: published.externalPostId || null,
+        status: "posted",
+        external_post_id: published.externalPostId,
+        posted_at: now,
+        error: null,
         metadata: {
           ...(draft.metadata || {}),
           ...(published.metadata || {}),
@@ -382,5 +537,20 @@ export async function runSocialAutoPost() {
     }
   }
 
-  return { ok: true, skipped: false, results };
+  await markSocialMediaUsed(media, now);
+
+  await updateSocialSettings({
+    last_queue_day: queue.queueDay,
+    last_posted_at: now,
+  });
+
+  return {
+    ok: true,
+    skipped: false,
+    queue_day: queue.queueDay,
+    cycle_number: queue.cycleNumber,
+    recycle_count: queue.recycleCount,
+    media_id: media?.id ?? null,
+    results,
+  };
 }
