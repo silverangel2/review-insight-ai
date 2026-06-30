@@ -668,7 +668,42 @@ export default function AdminSocialAutoPost() {
           >
             Check Facebook
           </button>
-          <button
+                    <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = "/api/auth/tiktok/start";
+              }}
+              className="rounded-2xl bg-black px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-black/90"
+            >
+              Connect TikTok
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                const confirmed = window.confirm("Disconnect TikTok from ReviewIntel?");
+                if (!confirmed) return;
+
+                const response = await fetch("/api/auth/tiktok/disconnect", {
+                  method: "POST",
+                });
+
+                if (!response.ok) {
+                  alert("TikTok disconnect failed.");
+                  return;
+                }
+
+                alert("TikTok disconnected.");
+                await checkTikTok();
+              }}
+              className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-soft transition hover:bg-mist dark:border-white/10 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+            >
+              Disconnect TikTok
+            </button>
+          </div>
+
+<button
             type="button"
             onClick={checkTikTok}
             disabled={saving}
