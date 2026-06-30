@@ -732,20 +732,10 @@ function advanceQueueState(queue: SocialQueueState, cycleLength: number): Social
 }
 
 async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<SocialMediaItem> {
-  const topicQuery = encodeURIComponent(topic);
-  const topicRows = await supabaseFetch(
-    `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}&order=last_used_at.asc.nullsfirst,used_count.asc&limit=20`
-  ).catch(() => []);
-
-  const fallbackRows = await supabaseFetch(
-    "admin_social_media?select=*&is_active=eq.true&order=last_used_at.asc.nullsfirst,used_count.asc&limit=20"
-  ).catch(() => []);
-
-  const rows = Array.isArray(topicRows) && topicRows.length ? topicRows : fallbackRows;
-  if (!Array.isArray(rows) || rows.length === 0) return builtInSocialMedia(topic, queue);
-
-  const pool = rows as SocialMediaItem[];
-  return pool[Math.floor(Math.random() * pool.length)] || pool[0] || builtInSocialMedia(topic, queue);
+  // Default autopost should always use the embedded ReviewIntel image library.
+  // Uploaded admin_social_media files are kept for manual/admin use, but should not override
+  // the built-in 100-day ReviewIntel image cycle.
+  return builtInSocialMedia(topic, queue);
 }
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
