@@ -1,44 +1,18 @@
 "use client";
 
 import { type ChangeEvent, useEffect, useMemo, useState } from "react";
-import { seoLandingPages } from "@/lib/seoLandingPages";
-
-type RobotsMode = "index,follow" | "noindex,nofollow";
-
-type SeoDraft = {
-  title: string;
-  description: string;
-  ogImage: string;
-  canonicalUrl: string;
-  robots: RobotsMode;
-};
+import {
+  automatedSeoPages,
+  defaultSeoDraftForPath,
+  type RobotsMode,
+  type SeoDraft,
+} from "@/lib/seoAutomation";
 
 const STORAGE_KEY = "reviewintel:admin-seo-drafts";
-const DEFAULT_DESCRIPTION =
-  "ReviewIntel helps shoppers and ecommerce sellers turn product review signals into clear buying and product-growth decisions.";
-
-const pageOptions = [
-  { label: "Home", path: "/", title: "ReviewIntel | AI Review Intelligence Platform", description: DEFAULT_DESCRIPTION },
-  { label: "Analyzer", path: "/analyze", title: "AI Product Review Analyzer | ReviewIntel", description: "Upload a product screenshot or use a product link to get a clear AI buying verdict." },
-  { label: "Pricing", path: "/pricing", title: "ReviewIntel Pricing", description: "Choose Shopper Premium, Seller Premium, or Seller Pro for AI review intelligence." },
-  ...Object.values(seoLandingPages).map((page) => ({
-    label: page.title,
-    path: `/${page.slug}`,
-    title: page.metaTitle,
-    description: page.description
-  }))
-];
-
-function defaultDraftForPath(path: string): SeoDraft {
-  const option = pageOptions.find((page) => page.path === path) ?? pageOptions[0];
-  return {
-    title: option.title,
-    description: option.description,
-    ogImage: "/og-reviewintel.png",
-    canonicalUrl: `https://reviewintel.ai${path}`,
-    robots: path.startsWith("/admin") ? "noindex,nofollow" : "index,follow"
-  };
-}
+const pageOptions = automatedSeoPages.map((page) => ({
+  label: page.label,
+  path: page.path,
+}));
 
 function readStoredDrafts() {
   if (typeof window === "undefined") return {};
@@ -89,20 +63,20 @@ export function AdminSEOManager() {
   }, [drafts]);
 
   const draft = useMemo(
-    () => drafts[selectedPath] ?? defaultDraftForPath(selectedPath),
+    () => drafts[selectedPath] ?? defaultSeoDraftForPath(selectedPath),
     [drafts, selectedPath]
   );
 
   function loadPage(path: string) {
     setSelectedPath(path);
-    setDrafts((current) => current[path] ? current : { ...current, [path]: defaultDraftForPath(path) });
+    setDrafts((current) => current[path] ? current : { ...current, [path]: defaultSeoDraftForPath(path) });
   }
 
   function updateDraft(patch: Partial<SeoDraft>) {
     setDrafts((current) => ({
       ...current,
       [selectedPath]: {
-        ...(current[selectedPath] ?? defaultDraftForPath(selectedPath)),
+        ...(current[selectedPath] ?? defaultSeoDraftForPath(selectedPath)),
         ...patch
       }
     }));
@@ -110,12 +84,12 @@ export function AdminSEOManager() {
   }
 
   function resetDraft() {
-    updateDraft(defaultDraftForPath(selectedPath));
+    updateDraft(defaultSeoDraftForPath(selectedPath));
     setStatus("Reset to the ReviewIntel default draft.");
   }
 
   async function saveSeoSettings() {
-    const nextDraft = drafts[selectedPath] ?? defaultDraftForPath(selectedPath);
+    const nextDraft = drafts[selectedPath] ?? defaultSeoDraftForPath(selectedPath);
     const nextDrafts = {
       ...drafts,
       [selectedPath]: nextDraft,
@@ -146,6 +120,31 @@ export function AdminSEOManager() {
       setStatus(`Saved SEO settings for ${selectedPath}.`);
     } catch {
       setStatus("SEO settings save failed.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function autoBuildSeo() {
+    setIsSaving(true);
+    setStatus("Auto-building SEO for all public pages...");
+
+    try {
+      const response = await fetch("/api/admin/seo/automate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "SEO automation failed.");
+        return;
+      }
+
+      setDrafts(data.settings as Record<string, SeoDraft>);
+      setStatus(`Auto-built SEO for ${data.pageCount || 0} public pages.`);
+    } catch {
+      setStatus("SEO automation failed.");
     } finally {
       setIsSaving(false);
     }
@@ -273,6 +272,14 @@ export function AdminSEOManager() {
           <div className="flex flex-col gap-3 rounded-2xl border border-teal/20 bg-teal/10 p-4 md:flex-row md:items-center md:justify-between">
             <p className="text-sm font-bold text-teal">{status}</p>
             <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => void autoBuildSeo()}
+                disabled={isSaving}
+                className="rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Auto-build all SEO
+              </button>
               <button
                 type="button"
                 onClick={() => void saveSeoSettings()}

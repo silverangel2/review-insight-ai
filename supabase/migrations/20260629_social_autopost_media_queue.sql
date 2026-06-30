@@ -25,6 +25,7 @@ add column if not exists queue_day integer,
 add column if not exists cycle_number integer not null default 1,
 add column if not exists recycle_count integer not null default 0,
 add column if not exists media_id uuid references public.admin_social_media(id) on delete set null,
+add column if not exists link_url text,
 add column if not exists posted_at timestamptz,
 add column if not exists content_fingerprint text;
 

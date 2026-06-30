@@ -91,6 +91,23 @@ function sellerCalendarText(value: string | undefined | null) {
   return raw;
 }
 
+function sellerCalendarBrief(value: string | undefined | null, max = 150) {
+  const clean = sellerCalendarText(value).replace(/\s+/g, " ").trim();
+  if (!clean) return "No clear signal saved yet.";
+  return clean.length > max ? `${clean.slice(0, Math.max(12, max - 1)).trim()}…` : clean;
+}
+
+function sellerCalendarProductName(value: string | undefined | null) {
+  const clean = String(value || "Saved product")
+    .replace(/\.(csv|xlsx|xls|txt)$/i, "")
+    .replace(/^seller[_\s-]*/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return clean.length > 46 ? `${clean.slice(0, 45).trim()}…` : clean;
+}
+
 function compactScore(value: number | undefined | null) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   return `${Math.round(value)}%`;
@@ -608,7 +625,7 @@ export function SellerImprovementCalendar() {
                     <div className="mt-3 grid gap-2">
                       {productAverageRows(selectedScans).map((product) => (
                         <div key={product.name} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm dark:bg-black/20">
-                          <span className="font-bold text-ink dark:text-white">{product.name}</span>
+                          <span className="font-bold text-ink dark:text-white">{sellerCalendarProductName(product.name)}</span>
                           <span className="font-black text-ocean">{formatPercent(product.average)} · {product.count} scan{product.count === 1 ? "" : "s"}</span>
                         </div>
                       ))}
@@ -622,12 +639,12 @@ export function SellerImprovementCalendar() {
                   <article key={scan.id} className="rounded-2xl border border-line p-4 dark:border-white/10">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-black text-ink dark:text-white">{scan.productName}</p>
+                        <p className="font-black text-ink dark:text-white">{sellerCalendarProductName(scan.productName)}</p>
                         <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{scan.reviewCount.toLocaleString()} reviews scanned</p>
                       </div>
                       <Badge tone={scan.productScore >= 75 ? "good" : scan.productScore >= 55 ? "warn" : "bad"}>{formatPercent(scan.productScore)}</Badge>
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{sellerCalendarText(scan.mainComplaint)}</p>
+                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{sellerCalendarBrief(scan.mainComplaint, 135)}</p>
                   </article>
                 )) : <p className="rounded-2xl border border-line p-4 text-sm text-slate-500 dark:border-white/10">No products scanned on this date.</p>}
               </div>
@@ -638,19 +655,19 @@ export function SellerImprovementCalendar() {
                   selectedScans.flatMap((scan) => [
                     ...(scan.recommendations ?? []),
                     ...(scan.actionPlan ?? []),
-                    scan.mainComplaint ? `Fix or explain this buyer concern: ${sellerCalendarText(scan.mainComplaint)}` : ""
+                    scan.mainComplaint ? `Fix or explain: ${sellerCalendarBrief(scan.mainComplaint, 120)}` : ""
                   ]),
                   5
                 ).length ? uniqueList(
                   selectedScans.flatMap((scan) => [
                     ...(scan.recommendations ?? []),
                     ...(scan.actionPlan ?? []),
-                    scan.mainComplaint ? `Fix or explain this buyer concern: ${sellerCalendarText(scan.mainComplaint)}` : ""
+                    scan.mainComplaint ? `Fix or explain: ${sellerCalendarBrief(scan.mainComplaint, 120)}` : ""
                   ]),
                   5
                 ).map((item) => (
                   <div key={item} className="rounded-2xl border border-teal/20 bg-teal/10 p-4 text-sm font-bold text-ink dark:text-white">
-                    {item}
+                    {sellerCalendarBrief(item, 155)}
                   </div>
                 )) : (
                   <div className="rounded-2xl border border-teal/20 bg-teal/10 p-4 text-sm font-bold text-ink dark:text-white">
@@ -670,7 +687,7 @@ export function SellerImprovementCalendar() {
                   <h4 className="font-black text-ink dark:text-white">{title as string}</h4>
                   <div className="mt-3 grid gap-2">
                     {((items as string[]).length ? (items as string[]) : ["No clear signal saved yet."]).slice(0, 3).map((item) => (
-                      <p key={item} className="rounded-xl bg-mist px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">{sellerCalendarText(item)}</p>
+                      <p key={item} className="rounded-xl bg-mist px-3 py-2 text-sm font-semibold text-slate-700 dark:bg-white/[0.04] dark:text-slate-200">{sellerCalendarBrief(item, 115)}</p>
                     ))}
                   </div>
                 </div>
@@ -900,6 +917,17 @@ export function SellerImprovementCalendar() {
           }
 
           html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            :is(.seller-calendar-modal-main-grid, .seller-calendar-modal-signal-grid) > * {
+            min-width: 0 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-main-grid h4 {
+            font-size: 1rem !important;
+            line-height: 1.2 !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
             .seller-calendar-modal-main-grid :is(article, div[class*="rounded-2xl"], p[class*="rounded"]),
           html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
             .seller-calendar-modal-signal-grid > div {
@@ -907,6 +935,31 @@ export function SellerImprovementCalendar() {
             padding: 0.75rem !important;
             border-radius: 0.85rem !important;
             overflow: visible !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-main-grid article,
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-main-grid div[class*="bg-teal"] {
+            font-size: 0.82rem !important;
+            line-height: 1.38 !important;
+            overflow-wrap: anywhere !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-main-grid div[class*="rounded-xl"][class*="bg-white"] {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 0.2rem !important;
+          }
+
+          html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+            .seller-calendar-modal-signal-grid p {
+            display: block !important;
+            max-height: none !important;
+            font-size: 0.78rem !important;
+            line-height: 1.38 !important;
+            overflow-wrap: anywhere !important;
           }
 
           html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
@@ -1036,6 +1089,11 @@ export function SellerImprovementCalendar() {
             grid-template-columns: 1fr !important;
             gap: 0.65rem !important;
             margin-top: 0.85rem !important;
+          }
+
+          html[data-layout-mode="mobile"] .seller-calendar-modal-main-grid > *,
+          html[data-layout-mode="mobile"] .seller-calendar-modal-signal-grid > * {
+            min-width: 0 !important;
           }
         }
       `}</style>

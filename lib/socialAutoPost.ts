@@ -1,5 +1,57 @@
+import { readFileSync } from "fs";
+import path from "path";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+type PublicSiteUrlResolution = {
+  url: string;
+  source: string;
+};
+
+function cleanPublicSiteUrl(value?: string | null) {
+  if (!value) return "";
+  const trimmed = value.trim().replace(/\/$/, "");
+  if (!trimmed) return "";
+  if (trimmed.includes("localhost") || trimmed.includes("127.0.0.1")) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function resolvePublicSiteUrl(): PublicSiteUrlResolution {
+  const candidates = [
+    { source: "NEXT_PUBLIC_SITE_URL", value: process.env.NEXT_PUBLIC_SITE_URL },
+    { source: "NEXT_PUBLIC_APP_URL", value: process.env.NEXT_PUBLIC_APP_URL },
+    { source: "APP_URL", value: process.env.APP_URL },
+    { source: "VERCEL_PROJECT_PRODUCTION_URL", value: process.env.VERCEL_PROJECT_PRODUCTION_URL },
+    { source: "VERCEL_URL", value: process.env.VERCEL_URL },
+    { source: "fallback", value: "https://getreviewintel.com" },
+  ];
+
+  for (const candidate of candidates) {
+    const url = cleanPublicSiteUrl(candidate.value);
+    if (url) {
+      return {
+        url,
+        source: candidate.source,
+      };
+    }
+  }
+
+  return {
+    url: "https://getreviewintel.com",
+    source: "fallback",
+  };
+}
+
+function getPublicSiteUrl() {
+  return resolvePublicSiteUrl().url;
+}
+
+function getPublicSiteUrlSource() {
+  return resolvePublicSiteUrl().source;
+}
+
 
 type SocialSettings = {
   id: string;
@@ -98,6 +150,15 @@ const topicBriefs: Record<string, { title: string; angle: string; cta: string }>
   },
 };
 
+const builtInSocialImageCount = 100;
+const builtInSocialTopics = Object.keys(topicBriefs);
+
+type ConnectorCheck = {
+  label: string;
+  status: "passed" | "warning" | "failed";
+  detail: string;
+};
+
 function hasStorage() {
   return Boolean(supabaseUrl && supabaseServiceKey);
 }
@@ -158,7 +219,108 @@ export function generateReviewIntelCaption(topic: string) {
 }
 
 function publicSiteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "https://getreviewintel.com").replace(/\/$/, "");
+  return (
+    getPublicSiteUrl()
+  ).replace(/\/$/, "");
+}
+
+let localEnvCache: Record<string, string[]> | null = null;
+
+function readLocalEnvValues() {
+  if (localEnvCache) return localEnvCache;
+  localEnvCache = {};
+
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    return localEnvCache;
+  }
+
+  for (const filename of [".env.local", ".env"]) {
+    try {
+      const raw = readFileSync(path.join(process.cwd(), filename), "utf8");
+
+      for (const line of raw.split(/\r?\n/)) {
+        const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+        if (!match) continue;
+
+        const key = match[1];
+        let value = match[2].trim();
+        if (!value || value.startsWith("#")) continue;
+
+        if (
+          (value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))
+        ) {
+          value = value.slice(1, -1);
+        }
+
+        if (!value.trim()) continue;
+        localEnvCache[key] = [...(localEnvCache[key] || []), value.trim()];
+      }
+    } catch {
+      // Missing local env files are fine; Vercel should provide env vars.
+    }
+  }
+
+  return localEnvCache;
+}
+
+function envFirst(...names: string[]) {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+
+  const localValues = readLocalEnvValues();
+  for (const name of names) {
+    const value = localValues[name]?.find((item) => item.trim());
+    if (value) return value.trim();
+  }
+
+  return "";
+}
+
+function facebookConfig() {
+  const graphVersion = envFirst("FACEBOOK_GRAPH_API_VERSION", "META_GRAPH_API_VERSION") || "v20.0";
+
+  return {
+    pageId: envFirst("FACEBOOK_PAGE_ID", "FB_PAGE_ID", "META_PAGE_ID", "META_FACEBOOK_PAGE_ID"),
+    pageToken: envFirst(
+      "FACEBOOK_PAGE_ACCESS_TOKEN",
+      "FB_PAGE_ACCESS_TOKEN",
+      "META_PAGE_ACCESS_TOKEN",
+      "META_FACEBOOK_PAGE_ACCESS_TOKEN"
+    ),
+    graphVersion: graphVersion.startsWith("v") ? graphVersion : `v${graphVersion}`,
+  };
+}
+
+function maskIdentifier(value: string) {
+  if (!value) return "";
+  if (value.length <= 8) return `${value.slice(0, 2)}...`;
+  return `${value.slice(0, 4)}...${value.slice(-3)}`;
+}
+
+function isPrivateOrLocalUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+
+    return (
+      host === "localhost" ||
+      host === "0.0.0.0" ||
+      host === "::1" ||
+      host.startsWith("127.") ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+    );
+  } catch {
+    return true;
+  }
+}
+
+function connectorCheck(label: string, status: ConnectorCheck["status"], detail: string): ConnectorCheck {
+  return { label, status, detail };
 }
 
 function platformUrl(platform: string, topic: string) {
@@ -224,6 +386,155 @@ function formatPostCaption(content: SocialContentPack) {
   return `${content.caption}\n\n#${content.hashtags.join(" #")}`;
 }
 
+const socialContentSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    caption: {
+      type: "string",
+      description: "A platform-ready caption without hashtags."
+    },
+    hashtags: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 3,
+      maxItems: 8
+    },
+    shortVideoScript: {
+      type: "string",
+      description: "A short reusable reel/shorts script with hook, visual idea, and CTA."
+    },
+    altText: {
+      type: "string",
+      description: "Accessible alt text for the selected image or video."
+    }
+  },
+  required: ["caption", "hashtags", "shortVideoScript", "altText"]
+};
+
+function textArray(value: unknown, limit = 8) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item || "").replace(/^#/, "").trim())
+    .map(cleanHashtag)
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function responseOutputText(data: unknown) {
+  const record = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  if (typeof record.output_text === "string") return record.output_text;
+
+  const output = Array.isArray(record.output) ? record.output : [];
+  return output
+    .flatMap((item) => {
+      const itemRecord = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      return Array.isArray(itemRecord.content) ? itemRecord.content : [];
+    })
+    .map((content) => {
+      const contentRecord = content && typeof content === "object" ? (content as Record<string, unknown>) : {};
+      return typeof contentRecord.text === "string" ? contentRecord.text : "";
+    })
+    .join("");
+}
+
+function normalizeAiContent(raw: unknown, fallback: SocialContentPack, platform: string, topic: string): SocialContentPack {
+  const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const caption = String(record.caption || fallback.caption || "").trim();
+  const hashtags = Array.from(
+    new Set([
+      ...textArray(record.hashtags, 8),
+      ...hashtagsFor(platform, topic),
+    ])
+  ).slice(0, platform === "x" ? 4 : 8);
+
+  return {
+    caption: caption || fallback.caption,
+    hashtags: hashtags.length ? hashtags : fallback.hashtags,
+    shortVideoScript: String(record.shortVideoScript || fallback.shortVideoScript || "").trim() || fallback.shortVideoScript,
+    altText: String(record.altText || fallback.altText || "").trim() || fallback.altText,
+    link: fallback.link,
+  };
+}
+
+async function generateAiReviewIntelContentPack(
+  platform: string,
+  topic: string,
+  queue: SocialQueueState,
+  media?: SocialMediaItem | null
+): Promise<SocialContentPack> {
+  const fallback = generateReviewIntelContentPack(platform, topic);
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) return fallback;
+
+  const brief = topicBriefs[topic] || topicBriefs.shopper_tips;
+  const label = platformLabels[platform] || platform;
+  const mediaBrief = media
+    ? [
+        `Media type: ${media.media_type || "image"}`,
+        `Media title: ${media.title || "untitled media"}`,
+        `Media topic: ${media.topic || "general"}`,
+        `Media tags: ${(media.tags || []).join(", ") || "none"}`,
+      ].join("\n")
+    : "No uploaded media selected for this post.";
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_SOCIAL_MODEL || process.env.OPENAI_MODEL || "gpt-4.1-mini",
+        input: `You are ReviewIntel's organic social media strategist.
+
+Create one ${label} post for an automatic ReviewIntel social queue.
+
+Topic: ${brief.title}
+Angle: ${brief.angle}
+CTA: ${brief.cta}
+Link to mention naturally when useful: ${fallback.link}
+Queue day: ${queue.queueDay}
+Cycle number: ${queue.cycleNumber}
+Recycle count: ${queue.recycleCount}
+${mediaBrief}
+
+Rules:
+- Make the post feel useful, human, and premium, not spammy.
+- Do not claim guaranteed results, official platform partnerships, or impossible automation.
+- Do not pretend a platform was connected or posted.
+- Reuse the uploaded media idea, but reinvent the caption angle when recycle count is above 0.
+- For shoppers, emphasize safer buying decisions before checkout.
+- For sellers, emphasize review intelligence, competitor gaps, product improvement, and clearer action.
+- Caption must not include hashtags; return hashtags separately.
+- Keep ${label} caption length appropriate: short for X, stronger story for Facebook/LinkedIn, punchier for TikTok/Instagram/Shorts.
+- Include a short video script that can be used with the uploaded media.
+- Return JSON only.`,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "reviewintel_social_post",
+            strict: true,
+            schema: socialContentSchema,
+          },
+        },
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return fallback;
+
+    const outputText = responseOutputText(data);
+    if (!outputText) return fallback;
+
+    return normalizeAiContent(JSON.parse(outputText), fallback, platform, topic);
+  } catch {
+    return fallback;
+  }
+}
+
 
 type SocialMediaItem = {
   id: string;
@@ -243,6 +554,48 @@ type SocialQueueState = {
   cycleNumber: number;
   recycleCount: number;
 };
+
+function normalSocialDay(day: number) {
+  const numericDay = Math.max(1, Math.floor(Number(day) || 1));
+  return ((numericDay - 1) % builtInSocialImageCount) + 1;
+}
+
+function builtInSocialImagePath(day: number) {
+  return `/social/house/reviewintel-house-${String(normalSocialDay(day)).padStart(3, "0")}.png`;
+}
+
+function builtInSocialMedia(topic: string, queue: SocialQueueState): SocialMediaItem {
+  const queueDay = normalSocialDay(queue.queueDay);
+  const fileUrl = builtInSocialImagePath(queueDay);
+  const topicKey = topic || builtInSocialTopics[(queueDay - 1) % builtInSocialTopics.length] || "shopper_tips";
+
+  return {
+    id: `builtin-reviewintel-house-${String(queueDay).padStart(3, "0")}`,
+    media_type: "image",
+    file_url: fileUrl,
+    thumbnail_url: fileUrl,
+    title: `ReviewIntel house social creative ${String(queueDay).padStart(3, "0")}`,
+    topic: topicKey,
+    tags: ["ReviewIntel", "AIReviewIntelligence", "SmartShopping", topicKey],
+    used_count: 0,
+    last_used_at: null,
+    metadata: {
+      builtin: true,
+      queue_day: queueDay,
+      cycle_number: queue.cycleNumber,
+      note: "Built-in ReviewIntel image used because no active uploaded media matched the queue.",
+    },
+  };
+}
+
+function isBuiltInSocialMedia(media: SocialMediaItem | null) {
+  return Boolean(media?.metadata?.builtin || media?.id?.startsWith("builtin-reviewintel-house-"));
+}
+
+function absoluteMediaUrl(media?: SocialMediaItem | null) {
+  if (!media?.file_url) return "";
+  return media.file_url.startsWith("/") ? `${publicSiteUrl()}${media.file_url}` : media.file_url;
+}
 
 function sameUtcDate(a?: string | null, b = new Date()) {
   if (!a) return false;
@@ -283,7 +636,15 @@ async function getLatestQueueState(cycleLength: number): Promise<SocialQueueStat
   return { queueDay, cycleNumber, recycleCount };
 }
 
-async function pickSocialMedia(topic: string): Promise<SocialMediaItem | null> {
+function advanceQueueState(queue: SocialQueueState, cycleLength: number): SocialQueueState {
+  const queueDay = queue.queueDay >= cycleLength ? 1 : queue.queueDay + 1;
+  const cycleNumber = queue.queueDay >= cycleLength ? queue.cycleNumber + 1 : queue.cycleNumber;
+  const recycleCount = Math.max(0, cycleNumber - 1);
+
+  return { queueDay, cycleNumber, recycleCount };
+}
+
+async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<SocialMediaItem> {
   const topicQuery = encodeURIComponent(topic);
   const topicRows = await supabaseFetch(
     `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}&order=last_used_at.asc.nullsfirst,used_count.asc&limit=20`
@@ -294,14 +655,15 @@ async function pickSocialMedia(topic: string): Promise<SocialMediaItem | null> {
   ).catch(() => []);
 
   const rows = Array.isArray(topicRows) && topicRows.length ? topicRows : fallbackRows;
-  if (!Array.isArray(rows) || rows.length === 0) return null;
+  if (!Array.isArray(rows) || rows.length === 0) return builtInSocialMedia(topic, queue);
 
   const pool = rows as SocialMediaItem[];
-  return pool[Math.floor(Math.random() * pool.length)] || pool[0] || null;
+  return pool[Math.floor(Math.random() * pool.length)] || pool[0] || builtInSocialMedia(topic, queue);
 }
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
   if (!media?.id) return;
+  if (isBuiltInSocialMedia(media)) return;
 
   await supabaseFetch(`admin_social_media?id=eq.${encodeURIComponent(media.id)}`, {
     method: "PATCH",
@@ -385,25 +747,70 @@ export async function updateSocialPost(id: string, payload: Partial<SocialPost>)
   return rows?.[0];
 }
 
-async function postToFacebookPage(caption: string): Promise<PublishResult> {
-  const pageId = process.env.FACEBOOK_PAGE_ID;
-  const pageToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
-  const graphVersion = process.env.FACEBOOK_GRAPH_API_VERSION || "v20.0";
+async function postToFacebookPage(caption: string, media?: SocialMediaItem | null): Promise<PublishResult> {
+  const { pageId, pageToken, graphVersion } = facebookConfig();
 
   if (!pageId || !pageToken) {
     return {
       ok: false,
-      error: "Facebook Page connector missing. Add FACEBOOK_PAGE_ID and FACEBOOK_PAGE_ACCESS_TOKEN.",
+      error: "Facebook Page connector missing. Add a non-empty FACEBOOK_PAGE_ID and FACEBOOK_PAGE_ACCESS_TOKEN.",
+      metadata: {
+        facebookConnector: {
+          pageIdConfigured: Boolean(pageId),
+          pageTokenConfigured: Boolean(pageToken),
+        },
+      },
     };
   }
 
-  const response = await fetch(`https://graph.facebook.com/${graphVersion}/${pageId}/feed`, {
+  if (media?.media_type === "video") {
+    return {
+      ok: false,
+      error: "Facebook video auto-posting is not enabled yet. Add image media first, then video publishing can be added safely.",
+      metadata: {
+        media_id: media.id,
+        media_type: media.media_type,
+        file_url: media.file_url,
+      },
+    };
+  }
+
+  const mediaUrl = absoluteMediaUrl(media);
+
+  if (media?.media_type === "image" && media.file_url && (!mediaUrl || isPrivateOrLocalUrl(mediaUrl))) {
+    return {
+      ok: false,
+      error:
+        "Facebook cannot fetch localhost or private media URLs. Use the deployed site URL or the built-in ReviewIntel house image library.",
+      metadata: {
+        media_id: media.id,
+        media_type: media.media_type,
+        media_url_public: Boolean(mediaUrl && !isPrivateOrLocalUrl(mediaUrl)),
+      },
+    };
+  }
+
+  const endpoint =
+    media?.media_type === "image" && media.file_url
+      ? `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/photos`
+      : `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/feed`;
+
+  const body =
+    media?.media_type === "image" && media.file_url
+      ? new URLSearchParams({
+          url: mediaUrl,
+          caption,
+          access_token: pageToken,
+        })
+      : new URLSearchParams({
+          message: caption,
+          access_token: pageToken,
+        });
+
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      message: caption,
-      access_token: pageToken,
-    }),
+    body,
   });
 
   const data = await response.json().catch(() => ({}));
@@ -418,14 +825,99 @@ async function postToFacebookPage(caption: string): Promise<PublishResult> {
 
   return {
     ok: true,
-    externalPostId: data?.id || null,
+    externalPostId: data?.post_id || data?.id || null,
     metadata: data,
   };
 }
 
-async function postToPlatform(platform: string, caption: string): Promise<PublishResult> {
+export async function checkFacebookConnector() {
+  const { pageId, pageToken, graphVersion } = facebookConfig();
+  const sampleMediaUrl = `${publicSiteUrl()}${builtInSocialImagePath(1)}`;
+  const checks: ConnectorCheck[] = [
+    connectorCheck(
+      "Facebook env",
+      pageId && pageToken ? "passed" : "failed",
+      pageId && pageToken
+        ? "Facebook page ID and a non-empty page access token were found."
+        : "Missing non-empty Facebook page ID or page access token."
+    ),
+  ];
+
+  if (pageId && pageToken) {
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}?fields=id,name,link&access_token=${encodeURIComponent(pageToken)}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      checks.push(
+        connectorCheck(
+          "Facebook page access",
+          response.ok ? "passed" : "failed",
+          response.ok
+            ? `Connected to ${data?.name || "the configured Facebook Page"}.`
+            : data?.error?.message || "Facebook rejected the page ID/token pair."
+        )
+      );
+    } catch {
+      checks.push(
+        connectorCheck(
+          "Facebook page access",
+          "failed",
+          "Could not reach Facebook Graph API from this server."
+        )
+      );
+    }
+  }
+
+  if (isPrivateOrLocalUrl(sampleMediaUrl)) {
+    checks.push(
+      connectorCheck(
+        "Public media URL",
+        "failed",
+        "The current site URL is localhost/private. Facebook needs the deployed getreviewintel.com URL to fetch images."
+      )
+    );
+  } else {
+    try {
+      const response = await fetch(sampleMediaUrl, { method: "HEAD", cache: "no-store" });
+      checks.push(
+        connectorCheck(
+          "Built-in image library",
+          response.ok ? "passed" : "warning",
+          response.ok
+            ? "The built-in ReviewIntel image library is reachable from the public site URL."
+            : `The built-in image URL returned HTTP ${response.status}; posting may still work after deployment if the file exists there.`
+        )
+      );
+    } catch {
+      checks.push(
+        connectorCheck(
+          "Built-in image library",
+          "warning",
+          "Could not verify the public image URL from this environment. The built-in files are present locally and deploy with the app."
+        )
+      );
+    }
+  }
+
+  const failed = checks.some((item) => item.status === "failed");
+  const warning = checks.some((item) => item.status === "warning");
+
+  return {
+    ok: !failed,
+    status: failed ? "failed" : warning ? "warning" : "ready",
+    graphVersion,
+    page: { id: pageId ? maskIdentifier(pageId) : "" },
+    sampleMediaUrl,
+    checks,
+  };
+}
+
+async function postToPlatform(platform: string, caption: string, media?: SocialMediaItem | null): Promise<PublishResult> {
   if (platform === "facebook") {
-    return postToFacebookPage(caption);
+    return postToFacebookPage(caption, media);
   }
 
   return {
@@ -439,118 +931,132 @@ async function postToPlatform(platform: string, caption: string): Promise<Publis
   };
 }
 
-export async function runSocialAutoPost() {
+export async function runSocialAutoPost(options: { force?: boolean } = {}) {
   const settings = await getSocialSettings();
 
   if (settings.emergency_pause) {
     return { ok: true, skipped: true, reason: "Emergency pause is enabled." };
   }
 
-  if (!settings.full_auto_enabled) {
+  if (!settings.full_auto_enabled && !options.force) {
     return { ok: true, skipped: true, reason: "Full auto-post is disabled." };
   }
 
-  if (sameUtcDate(settings.last_posted_at)) {
+  if (!options.force && sameUtcDate(settings.last_posted_at)) {
     return { ok: true, skipped: true, reason: "A social auto-post already ran today." };
   }
 
   const topics = settings.topics?.length ? settings.topics : ["shopper_tips"];
   const platforms = settings.platforms?.length ? settings.platforms : ["facebook"];
   const cycleLength = Math.max(1, Number(settings.cycle_length || 100));
-  const topic = topics[new Date().getUTCDate() % topics.length];
-  const queue = await getLatestQueueState(cycleLength);
-  const media = await pickSocialMedia(topic);
+  const batchCount = Math.max(1, Math.min(12, Number(settings.posts_per_day || 1)));
+  let queue = await getLatestQueueState(cycleLength);
+  let lastQueue = queue;
   const now = new Date().toISOString();
   const results = [];
+  const mediaUsed: SocialMediaItem[] = [];
 
-  for (const platform of platforms) {
-    const content = generateReviewIntelContentPack(platform, topic);
-    const caption = recycleCaption(formatPostCaption(content), queue);
-    const fingerprint = makeContentFingerprint({
-      platform,
-      topic,
-      queueDay: queue.queueDay,
-      cycleNumber: queue.cycleNumber,
-      recycleCount: queue.recycleCount,
-    });
+  for (let batchIndex = 0; batchIndex < batchCount; batchIndex += 1) {
+    const topic = topics[(new Date().getUTCDate() + batchIndex) % topics.length];
+    const media = await pickSocialMedia(topic, queue);
+    mediaUsed.push(media);
 
-    const draft = await createSocialPost({
-      platform,
-      mode: "full_auto",
-      status: "draft_ready",
-      topic,
-      caption,
-      hashtags: content.hashtags,
-      link_url: content.link,
-      queue_day: queue.queueDay,
-      cycle_number: queue.cycleNumber,
-      recycle_count: queue.recycleCount,
-      media_id: media?.id ?? null,
-      content_fingerprint: fingerprint,
-      metadata: {
-        content,
-        queue,
-        media: media
-          ? {
-              id: media.id,
-              type: media.media_type,
-              file_url: media.file_url,
-              thumbnail_url: media.thumbnail_url ?? null,
-              title: media.title ?? null,
-              topic: media.topic ?? null,
-              tags: media.tags ?? [],
-            }
-          : null,
-        recycle_note:
-          queue.recycleCount > 0
-            ? "This post is from a recycled 100-day cycle with a refreshed caption angle."
+    for (const platform of platforms) {
+      const content = await generateAiReviewIntelContentPack(platform, topic, queue, media);
+      const caption = recycleCaption(formatPostCaption(content), queue);
+      const fingerprint = makeContentFingerprint({
+        platform,
+        topic,
+        queueDay: queue.queueDay,
+        cycleNumber: queue.cycleNumber,
+        recycleCount: queue.recycleCount,
+      });
+
+      const draft = await createSocialPost({
+        platform,
+        mode: "full_auto",
+        status: "draft_ready",
+        topic,
+        caption,
+        hashtags: content.hashtags,
+        link_url: content.link,
+        queue_day: queue.queueDay,
+        cycle_number: queue.cycleNumber,
+        recycle_count: queue.recycleCount,
+        media_id: isBuiltInSocialMedia(media) ? null : media?.id ?? null,
+        content_fingerprint: fingerprint,
+        metadata: {
+          content,
+          queue,
+          media: media
+            ? {
+                id: media.id,
+                type: media.media_type,
+                file_url: media.file_url,
+                thumbnail_url: media.thumbnail_url ?? null,
+                title: media.title ?? null,
+                topic: media.topic ?? null,
+                tags: media.tags ?? [],
+                builtin: isBuiltInSocialMedia(media),
+              }
             : null,
-      },
-    });
-
-    const published = await postToPlatform(platform, caption);
-
-    if (published.ok) {
-      const updated = await updateSocialPost(draft.id, {
-        status: "posted",
-        external_post_id: published.externalPostId,
-        posted_at: now,
-        error: null,
-        metadata: {
-          ...(draft.metadata || {}),
-          ...(published.metadata || {}),
+          recycle_note:
+            queue.recycleCount > 0
+              ? "This post is from a recycled 100-day cycle with a refreshed caption angle."
+              : null,
         },
       });
 
-      results.push(updated);
-    } else {
-      const updated = await updateSocialPost(draft.id, {
-        status: "failed",
-        error: published.error,
-        metadata: {
-          ...(draft.metadata || {}),
-          ...(published.metadata || {}),
-        },
-      });
+      const published = await postToPlatform(platform, caption, media);
 
-      results.push(updated);
+      if (published.ok) {
+        const updated = await updateSocialPost(draft.id, {
+          status: published.draftOnly ? "draft_ready" : "posted",
+          external_post_id: published.externalPostId,
+          posted_at: published.draftOnly ? null : now,
+          error: null,
+          metadata: {
+            ...(draft.metadata || {}),
+            ...(published.metadata || {}),
+          },
+        });
+
+        results.push(updated);
+      } else {
+        const updated = await updateSocialPost(draft.id, {
+          status: "failed",
+          error: published.error,
+          metadata: {
+            ...(draft.metadata || {}),
+            ...(published.metadata || {}),
+          },
+        });
+
+        results.push(updated);
+      }
     }
+
+    lastQueue = queue;
+    queue = advanceQueueState(queue, cycleLength);
   }
 
-  await markSocialMediaUsed(media, now);
+  for (const media of mediaUsed) {
+    await markSocialMediaUsed(media, now);
+  }
 
   await updateSocialSettings({
-    last_queue_day: queue.queueDay,
+    last_queue_day: lastQueue.queueDay,
     last_posted_at: now,
   });
 
   return {
     ok: true,
     skipped: false,
-    queue_day: queue.queueDay,
-    cycle_number: queue.cycleNumber,
-    recycle_count: queue.recycleCount,
-    media_id: media?.id ?? null,
+    queue_day: lastQueue.queueDay,
+    cycle_number: lastQueue.cycleNumber,
+    recycle_count: lastQueue.recycleCount,
+    batches: batchCount,
+    media_ids: mediaUsed.map((media) => media.id),
     results,
   };
 }

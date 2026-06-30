@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import {
+  checkFacebookConnector,
   getSocialSettings,
   listSocialPosts,
   runSocialAutoPost,
@@ -52,11 +53,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
 
     if (body.action === "run-now") {
-      const result = await runSocialAutoPost();
+      const result = await runSocialAutoPost({ force: true });
       const settings = await getSocialSettings();
       const posts = await listSocialPosts();
 
       return NextResponse.json({ ok: true, result, settings, posts });
+    }
+
+    if (body.action === "facebook-check") {
+      const facebook = await checkFacebookConnector();
+
+      return NextResponse.json({ ok: facebook.ok, facebook }, { status: facebook.ok ? 200 : 409 });
     }
 
     const settings = await updateSocialSettings({
@@ -66,6 +73,9 @@ export async function POST(request: NextRequest) {
       daily_time: String(body.daily_time || "09:00"),
       platforms: sanitizeList(body.platforms, allowedPlatforms, ["facebook"]),
       topics: sanitizeList(body.topics, allowedTopics, ["shopper_tips"]),
+      cycle_length: Math.max(1, Math.min(365, Number(body.cycle_length || 100))),
+      posts_per_day: Math.max(1, Math.min(12, Number(body.posts_per_day || 1))),
+      recycle_after_days: Math.max(1, Math.min(365, Number(body.recycle_after_days || 100))),
     });
 
     const posts = await listSocialPosts();

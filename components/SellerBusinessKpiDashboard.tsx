@@ -655,33 +655,34 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
 
           html[data-layout-mode="mobile"] .seller-kpi-grid,
           html[data-layout-mode="auto"] .seller-kpi-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 0.55rem !important;
+            grid-template-columns: 1fr !important;
+            gap: 0.65rem !important;
             margin-top: 0.85rem !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-card,
           html[data-layout-mode="auto"] .seller-kpi-card {
-            height: clamp(7.8rem, 39vw, 9.25rem) !important;
+            height: auto !important;
             min-height: 0 !important;
             aspect-ratio: auto !important;
             border-radius: 0.95rem !important;
-            overflow: hidden !important;
+            overflow: visible !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-card > div,
           html[data-layout-mode="auto"] .seller-kpi-card > div {
-            height: 100% !important;
+            height: auto !important;
             min-height: 0 !important;
             transform: none !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-card article,
           html[data-layout-mode="auto"] .seller-kpi-card article {
-            height: 100% !important;
+            height: auto !important;
+            min-height: 6.3rem !important;
             position: relative !important;
             inset: auto !important;
-            padding: 0.55rem !important;
+            padding: 0.75rem !important;
             border-radius: 0.95rem !important;
             overflow: hidden !important;
             transform: none !important;
@@ -696,8 +697,8 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
           html[data-layout-mode="mobile"] .seller-kpi-card p,
           html[data-layout-mode="auto"] .seller-kpi-card p {
             max-width: none !important;
-            font-size: 0.62rem !important;
-            line-height: 1.16 !important;
+            font-size: 0.76rem !important;
+            line-height: 1.3 !important;
             letter-spacing: 0 !important;
             word-break: normal !important;
             overflow-wrap: break-word !important;
@@ -720,16 +721,15 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
 
           html[data-layout-mode="mobile"] .seller-kpi-card svg,
           html[data-layout-mode="auto"] .seller-kpi-card svg {
-            height: 2.7rem !important;
-            max-height: 2.7rem !important;
+            display: none !important;
           }
 
           html[data-layout-mode="mobile"] .seller-kpi-metric,
           html[data-layout-mode="auto"] .seller-kpi-metric {
-            margin-top: 0.15rem !important;
-            font-size: 0.95rem !important;
+            margin-top: 0.55rem !important;
+            font-size: 1.05rem !important;
             line-height: 1 !important;
-            max-height: 1.1rem !important;
+            max-height: 1.2rem !important;
             overflow: hidden !important;
           }
 
@@ -739,9 +739,9 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
             -webkit-line-clamp: 2 !important;
             -webkit-box-orient: vertical !important;
             margin-top: 0.3rem !important;
-            font-size: 0.58rem !important;
-            line-height: 1.16 !important;
-            max-height: 1.38rem !important;
+            font-size: 0.78rem !important;
+            line-height: 1.32 !important;
+            max-height: 2.1rem !important;
             overflow: hidden !important;
           }
 

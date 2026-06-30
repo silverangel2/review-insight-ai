@@ -55,6 +55,12 @@ export default async function AdminPage() {
       action: "Manage ads"
     },
     {
+      title: "Social Auto-Post",
+      detail: "100-day Facebook queue, media library, AI captions, and daily organic posting.",
+      href: "/admin/social",
+      action: "Open social"
+    },
+    {
       title: "SEO",
       detail: "Readiness check, metadata drafts, sitemap, robots, and SEO pages.",
       href: "/admin/seo",

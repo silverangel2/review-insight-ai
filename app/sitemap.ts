@@ -1,46 +1,17 @@
 import type { MetadataRoute } from "next";
+import { automatedSeoPages } from "@/lib/seoAutomation";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     "http://localhost:3000";
-  const routes = [
-    "",
-    "/analyze",
-    "/compare",
-    "/pricing",
-    "/advertise",
-    "/reviews",
-    "/about",
-    "/login",
-    "/signup",
-    "/consumer-review-analyzer",
-    "/buyer-review-analyzer",
-    "/amazon-review-analyzer",
-    "/fake-review-detector",
-    "/seller-review-analytics",
-    "/product-complaint-analyzer",
-    "/product-feedback-dashboard",
-    "/ai-review-intelligence-tool",
-    "/terms",
-    "/privacy",
-    "/disclaimer",
-    "/refunds",
-    "/faq",
-    "/contact",
-    "/manage-subscription",
-    "/billing-support",
-    "/account-support",
-    "/delete-account",
-    "/cookies",
-    "/acceptable-use"
-  ];
+  const cleanBaseUrl = baseUrl.replace(/\/$/, "");
 
-  return routes.map((route) => ({
-    url: `${baseUrl}${route}`,
+  return automatedSeoPages.filter((page) => page.robots === "index,follow").map((page) => ({
+    url: `${cleanBaseUrl}${page.path === "/" ? "" : page.path}`,
     lastModified: new Date(),
-    changeFrequency: route === "" || route.includes("analyzer") || route.includes("detector") ? "weekly" : "monthly",
-    priority: route === "" ? 1 : route.includes("analyzer") || route.includes("detector") ? 0.85 : 0.7
+    changeFrequency: page.changeFrequency,
+    priority: page.priority
   }));
 }

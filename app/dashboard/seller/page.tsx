@@ -562,6 +562,70 @@ export default function SellerDashboardPage() {
         </section>
 
         {dashboard.productRows.length ? (
+          <section className="seller-growth-pulse mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Seller growth pulse</p>
+                <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">What to do next, in plain language.</h2>
+              </div>
+              <p className="max-w-2xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+                Product scans build the trend. Compare scans guide strategy, but they stay out of the health score so your tracking stays fair.
+              </p>
+            </div>
+
+            <div className="seller-growth-pulse-grid mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+              <article className="rounded-[1.25rem] border border-coral/20 bg-rose-50 p-4 dark:border-rose-300/20 dark:bg-rose-400/10">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-coral">Fix next</p>
+                <h3 className="mt-2 text-xl font-black text-ink dark:text-white">
+                  {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "Run a seller scan"}
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
+                  {dashboard.weakestProduct
+                    ? `${dashboard.weakestProduct.latestScore}% score. Start with: ${sellerShortName(dashboard.weakestProduct.mainConcern, 90)}`
+                    : "No improvement target yet."}
+                </p>
+              </article>
+
+              <article className="rounded-[1.25rem] border border-teal/20 bg-emerald-50 p-4 dark:border-emerald-300/20 dark:bg-emerald-400/10">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-teal">Use as proof</p>
+                <h3 className="mt-2 text-xl font-black text-ink dark:text-white">
+                  {dashboard.strongestProduct ? productDisplayCode(dashboard.strongestProduct.name) : "Find a winning signal"}
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
+                  {dashboard.strongestProduct
+                    ? sellerShortName(dashboard.strongestProduct.topPositive, 100)
+                    : "Strong buyer proof appears here after saved scans."}
+                </p>
+              </article>
+            </div>
+
+            <div className="seller-growth-product-bars mt-5 grid gap-3">
+              {dashboard.productRows.slice(0, 5).map((product) => (
+                <div key={product.name} className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-ink dark:text-white">{productDisplayCode(product.name)}</p>
+                      <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">
+                        {product.trend} {product.previousScore ? `· ${product.scoreChange > 0 ? "+" : ""}${product.scoreChange} pts` : "· new"}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-black text-ocean shadow-inner dark:bg-slate-900">
+                      {product.latestScore || 0}%
+                    </span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-slate-900">
+                    <div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,#df5f63,#ffb238,#10c6a3)]"
+                      style={{ width: `${Math.max(4, Math.min(100, product.latestScore || 0))}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {dashboard.productRows.length ? (
           <section className="seller-premium-ranking mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
@@ -923,6 +987,7 @@ export default function SellerDashboardPage() {
               :is(
                 .seller-premium-hero,
                 .seller-premium-command-grid > article,
+                .seller-growth-pulse,
                 .seller-premium-ranking,
                 .seller-premium-focus-grid > article,
                 .seller-premium-insight-grid > article,
@@ -951,7 +1016,7 @@ export default function SellerDashboardPage() {
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
-              :is(.seller-premium-hero h2, .seller-premium-ranking h2, .seller-calendar-workspace h2) {
+              :is(.seller-premium-hero h2, .seller-growth-pulse h2, .seller-premium-ranking h2, .seller-calendar-workspace h2) {
               margin-top: 0.45rem !important;
               font-size: 1.35rem !important;
               line-height: 1.18 !important;
@@ -1028,6 +1093,29 @@ export default function SellerDashboardPage() {
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
+              .seller-growth-pulse-grid {
+              grid-template-columns: 1fr !important;
+              gap: 0.65rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-growth-pulse :is(h3, p) {
+              overflow-wrap: anywhere !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-growth-pulse article,
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              .seller-growth-product-bars > div {
+              padding: 0.85rem !important;
+              border-radius: 0.95rem !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
               :is(.seller-premium-focus-grid, .seller-premium-insight-grid, .seller-premium-utility-grid) {
               grid-template-columns: 1fr !important;
               gap: 0.75rem !important;
@@ -1097,15 +1185,87 @@ export default function SellerDashboardPage() {
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
               details table {
-              min-width: 720px !important;
+              display: block !important;
+              width: 100% !important;
+              min-width: 0 !important;
             }
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
               .reviewintel-route-dashboard-seller
-              details :is(th, td) {
-              padding: 0.7rem !important;
-              font-size: 0.72rem !important;
+              details thead {
+              display: none !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details :is(tbody, tr, td) {
+              display: block !important;
+              width: 100% !important;
+              max-width: none !important;
+              min-width: 0 !important;
+              white-space: normal !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details tr {
+              margin-bottom: 0.7rem !important;
+              padding: 0.75rem !important;
+              border: 1px solid #dbe4ee !important;
+              border-radius: 0.95rem !important;
+              background: #f8fafc !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details td {
+              padding: 0.25rem 0 !important;
+              border: 0 !important;
+              font-size: 0.78rem !important;
               line-height: 1.35 !important;
+              overflow-wrap: anywhere !important;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details td::before {
+              display: block;
+              margin-bottom: 0.1rem;
+              font-size: 0.62rem;
+              font-weight: 900;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
+              color: #718096;
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details td:nth-child(1)::before {
+              content: "Date";
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details td:nth-child(2)::before {
+              content: "Product";
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details td:nth-child(3)::before {
+              content: "Score";
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details td:nth-child(4)::before {
+              content: "Sentiment";
+            }
+
+            html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
+              .reviewintel-route-dashboard-seller
+              details td:nth-child(5)::before {
+              content: "Concern";
             }
 
             html:is([data-layout-mode="mobile"], [data-layout-mode="auto"])
@@ -1146,6 +1306,7 @@ export default function SellerDashboardPage() {
               :is(
                 .dashboard-shell-page-title,
                 .seller-premium-hero,
+                .seller-growth-pulse,
                 .seller-premium-ranking,
                 .seller-premium-focus-grid > article,
                 .seller-premium-insight-grid > article,
@@ -1218,7 +1379,7 @@ export default function SellerDashboardPage() {
             html[data-layout-mode="mobile"]
               main.dashboard-shell-main[data-dashboard-experience="seller"]
               details table {
-              min-width: 640px !important;
+              min-width: 0 !important;
             }
           }
         `}</style>

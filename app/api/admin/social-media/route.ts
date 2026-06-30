@@ -13,6 +13,10 @@ function cleanUrl(value: unknown) {
   const url = String(value || "").trim();
   if (!url) return "";
 
+  if (url.startsWith("/uploads/social/") || url.startsWith("/uploads/ads/")) {
+    return url;
+  }
+
   try {
     const parsed = new URL(url);
     if (!["http:", "https:"].includes(parsed.protocol)) return "";
