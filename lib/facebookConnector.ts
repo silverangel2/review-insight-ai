@@ -156,7 +156,7 @@ export async function exchangeForLongLivedUserToken(shortLivedUserToken: string)
 
 export async function getFacebookPages(userAccessToken: string) {
   const url = new URL(`${GRAPH_BASE}/me/accounts`);
-  url.searchParams.set("fields", "id,name,access_token,tasks,perms");
+  url.searchParams.set("fields", "id,name,access_token,tasks");
   url.searchParams.set("access_token", userAccessToken);
 
   const response = await fetch(url.toString(), { cache: "no-store" });
@@ -191,7 +191,7 @@ export async function getFacebookBusinessPages(
   edge: "owned_pages" | "client_pages"
 ) {
   const url = new URL(`${GRAPH_BASE}/${businessId}/${edge}`);
-  url.searchParams.set("fields", "id,name,access_token,tasks,perms");
+  url.searchParams.set("fields", "id,name,access_token,tasks");
   url.searchParams.set("access_token", userAccessToken);
 
   const response = await fetch(url.toString(), { cache: "no-store" });
