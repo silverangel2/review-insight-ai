@@ -466,6 +466,45 @@ function responseOutputText(data: unknown) {
     .join("");
 }
 
+
+function freshSocialSeed() {
+  return `${new Date().toISOString()}-${Math.random().toString(36).slice(2)}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function freshFallbackCaption(caption: string, platform: string, topic: string) {
+  const hooks = [
+    "Some products look perfect until the review patterns tell another story.",
+    "A high rating is only the surface. The real signal is in what buyers repeat.",
+    "Before trusting the stars, check the patterns behind the praise and complaints.",
+    "ReviewIntel turns messy product reviews into a faster buying-confidence signal.",
+    "The smartest purchase is not based on hype. It is based on repeated buyer patterns.",
+    "Reviews are noisy. ReviewIntel helps separate useful signals from empty praise.",
+    "A product can look popular and still have warning signs hiding in plain sight.",
+    "Better buying starts with understanding what real customers keep saying.",
+    "Not every five-star product deserves blind trust.",
+    "Review patterns can reveal what the product page does not want you to notice.",
+    "The best product decision starts before checkout.",
+    "Good reviews matter, but repeated complaints matter more.",
+    "A smart shopper looks past the rating and checks the pattern.",
+    "ReviewIntel helps buyers slow down for one second before making the wrong purchase.",
+    "The product page tells one story. The review pattern tells another."
+  ];
+
+  const seed = Math.abs(
+    Array.from(`${Date.now()}-${Math.random()}-${topic}-${platform}`)
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  );
+
+  const hook = hooks[seed % hooks.length];
+  const cleanCaption = caption.replace(/^(.{0,160}?)(\n\n|$)/, "").trim();
+
+  if (platform === "x") {
+    return `${hook} ${topic ? `#${topic.replace(/\s+/g, "")}` : "#ReviewIntel"}`.slice(0, 250);
+  }
+
+  return `${hook}\n\n${cleanCaption || "Use ReviewIntel to spot patterns, compare buyer feedback, and make faster product decisions."}`;
+}
+
 function normalizeAiContent(raw: unknown, fallback: SocialContentPack, platform: string, topic: string): SocialContentPack {
   const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const caption = String(record.caption || fallback.caption || "").trim();
@@ -477,7 +516,7 @@ function normalizeAiContent(raw: unknown, fallback: SocialContentPack, platform:
   ).slice(0, platform === "x" ? 4 : 8);
 
   return {
-    caption: caption || fallback.caption,
+    caption: caption || freshFallbackCaption(fallback.caption, platform, topic),
     hashtags: hashtags.length ? hashtags : fallback.hashtags,
     shortVideoScript: String(record.shortVideoScript || fallback.shortVideoScript || "").trim() || fallback.shortVideoScript,
     altText: String(record.altText || fallback.altText || "").trim() || fallback.altText,
@@ -494,7 +533,12 @@ async function generateAiReviewIntelContentPack(
   const fallback = generateReviewIntelContentPack(platform, topic);
   const apiKey = process.env.OPENAI_API_KEY;
 
-  if (!apiKey) return fallback;
+  if (!apiKey) {
+    return {
+      ...fallback,
+      caption: freshFallbackCaption(fallback.caption, platform, topic),
+    };
+  }
 
   const brief = topicBriefs[topic] || topicBriefs.shopper_tips;
   const label = platformLabels[platform] || platform;
@@ -552,10 +596,20 @@ Rules:
     });
 
     const data = await response.json().catch(() => null);
-    if (!response.ok) return fallback;
+    if (!response.ok) {
+      return {
+        ...fallback,
+        caption: freshFallbackCaption(fallback.caption, platform, topic),
+      };
+    }
 
     const outputText = responseOutputText(data);
-    if (!outputText) return fallback;
+    if (!outputText) {
+      return {
+        ...fallback,
+        caption: freshFallbackCaption(fallback.caption, platform, topic),
+      };
+    }
 
     return normalizeAiContent(JSON.parse(outputText), fallback, platform, topic);
   } catch {
@@ -711,16 +765,25 @@ async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string
 function recycleCaption(caption: string, queue: SocialQueueState) {
   if (queue.recycleCount <= 0) return caption;
 
-  const recycleHooks = [
+  const refreshers = [
     "Fresh angle:",
-    "Reminder for smart shoppers:",
-    "Worth repeating:",
-    "Before your next checkout:",
-    "New version, same warning:",
+    "Another buyer-signal check:",
+    "New review pattern to watch:",
+    "Before the next checkout:",
+    "Worth checking twice:",
+    "A different way to look at reviews:",
+    "Today’s product signal:",
+    "Quick buyer-confidence reminder:"
   ];
 
-  const hook = recycleHooks[queue.queueDay % recycleHooks.length];
-  return `${hook} ${caption}`;
+  const seed = Math.abs(queue.recycleCount + Date.now());
+  const index = seed % refreshers.length;
+
+  return `${refreshers[index]} ${freshFallbackCaption(
+    caption,
+    "facebook",
+    `cycle-${queue.recycleCount}`
+  )}`;
 }
 
 export async function getSocialSettings(): Promise<SocialSettings> {
