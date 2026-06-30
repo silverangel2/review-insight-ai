@@ -31,7 +31,7 @@ function supabaseHeaders() {
     apikey: key,
     Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
-    Prefer: "return=representation",
+    Prefer: "resolution=merge-duplicates,return=representation",
   };
 }
 
