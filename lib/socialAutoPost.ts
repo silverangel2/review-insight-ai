@@ -275,7 +275,7 @@ function envFirst(...names: string[]) {
 }
 
 function facebookConfig() {
-  const graphVersion = envFirst("FACEBOOK_GRAPH_API_VERSION", "META_GRAPH_API_VERSION") || "v20.0";
+  const graphVersion = envFirst("FACEBOOK_GRAPH_API_VERSION", "META_GRAPH_API_VERSION") || "v25.0";
 
   return {
     pageId: envFirst("FACEBOOK_PAGE_ID", "FB_PAGE_ID", "META_PAGE_ID", "META_FACEBOOK_PAGE_ID"),
