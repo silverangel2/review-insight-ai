@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { getTikTokAuthUrl, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
 
 export const dynamic = "force-dynamic";
@@ -48,13 +47,8 @@ function html(status: "error" | "ready", message: string, details?: Record<strin
 </html>`;
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const adminSession = adminSessionFromRequest(request);
-    if (!adminSession) {
-      return NextResponse.redirect(`${publicBaseUrl()}/admin-access`);
-    }
-
     const health = getTikTokOAuthHealth();
     if (!health.clientKeyConfigured) {
       return new NextResponse(
