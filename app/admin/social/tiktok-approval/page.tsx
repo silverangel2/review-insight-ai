@@ -20,7 +20,7 @@ const approvalSteps = [
     label: "2",
     title: "Connect TikTok",
     detail:
-      "Click Connect TikTok. The app sends the admin to TikTok OAuth and requests user.info.basic plus video.publish for direct posting.",
+      "Click Connect TikTok. The app sends the admin to TikTok OAuth and requests user.info.basic plus video.upload for the approval-safe review flow.",
   },
   {
     label: "3",
@@ -115,7 +115,7 @@ export default function TikTokApprovalPage() {
           Short voiceover for the approval video
         </h2>
         <p className="mt-3 text-sm font-semibold leading-7 text-slate-700 dark:text-slate-200">
-          ReviewIntel uses TikTok login only for the admin social posting workflow. The admin connects a TikTok account, approves direct-post permission, and returns to ReviewIntel. The app then verifies creator information and public media access, generates a ReviewIntel marketing caption with AI, and posts a ReviewIntel-owned image to TikTok. No customer scan data, private account data, or third-party review content is posted to TikTok.
+          ReviewIntel uses TikTok login only for the admin social posting workflow. The admin connects a TikTok account, approves the requested TikTok posting permission, and returns to ReviewIntel. The app then verifies creator information and public media access, generates a ReviewIntel marketing caption with AI, and prepares or posts ReviewIntel-owned content depending on the TikTok permissions currently approved for the app. No customer scan data, private account data, or third-party review content is posted to TikTok.
         </p>
       </section>
 

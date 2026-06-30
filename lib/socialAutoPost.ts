@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
-import { getTikTokAccessTokenForPosting } from "@/lib/tiktokConnector";
+import { getTikTokAccessTokenForPosting, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -1211,11 +1211,26 @@ export async function checkTikTokConnector() {
   const { privacyLevel } = tiktokConfig();
   const credential = await getTikTokAccessTokenForPosting();
   const accessToken = credential.accessToken;
+  const oauthHealth = getTikTokOAuthHealth();
   const sampleMediaUrl = `${publicSiteUrl()}${builtInSocialImagePath(2)}`;
   const checks: ConnectorCheck[] = [
     connectorCheck(
+      "TikTok OAuth app",
+      oauthHealth.clientKeyConfigured && oauthHealth.clientSecretConfigured ? "passed" : "failed",
+      oauthHealth.clientKeyConfigured && oauthHealth.clientSecretConfigured
+        ? `TikTok app credentials are configured. Redirect URI: ${oauthHealth.redirectUri}.`
+        : "Missing TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET in Vercel."
+    ),
+    connectorCheck(
+      "TikTok OAuth scopes",
+      oauthHealth.directPostRequested ? "passed" : "warning",
+      oauthHealth.directPostRequested
+        ? "OAuth requests video.publish for Direct Post / full automatic posting."
+        : `OAuth currently requests ${oauthHealth.scopes.join(", ")}. This is approval-safe, but full automatic posting needs video.publish after TikTok approval.`
+    ),
+    connectorCheck(
       "TikTok connection",
-      accessToken ? "passed" : "failed",
+      accessToken ? "passed" : "warning",
       accessToken
         ? `TikTok token found from ${credential.source}${credential.accountName ? ` for ${credential.accountName}` : ""}.`
         : "TikTok is not connected. Use Connect TikTok after TikTok approves the Content Posting API product."
@@ -1301,6 +1316,7 @@ export async function checkTikTokConnector() {
     ok: !failed,
     status: failed ? "failed" : warning ? "warning" : "ready",
     sampleMediaUrl,
+    oauth: oauthHealth,
     account: credential.accountName ? { name: credential.accountName, source: credential.source } : null,
     checks,
   };

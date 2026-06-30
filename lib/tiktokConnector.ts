@@ -50,6 +50,7 @@ async function supabaseFetch(path: string, init: RequestInit = {}) {
 const TIKTOK_AUTH_BASE = "https://www.tiktok.com/v2/auth/authorize/";
 const TIKTOK_API_BASE = "https://open.tiktokapis.com/v2";
 const DEFAULT_TIKTOK_REDIRECT_URI = "https://getreviewintel.com/api/auth/tiktok/callback";
+const DEFAULT_TIKTOK_SCOPES = ["user.info.basic", "video.upload"];
 
 function cleanTikTokRedirectUri(value?: string | null) {
   const redirectUri = String(value || "").trim();
@@ -74,27 +75,60 @@ export function getTikTokOAuthConfig() {
   };
 }
 
+function cleanScopeList(value?: string | null) {
+  const scopes = String(value || "")
+    .split(/[,\s]+/)
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(scopes.length ? scopes : DEFAULT_TIKTOK_SCOPES));
+}
+
 export function getTikTokScopes() {
-  // video.publish is required for full automatic/direct posting through TikTok Content Posting API.
-  // user.info.basic lets ReviewIntel verify the connected TikTok account.
-  return ["user.info.basic", "video.publish"];
+  // video.upload is approval-safe for the TikTok review flow.
+  // video.publish is required after TikTok approves Direct Post / full automatic posting.
+  return cleanScopeList(process.env.TIKTOK_OAUTH_SCOPES || process.env.TIKTOK_SCOPES);
+}
+
+export function getTikTokOAuthHealth() {
+  const config = getTikTokOAuthConfig();
+  const scopes = getTikTokScopes();
+
+  return {
+    clientKeyConfigured: Boolean(config.clientKey),
+    clientSecretConfigured: Boolean(config.clientSecret),
+    redirectUri: config.redirectUri,
+    scopes,
+    directPostRequested: scopes.includes("video.publish"),
+    draftUploadRequested: scopes.includes("video.upload"),
+    approvalSafe:
+      scopes.includes("user.info.basic") &&
+      scopes.includes("video.upload") &&
+      !scopes.includes("video.publish"),
+  };
 }
 
 export function getTikTokAuthUrl(state: string) {
   const config = getTikTokOAuthConfig();
 
-  if (!config.clientKey || !config.redirectUri) {
-    throw new Error("Missing TikTok OAuth configuration");
+  if (!config.clientKey) {
+    throw new Error("Missing TIKTOK_CLIENT_KEY. Add it in Vercel before connecting TikTok.");
+  }
+
+  if (!config.redirectUri) {
+    throw new Error("Missing TikTok redirect URI.");
   }
 
   const url = new URL(TIKTOK_AUTH_BASE);
-  url.searchParams.set("client_key", config.clientKey);
-  url.searchParams.set("scope", getTikTokScopes().join(","));
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("redirect_uri", config.redirectUri);
-  url.searchParams.set("state", state);
+  const params = new URLSearchParams({
+    client_key: config.clientKey,
+    scope: getTikTokScopes().join(","),
+    response_type: "code",
+    redirect_uri: config.redirectUri,
+    state,
+  });
 
-  return url.toString();
+  return `${url.origin}${url.pathname}?${params.toString()}`;
 }
 
 export async function exchangeTikTokCodeForToken(code: string) {
