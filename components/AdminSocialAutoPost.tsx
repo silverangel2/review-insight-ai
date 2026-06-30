@@ -493,18 +493,37 @@ export default function AdminSocialAutoPost() {
 
       <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">
         <div className="grid gap-4 sm:grid-cols-3">
-          <label className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-slate-900">
-            <input
-              type="checkbox"
-              checked={settings.full_auto_enabled}
-              onChange={(event) => setSettings({ ...settings, full_auto_enabled: event.target.checked })}
-              className="mr-2"
-            />
-            <span className="text-sm font-black text-ink dark:text-white">Full auto enabled</span>
-            <p className="mt-2 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
-              Cron generates posts automatically. Connected platforms publish; unconnected platforms save drafts.
+          <div className={`rounded-2xl border p-4 ${
+            settings.full_auto_enabled
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-400/30 dark:bg-emerald-400/10"
+              : "border-line bg-mist dark:border-white/10 dark:bg-slate-900"
+          }`}>
+            <p className={`text-xs font-black uppercase tracking-[0.14em] ${
+              settings.full_auto_enabled
+                ? "text-emerald-700 dark:text-emerald-300"
+                : "text-slate-500 dark:text-slate-300"
+            }`}>
+              Daily schedule
             </p>
-          </label>
+
+            <button
+              type="button"
+              onClick={() => setSettings({ ...settings, full_auto_enabled: !settings.full_auto_enabled })}
+              className={`mt-3 w-full rounded-2xl px-4 py-3 text-sm font-black shadow-soft transition ${
+                settings.full_auto_enabled
+                  ? "bg-rose-600 text-white hover:bg-rose-700"
+                  : "bg-ocean text-white hover:bg-ocean/90"
+              }`}
+            >
+              {settings.full_auto_enabled ? "Pause Daily Publishing" : "Enable Daily Publishing"}
+            </button>
+
+            <p className="mt-2 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
+              {settings.full_auto_enabled
+                ? `Daily publishing is ON. Vercel cron will publish around ${settings.daily_time || "09:00"} if emergency pause is off.`
+                : "Daily publishing is OFF. Post Now / Test can still be used for checking."}
+            </p>
+          </div>
 
           <label className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-slate-900">
             <input
