@@ -3,6 +3,13 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { hasStripeEnv, hasSupabaseEnv } from "@/lib/env";
+import {
+  blockIp,
+  detectSuspiciousInput,
+  latestSecurityEvents,
+  rateLimitRequest,
+  rejectSuspiciousInput
+} from "@/lib/security";
 import { checkFacebookConnector, checkTikTokConnector } from "@/lib/socialAutoPost";
 import { adminUsageSummary, hasSupabaseServiceEnv } from "@/lib/supabaseServer";
 
@@ -48,6 +55,53 @@ function result(
     message,
     details,
     suggested_fix
+  };
+}
+
+function uniqueValues(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function sourceRootCandidates() {
+  return uniqueValues([
+    process.cwd(),
+    process.env.INIT_CWD ?? "",
+    path.join(process.cwd(), ".."),
+    path.join(process.cwd(), "../.."),
+    "/var/task",
+    "/var/task/src"
+  ]);
+}
+
+function isVisibleSourceRoot(root: string) {
+  return (
+    existsSync(path.join(root, "package.json")) &&
+    existsSync(path.join(root, "app")) &&
+    existsSync(path.join(root, "lib"))
+  );
+}
+
+function sourceFileStatus(requiredFiles: string[]) {
+  const candidates = sourceRootCandidates();
+  const sourceRoots = candidates.filter(isVisibleSourceRoot);
+  const rootsToCheck = sourceRoots.length ? sourceRoots : candidates;
+
+  const files = requiredFiles.map((file) => {
+    const foundAt = rootsToCheck.find((root) => existsSync(path.join(root, file))) ?? "";
+    return {
+      file,
+      found: Boolean(foundAt),
+      found_at: foundAt || undefined
+    };
+  });
+
+  return {
+    source_tree_visible: sourceRoots.length > 0,
+    roots_checked: rootsToCheck,
+    checked: requiredFiles.length,
+    found: files.filter((file) => file.found).length,
+    missing: sourceRoots.length ? files.filter((file) => !file.found).map((file) => file.file) : [],
+    hidden_source_paths: sourceRoots.length ? 0 : files.filter((file) => !file.found).length
   };
 }
 
@@ -232,20 +286,44 @@ async function checkSecurity(): Promise<DailyCheckResult> {
     "components/AdminSecurityCenter.tsx",
     "middleware.ts"
   ];
-  const missing = requiredFiles.filter((file) => !existsSync(path.join(process.cwd(), file)));
+  const fileStatus = sourceFileStatus(requiredFiles);
+  const runtimeControls = {
+    suspicious_input_detector: detectSuspiciousInput("<script>alert(1)</script>") === "script tag",
+    suspicious_input_rejection: typeof rejectSuspiciousInput === "function",
+    rate_limit: typeof rateLimitRequest === "function",
+    security_event_log: typeof latestSecurityEvents === "function",
+    ip_blocking: typeof blockIp === "function"
+  };
+  const missingRuntimeControls = Object.entries(runtimeControls)
+    .filter(([, ready]) => !ready)
+    .map(([name]) => name);
 
-  if (missing.length) {
+  if (missingRuntimeControls.length) {
     return result(
       "security",
       "failed",
-      "Security hardening files are missing.",
-      { missing },
+      "Security hardening runtime controls are missing.",
+      {
+        missing_runtime_controls: missingRuntimeControls,
+        files: fileStatus
+      },
+      "Restore lib/security.ts exports and the admin security routes before launch."
+    );
+  }
+
+  if (fileStatus.missing.length) {
+    return result(
+      "security",
+      "failed",
+      "Security hardening source files are missing from the visible app tree.",
+      { files: fileStatus, runtime_controls: runtimeControls },
       "Restore the missing security files before launch."
     );
   }
 
-  return result("security", "passed", "Security controls are present: admin gate, security headers, rate limits, suspicious input blocking, event logs, and IP blocking.", {
-    checked: requiredFiles.length
+  return result("security", "passed", "Security hardening is loaded: admin gate, security headers, suspicious input blocking, event logs, rate limits, and IP blocking are wired.", {
+    files: fileStatus,
+    runtime_controls: runtimeControls
   });
 }
 
@@ -287,20 +365,20 @@ async function checkRoutes(): Promise<DailyCheckResult> {
     "lib/clientAccount.ts"
   ];
 
-  const missing = requiredFiles.filter((file) => !existsSync(path.join(process.cwd(), file)));
+  const fileStatus = sourceFileStatus(requiredFiles);
 
-  if (missing.length) {
+  if (fileStatus.missing.length) {
     return result(
       "routes",
       "failed",
       "Required app files are missing or moved.",
-      { missing },
+      { files: fileStatus },
       "Restore these files or update imports/routes so admin, scans, results, and history point to the right path."
     );
   }
 
   return result("routes", "passed", "Critical scan, result, history, and admin paths exist.", {
-    checked: requiredFiles.length
+    files: fileStatus
   });
 }
 

@@ -4,17 +4,6 @@ import { getTikTokAuthUrl, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
 
 export const dynamic = "force-dynamic";
 
-function publicBaseUrl() {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://getreviewintel.com";
-  const value = raw.replace(/\/$/, "");
-
-  if (value.includes("localhost") || value.includes("127.0.0.1")) {
-    return "https://getreviewintel.com";
-  }
-
-  return value;
-}
-
 function html(status: "error" | "ready", message: string, details?: Record<string, unknown>) {
   const color = status === "ready" ? "#0891b2" : "#dc2626";
   const title = status === "ready" ? "TikTok connection ready" : "TikTok connection cannot start";
