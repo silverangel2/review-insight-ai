@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import path from "path";
+import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -273,6 +274,31 @@ function envFirst(...names: string[]) {
 
   return "";
 }
+
+async function resolveFacebookPostingCredentials() {
+  const oauthCredential = await getFacebookPageAccessTokenForPosting();
+
+  const pageId =
+    oauthCredential.pageId ||
+    envFirst("FACEBOOK_PAGE_ID", "META_PAGE_ID", "META_FACEBOOK_PAGE_ID");
+
+  const pageToken =
+    oauthCredential.accessToken ||
+    envFirst(
+      "FACEBOOK_PAGE_ACCESS_TOKEN",
+      "META_PAGE_ACCESS_TOKEN",
+      "META_FACEBOOK_PAGE_ACCESS_TOKEN"
+    );
+
+  return {
+    pageId,
+    pageToken,
+    source: oauthCredential.accessToken ? oauthCredential.source : "env-fallback",
+    hasPageId: Boolean(pageId),
+    hasPageToken: Boolean(pageToken),
+  };
+}
+
 
 function facebookConfig() {
   const graphVersion = envFirst("FACEBOOK_GRAPH_API_VERSION", "META_GRAPH_API_VERSION") || "v25.0";
@@ -760,7 +786,7 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
   if (!pageId || !pageToken) {
     return {
       ok: false,
-      error: "Facebook Page connector missing. Add a non-empty FACEBOOK_PAGE_ID and FACEBOOK_PAGE_ACCESS_TOKEN.",
+      error: "Facebook Page connector missing. Connect Facebook with OAuth or add FACEBOOK_PAGE_ID and FACEBOOK_PAGE_ACCESS_TOKEN.",
       metadata: {
         facebookConnector: {
           pageIdConfigured: Boolean(pageId),
@@ -846,7 +872,7 @@ export async function checkFacebookConnector() {
       pageId && pageToken ? "passed" : "failed",
       pageId && pageToken
         ? "Facebook page ID and a non-empty page access token were found."
-        : "Missing non-empty Facebook page ID or page access token."
+        : "Missing Facebook Page ID or usable Page token. Connect Facebook with OAuth or add a valid env fallback token."
     ),
   ];
 
