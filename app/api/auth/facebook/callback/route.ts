@@ -92,10 +92,14 @@ export async function GET(request: NextRequest) {
       pages.find((p: FacebookPageResult) => String(p.name || "").toLowerCase() === "reviewintel");
 
     if (!page) {
+      const visiblePages = pages
+        .map((p: FacebookPageResult) => `${p.name || "Unnamed Page"} (${p.id})`)
+        .join(", ");
+
       return new NextResponse(
         html(
           "error",
-          `Facebook connected, but the ReviewIntel Page was not found. Make sure this Facebook account has full control of Page ID ${config.pageId}.`
+          `Facebook connected, but the configured ReviewIntel Page ID ${config.pageId} was not found. Facebook returned these Pages for this account: ${visiblePages || "none"}. Copy the correct Page ID into FACEBOOK_PAGE_ID in Vercel, then redeploy and reconnect.`
         ),
         { status: 404, headers: { "Content-Type": "text/html" } }
       );
