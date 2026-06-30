@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+const socialPublishingHelpText = {
+  postNow: "Post Now / Test publishes one post immediately so you can verify Facebook/TikTok.",
+  daily: "Enable Daily Publishing uses the scheduled cron and advances the 100-day built-in content cycle only after successful posts.",
+};
+
+
 type Settings = {
   full_auto_enabled: boolean;
   semi_auto_enabled: boolean;
@@ -633,7 +639,7 @@ export default function AdminSocialAutoPost() {
             disabled={saving}
             className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-60"
           >
-            Generate / Post Now
+            Post Now / Test / Test
           </button>
           <button
             type="button"
