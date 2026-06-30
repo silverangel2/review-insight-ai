@@ -85,6 +85,7 @@ export function getFacebookScopes() {
     "pages_read_engagement",
     "pages_manage_posts",
     "pages_manage_metadata",
+    "business_management",
   ];
 }
 
@@ -166,6 +167,47 @@ export async function getFacebookPages(userAccessToken: string) {
   }
 
   return Array.isArray(data.data) ? data.data : [];
+}
+
+
+export async function getFacebookBusinesses(userAccessToken: string) {
+  const url = new URL(`${GRAPH_BASE}/me/businesses`);
+  url.searchParams.set("fields", "id,name");
+  url.searchParams.set("access_token", userAccessToken);
+
+  const response = await fetch(url.toString(), { cache: "no-store" });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error?.message || "Failed to fetch Facebook businesses");
+  }
+
+  return Array.isArray(data.data) ? data.data : [];
+}
+
+export async function getFacebookBusinessPages(
+  businessId: string,
+  userAccessToken: string,
+  edge: "owned_pages" | "client_pages"
+) {
+  const url = new URL(`${GRAPH_BASE}/${businessId}/${edge}`);
+  url.searchParams.set("fields", "id,name,access_token,tasks,perms");
+  url.searchParams.set("access_token", userAccessToken);
+
+  const response = await fetch(url.toString(), { cache: "no-store" });
+  const data = await response.json();
+
+  if (!response.ok) {
+    return {
+      pages: [],
+      error: data?.error?.message || `Failed to fetch ${edge}`,
+    };
+  }
+
+  return {
+    pages: Array.isArray(data.data) ? data.data : [],
+    error: null,
+  };
 }
 
 export async function verifyFacebookPageToken(pageId: string, pageToken: string) {

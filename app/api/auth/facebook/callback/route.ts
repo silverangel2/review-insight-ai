@@ -4,6 +4,8 @@ import {
   exchangeForLongLivedUserToken,
   getFacebookOAuthConfig,
   getFacebookPages,
+  getFacebookBusinesses,
+  getFacebookBusinessPages,
   getFacebookScopes,
   storeFacebookConnection,
   verifyFacebookPageToken,
@@ -17,6 +19,7 @@ type FacebookPageResult = {
   access_token?: string;
   tasks?: string[];
   perms?: string[];
+  source?: string;
 };
 
 function getErrorMessage(error: unknown) {
@@ -85,21 +88,76 @@ export async function GET(request: NextRequest) {
     const shortUserToken = await exchangeFacebookCodeForUserToken(code);
     const longUserToken = await exchangeForLongLivedUserToken(shortUserToken.access_token);
 
-    const pages = await getFacebookPages(longUserToken.access_token);
+    const directPages = (await getFacebookPages(longUserToken.access_token)).map(
+      (p: FacebookPageResult) => ({
+        ...p,
+        source: "/me/accounts",
+      })
+    );
 
-    const page =
-      pages.find((p: FacebookPageResult) => String(p.id) === String(config.pageId)) ||
-      pages.find((p: FacebookPageResult) => String(p.name || "").toLowerCase() === "reviewintel");
+    let allPages: FacebookPageResult[] = [...directPages];
+    const businessNotes: string[] = [];
+
+    let page =
+      allPages.find((p: FacebookPageResult) => String(p.id) === String(config.pageId)) ||
+      allPages.find((p: FacebookPageResult) => String(p.name || "").toLowerCase() === "reviewintel");
 
     if (!page) {
-      const visiblePages = pages
-        .map((p: FacebookPageResult) => `${p.name || "Unnamed Page"} (${p.id})`)
+      try {
+        const businesses = await getFacebookBusinesses(longUserToken.access_token);
+
+        for (const business of businesses as Array<{ id: string; name?: string }>) {
+          for (const edge of ["owned_pages", "client_pages"] as const) {
+            const result = await getFacebookBusinessPages(
+              business.id,
+              longUserToken.access_token,
+              edge
+            );
+
+            if (result.error) {
+              businessNotes.push(`${business.name || business.id}/${edge}: ${result.error}`);
+              continue;
+            }
+
+            const businessPages = result.pages.map((p: FacebookPageResult) => ({
+              ...p,
+              source: `business ${business.name || business.id}/${edge}`,
+            }));
+
+            allPages = [...allPages, ...businessPages];
+
+            page =
+              allPages.find((p: FacebookPageResult) => String(p.id) === String(config.pageId)) ||
+              allPages.find(
+                (p: FacebookPageResult) => String(p.name || "").toLowerCase() === "reviewintel"
+              );
+
+            if (page) break;
+          }
+
+          if (page) break;
+        }
+      } catch (businessError: unknown) {
+        businessNotes.push(getErrorMessage(businessError));
+      }
+    }
+
+    if (!page) {
+      const visiblePages = allPages
+        .map(
+          (p: FacebookPageResult) =>
+            `${p.name || "Unnamed Page"} (${p.id}) via ${p.source || "unknown"}`
+        )
         .join(", ");
+
+      const notes = businessNotes.length
+        ? ` Business lookup notes: ${businessNotes.join(" | ")}.`
+        : "";
 
       return new NextResponse(
         html(
           "error",
-          `Facebook connected, but the configured ReviewIntel Page ID ${config.pageId} was not found. Facebook returned these Pages for this account: ${visiblePages || "none"}. Copy the correct Page ID into FACEBOOK_PAGE_ID in Vercel, then redeploy and reconnect.`
+          `Facebook connected, but the configured ReviewIntel Page ID ${config.pageId} was not found. Facebook returned these Pages for this account: ${visiblePages || "none"}.${notes} Copy the correct Page ID into FACEBOOK_PAGE_ID in Vercel, then redeploy and reconnect.`
         ),
         { status: 404, headers: { "Content-Type": "text/html" } }
       );
@@ -129,6 +187,7 @@ export async function GET(request: NextRequest) {
         tasks: page.tasks || page.perms || [],
         connectedAt: new Date().toISOString(),
         tokenSource: "facebook-oauth",
+        pageSource: page.source || "unknown",
         userTokenExchangeWarning: (longUserToken as { exchange_warning?: string }).exchange_warning || null,
       },
     });
