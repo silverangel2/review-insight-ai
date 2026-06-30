@@ -752,6 +752,59 @@ async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string
   }).catch(() => null);
 }
 
+
+function finalFreshSocialCaption(caption: string, topic: string, queue: SocialQueueState) {
+  const openers = [
+    "A product can look perfect online — until the review patterns start repeating.",
+    "The star rating is only the surface. The real story is hiding in the repeated buyer feedback.",
+    "Before checkout, it helps to know what customers keep praising and complaining about.",
+    "Some products win attention fast, but ReviewIntel looks for the patterns behind the hype.",
+    "The product page gives you the pitch. The reviews reveal the pattern.",
+    "A smarter buying decision starts with the repeated signals customers leave behind.",
+    "Not every popular product is a confident buy. The review pattern matters.",
+    "The fastest way to understand a product is to separate noise from repeated buyer signals.",
+    "Good reviews are helpful, but repeated complaints are where the warning signs usually appear.",
+    "ReviewIntel helps turn messy product feedback into a faster buying-confidence check.",
+    "Before trusting the rating, check what real buyers keep saying again and again.",
+    "The best clue is not one review. It is the pattern across many reviews.",
+    "A product may look safe, but review trends can expose hidden risks.",
+    "Buying confidence comes from patterns, not just stars.",
+    "ReviewIntel helps shoppers look past the surface before they click buy."
+  ];
+
+  const closers = [
+    "ReviewIntel helps shoppers decide faster with clearer review signals.",
+    "Use ReviewIntel before you buy, compare, or trust the hype.",
+    "Turn scattered reviews into a clearer product decision.",
+    "See the pattern before you spend.",
+    "Shop with more confidence before checkout.",
+    "Let the reviews explain the product, not just the rating.",
+    "Find the signal hiding inside the noise.",
+    "Make the product decision clearer in seconds.",
+    "Know the pattern before the purchase.",
+    "Use review intelligence before the cart becomes a mistake."
+  ];
+
+  const seed = Math.abs(
+    Array.from(`${Date.now()}-${Math.random()}-${topic}-${queue.recycleCount}`)
+      .reduce((total, char) => total + char.charCodeAt(0), 0)
+  );
+
+  const opener = openers[seed % openers.length];
+  const closer = closers[(seed + 7) % closers.length];
+
+  const body = caption
+    .replace(/^A product can look perfect online[\s\S]*?(\n\n|$)/, "")
+    .replace(/^The star rating is only the surface[\s\S]*?(\n\n|$)/, "")
+    .replace(/^Before checkout[\s\S]*?(\n\n|$)/, "")
+    .replace(/^Some products win attention[\s\S]*?(\n\n|$)/, "")
+    .trim();
+
+  const cleanedBody = body.length > 40 ? body : "ReviewIntel analyzes product feedback, repeated complaints, fake-review risk, and buyer confidence signals.";
+
+  return `${opener}\n\n${cleanedBody}\n\n${closer}`;
+}
+
 function recycleCaption(caption: string, queue: SocialQueueState) {
   if (queue.recycleCount <= 0) return caption;
 
@@ -1269,7 +1322,7 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
 
     for (const platform of platforms) {
       const content = await generateAiReviewIntelContentPack(platform, topic, queue, media);
-      const caption = recycleCaption(formatPostCaption(content), queue);
+      const caption = finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
       const fingerprint = makeContentFingerprint({
         platform,
         topic,
