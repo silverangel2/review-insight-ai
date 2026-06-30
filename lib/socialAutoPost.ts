@@ -781,7 +781,10 @@ export async function updateSocialPost(id: string, payload: Partial<SocialPost>)
 }
 
 async function postToFacebookPage(caption: string, media?: SocialMediaItem | null): Promise<PublishResult> {
-  const { pageId, pageToken, graphVersion } = facebookConfig();
+  const { graphVersion } = facebookConfig();
+  const facebookCredentials = await resolveFacebookPostingCredentials();
+  const pageId = facebookCredentials.pageId;
+  const pageToken = facebookCredentials.pageToken;
 
   if (!pageId || !pageToken) {
     return {
@@ -864,14 +867,17 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
 }
 
 export async function checkFacebookConnector() {
-  const { pageId, pageToken, graphVersion } = facebookConfig();
+  const { graphVersion } = facebookConfig();
+  const facebookCredentials = await resolveFacebookPostingCredentials();
+  const pageId = facebookCredentials.pageId;
+  const pageToken = facebookCredentials.pageToken;
   const sampleMediaUrl = `${publicSiteUrl()}${builtInSocialImagePath(1)}`;
   const checks: ConnectorCheck[] = [
     connectorCheck(
-      "Facebook env",
+      "Facebook credentials",
       pageId && pageToken ? "passed" : "failed",
       pageId && pageToken
-        ? "Facebook page ID and a non-empty page access token were found."
+        ? "Facebook page ID and a usable Page token were found from OAuth storage or env fallback."
         : "Missing Facebook Page ID or usable Page token. Connect Facebook with OAuth or add a valid env fallback token."
     ),
   ];
