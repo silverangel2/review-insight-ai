@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { runSocialAutoPost } from "@/lib/socialAutoPost";
 
 export async function GET(request: NextRequest) {
-  const secret = process.env.SOCIAL_CRON_SECRET;
+  const secret = process.env.SOCIAL_CRON_SECRET || process.env.CRON_SECRET;
 
   if (secret) {
-    const provided = request.headers.get("authorization")?.replace("Bearer ", "");
+    const authorization = request.headers.get("authorization") || "";
+    const provided = authorization.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length).trim()
+      : authorization.trim();
     const querySecret = request.nextUrl.searchParams.get("secret");
 
     if (provided !== secret && querySecret !== secret) {

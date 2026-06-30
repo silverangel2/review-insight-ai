@@ -33,7 +33,8 @@ const CHECKS = [
   { id: "env", label: "Environment" },
   { id: "analyze", label: "Analyze Config" },
   { id: "routes", label: "Program Paths" },
-  { id: "history", label: "Scan History" }
+  { id: "history", label: "Scan History" },
+  { id: "social", label: "Social Auto-Post" }
 ];
 
 function statusLabel(status: CheckStatus) {

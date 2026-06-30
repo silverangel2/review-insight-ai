@@ -1,6 +1,8 @@
 
 import { NextResponse } from "next/server";
 import { isAdminRole, isSellerPlan, normalizePlan, normalizeRole } from "@/lib/account";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
+import { readAccountSession } from "@/lib/accountSession";
 import {
   consumePersistentQuota,
   isSupabaseConfigured,
@@ -49,23 +51,6 @@ function readString(source: JsonRecord, key: string) {
 function readNumber(source: JsonRecord, key: string) {
   const value = Number(source[key]);
   return Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : 0;
-}
-
-function readCookie(request: Request, name: string) {
-  const entry = (request.headers.get("cookie") || "")
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${name}=`));
-
-  if (!entry) return "";
-
-  const value = entry.slice(name.length + 1);
-
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
 }
 
 function sellerTestAccountPlan(email: string): "seller_premium" | "seller_pro" | null {
@@ -390,14 +375,15 @@ export async function POST(request: Request) {
       return limit.response ?? NextResponse.json({ error: "Too many seller analysis requests." }, { status: 429 });
     }
 
-    const email =
-      request.headers.get("x-reviewintel-email") ||
-      request.headers.get("x-reviewintel-user") ||
-      readCookie(request, "reviewintel_account_email") ||
-      readCookie(request, "reviewintel_email") ||
-      "";
-    const requestedPlan = normalizePlan(request.headers.get("x-reviewintel-plan") || readCookie(request, "reviewintel_account_plan") || "free_buyer");
-    const requestedRole = normalizeRole(request.headers.get("x-reviewintel-role") || readCookie(request, "reviewintel_account_role") || "guest");
+    const accountSession = readAccountSession(request);
+    const adminSession = adminSessionFromRequest(request);
+    const email = accountSession?.email || adminSession?.email || "";
+    const requestedPlan = adminSession && !accountSession
+      ? "seller_pro"
+      : normalizePlan(accountSession?.plan || "free_buyer");
+    const requestedRole = adminSession && !accountSession
+      ? "admin"
+      : normalizeRole(accountSession?.role || "guest");
     const sellerAccess = await resolveSellerAccess(email, requestedPlan, requestedRole);
     const plan = sellerAccess.plan;
     const role = sellerAccess.role;

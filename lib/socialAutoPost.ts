@@ -48,11 +48,6 @@ function getPublicSiteUrl() {
   return resolvePublicSiteUrl().url;
 }
 
-function getPublicSiteUrlSource() {
-  return resolvePublicSiteUrl().source;
-}
-
-
 type SocialSettings = {
   id: string;
   full_auto_enabled: boolean;
@@ -291,6 +286,13 @@ function facebookConfig() {
       "META_FACEBOOK_PAGE_ACCESS_TOKEN"
     ),
     graphVersion: graphVersion.startsWith("v") ? graphVersion : `v${graphVersion}`,
+  };
+}
+
+function tiktokConfig() {
+  return {
+    accessToken: envFirst("TIKTOK_ACCESS_TOKEN", "TIKTOK_USER_ACCESS_TOKEN", "TIKTOK_PAGE_ACCESS_TOKEN"),
+    privacyLevel: envFirst("TIKTOK_PRIVACY_LEVEL", "TIKTOK_DEFAULT_PRIVACY_LEVEL"),
   };
 }
 
@@ -597,6 +599,11 @@ function absoluteMediaUrl(media?: SocialMediaItem | null) {
   return media.file_url.startsWith("/") ? `${publicSiteUrl()}${media.file_url}` : media.file_url;
 }
 
+function compactSocialText(value: string, limit: number) {
+  const clean = String(value || "").replace(/\s+/g, " ").trim();
+  return clean.length <= limit ? clean : `${clean.slice(0, Math.max(0, limit - 1)).trim()}…`;
+}
+
 function sameUtcDate(a?: string | null, b = new Date()) {
   if (!a) return false;
   const parsed = new Date(a);
@@ -622,7 +629,7 @@ function makeContentFingerprint(input: {
 
 async function getLatestQueueState(cycleLength: number): Promise<SocialQueueState> {
   const rows = await supabaseFetch(
-    "admin_social_posts?select=queue_day,cycle_number,recycle_count&order=created_at.desc&limit=1"
+    "admin_social_posts?select=queue_day,cycle_number,recycle_count&status=in.(posted,draft_ready)&order=created_at.desc&limit=1"
   );
 
   const latest = Array.isArray(rows) ? rows[0] : null;
@@ -915,9 +922,223 @@ export async function checkFacebookConnector() {
   };
 }
 
+async function queryTikTokCreatorInfo(accessToken: string) {
+  const response = await fetch("https://open.tiktokapis.com/v2/post/publish/creator_info/query/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+
+  return { response, data };
+}
+
+function tiktokPrivacyLevel(data: unknown, configuredPrivacyLevel = "") {
+  const record = data && typeof data === "object" ? data as Record<string, unknown> : {};
+  const payload = record.data && typeof record.data === "object" ? record.data as Record<string, unknown> : {};
+  const options = Array.isArray(payload.privacy_level_options)
+    ? payload.privacy_level_options.map(String)
+    : [];
+
+  if (configuredPrivacyLevel && options.includes(configuredPrivacyLevel)) return configuredPrivacyLevel;
+  if (options.includes("PUBLIC_TO_EVERYONE")) return "PUBLIC_TO_EVERYONE";
+  if (options.includes("SELF_ONLY")) return "SELF_ONLY";
+  return options[0] || configuredPrivacyLevel || "SELF_ONLY";
+}
+
+async function postToTikTok(caption: string, media?: SocialMediaItem | null): Promise<PublishResult> {
+  const { accessToken, privacyLevel } = tiktokConfig();
+
+  if (!accessToken) {
+    return {
+      ok: true,
+      draftOnly: true,
+      metadata: {
+        connectorRequired: true,
+        platform: "tiktok",
+        note: "TikTok draft created. Add TIKTOK_ACCESS_TOKEN after TikTok Content Posting API approval to publish automatically.",
+      },
+    };
+  }
+
+  if (media?.media_type === "video") {
+    return {
+      ok: true,
+      draftOnly: true,
+      metadata: {
+        connectorRequired: true,
+        platform: "tiktok",
+        note: "TikTok video direct posting needs a video-specific source flow. Image/photo posting is wired first.",
+      },
+    };
+  }
+
+  const mediaUrl = absoluteMediaUrl(media);
+
+  if (!media || media.media_type !== "image" || !mediaUrl || isPrivateOrLocalUrl(mediaUrl)) {
+    return {
+      ok: false,
+      error: "TikTok direct posting needs a public image URL that TikTok can fetch.",
+      metadata: {
+        media_id: media?.id ?? null,
+        media_url_public: Boolean(mediaUrl && !isPrivateOrLocalUrl(mediaUrl)),
+      },
+    };
+  }
+
+  const creatorInfo = await queryTikTokCreatorInfo(accessToken);
+  if (!creatorInfo.response.ok) {
+    return {
+      ok: false,
+      error: creatorInfo.data?.error?.message || creatorInfo.data?.error?.code || "TikTok creator info check failed.",
+      metadata: {
+        tiktok: creatorInfo.data,
+      },
+    };
+  }
+
+  const selectedPrivacyLevel = tiktokPrivacyLevel(creatorInfo.data, privacyLevel);
+  const description = compactSocialText(caption, 3900);
+
+  const response = await fetch("https://open.tiktokapis.com/v2/post/publish/content/init/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify({
+      post_info: {
+        title: compactSocialText("ReviewIntel AI review intelligence", 90),
+        description,
+        privacy_level: selectedPrivacyLevel,
+        disable_comment: false,
+        auto_add_music: false,
+        brand_content_toggle: false,
+        brand_organic_toggle: true,
+      },
+      source_info: {
+        source: "PULL_FROM_URL",
+        photo_cover_index: 0,
+        photo_images: [mediaUrl],
+      },
+      post_mode: "DIRECT_POST",
+      media_type: "PHOTO",
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: data?.error?.message || data?.error?.code || "TikTok post failed.",
+      metadata: {
+        tiktok: data,
+        selectedPrivacyLevel,
+      },
+    };
+  }
+
+  const publishId = data?.data?.publish_id || data?.publish_id || null;
+
+  return {
+    ok: true,
+    externalPostId: publishId,
+    metadata: {
+      tiktok: data,
+      selectedPrivacyLevel,
+      privacyWarning: selectedPrivacyLevel !== "PUBLIC_TO_EVERYONE"
+        ? "TikTok did not offer PUBLIC_TO_EVERYONE. The post may be private until TikTok app/account permissions are upgraded."
+        : null,
+    },
+  };
+}
+
+export async function checkTikTokConnector() {
+  const { accessToken, privacyLevel } = tiktokConfig();
+  const sampleMediaUrl = `${publicSiteUrl()}${builtInSocialImagePath(2)}`;
+  const checks: ConnectorCheck[] = [
+    connectorCheck(
+      "TikTok env",
+      accessToken ? "passed" : "warning",
+      accessToken
+        ? "TikTok user access token was found."
+        : "TikTok access token is missing. TikTok will create drafts until TIKTOK_ACCESS_TOKEN is configured."
+    ),
+  ];
+
+  if (isPrivateOrLocalUrl(sampleMediaUrl)) {
+    checks.push(
+      connectorCheck(
+        "Public media URL",
+        "failed",
+        "The current site URL is localhost/private. TikTok direct posting needs the deployed public URL."
+      )
+    );
+  } else {
+    checks.push(
+      connectorCheck(
+        "Public media URL",
+        "passed",
+        "Built-in ReviewIntel images resolve to a public URL for TikTok to fetch."
+      )
+    );
+  }
+
+  if (accessToken) {
+    try {
+      const creatorInfo = await queryTikTokCreatorInfo(accessToken);
+      const selectedPrivacyLevel = tiktokPrivacyLevel(creatorInfo.data, privacyLevel);
+      checks.push(
+        connectorCheck(
+          "Creator permission",
+          creatorInfo.response.ok ? "passed" : "failed",
+          creatorInfo.response.ok
+            ? `TikTok creator info is reachable. Selected privacy: ${selectedPrivacyLevel}.`
+            : creatorInfo.data?.error?.message || creatorInfo.data?.error?.code || "TikTok rejected the access token or app permissions."
+        )
+      );
+
+      if (creatorInfo.response.ok && selectedPrivacyLevel !== "PUBLIC_TO_EVERYONE") {
+        checks.push(
+          connectorCheck(
+            "Public posting",
+            "warning",
+            "TikTok did not expose PUBLIC_TO_EVERYONE. Direct posts may be private until app review/account permissions allow public posting."
+          )
+        );
+      }
+    } catch {
+      checks.push(
+        connectorCheck(
+          "Creator permission",
+          "failed",
+          "Could not reach TikTok Content Posting API from this server."
+        )
+      );
+    }
+  }
+
+  const failed = checks.some((item) => item.status === "failed");
+  const warning = checks.some((item) => item.status === "warning");
+
+  return {
+    ok: !failed,
+    status: failed ? "failed" : warning ? "warning" : "ready",
+    sampleMediaUrl,
+    checks,
+  };
+}
+
 async function postToPlatform(platform: string, caption: string, media?: SocialMediaItem | null): Promise<PublishResult> {
   if (platform === "facebook") {
     return postToFacebookPage(caption, media);
+  }
+
+  if (platform === "tiktok") {
+    return postToTikTok(caption, media);
   }
 
   return {
@@ -1040,18 +1261,30 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
     queue = advanceQueueState(queue, cycleLength);
   }
 
-  for (const media of mediaUsed) {
-    await markSocialMediaUsed(media, now);
+  const completedResults = results.filter((result) => {
+    const status = String((result as Record<string, unknown> | null)?.status || "");
+    return status === "posted" || status === "draft_ready";
+  });
+  const hasCompletedResults = completedResults.length > 0;
+
+  if (hasCompletedResults) {
+    for (const media of mediaUsed) {
+      await markSocialMediaUsed(media, now);
+    }
+
+    await updateSocialSettings({
+      last_queue_day: lastQueue.queueDay,
+      last_posted_at: now,
+    });
   }
 
-  await updateSocialSettings({
-    last_queue_day: lastQueue.queueDay,
-    last_posted_at: now,
-  });
-
   return {
-    ok: true,
+    ok: hasCompletedResults,
     skipped: false,
+    status: hasCompletedResults ? "completed" : "failed",
+    reason: hasCompletedResults
+      ? null
+      : "Every selected platform failed to publish. The daily scheduler was not locked, so it can retry after connector settings are fixed.",
     queue_day: lastQueue.queueDay,
     cycle_number: lastQueue.cycleNumber,
     recycle_count: lastQueue.recycleCount,

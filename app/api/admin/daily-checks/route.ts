@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { hasStripeEnv, hasSupabaseEnv } from "@/lib/env";
+import { checkFacebookConnector, checkTikTokConnector } from "@/lib/socialAutoPost";
 import { adminUsageSummary, hasSupabaseServiceEnv } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
@@ -29,7 +30,8 @@ const CHECK_LABELS: Record<string, string> = {
   env: "Environment config",
   analyze: "Analyze API config",
   routes: "Program path check",
-  history: "Scan history system"
+  history: "Scan history system",
+  social: "Social auto-post"
 };
 
 function result(
@@ -322,6 +324,48 @@ async function checkHistory(): Promise<DailyCheckResult> {
   );
 }
 
+async function checkSocial(): Promise<DailyCheckResult> {
+  const [facebook, tiktok] = await Promise.all([
+    checkFacebookConnector().catch((error) => ({
+      ok: false,
+      status: "failed",
+      checks: [{ label: "Facebook connector", status: "failed" as const, detail: error instanceof Error ? error.message : String(error) }]
+    })),
+    checkTikTokConnector().catch((error) => ({
+      ok: false,
+      status: "failed",
+      checks: [{ label: "TikTok connector", status: "failed" as const, detail: error instanceof Error ? error.message : String(error) }]
+    }))
+  ]);
+
+  const facebookStatus = String(facebook.status || "failed");
+  const tiktokStatus = String(tiktok.status || "failed");
+  const failed = facebookStatus === "failed" && tiktokStatus === "failed";
+  const warning = facebookStatus !== "ready" || tiktokStatus !== "ready";
+
+  return result(
+    "social",
+    failed ? "failed" : warning ? "warning" : "passed",
+    failed
+      ? "No direct social publishing connector is ready."
+      : warning
+        ? "At least one social connector is usable, but one or more connectors need attention."
+        : "Facebook and TikTok connectors are ready for automatic publishing.",
+    {
+      facebook,
+      tiktok,
+      cron_secret_configured: Boolean(process.env.SOCIAL_CRON_SECRET || process.env.CRON_SECRET),
+      cron: "/api/cron/social-autopost",
+      admin: "/admin/social"
+    },
+    failed
+      ? "Open /admin/social, run Check Facebook and Check TikTok, then fix the exact failed connector messages."
+      : warning
+        ? "Open /admin/social to review connector warnings before relying on full automation."
+        : undefined
+  );
+}
+
 async function runCheck(check: string): Promise<DailyCheckResult[]> {
   const checks: Record<string, () => Promise<DailyCheckResult>> = {
     api: checkApi,
@@ -334,7 +378,8 @@ async function runCheck(check: string): Promise<DailyCheckResult[]> {
     env: checkEnv,
     analyze: checkAnalyze,
     routes: checkRoutes,
-    history: checkHistory
+    history: checkHistory,
+    social: checkSocial
   };
 
   if (check === "all") {

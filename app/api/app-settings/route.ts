@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 import {
-  canManageAppSettings,
   getRuntimeAppSettings,
   updateRuntimeAppSettings,
   type RuntimeAppSettings
 } from "@/lib/appSettings";
-import { accountFromRequest } from "@/lib/supabaseServer";
 
 const allowedKeys: Array<keyof RuntimeAppSettings> = [
   "maintenance_mode",
@@ -44,9 +43,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const account = await accountFromRequest(request);
+  const adminSession = adminSessionFromRequest(request);
 
-  if (!account || !canManageAppSettings(account)) {
+  if (!adminSession) {
     return NextResponse.json(
       { error: "Admin access required." },
       { status: 403 }

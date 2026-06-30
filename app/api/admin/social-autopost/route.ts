@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import {
   checkFacebookConnector,
+  checkTikTokConnector,
   getSocialSettings,
   listSocialPosts,
   runSocialAutoPost,
@@ -64,6 +65,12 @@ export async function POST(request: NextRequest) {
       const facebook = await checkFacebookConnector();
 
       return NextResponse.json({ ok: facebook.ok, facebook }, { status: facebook.ok ? 200 : 409 });
+    }
+
+    if (body.action === "tiktok-check") {
+      const tiktok = await checkTikTokConnector();
+
+      return NextResponse.json({ ok: tiktok.ok, tiktok }, { status: tiktok.ok ? 200 : 409 });
     }
 
     const settings = await updateSocialSettings({

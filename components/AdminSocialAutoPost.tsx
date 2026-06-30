@@ -53,7 +53,7 @@ type SocialMedia = {
   last_used_at?: string | null;
 };
 
-type FacebookCheck = {
+type ConnectorHealth = {
   ok: boolean;
   status: "ready" | "warning" | "failed" | string;
   graphVersion?: string;
@@ -96,7 +96,8 @@ export default function AdminSocialAutoPost() {
     tags: "",
   });
   const [status, setStatus] = useState("Loading social auto-post settings...");
-  const [facebookCheck, setFacebookCheck] = useState<FacebookCheck | null>(null);
+  const [facebookCheck, setFacebookCheck] = useState<ConnectorHealth | null>(null);
+  const [tiktokCheck, setTikTokCheck] = useState<ConnectorHealth | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
 
@@ -186,7 +187,13 @@ export default function AdminSocialAutoPost() {
 
       setSettings(data.settings || settings);
       setPosts(data.posts || []);
-      setStatus(data.result?.skipped ? data.result.reason : "Auto-post run finished. Check logs below.");
+      setStatus(
+        data.result?.skipped
+          ? data.result.reason
+          : data.result?.ok === false
+            ? data.result.reason || "Auto-post failed. Check failed logs below."
+            : "Auto-post run finished. Check logs below."
+      );
     } catch {
       setStatus("Could not run social auto-post.");
     } finally {
@@ -206,7 +213,7 @@ export default function AdminSocialAutoPost() {
       });
 
       const data = await response.json().catch(() => ({}));
-      const facebook = data.facebook as FacebookCheck | undefined;
+      const facebook = data.facebook as ConnectorHealth | undefined;
 
       if (facebook) {
         setFacebookCheck(facebook);
@@ -221,6 +228,38 @@ export default function AdminSocialAutoPost() {
       );
     } catch {
       setStatus("Could not check Facebook connector.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function checkTikTok() {
+    setSaving(true);
+    setStatus("Checking TikTok connector...");
+
+    try {
+      const response = await fetch("/api/admin/social-autopost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "tiktok-check" }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      const tiktok = data.tiktok as ConnectorHealth | undefined;
+
+      if (tiktok) {
+        setTikTokCheck(tiktok);
+      }
+
+      setStatus(
+        tiktok?.status === "ready"
+          ? "TikTok connector is ready."
+          : tiktok?.status === "warning"
+            ? "TikTok connector has warnings. Review the checks below."
+            : data.error || "TikTok connector is not ready. Review the checks below."
+      );
+    } catch {
+      setStatus("Could not check TikTok connector.");
     } finally {
       setSaving(false);
     }
@@ -378,6 +417,59 @@ export default function AdminSocialAutoPost() {
     }
   }
 
+  function connectorCard(label: string, check: ConnectorHealth | null) {
+    if (!check) return null;
+
+    return (
+      <div className="mt-4 rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+              {label} connector
+            </p>
+            <h3 className="mt-1 text-lg font-black text-ink dark:text-white">
+              {check.status === "ready" ? "Ready to publish" : check.status === "warning" ? "Needs review" : "Not ready yet"}
+            </h3>
+          </div>
+          <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase ${
+            check.status === "ready"
+              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"
+              : check.status === "warning"
+                ? "bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200"
+                : "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-200"
+          }`}>
+            {check.status}
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-2">
+          {check.checks?.map((item) => (
+            <div key={item.label} className="rounded-xl bg-mist p-3 dark:bg-slate-950">
+              <p className={`text-xs font-black uppercase tracking-[0.12em] ${
+                item.status === "passed"
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : item.status === "warning"
+                    ? "text-amber-700 dark:text-amber-300"
+                    : "text-rose-700 dark:text-rose-300"
+              }`}>
+                {item.status} · {item.label}
+              </p>
+              <p className="mt-1 text-xs font-bold leading-5 text-slate-600 dark:text-slate-300">
+                {item.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {check.sampleMediaUrl ? (
+          <p className="mt-3 truncate text-xs font-bold text-slate-500 dark:text-slate-400">
+            Sample image: {check.sampleMediaUrl}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
 
   return (
     <section className="space-y-5">
@@ -389,7 +481,7 @@ export default function AdminSocialAutoPost() {
           Full auto daily posts
         </h1>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-          Generate ReviewIntel organic-growth posts automatically. Facebook can publish when connected; Instagram, TikTok, LinkedIn, X, YouTube Shorts, Pinterest, and Reddit create ready-to-post drafts until their official connectors are added.
+          Generate ReviewIntel organic-growth posts automatically. Facebook and TikTok can publish when their platform tokens are approved and connected; Instagram, LinkedIn, X, YouTube Shorts, Pinterest, and Reddit create ready-to-post drafts until their official connectors are added.
         </p>
       </div>
 
@@ -551,60 +643,22 @@ export default function AdminSocialAutoPost() {
           >
             Check Facebook
           </button>
+          <button
+            type="button"
+            onClick={checkTikTok}
+            disabled={saving}
+            className="rounded-2xl border border-rose-300/40 bg-white px-5 py-3 text-sm font-black text-rose-600 shadow-soft disabled:opacity-60 dark:border-rose-300/30 dark:bg-slate-900 dark:text-rose-200"
+          >
+            Check TikTok
+          </button>
         </div>
 
         <p className="mt-4 rounded-2xl bg-mist p-4 text-sm font-black text-slate-700 dark:bg-slate-900 dark:text-slate-200">
           {status}
         </p>
 
-        {facebookCheck ? (
-          <div className="mt-4 rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-                  Facebook connector
-                </p>
-                <h3 className="mt-1 text-lg font-black text-ink dark:text-white">
-                  {facebookCheck.status === "ready" ? "Ready to publish" : facebookCheck.status === "warning" ? "Needs review" : "Not ready yet"}
-                </h3>
-              </div>
-              <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase ${
-                facebookCheck.status === "ready"
-                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"
-                  : facebookCheck.status === "warning"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200"
-                    : "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-200"
-              }`}>
-                {facebookCheck.status}
-              </span>
-            </div>
-
-            <div className="mt-3 grid gap-2">
-              {facebookCheck.checks?.map((check) => (
-                <div key={check.label} className="rounded-xl bg-mist p-3 dark:bg-slate-950">
-                  <p className={`text-xs font-black uppercase tracking-[0.12em] ${
-                    check.status === "passed"
-                      ? "text-emerald-700 dark:text-emerald-300"
-                      : check.status === "warning"
-                        ? "text-amber-700 dark:text-amber-300"
-                        : "text-rose-700 dark:text-rose-300"
-                  }`}>
-                    {check.status} · {check.label}
-                  </p>
-                  <p className="mt-1 text-xs font-bold leading-5 text-slate-600 dark:text-slate-300">
-                    {check.detail}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {facebookCheck.sampleMediaUrl ? (
-              <p className="mt-3 truncate text-xs font-bold text-slate-500 dark:text-slate-400">
-                Sample image: {facebookCheck.sampleMediaUrl}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        {connectorCard("Facebook", facebookCheck)}
+        {connectorCard("TikTok", tiktokCheck)}
       </div>
 
       <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">

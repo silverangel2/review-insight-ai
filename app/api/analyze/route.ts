@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizePlan, normalizeRole } from "@/lib/account";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
+import { readAccountSession } from "@/lib/accountSession";
 import {
   consumePersistentQuota,
   isSupabaseConfigured,
@@ -1403,14 +1405,15 @@ export async function POST(request: Request) {
       }
     };
 
-    const requestedRole = normalizeRole(request.headers.get("x-reviewintel-role") || readCookie("reviewintel_account_role") || "");
-    const requestedPlan = normalizePlan(request.headers.get("x-reviewintel-plan") || readCookie("reviewintel_account_plan") || "");
-    const email =
-      request.headers.get("x-reviewintel-email") ||
-      request.headers.get("x-reviewintel-user") ||
-      readCookie("reviewintel_account_email") ||
-      readCookie("reviewintel_email") ||
-      "";
+    const accountSession = readAccountSession(request);
+    const adminSession = adminSessionFromRequest(request);
+    const requestedRole = adminSession && !accountSession
+      ? "admin"
+      : normalizeRole(accountSession?.role || "");
+    const requestedPlan = adminSession && !accountSession
+      ? "seller_pro"
+      : normalizePlan(accountSession?.plan || "");
+    const email = accountSession?.email || adminSession?.email || "";
     const resolvedAccount = await resolveAnalyzeAccount(email, requestedPlan, requestedRole);
     const role = resolvedAccount.role;
     const plan = resolvedAccount.plan;

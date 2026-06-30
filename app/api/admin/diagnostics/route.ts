@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { getRuntimeAppSettings } from "@/lib/appSettings";
 import { hasStripeEnv, hasSupabaseEnv } from "@/lib/env";
+import { checkFacebookConnector, checkTikTokConnector } from "@/lib/socialAutoPost";
 import { adminUsageSummary, hasSupabaseServiceEnv } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
@@ -19,6 +20,30 @@ export async function GET(request: Request) {
   const supabaseReady = hasSupabaseEnv() && hasSupabaseServiceEnv();
 
   const usage = await adminUsageSummary();
+  const [facebookConnector, tiktokConnector] = await Promise.all([
+    checkFacebookConnector().catch((error) => ({
+      ok: false,
+      status: "failed",
+      checks: [
+        {
+          label: "Facebook connector",
+          status: "failed",
+          detail: error instanceof Error ? error.message : String(error)
+        }
+      ]
+    })),
+    checkTikTokConnector().catch((error) => ({
+      ok: false,
+      status: "failed",
+      checks: [
+        {
+          label: "TikTok connector",
+          status: "failed",
+          detail: error instanceof Error ? error.message : String(error)
+        }
+      ]
+    }))
+  ]);
 
   return NextResponse.json({
     mode: "developer",
@@ -31,7 +56,15 @@ export async function GET(request: Request) {
       openai: openAiReady ? "configured" : "missing",
       stripe: stripeReady ? "configured" : "missing",
       supabase: supabaseReady ? "configured" : "missing",
+      social: facebookConnector.ok || tiktokConnector.ok ? "configured" : "needs_attention",
       api: "online"
+    },
+    social_connectors: {
+      cron_secret: process.env.SOCIAL_CRON_SECRET || process.env.CRON_SECRET ? "configured" : "not configured",
+      cron_path: "/api/cron/social-autopost",
+      admin_path: "/admin/social",
+      facebook: facebookConnector,
+      tiktok: tiktokConnector
     },
     feature_flags: appSettings,
     route_access: {
