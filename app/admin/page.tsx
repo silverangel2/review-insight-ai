@@ -56,7 +56,7 @@ export default async function AdminPage() {
     },
     {
       title: "Social Auto-Post",
-      detail: "100-day Facebook queue, media library, AI captions, and daily organic posting.",
+      detail: "100-day Facebook, Instagram, and TikTok queue with AI captions, diagnostics, and approval flow.",
       href: "/admin/social",
       action: "Open social"
     },

@@ -8,6 +8,17 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function publicBaseUrl() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://getreviewintel.com";
+  const value = raw.replace(/\/$/, "");
+
+  if (value.includes("localhost") || value.includes("127.0.0.1")) {
+    return "https://getreviewintel.com";
+  }
+
+  return value;
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -15,7 +26,7 @@ export async function GET(request: NextRequest) {
   const error = url.searchParams.get("error");
   const savedState = request.cookies.get("tiktok_oauth_state")?.value;
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.APP_URL || "https://getreviewintel.com";
+  const baseUrl = publicBaseUrl();
 
   if (error) {
     return NextResponse.redirect(

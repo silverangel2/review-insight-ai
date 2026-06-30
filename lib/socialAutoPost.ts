@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
+import { getTikTokAccessTokenForPosting } from "@/lib/tiktokConnector";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -317,7 +318,6 @@ function facebookConfig() {
 
 function tiktokConfig() {
   return {
-    accessToken: envFirst("TIKTOK_ACCESS_TOKEN", "TIKTOK_USER_ACCESS_TOKEN", "TIKTOK_PAGE_ACCESS_TOKEN"),
     privacyLevel: envFirst("TIKTOK_PRIVACY_LEVEL", "TIKTOK_DEFAULT_PRIVACY_LEVEL"),
   };
 }
@@ -464,11 +464,6 @@ function responseOutputText(data: unknown) {
       return typeof contentRecord.text === "string" ? contentRecord.text : "";
     })
     .join("");
-}
-
-
-function freshSocialSeed() {
-  return `${new Date().toISOString()}-${Math.random().toString(36).slice(2)}-${Math.floor(Math.random() * 100000)}`;
 }
 
 function freshFallbackCaption(caption: string, platform: string, topic: string) {
@@ -1088,7 +1083,9 @@ function tiktokPrivacyLevel(data: unknown, configuredPrivacyLevel = "") {
 }
 
 async function postToTikTok(caption: string, media?: SocialMediaItem | null): Promise<PublishResult> {
-  const { accessToken, privacyLevel } = tiktokConfig();
+  const { privacyLevel } = tiktokConfig();
+  const credential = await getTikTokAccessTokenForPosting();
+  const accessToken = credential.accessToken;
 
   if (!accessToken) {
     return {
@@ -1097,7 +1094,19 @@ async function postToTikTok(caption: string, media?: SocialMediaItem | null): Pr
       metadata: {
         connectorRequired: true,
         platform: "tiktok",
-        note: "TikTok draft created. Add TIKTOK_ACCESS_TOKEN after TikTok Content Posting API approval to publish automatically.",
+        note: "TikTok draft created. Connect TikTok in Admin Social after TikTok approves Content Posting API direct publishing.",
+      },
+    };
+  }
+
+  if (credential.source.startsWith("connected") && !credential.scopes.includes("video.publish")) {
+    return {
+      ok: false,
+      error: "Connected TikTok account is missing the video.publish scope. Reconnect TikTok after TikTok approves Direct Post access.",
+      metadata: {
+        platform: "tiktok",
+        credentialSource: credential.source,
+        scopes: credential.scopes,
       },
     };
   }
@@ -1134,6 +1143,8 @@ async function postToTikTok(caption: string, media?: SocialMediaItem | null): Pr
       error: creatorInfo.data?.error?.message || creatorInfo.data?.error?.code || "TikTok creator info check failed.",
       metadata: {
         tiktok: creatorInfo.data,
+        credentialSource: credential.source,
+        accountName: credential.accountName,
       },
     };
   }
@@ -1187,6 +1198,8 @@ async function postToTikTok(caption: string, media?: SocialMediaItem | null): Pr
     metadata: {
       tiktok: data,
       selectedPrivacyLevel,
+      credentialSource: credential.source,
+      accountName: credential.accountName,
       privacyWarning: selectedPrivacyLevel !== "PUBLIC_TO_EVERYONE"
         ? "TikTok did not offer PUBLIC_TO_EVERYONE. The post may be private until TikTok app/account permissions are upgraded."
         : null,
@@ -1195,17 +1208,39 @@ async function postToTikTok(caption: string, media?: SocialMediaItem | null): Pr
 }
 
 export async function checkTikTokConnector() {
-  const { accessToken, privacyLevel } = tiktokConfig();
+  const { privacyLevel } = tiktokConfig();
+  const credential = await getTikTokAccessTokenForPosting();
+  const accessToken = credential.accessToken;
   const sampleMediaUrl = `${publicSiteUrl()}${builtInSocialImagePath(2)}`;
   const checks: ConnectorCheck[] = [
     connectorCheck(
-      "TikTok env",
-      accessToken ? "passed" : "warning",
+      "TikTok connection",
+      accessToken ? "passed" : "failed",
       accessToken
-        ? "TikTok user access token was found."
-        : "TikTok access token is missing. TikTok will create drafts until TIKTOK_ACCESS_TOKEN is configured."
+        ? `TikTok token found from ${credential.source}${credential.accountName ? ` for ${credential.accountName}` : ""}.`
+        : "TikTok is not connected. Use Connect TikTok after TikTok approves the Content Posting API product."
     ),
   ];
+
+  if (accessToken && credential.source.startsWith("connected") && !credential.scopes.includes("video.publish")) {
+    checks.push(
+      connectorCheck(
+        "Direct post scope",
+        "failed",
+        "The connected TikTok account does not include video.publish. Reconnect TikTok after Direct Post approval."
+      )
+    );
+  } else if (accessToken) {
+    checks.push(
+      connectorCheck(
+        "Direct post scope",
+        "passed",
+        credential.source === "env-fallback"
+          ? "Using env token. Scope cannot be inspected locally, so TikTok creator-info will verify it."
+          : "Connected TikTok token includes video.publish."
+      )
+    );
+  }
 
   if (isPrivateOrLocalUrl(sampleMediaUrl)) {
     checks.push(
@@ -1266,6 +1301,7 @@ export async function checkTikTokConnector() {
     ok: !failed,
     status: failed ? "failed" : warning ? "warning" : "ready",
     sampleMediaUrl,
+    account: credential.accountName ? { name: credential.accountName, source: credential.source } : null,
     checks,
   };
 }

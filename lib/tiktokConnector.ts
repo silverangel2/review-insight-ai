@@ -49,12 +49,23 @@ async function supabaseFetch(path: string, init: RequestInit = {}) {
 
 const TIKTOK_AUTH_BASE = "https://www.tiktok.com/v2/auth/authorize/";
 const TIKTOK_API_BASE = "https://open.tiktokapis.com/v2";
+const DEFAULT_TIKTOK_REDIRECT_URI = "https://getreviewintel.com/api/auth/tiktok/callback";
+
+function cleanTikTokRedirectUri(value?: string | null) {
+  const redirectUri = String(value || "").trim();
+
+  if (!redirectUri) return DEFAULT_TIKTOK_REDIRECT_URI;
+  if (redirectUri.includes("localhost") || redirectUri.includes("127.0.0.1")) {
+    return DEFAULT_TIKTOK_REDIRECT_URI;
+  }
+
+  return redirectUri;
+}
 
 export function getTikTokOAuthConfig() {
   const clientKey = process.env.TIKTOK_CLIENT_KEY || "";
   const clientSecret = process.env.TIKTOK_CLIENT_SECRET || "";
-  const redirectUri =
-    process.env.TIKTOK_REDIRECT_URI || "https://getreviewintel.com/api/auth/tiktok/callback";
+  const redirectUri = cleanTikTokRedirectUri(process.env.TIKTOK_REDIRECT_URI);
 
   return {
     clientKey,
@@ -64,9 +75,9 @@ export function getTikTokOAuthConfig() {
 }
 
 export function getTikTokScopes() {
-  // video.upload = upload to TikTok inbox/draft flow.
-  // user.info.basic = lets us verify which TikTok account connected.
-  return ["user.info.basic", "video.upload"];
+  // video.publish is required for full automatic/direct posting through TikTok Content Posting API.
+  // user.info.basic lets ReviewIntel verify the connected TikTok account.
+  return ["user.info.basic", "video.publish"];
 }
 
 export function getTikTokAuthUrl(state: string) {
@@ -113,6 +124,45 @@ export async function exchangeTikTokCodeForToken(code: string) {
 
   if (!response.ok || !data.access_token) {
     throw new Error(data?.error_description || data?.message || "TikTok token exchange failed");
+  }
+
+  return data as {
+    access_token: string;
+    refresh_token?: string;
+    open_id?: string;
+    scope?: string;
+    token_type?: string;
+    expires_in?: number;
+    refresh_expires_in?: number;
+  };
+}
+
+export async function refreshTikTokAccessToken(refreshToken: string) {
+  const config = getTikTokOAuthConfig();
+
+  if (!config.clientKey || !config.clientSecret) {
+    throw new Error("Missing TikTok OAuth configuration");
+  }
+
+  const body = new URLSearchParams();
+  body.set("client_key", config.clientKey);
+  body.set("client_secret", config.clientSecret);
+  body.set("grant_type", "refresh_token");
+  body.set("refresh_token", refreshToken);
+
+  const response = await fetch(`${TIKTOK_API_BASE}/oauth/token/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+    cache: "no-store",
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.access_token) {
+    throw new Error(data?.error_description || data?.message || "TikTok token refresh failed");
   }
 
   return data as {
@@ -187,6 +237,36 @@ export async function storeTikTokConnection(input: {
   });
 }
 
+async function updateTikTokConnectionTokens(input: {
+  accessToken: string;
+  refreshToken?: string | null;
+  tokenType?: string | null;
+  expiresIn?: number | null;
+  scopes?: string[] | null;
+  metadata?: Record<string, unknown> | null;
+}) {
+  const expiresAt = input.expiresIn
+    ? new Date(Date.now() + input.expiresIn * 1000).toISOString()
+    : null;
+
+  await supabaseFetch("/social_connections?provider=eq.tiktok", {
+    method: "PATCH",
+    headers: {
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({
+      access_token: input.accessToken,
+      refresh_token: input.refreshToken || undefined,
+      token_type: input.tokenType || "bearer",
+      expires_at: expiresAt,
+      scopes: input.scopes || undefined,
+      metadata: input.metadata || undefined,
+      is_connected: true,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+}
+
 export async function getStoredTikTokConnection() {
   try {
     const rows = await supabaseFetch(
@@ -209,6 +289,86 @@ export async function getStoredTikTokConnection() {
   } catch {
     return null;
   }
+}
+
+function tokenExpiresSoon(expiresAt?: string | null) {
+  if (!expiresAt) return false;
+  const expires = new Date(expiresAt).getTime();
+  if (!Number.isFinite(expires)) return true;
+  return expires - Date.now() < 10 * 60 * 1000;
+}
+
+export async function getTikTokAccessTokenForPosting() {
+  const stored = await getStoredTikTokConnection();
+
+  if (stored?.accessToken && !tokenExpiresSoon(stored.expiresAt)) {
+    return {
+      accessToken: stored.accessToken,
+      source: "connected-tiktok-oauth",
+      accountName: stored.accountName || "TikTok",
+      openId: stored.openId || "",
+      scopes: stored.scopes || [],
+      expiresAt: stored.expiresAt || null,
+    };
+  }
+
+  if (stored?.refreshToken) {
+    try {
+      const refreshed = await refreshTikTokAccessToken(stored.refreshToken);
+      const scopes = refreshed.scope ? refreshed.scope.split(",") : stored.scopes || getTikTokScopes();
+
+      await updateTikTokConnectionTokens({
+        accessToken: refreshed.access_token,
+        refreshToken: refreshed.refresh_token || stored.refreshToken,
+        tokenType: refreshed.token_type,
+        expiresIn: refreshed.expires_in,
+        scopes,
+        metadata: {
+          ...(stored.metadata || {}),
+          refreshed_at: new Date().toISOString(),
+        },
+      });
+
+      return {
+        accessToken: refreshed.access_token,
+        source: "connected-tiktok-oauth-refreshed",
+        accountName: stored.accountName || "TikTok",
+        openId: refreshed.open_id || stored.openId || "",
+        scopes,
+        expiresAt: refreshed.expires_in
+          ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
+          : null,
+      };
+    } catch {
+      // Env fallback below keeps diagnostics clear if the stored OAuth token cannot refresh.
+    }
+  }
+
+  const envAccessToken =
+    process.env.TIKTOK_ACCESS_TOKEN ||
+    process.env.TIKTOK_USER_ACCESS_TOKEN ||
+    process.env.TIKTOK_PAGE_ACCESS_TOKEN ||
+    "";
+
+  if (envAccessToken) {
+    return {
+      accessToken: envAccessToken,
+      source: "env-fallback",
+      accountName: "TikTok env token",
+      openId: "",
+      scopes: [],
+      expiresAt: null,
+    };
+  }
+
+  return {
+    accessToken: "",
+    source: "missing",
+    accountName: "",
+    openId: "",
+    scopes: [],
+    expiresAt: null,
+  };
 }
 
 export async function disconnectTikTokConnection() {

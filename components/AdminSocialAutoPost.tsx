@@ -2,12 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-const socialPublishingHelpText = {
-  postNow: "Post Now / Test publishes one post immediately so you can verify Facebook/TikTok.",
-  daily: "Enable Daily Publishing uses the scheduled cron and advances the 100-day built-in content cycle only after successful posts.",
-};
-
-
 type Settings = {
   full_auto_enabled: boolean;
   semi_auto_enabled: boolean;
@@ -658,7 +652,7 @@ export default function AdminSocialAutoPost() {
             disabled={saving}
             className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-60"
           >
-            Post Now / Test / Test
+            Post Now / Test
           </button>
           <button
             type="button"
@@ -711,6 +705,12 @@ export default function AdminSocialAutoPost() {
           >
             Check TikTok
           </button>
+          <a
+            href="/admin/social/tiktok-approval"
+            className="rounded-2xl border border-violet-300/40 bg-white px-5 py-3 text-center text-sm font-black text-violet-700 shadow-soft transition hover:border-violet-500 disabled:opacity-60 dark:border-violet-300/30 dark:bg-slate-900 dark:text-violet-200"
+          >
+            TikTok Approval Flow
+          </a>
         </div>
 
         <p className="mt-4 rounded-2xl bg-mist p-4 text-sm font-black text-slate-700 dark:bg-slate-900 dark:text-slate-200">

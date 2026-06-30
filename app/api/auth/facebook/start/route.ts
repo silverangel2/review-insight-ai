@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { buildFacebookOAuthUrl } from "@/lib/facebookConnector";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +14,13 @@ function randomState() {
     .join("");
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const adminSession = adminSessionFromRequest(request);
+    if (!adminSession) {
+      return NextResponse.redirect("https://getreviewintel.com/admin-access");
+    }
+
     const state = randomState();
     const url = buildFacebookOAuthUrl(state);
 
