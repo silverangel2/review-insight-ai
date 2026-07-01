@@ -273,10 +273,10 @@ export default async function LandingPage() {
               {t("instructionVideo.sound")}
             </p>
           </div>
-          <div className="home-instruction-video-frame overflow-hidden rounded-[2rem] border border-white/70 bg-white/82 p-3 shadow-[0_30px_100px_rgba(12,36,68,0.16)] backdrop-blur">
+          <div className="home-instruction-video-frame mx-auto w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/82 p-3 shadow-[0_30px_100px_rgba(12,36,68,0.16)] backdrop-blur sm:max-w-4xl">
             {homepageVideo ? (
               <video
-                className="aspect-video w-full rounded-[1.35rem] bg-ink object-cover"
+                className="aspect-[9/16] w-full rounded-[1.35rem] bg-ink object-cover sm:aspect-video"
                 src={homepageVideo.file_url}
                 poster={homepageVideo.thumbnail_url || undefined}
                 autoPlay
@@ -287,7 +287,7 @@ export default async function LandingPage() {
                 preload="metadata"
               />
             ) : (
-              <div className="flex aspect-video w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white">
+              <div className="flex aspect-[9/16] w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white sm:aspect-video">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-white/70">
                   {t("instructionVideo.emptyEyebrow")}
                 </p>
