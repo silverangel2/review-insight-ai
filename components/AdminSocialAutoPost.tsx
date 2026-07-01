@@ -289,16 +289,6 @@ export default function AdminSocialAutoPost() {
 
     if (!selectedFiles.length) return;
 
-    if (options?.videoOnly && selectedFiles.some((file) => !file.type.startsWith("video/"))) {
-      setStatus("Choose a video file for the homepage instructional video.");
-      return;
-    }
-
-    if (selectedFiles.some((file) => file.type.startsWith("video/") && file.size > 60 * 1024 * 1024)) {
-      setStatus("Homepage video is too large. Upload a vertical MP4/H.264 file under 60 MB.");
-      return;
-    }
-
     setUploadingMedia(true);
     setStatus(`${options?.statusPrefix || "Uploading"} ${selectedFiles.length} media file${selectedFiles.length === 1 ? "" : "s"}...`);
 
@@ -324,7 +314,7 @@ export default function AdminSocialAutoPost() {
           error?: string;
         } = {};
 
-        if (options?.videoOnly || file.type.startsWith("video/")) {
+        if (options?.videoOnly || file.type.startsWith("video/") || /\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
           const signedResponse = await fetch("/api/admin/social-media/signed-upload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
