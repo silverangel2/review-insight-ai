@@ -50,7 +50,20 @@ async function ensureStorageBucket() {
     cache: "no-store",
   });
 
-  if (lookup.ok) return;
+  if (lookup.ok) {
+    await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
+      method: "PUT",
+      headers: storageHeaders(),
+      body: JSON.stringify({
+        public: true,
+        file_size_limit: 100 * 1024 * 1024,
+        allowed_mime_types: Object.keys(allowedTypes),
+      }),
+      cache: "no-store",
+    }).catch(() => null);
+
+    return;
+  }
 
   const created = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
     method: "POST",
@@ -59,7 +72,7 @@ async function ensureStorageBucket() {
       id: storageBucket,
       name: storageBucket,
       public: true,
-      file_size_limit: 60 * 1024 * 1024,
+      file_size_limit: 100 * 1024 * 1024,
       allowed_mime_types: Object.keys(allowedTypes),
     }),
     cache: "no-store",
