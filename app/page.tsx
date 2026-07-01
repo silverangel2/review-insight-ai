@@ -269,14 +269,11 @@ export default async function LandingPage() {
             <p className="mt-4 text-base leading-7 text-slate-600">
               {t("instructionVideo.body")}
             </p>
-            <p className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-black text-ocean">
-              {t("instructionVideo.sound")}
-            </p>
           </div>
-          <div className="home-instruction-video-frame mx-auto w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/82 p-3 shadow-[0_30px_100px_rgba(12,36,68,0.16)] backdrop-blur sm:max-w-4xl">
+          <div className="home-instruction-video-frame mx-auto w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/82 p-3 shadow-[0_30px_100px_rgba(12,36,68,0.16)] backdrop-blur">
             {homepageVideo ? (
               <video
-                className="aspect-[9/16] w-full rounded-[1.35rem] bg-ink object-cover sm:aspect-video"
+                className="aspect-[9/16] w-full rounded-[1.35rem] bg-ink object-contain"
                 src={homepageVideo.file_url}
                 poster={homepageVideo.thumbnail_url || undefined}
                 playsInline
@@ -284,7 +281,7 @@ export default async function LandingPage() {
                 preload="metadata"
               />
             ) : (
-              <div className="flex aspect-[9/16] w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white sm:aspect-video">
+              <div className="flex aspect-[9/16] w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-white/70">
                   {t("instructionVideo.emptyEyebrow")}
                 </p>
