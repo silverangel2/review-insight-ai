@@ -314,19 +314,73 @@ export default function AdminSocialAutoPost() {
 
     try {
       for (const file of selectedFiles) {
-        const form = new FormData();
-        form.append("file", file);
+        let uploadData: {
+          ok?: boolean;
+          title?: string;
+          mediaType?: string;
+          url?: string;
+          thumbnailUrl?: string;
+          uploadUrl?: string;
+          error?: string;
+        } = {};
 
-        const uploadResponse = await fetch("/api/admin/social-media/upload", {
-          method: "POST",
-          body: form,
-        });
+        if (options?.videoOnly) {
+          const signedResponse = await fetch("/api/admin/social-media/signed-upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filename: file.name,
+              contentType: file.type,
+              size: file.size,
+            }),
+          });
 
-        const uploadData = await uploadResponse.json().catch(() => ({}));
+          uploadData = await signedResponse.json().catch(() => ({}));
 
-        if (!uploadResponse.ok || !uploadData.ok) {
-          setStatus(uploadData.error || `Could not upload ${file.name}.`);
-          continue;
+          if (!signedResponse.ok || !uploadData.ok || !uploadData.uploadUrl) {
+            setStatus(uploadData.error || `Could not prepare video upload for ${file.name}.`);
+            continue;
+          }
+
+          const directUploadResponse = await fetch(uploadData.uploadUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": file.type,
+              "x-upsert": "true",
+            },
+            body: file,
+          });
+
+          if (!directUploadResponse.ok) {
+            const retryResponse = await fetch(uploadData.uploadUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": file.type,
+                "x-upsert": "true",
+              },
+              body: file,
+            });
+
+            if (!retryResponse.ok) {
+              setStatus(`Could not upload ${file.name} directly to storage.`);
+              continue;
+            }
+          }
+        } else {
+          const form = new FormData();
+          form.append("file", file);
+
+          const uploadResponse = await fetch("/api/admin/social-media/upload", {
+            method: "POST",
+            body: form,
+          });
+
+          uploadData = await uploadResponse.json().catch(() => ({}));
+
+          if (!uploadResponse.ok || !uploadData.ok) {
+            setStatus(uploadData.error || `Could not upload ${file.name}.`);
+            continue;
+          }
         }
 
         lastUpload = uploadData;
