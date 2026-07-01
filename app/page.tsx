@@ -279,9 +279,6 @@ export default async function LandingPage() {
                 className="aspect-[9/16] w-full rounded-[1.35rem] bg-ink object-cover sm:aspect-video"
                 src={homepageVideo.file_url}
                 poster={homepageVideo.thumbnail_url || undefined}
-                autoPlay
-                muted
-                loop
                 playsInline
                 controls
                 preload="metadata"

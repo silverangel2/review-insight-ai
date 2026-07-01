@@ -28,7 +28,7 @@ export async function getHomepageVideo(): Promise<HomepageVideo | null> {
   if (!video?.file_url) return {
     id: "manual-supabase-homepage-video",
     title: "ReviewIntel Homepage Instructional Video",
-    file_url: "https://iqakizejitdhcwbnsxpj.supabase.co/storage/v1/object/public/reviewintel-media/getreviewintel.com.mp4",
+    file_url: "https://iqakizejitdhcwbnsxpj.supabase.co/storage/v1/object/sign/reviewintel-media/getreviewintel.com.mp4?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85MjA4OGQyNy1lNDhjLTQwM2ItYmViNy1lY2NkNjVhNTk4ZDAiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJyZXZpZXdpbnRlbC1tZWRpYS9nZXRyZXZpZXdpbnRlbC5jb20ubXA0Iiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4MjkyMjQzNCwiZXhwIjoyNDEzNjQyNDM0fQ.81WM024iDfmwIlSvPvKPBKuWP6RkMNRJMQmb7fmNyLo",
     thumbnail_url: "",
   };
 
