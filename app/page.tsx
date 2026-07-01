@@ -6,12 +6,14 @@ import { FeaturedReviews } from "@/components/FeaturedReviews";
 import { HomepageHeroCopy } from "@/components/HomepageHeroCopy";
 import { PlatformLogoOrbit } from "@/components/PlatformLogoOrbit";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
+import { getHomepageVideo } from "@/lib/homepageVideo";
 
 
 
 export default async function LandingPage() {
   const t = await getTranslations("Home");
   const locale = await getLocale();
+  const homepageVideo = await getHomepageVideo();
 
   const buyerWins = [
     t("buyerWins.verdict"),
@@ -262,25 +264,39 @@ export default async function LandingPage() {
       <section className="home-premium-payoff bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-14 text-ink sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
-            <Badge tone="warn">{t("payoff.eyebrow")}</Badge>
-            <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">{t("payoff.title")}</h2>
+            <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
+            <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">{t("instructionVideo.title")}</h2>
             <p className="mt-4 text-base leading-7 text-slate-600">
-              {t("payoff.body")}
+              {t("instructionVideo.body")}
+            </p>
+            <p className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm font-black text-ocean">
+              {t("instructionVideo.sound")}
             </p>
           </div>
-          <div className="ri-reveal-pop home-payoff-card-grid grid gap-4 sm:grid-cols-3">
-            {[
-              ["87%", t("cards.worthBuying"), t("cards.lowFakeRisk"), "bg-teal"],
-              [t("cards.topComplaint"), t("cards.batteryLife"), t("cards.checkBeforeBuying"), "bg-coral"],
-              [t("cards.bestFor"), t("cards.studentsOfficeTravel"), t("cards.greatValue"), "bg-ocean"]
-            ].map(([eyebrow, title, detail, color]) => (
-              <article key={title} className="home-payoff-card relative min-h-[9.25rem] overflow-visible rounded-[1.6rem] border border-line bg-white p-5 shadow-soft">
-                <div className={`absolute right-4 top-4 size-10 rounded-2xl ${color}`} />
-                <p className="text-xs font-black uppercase text-slate-500">{eyebrow}</p>
-                <h3 className="mt-5 text-3xl font-black">{title}</h3>
-                <p className="mt-3 text-sm font-bold text-slate-600">{detail}</p>
-              </article>
-            ))}
+          <div className="home-instruction-video-frame overflow-hidden rounded-[2rem] border border-white/70 bg-white/82 p-3 shadow-[0_30px_100px_rgba(12,36,68,0.16)] backdrop-blur">
+            {homepageVideo ? (
+              <video
+                className="aspect-video w-full rounded-[1.35rem] bg-ink object-cover"
+                src={homepageVideo.file_url}
+                poster={homepageVideo.thumbnail_url || undefined}
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+                preload="metadata"
+              />
+            ) : (
+              <div className="flex aspect-video w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/70">
+                  {t("instructionVideo.emptyEyebrow")}
+                </p>
+                <h3 className="mt-3 text-3xl font-black">{t("instructionVideo.emptyTitle")}</h3>
+                <p className="mt-3 max-w-xl text-sm font-bold leading-6 text-white/82">
+                  {t("instructionVideo.emptyBody")}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </section>

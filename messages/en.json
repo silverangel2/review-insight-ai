@@ -31,6 +31,15 @@
       "title": "The result should feel like opening a prize box.",
       "body": "Shoppers get the answer without reading a report. Sellers get a separate command view built for decisions, not shopping."
     },
+    "instructionVideo": {
+      "eyebrow": "Watch first",
+      "title": "See how ReviewIntel works before the scan.",
+      "body": "A short video can show shoppers and sellers what to upload, what the AI checks, and how to read the result before they start.",
+      "sound": "Video starts silently so the page stays calm. Use the controls to turn sound on.",
+      "emptyEyebrow": "ReviewIntel video",
+      "emptyTitle": "Instructional video ready for upload",
+      "emptyBody": "Upload the homepage video in Admin Social Media and this space will play it automatically."
+    },
     "modeIntro": {
       "eyebrow": "Choose the right mode",
       "title": "One product scan, two clear workflows.",

@@ -31,6 +31,15 @@
       "title": "Das Ergebnis soll sich wie das Öffnen einer Überraschungsbox anfühlen.",
       "body": "Käufer erhalten die Antwort, ohne einen Bericht zu lesen. Verkäufer erhalten eine separate Steuerungsansicht, die für Entscheidungen gebaut ist, nicht fürs Einkaufen."
     },
+    "instructionVideo": {
+      "eyebrow": "Zuerst ansehen",
+      "title": "Sieh vor dem Scan, wie ReviewIntel funktioniert.",
+      "body": "Ein kurzes Video kann Käufern und Verkäufern zeigen, was hochgeladen wird, was die KI prüft und wie das Ergebnis gelesen wird.",
+      "sound": "Das Video startet lautlos, damit die Seite ruhig bleibt. Nutze die Steuerung, um Ton einzuschalten.",
+      "emptyEyebrow": "ReviewIntel Video",
+      "emptyTitle": "Anleitungsvideo bereit zum Hochladen",
+      "emptyBody": "Lade das Homepage-Video in Admin Social Media hoch, dann wird es hier automatisch abgespielt."
+    },
     "modeIntro": {
       "eyebrow": "Den richtigen Modus wählen",
       "title": "Ein Produkt-Scan, zwei klare Abläufe.",

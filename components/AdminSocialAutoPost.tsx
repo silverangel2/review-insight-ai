@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
 
 type Settings = {
   full_auto_enabled: boolean;
@@ -265,13 +266,26 @@ export default function AdminSocialAutoPost() {
     }
   }
 
-  async function uploadMediaFiles(files: File[]) {
+  async function uploadMediaFiles(
+    files: File[],
+    options?: {
+      topic?: string;
+      tags?: string;
+      statusPrefix?: string;
+      videoOnly?: boolean;
+    }
+  ) {
     const selectedFiles = files.filter(Boolean);
 
     if (!selectedFiles.length) return;
 
+    if (options?.videoOnly && selectedFiles.some((file) => !file.type.startsWith("video/"))) {
+      setStatus("Choose a video file for the homepage instructional video.");
+      return;
+    }
+
     setUploadingMedia(true);
-    setStatus(`Uploading ${selectedFiles.length} media file${selectedFiles.length === 1 ? "" : "s"}...`);
+    setStatus(`${options?.statusPrefix || "Uploading"} ${selectedFiles.length} media file${selectedFiles.length === 1 ? "" : "s"}...`);
 
     let uploadedCount = 0;
     let lastUpload:
@@ -311,8 +325,8 @@ export default function AdminSocialAutoPost() {
             file_url: uploadData.url,
             thumbnail_url: uploadData.thumbnailUrl || "",
             alt_text: uploadData.title || file.name,
-            topic: mediaForm.topic,
-            tags: mediaForm.tags,
+            topic: options?.topic ?? mediaForm.topic,
+            tags: options?.tags ?? mediaForm.tags,
           }),
         });
 
@@ -338,8 +352,10 @@ export default function AdminSocialAutoPost() {
 
       await load();
       setStatus(
-        uploadedCount === selectedFiles.length
-          ? `Uploaded and added ${uploadedCount} media file${uploadedCount === 1 ? "" : "s"} to the library.`
+        options?.topic === HOMEPAGE_VIDEO_TOPIC && uploadedCount > 0
+          ? "Homepage instructional video uploaded and wired to the public homepage."
+          : uploadedCount === selectedFiles.length
+            ? `Uploaded and added ${uploadedCount} media file${uploadedCount === 1 ? "" : "s"} to the library.`
           : `Added ${uploadedCount} of ${selectedFiles.length} media files. Check any failed files and try again.`
       );
     } catch {
@@ -470,6 +486,7 @@ export default function AdminSocialAutoPost() {
     );
   }
 
+  const homepageVideo = media.find((item) => item.is_active && item.media_type === "video" && item.topic === HOMEPAGE_VIDEO_TOPIC);
 
   return (
     <section className="space-y-5">
@@ -734,6 +751,46 @@ export default function AdminSocialAutoPost() {
           </p>
         </div>
 
+        <div className="mt-5 rounded-2xl border border-cyan-200 bg-[linear-gradient(135deg,rgba(236,254,255,0.96),rgba(255,255,255,0.9))] p-4 shadow-soft dark:border-cyan-300/20 dark:bg-cyan-300/10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
+                Homepage video
+              </p>
+              <h3 className="mt-1 text-lg font-black text-ink dark:text-white">
+                Instructional video for visitors
+              </h3>
+              <p className="mt-1 max-w-2xl text-xs font-bold leading-5 text-slate-600 dark:text-slate-300">
+                Upload one MP4, WEBM, or MOV. The newest active homepage video replaces the old payoff-card section and starts silently with controls so visitors can turn sound on.
+              </p>
+              {homepageVideo ? (
+                <p className="mt-2 truncate rounded-xl bg-white/80 px-3 py-2 text-xs font-black text-emerald-700 dark:bg-slate-900 dark:text-emerald-200">
+                  Active homepage video: {homepageVideo.title || homepageVideo.file_url}
+                </p>
+              ) : null}
+            </div>
+            <label className="block w-full cursor-pointer rounded-2xl bg-ink px-5 py-3 text-center text-sm font-black text-white shadow-soft transition hover:bg-ocean dark:bg-white dark:text-ink lg:w-auto">
+              <span>{uploadingMedia ? "Uploading..." : "Upload homepage video"}</span>
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                disabled={uploadingMedia || saving}
+                onChange={(event) => {
+                  const files = Array.from(event.target.files || []).slice(0, 1);
+                  void uploadMediaFiles(files, {
+                    topic: HOMEPAGE_VIDEO_TOPIC,
+                    tags: "homepage,instructional,reviewintel",
+                    statusPrefix: "Uploading homepage video",
+                    videoOnly: true,
+                  });
+                  event.target.value = "";
+                }}
+                className="sr-only"
+              />
+            </label>
+          </div>
+        </div>
+
         <div className="mt-5 rounded-2xl border border-dashed border-ocean/30 bg-cyan-50/60 p-4 dark:border-cyan-300/20 dark:bg-cyan-300/10">
           <div className="mb-4 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
@@ -743,7 +800,7 @@ export default function AdminSocialAutoPost() {
               100 ReviewIntel house images are embedded and ready for the queue.
             </p>
             <p className="mt-1 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
-              Uploaded advertiser/sponsor media rotates first. If no active upload is available, ReviewIntel posts its own branded creative automatically.
+              Uploaded advertiser/sponsor media rotates first. Homepage instructional videos are kept separate. If no active upload is available, ReviewIntel posts its own branded creative automatically.
             </p>
           </div>
           <label className="block cursor-pointer rounded-2xl bg-white px-4 py-4 text-sm font-black text-ink shadow-soft dark:bg-slate-900 dark:text-white">
@@ -824,9 +881,7 @@ export default function AdminSocialAutoPost() {
                   {item.media_type === "image" ? (
                     <img src={item.thumbnail_url || item.file_url} alt={item.alt_text || item.title || "Social media item"} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs font-black text-slate-500">
-                      VIDEO
-                    </div>
+                    <video src={item.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -838,7 +893,7 @@ export default function AdminSocialAutoPost() {
                   </p>
                   {item.topic ? (
                     <p className="mt-1 text-xs font-black text-ocean dark:text-cyan-300">
-                      {item.topic}
+                      {item.topic === HOMEPAGE_VIDEO_TOPIC ? "homepage video" : item.topic}
                     </p>
                   ) : null}
                 </div>

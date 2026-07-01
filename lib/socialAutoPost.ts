@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
+import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
 import { getTikTokAccessTokenForPosting, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -679,11 +680,13 @@ function compactSocialText(value: string, limit: number) {
   return clean.length <= limit ? clean : `${clean.slice(0, Math.max(0, limit - 1)).trim()}…`;
 }
 
-function sameUtcDate(a?: string | null, b = new Date()) {
-  if (!a) return false;
-  const parsed = new Date(a);
-  if (Number.isNaN(parsed.getTime())) return false;
-  return parsed.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+async function hasSuccessfulPostToday(now = new Date()) {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  const rows = await supabaseFetch(
+    `admin_social_posts?select=id&status=eq.posted&posted_at=gte.${encodeURIComponent(start)}&limit=1`
+  ).catch(() => []);
+
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 function makeContentFingerprint(input: {
@@ -727,10 +730,37 @@ function advanceQueueState(queue: SocialQueueState, cycleLength: number): Social
 }
 
 async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<SocialMediaItem> {
-  // Default autopost should always use the embedded ReviewIntel image library.
-  // Uploaded admin_social_media files are kept for manual/admin use, but should not override
-  // the built-in 100-day ReviewIntel image cycle.
-  return builtInSocialMedia(topic, queue);
+  const usable = (rows: unknown): SocialMediaItem[] =>
+    Array.isArray(rows)
+      ? (rows as SocialMediaItem[]).filter((row) => {
+          const mediaType = String(row.media_type || "");
+          return (
+            Boolean(row.file_url) &&
+            (mediaType === "image" || mediaType === "video") &&
+            String(row.topic || "") !== HOMEPAGE_VIDEO_TOPIC &&
+            !Boolean(row.metadata?.homepage_video)
+          );
+        })
+      : [];
+
+  const topicQuery = encodeURIComponent(topic);
+  const topicRows = usable(
+    await supabaseFetch(
+      `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=20`
+    ).catch(() => [])
+  );
+
+  const fallbackRows = topicRows.length
+    ? topicRows
+    : usable(
+        await supabaseFetch(
+          "admin_social_media?select=*&is_active=eq.true&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=40"
+        ).catch(() => [])
+      );
+
+  if (!fallbackRows.length) return builtInSocialMedia(topic, queue);
+
+  return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || builtInSocialMedia(topic, queue);
 }
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
@@ -900,25 +930,17 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
     };
   }
 
-  if (media?.media_type === "video") {
-    return {
-      ok: false,
-      error: "Facebook video auto-posting is not enabled yet. Add image media first, then video publishing can be added safely.",
-      metadata: {
-        media_id: media.id,
-        media_type: media.media_type,
-        file_url: media.file_url,
-      },
-    };
-  }
-
   const mediaUrl = absoluteMediaUrl(media);
 
-  if (media?.media_type === "image" && media.file_url && (!mediaUrl || isPrivateOrLocalUrl(mediaUrl))) {
+  if (
+    media?.file_url &&
+    (media.media_type === "image" || media.media_type === "video") &&
+    (!mediaUrl || isPrivateOrLocalUrl(mediaUrl))
+  ) {
     return {
       ok: false,
       error:
-        "Facebook cannot fetch localhost or private media URLs. Use the deployed site URL or the built-in ReviewIntel house image library.",
+        "Facebook cannot fetch localhost or private media URLs. Use the deployed site URL or Supabase Storage public URLs.",
       metadata: {
         media_id: media.id,
         media_type: media.media_type,
@@ -928,21 +950,30 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
   }
 
   const endpoint =
-    media?.media_type === "image" && media.file_url
-      ? `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/photos`
-      : `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/feed`;
+    media?.media_type === "video" && media.file_url
+      ? `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/videos`
+      : media?.media_type === "image" && media.file_url
+        ? `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/photos`
+        : `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/feed`;
 
   const body =
-    media?.media_type === "image" && media.file_url
+    media?.media_type === "video" && media.file_url
       ? new URLSearchParams({
-          url: mediaUrl,
-          caption,
+          file_url: mediaUrl,
+          description: caption,
+          published: "true",
           access_token: pageToken,
         })
-      : new URLSearchParams({
-          message: caption,
-          access_token: pageToken,
-        });
+      : media?.media_type === "image" && media.file_url
+        ? new URLSearchParams({
+            url: mediaUrl,
+            caption,
+            access_token: pageToken,
+          })
+        : new URLSearchParams({
+            message: caption,
+            access_token: pageToken,
+          });
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -1353,8 +1384,8 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
     return { ok: true, skipped: true, reason: "Full auto-post is disabled." };
   }
 
-  if (!options.force && sameUtcDate(settings.last_posted_at)) {
-    return { ok: true, skipped: true, reason: "A social auto-post already ran today." };
+  if (!options.force && (await hasSuccessfulPostToday())) {
+    return { ok: true, skipped: true, reason: "A social post was already published today." };
   }
 
   const topics = settings.topics?.length ? settings.topics : ["shopper_tips"];
@@ -1455,6 +1486,10 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
     const status = String((result as Record<string, unknown> | null)?.status || "");
     return status === "posted" || status === "draft_ready";
   });
+  const postedResults = results.filter((result) => {
+    const status = String((result as Record<string, unknown> | null)?.status || "");
+    return status === "posted";
+  });
   const hasCompletedResults = completedResults.length > 0;
 
   if (hasCompletedResults) {
@@ -1464,7 +1499,7 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
 
     await updateSocialSettings({
       last_queue_day: lastQueue.queueDay,
-      last_posted_at: now,
+      ...(postedResults.length ? { last_posted_at: now } : {}),
     });
   }
 

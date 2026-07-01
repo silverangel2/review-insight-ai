@@ -31,6 +31,15 @@
       "title": "Le résultat doit donner l’impression d’ouvrir une boîte surprise.",
       "body": "Les acheteurs obtiennent la réponse sans lire un rapport. Les vendeurs obtiennent une vue de commande séparée, conçue pour les décisions, pas pour l’achat."
     },
+    "instructionVideo": {
+      "eyebrow": "À regarder d’abord",
+      "title": "Voyez comment ReviewIntel fonctionne avant l’analyse.",
+      "body": "Une courte vidéo peut montrer aux acheteurs et aux vendeurs quoi téléverser, ce que l’IA vérifie et comment lire le résultat avant de commencer.",
+      "sound": "La vidéo démarre sans son pour garder la page agréable. Utilisez les contrôles pour activer le son.",
+      "emptyEyebrow": "Vidéo ReviewIntel",
+      "emptyTitle": "Vidéo d’instructions prête à téléverser",
+      "emptyBody": "Téléversez la vidéo d’accueil dans Admin Social Media et cet espace la lira automatiquement."
+    },
     "modeIntro": {
       "eyebrow": "Choisir le bon mode",
       "title": "Une analyse produit, deux parcours clairs.",

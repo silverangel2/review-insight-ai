@@ -16,6 +16,114 @@ const allowedTypes: Record<string, { ext: string; mediaType: "image" | "video"; 
   "video/quicktime": { ext: "mov", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
 };
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const storageBucket =
+  process.env.SUPABASE_SOCIAL_MEDIA_BUCKET ||
+  process.env.SUPABASE_MEDIA_BUCKET ||
+  "reviewintel-media";
+
+function isProductionRuntime() {
+  return Boolean(process.env.VERCEL || process.env.NODE_ENV === "production");
+}
+
+function hasSupabaseStorage() {
+  return Boolean(supabaseUrl && supabaseServiceKey && storageBucket);
+}
+
+function storageHeaders(extra?: Record<string, string>) {
+  return {
+    apikey: supabaseServiceKey || "",
+    Authorization: `Bearer ${supabaseServiceKey || ""}`,
+    ...extra,
+  };
+}
+
+async function makeBucketPublic() {
+  const response = await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
+    method: "PUT",
+    headers: storageHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      public: true,
+      file_size_limit: 60 * 1024 * 1024,
+      allowed_mime_types: Object.keys(allowedTypes),
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail || "Supabase Storage bucket exists but could not be made public.");
+  }
+}
+
+async function ensureStorageBucket() {
+  if (!hasSupabaseStorage()) return;
+
+  const check = await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
+    headers: storageHeaders(),
+    cache: "no-store",
+  });
+
+  if (check.ok) {
+    const bucket = await check.json().catch(() => null);
+    if (bucket && bucket.public !== true) {
+      await makeBucketPublic();
+    }
+    return;
+  }
+  if (check.status !== 404) return;
+
+  const created = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+    method: "POST",
+    headers: storageHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      id: storageBucket,
+      name: storageBucket,
+      public: true,
+      file_size_limit: 60 * 1024 * 1024,
+      allowed_mime_types: Object.keys(allowedTypes),
+    }),
+    cache: "no-store",
+  });
+
+  if (!created.ok && created.status !== 409) {
+    const detail = await created.text().catch(() => "");
+    throw new Error(detail || "Supabase Storage media bucket could not be created.");
+  }
+}
+
+async function uploadToSupabaseStorage(filename: string, buffer: Buffer, contentType: string) {
+  if (!hasSupabaseStorage()) return "";
+
+  await ensureStorageBucket();
+
+  const objectPath = `social/${filename}`;
+  const response = await fetch(
+    `${supabaseUrl}/storage/v1/object/${encodeURIComponent(storageBucket)}/${objectPath}`,
+    {
+      method: "POST",
+      headers: storageHeaders({
+        "Content-Type": contentType,
+        "Cache-Control": "31536000",
+        "x-upsert": "true",
+      }),
+      body: new Blob([new Uint8Array(buffer)], { type: contentType }),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      detail ||
+        "Supabase Storage upload failed. Check the media bucket and service-role storage permissions."
+    );
+  }
+
+  return `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(storageBucket)}/${objectPath}`;
+}
+
 async function requireAdmin(request: NextRequest) {
   const session = await adminSessionFromRequest(request);
   return Boolean(session);
@@ -58,14 +166,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const base = cleanBaseName(file.name) || "reviewintel-social";
+    const filename = `${base}-${randomUUID()}.${config.ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    try {
+      const storageUrl = await uploadToSupabaseStorage(filename, buffer, file.type);
+
+      if (storageUrl) {
+        return NextResponse.json({
+          ok: true,
+          url: storageUrl,
+          thumbnailUrl: config.mediaType === "image" ? storageUrl : "",
+          mediaType: config.mediaType,
+          storage: "supabase",
+          title: file.name.replace(/\.[a-z0-9]+$/i, ""),
+        });
+      }
+    } catch (error) {
+      if (isProductionRuntime()) {
+        throw error;
+      }
+    }
+
+    if (isProductionRuntime()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Production media uploads need Supabase Storage. Add NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and a public media bucket.",
+        },
+        { status: 500 }
+      );
+    }
+
     const uploadDir = path.join(process.cwd(), "public", "uploads", "social");
     await mkdir(uploadDir, { recursive: true });
 
-    const base = cleanBaseName(file.name) || "reviewintel-social";
-    const filename = `${base}-${randomUUID()}.${config.ext}`;
     const destination = path.join(uploadDir, filename);
-    const buffer = Buffer.from(await file.arrayBuffer());
-
     await writeFile(destination, buffer);
 
     const url = `/uploads/social/${filename}`;

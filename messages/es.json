@@ -31,6 +31,15 @@
       "title": "El resultado debe sentirse como abrir una caja sorpresa.",
       "body": "Los compradores obtienen la respuesta sin leer un informe. Los vendedores obtienen una vista de mando separada, creada para tomar decisiones, no para comprar."
     },
+    "instructionVideo": {
+      "eyebrow": "Mira primero",
+      "title": "Mira cómo funciona ReviewIntel antes del análisis.",
+      "body": "Un video corto puede mostrar a compradores y vendedores qué subir, qué revisa la IA y cómo leer el resultado antes de empezar.",
+      "sound": "El video empieza en silencio para mantener la página tranquila. Usa los controles para activar el sonido.",
+      "emptyEyebrow": "Video ReviewIntel",
+      "emptyTitle": "Video instructivo listo para subir",
+      "emptyBody": "Sube el video de la página principal en Admin Social Media y este espacio lo reproducirá automáticamente."
+    },
     "modeIntro": {
       "eyebrow": "Elige el modo correcto",
       "title": "Un análisis de producto, dos flujos claros.",

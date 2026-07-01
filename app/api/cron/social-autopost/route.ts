@@ -3,6 +3,8 @@ import { runSocialAutoPost } from "@/lib/socialAutoPost";
 
 export async function GET(request: NextRequest) {
   const secret = process.env.SOCIAL_CRON_SECRET || process.env.CRON_SECRET;
+  const vercelCronSchedule = request.headers.get("x-vercel-cron-schedule") || "";
+  const isExpectedVercelCron = vercelCronSchedule === "0 13 * * *";
 
   if (secret) {
     const authorization = request.headers.get("authorization") || "";
@@ -11,7 +13,7 @@ export async function GET(request: NextRequest) {
       : authorization.trim();
     const querySecret = request.nextUrl.searchParams.get("secret");
 
-    if (provided !== secret && querySecret !== secret) {
+    if (provided !== secret && querySecret !== secret && !isExpectedVercelCron) {
       return NextResponse.json({ ok: false, error: "Unauthorized cron request." }, { status: 401 });
     }
   }

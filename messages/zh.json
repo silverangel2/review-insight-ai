@@ -31,6 +31,15 @@
       "title": "结果应该像打开惊喜盒一样清楚。",
       "body": "购物者无需阅读长报告就能得到答案。卖家会获得独立的决策视图，专为经营决策而不是购物而设计。"
     },
+    "instructionVideo": {
+      "eyebrow": "先看视频",
+      "title": "扫描前先了解 ReviewIntel 如何使用。",
+      "body": "一段短视频可以向购物者和卖家说明要上传什么、AI 会检查什么，以及开始前如何理解结果。",
+      "sound": "视频会静音播放，保持页面安静。使用播放器控件即可打开声音。",
+      "emptyEyebrow": "ReviewIntel 视频",
+      "emptyTitle": "教学视频可在后台上传",
+      "emptyBody": "在 Admin Social Media 上传首页视频后，这里会自动播放。"
+    },
     "modeIntro": {
       "eyebrow": "选择正确模式",
       "title": "一次产品分析，两种清晰流程。",
