@@ -1,0 +1,135 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getClientAccount } from "@/lib/clientAccount";
+
+type ClientAccountShape = {
+  email?: string | null;
+  name?: string | null;
+  role?: string | null;
+  plan?: string | null;
+};
+
+function permissionKey(account: ClientAccountShape | null) {
+  const identity = String(account?.email || account?.name || "guest").trim().toLowerCase();
+
+  // Stable per-account device permission.
+  // Do not include role/plan because beta/subscription/deployment changes can make
+  // the app think this is a new permission.
+  return `reviewintel:private-file-access:${identity}`;
+}
+
+function getCurrentAccount(): ClientAccountShape | null {
+  try {
+    return getClientAccount() as ClientAccountShape | null;
+  } catch {
+    return null;
+  }
+}
+
+export default function AccountWorkspacePermission() {
+  const [visible, setVisible] = useState(false);
+  const [account, setAccount] = useState<ClientAccountShape | null>(null);
+  const pendingInputRef = useRef<HTMLInputElement | null>(null);
+
+  const title = useMemo(() => {
+    const label = account?.name || account?.email || "this account";
+    return `Private access for ${label}`;
+  }, [account]);
+
+  function isApproved(nextAccount: ClientAccountShape | null) {
+    if (typeof window === "undefined") return false;
+    if (!nextAccount?.email && !nextAccount?.name) return false;
+    return window.localStorage.getItem(permissionKey(nextAccount)) === "approved";
+  }
+
+  function requestPrivateFileAccess(input?: HTMLInputElement | null) {
+    const latestAccount = getCurrentAccount();
+    setAccount(latestAccount);
+    pendingInputRef.current = input ?? null;
+
+    if (!latestAccount?.email && !latestAccount?.name) return;
+
+    if (!isApproved(latestAccount)) {
+      setVisible(true);
+      return;
+    }
+
+    if (input) {
+      input.click();
+    }
+  }
+
+  function allowPrivateFileAccess() {
+    if (typeof window === "undefined") return;
+
+    const latestAccount = account ?? getCurrentAccount();
+    if (latestAccount?.email || latestAccount?.name) {
+      window.localStorage.setItem(permissionKey(latestAccount), "approved");
+    }
+
+    setVisible(false);
+
+    const pendingInput = pendingInputRef.current;
+    pendingInputRef.current = null;
+
+    if (pendingInput) {
+      window.setTimeout(() => {
+        pendingInput.click();
+      }, 40);
+    }
+  }
+
+  useEffect(() => {
+    function onPrivateFileAccessRequest(event: Event) {
+      const detail = (event as CustomEvent<{ input?: HTMLInputElement | null }>).detail;
+      requestPrivateFileAccess(detail?.input ?? null);
+    }
+
+    function onFileInputClick(event: MouseEvent) {
+      const target = event.target as Element | null;
+      const input = target?.closest?.('input[type="file"]') as HTMLInputElement | null;
+
+      if (!input) return;
+
+      const latestAccount = getCurrentAccount();
+      if (!latestAccount?.email && !latestAccount?.name) return;
+
+      if (isApproved(latestAccount)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      setAccount(latestAccount);
+      pendingInputRef.current = input;
+      setVisible(true);
+    }
+
+    window.addEventListener("reviewintel:private-file-access-request", onPrivateFileAccessRequest);
+    document.addEventListener("click", onFileInputClick, true);
+
+    return () => {
+      window.removeEventListener("reviewintel:private-file-access-request", onPrivateFileAccessRequest);
+      document.removeEventListener("click", onFileInputClick, true);
+    };
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed inset-x-4 bottom-[calc(9rem+env(safe-area-inset-bottom))] z-[9998] mx-auto max-w-sm rounded-3xl border border-white/60 bg-white/55 p-4 text-black shadow-2xl backdrop-blur-2xl md:hidden">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-black/55">One-time access</p>
+      <h2 className="mt-1 text-lg font-black text-black">{title}</h2>
+      <p className="mt-2 text-sm font-semibold leading-5 text-black/70">
+        ReviewIntel wants to access private photos, folders, screenshots, or CSV files from this device. This permission is saved only for this account on this device.
+      </p>
+      <button
+        type="button"
+        onClick={allowPrivateFileAccess}
+        className="mt-4 w-full rounded-2xl bg-black px-4 py-3 text-sm font-black text-white"
+      >
+        Allow private file access
+      </button>
+    </div>
+  );
+}

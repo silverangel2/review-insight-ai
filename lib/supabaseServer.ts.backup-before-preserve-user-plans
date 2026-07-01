@@ -710,18 +710,7 @@ export async function saveAnalysisRecord(input: SupabaseRow) {
     mode: input.mode ?? input.audience ?? "buyer",
     product_name: compactText(input.product_name ?? input.productName),
     platform: compactText(input.platform, "other"),
-    product_score:
-      input.product_score ??
-      input.productScore ??
-      input.healthScore ??
-      input.buyingConfidence ??
-      input.score ??
-      analysis?.product_score ??
-      analysis?.productScore ??
-      analysis?.healthScore ??
-      analysis?.buyingConfidence ??
-      analysis?.score ??
-      null,
+    product_score: input.product_score ?? input.productScore ?? analysis?.product_score ?? null,
     recommendation: compactText(input.recommendation ?? analysis?.buyer_recommendation),
     summary: compactText(input.summary ?? input.overall_summary ?? analysis?.overall_summary),
     analysis_json: input.analysis_json ?? input.analysis ?? input,
@@ -753,105 +742,42 @@ export async function adminUsageSummary() {
   };
 }
 
-function isBetaSubscriptionPlan(plan: string) {
-  return plan === "buyer_beta" || plan === "seller_beta";
-}
-
-function hasUnexpiredBetaAccess(profile: SupabaseRow | null, plan: string) {
-  if (!profile || !isBetaSubscriptionPlan(plan)) return false;
-
-  const expiresAt = String(profile.beta_expires_at ?? "").trim();
-  if (!expiresAt) {
-    return String(profile.subscription_status ?? "").trim() === "beta";
-  }
-
-  const expiry = new Date(expiresAt);
-  return !Number.isNaN(expiry.getTime()) && expiry.getTime() > Date.now();
-}
-
 export async function upsertSubscriptionByStripeCustomer(input: SupabaseRow) {
   if (!isSupabaseConfigured()) return null;
 
   const email = String(input.profile_email ?? input.email ?? input.customer_email ?? "").trim();
   const profileId = String(input.userId ?? input.user_id ?? input.profile_id ?? "").trim();
-  const metadata = input.metadata as Record<string, unknown> | undefined;
-  const explicitPlanValue = input.plan ?? metadata?.["plan"] ?? null;
-  const hasExplicitPlan = typeof explicitPlanValue === "string" && explicitPlanValue.trim().length > 0;
-  const requestedPlan = hasExplicitPlan ? normalizePlan(String(explicitPlanValue)) : null;
+  const rawPlan = normalizePlan(String(input.plan ?? (input.metadata as Record<string, unknown> | undefined)?.["plan"] ?? "free_buyer"));
   const subscriptionStatus = String(input.status ?? "active");
   const inactive = !["active", "trialing"].includes(subscriptionStatus);
+  const plan = inactive ? "free_buyer" : rawPlan;
+  const role = rawPlan === "seller_premium" || rawPlan === "seller_beta" || rawPlan === "seller_pro" ? "seller" : roleForPlan(plan);
   const stripeCustomerId = input.stripe_customer_id ?? input.customer ?? input.customerId ?? null;
-
-  let existingProfile: SupabaseRow | null = null;
-
-  try {
-    const profileQuery = email
-      ? `email=eq.${encodeURIComponent(email)}`
-      : profileId
-        ? `id=eq.${encodeURIComponent(profileId)}`
-        : "";
-
-    if (profileQuery) {
-      const response = await supabaseFetch(
-        `/rest/v1/profiles?${profileQuery}&select=id,email,plan,role,subscription_status,stripe_customer_id,beta_expires_at&limit=1`
-      );
-
-      if (response.ok) {
-        const rows = (await response.json()) as SupabaseRow[];
-        existingProfile = rows[0] ?? null;
-      }
-    }
-  } catch {
-    existingProfile = null;
-  }
-
-  const existingPlan = existingProfile?.plan ? normalizePlan(String(existingProfile.plan)) : "";
-  const existingRole = existingProfile?.role ? String(existingProfile.role) : "";
-  const protectedManualPlan = hasUnexpiredBetaAccess(existingProfile, existingPlan);
-  const safeExistingPlan = existingPlan || "free_buyer";
-
-  // Critical safety rule:
-  // Missing Stripe metadata must never reset an existing user to free/basic.
-  // Only use free_buyer as a default when there is no existing profile at all.
-  const activePlan = protectedManualPlan ? safeExistingPlan : requestedPlan ?? safeExistingPlan;
-  const finalPlan =
-    protectedManualPlan
-      ? safeExistingPlan
-      : inactive && requestedPlan
-      ? "free_buyer"
-      : activePlan;
-  const finalSubscriptionStatus = protectedManualPlan ? "beta" : subscriptionStatus;
-
-  const finalRole =
-    finalPlan === "seller_premium" || finalPlan === "seller_beta" || finalPlan === "seller_pro"
-      ? "seller"
-      : existingRole || roleForPlan(finalPlan);
-
-  const profilePatch: SupabaseRow = {
-    subscription_status: finalSubscriptionStatus,
-    subscription_plan: finalPlan,
-    stripe_customer_id: stripeCustomerId,
-    updated_at: new Date().toISOString()
-  };
-
-  // Preserve existing plan/role unless there is a safe final plan.
-  profilePatch.plan = finalPlan;
-  profilePatch.role = finalRole;
 
   if (email) {
     await supabaseUpsert("profiles", {
       email,
-      ...profilePatch
+      plan,
+      role,
+      subscription_status: subscriptionStatus,
+      stripe_customer_id: stripeCustomerId,
+      updated_at: new Date().toISOString()
     });
   } else if (profileId) {
-    await supabaseUpdate("profiles", `id=eq.${encodeURIComponent(profileId)}`, profilePatch);
+    await supabaseUpdate("profiles", `id=eq.${encodeURIComponent(profileId)}`, {
+      plan,
+      role,
+      subscription_status: subscriptionStatus,
+      stripe_customer_id: stripeCustomerId,
+      updated_at: new Date().toISOString()
+    });
   }
 
   return supabaseInsert("payments", {
     profile_email: email || null,
     stripe_customer_id: stripeCustomerId,
     stripe_payment_id: input.stripe_payment_id ?? input.subscription ?? input.id ?? null,
-    plan: requestedPlan ?? (existingPlan || null),
+    plan: rawPlan,
     amount: input.amount ?? input.amount_total ?? null,
     currency: input.currency ?? "CAD",
     status: input.status ?? "active",

@@ -1,0 +1,36 @@
+import { NextRequest, NextResponse } from "next/server";
+import { buildFacebookOAuthUrl } from "@/lib/facebookConnector";
+
+export const dynamic = "force-dynamic";
+
+function randomState() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(24)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function GET(_request: NextRequest) {
+  try {
+    const state = randomState();
+    const url = buildFacebookOAuthUrl(state);
+
+    const response = NextResponse.redirect(url);
+    response.cookies.set("reviewintel_fb_oauth_state", state, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: true,
+      path: "/",
+      maxAge: 10 * 60,
+    });
+
+    return response;
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error?.message || "Unable to start Facebook connection",
+      },
+      { status: 500 }
+    );
+  }
+}

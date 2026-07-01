@@ -13,6 +13,31 @@ type ShopperScan = {
   createdAt?: string;
 };
 
+function recordOf(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function normalizeScore(value: unknown, key = "") {
+  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  if (!Number.isFinite(number)) return null;
+  if (key === "rating" && number > 0 && number <= 5) return Math.round(number * 20);
+  if (/confidence|sentiment/i.test(key) && number > 0 && number <= 1) return Math.round(number * 100);
+  return Math.round(number);
+}
+
+function readShopperScore(...sources: Record<string, unknown>[]) {
+  const keys = ["productScore", "product_score", "buyingConfidence", "score", "confidenceScore", "confidence_score", "rating"];
+
+  for (const source of sources) {
+    for (const key of keys) {
+      const score = normalizeScore(source[key], key);
+      if (score !== null) return score;
+    }
+  }
+
+  return undefined;
+}
+
 function shopperHistoryKeys(account: ReturnType<typeof getClientAccount>) {
   const identity = (account?.email || "guest").trim().toLowerCase();
   const plan = (account?.plan || "free_buyer").trim().toLowerCase();
@@ -37,12 +62,14 @@ function scanFromHistoryItem(item: unknown): ShopperScan {
     };
   };
   const result = historyItem.result || (item as typeof historyItem.result);
+  const resultRecord = recordOf(result);
+  const analysisRecord = recordOf(resultRecord.analysis);
 
   return {
     id: historyItem.id || result?.analysisId || result?.createdAt,
     productName: displayCodeForResult(result, result?.product?.name || result?.product?.title || result?.analysis?.summary || "Product scan"),
     verdict: result?.verdict || result?.analysis?.verdict || "Checked",
-    score: result?.productScore || result?.buyingConfidence || result?.analysis?.score,
+    score: readShopperScore(resultRecord, analysisRecord),
     createdAt: historyItem.savedAt || result?.createdAt
   };
 }

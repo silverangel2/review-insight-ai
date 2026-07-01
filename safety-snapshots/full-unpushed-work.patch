@@ -1,0 +1,255 @@
+diff --git a/components/AccountWorkspacePermission.tsx b/components/AccountWorkspacePermission.tsx
+index 0f0956c..3fc746c 100644
+--- a/components/AccountWorkspacePermission.tsx
++++ b/components/AccountWorkspacePermission.tsx
+@@ -167,32 +167,10 @@ export default function AccountWorkspacePermission() {
+       requestPrivateFileAccess(detail?.input ?? null);
+     }
+ 
+-    function onFileInputClick(event: MouseEvent) {
+-      const target = event.target as Element | null;
+-      const input = target?.closest?.('input[type="file"]') as HTMLInputElement | null;
+-
+-      if (!input) return;
+-
+-      const latestAccount = getCurrentAccount();
+-      if (!latestAccount?.email && !latestAccount?.name) return;
+-
+-      if (isApproved(latestAccount)) return;
+-
+-      event.preventDefault();
+-      event.stopPropagation();
+-
+-      setLanguage(getPrivateAccessLanguage());
+-      setAccount(latestAccount);
+-      pendingInputRef.current = input;
+-      setVisible(true);
+-    }
+-
+     window.addEventListener("reviewintel:private-file-access-request", onPrivateFileAccessRequest);
+-    document.addEventListener("click", onFileInputClick, true);
+ 
+     return () => {
+       window.removeEventListener("reviewintel:private-file-access-request", onPrivateFileAccessRequest);
+-      document.removeEventListener("click", onFileInputClick, true);
+     };
+   }, []);
+ 
+diff --git a/components/LayoutModeProvider.tsx b/components/LayoutModeProvider.tsx
+index 0113bdf..3abe2f3 100644
+--- a/components/LayoutModeProvider.tsx
++++ b/components/LayoutModeProvider.tsx
+@@ -2,13 +2,13 @@
+ 
+ import { useEffect, useState, type ReactNode } from "react";
+ 
+-type LayoutMode = "auto" | "mobile" | "desktop" | "desktop-mini";
+-type ResolvedLayoutMode = "mobile" | "desktop" | "desktop-mini";
++type LayoutMode = "auto" | "mobile" | "desktop";
++type ResolvedLayoutMode = "mobile" | "desktop";
+ 
+ const STORAGE_KEY = "reviewintel_layout_mode";
+ 
+ function safeMode(value: string | null): LayoutMode {
+-  if (value === "mobile" || value === "desktop" || value === "desktop-mini" || value === "auto") {
++  if (value === "mobile" || value === "desktop" || value === "auto") {
+     return value;
+   }
+ 
+@@ -16,7 +16,7 @@ function safeMode(value: string | null): LayoutMode {
+ }
+ 
+ function resolveLayoutMode(mode: LayoutMode): ResolvedLayoutMode {
+-  if (mode === "mobile" || mode === "desktop" || mode === "desktop-mini") {
++  if (mode === "mobile" || mode === "desktop") {
+     return mode;
+   }
+ 
+@@ -29,7 +29,7 @@ function resolveLayoutMode(mode: LayoutMode): ResolvedLayoutMode {
+ 
+ export default function LayoutModeProvider({ children }: { children: ReactNode }) {
+   const [mode, setMode] = useState<LayoutMode>("auto");
+-  const [resolvedMode, setResolvedMode] = useState<ResolvedLayoutMode>("desktop");
++  const [, setResolvedMode] = useState<ResolvedLayoutMode>("desktop");
+   const showTester = process.env.NODE_ENV !== "production";
+ 
+   useEffect(() => {
+@@ -87,51 +87,60 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
+ 
+   if (!showTester) return <>{children}</>;
+ 
++  const applyTesterMode = (nextMode: LayoutMode) => {
++    window.localStorage.setItem(STORAGE_KEY, nextMode);
++    window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: nextMode } }));
++  };
++
++  const previewChildren =
++    mode === "mobile" ? (
++      <div className="mx-auto min-h-screen w-full max-w-[430px] overflow-x-hidden bg-white shadow-2xl">
++        {children}
++      </div>
++    ) : (
++      children
++    );
++
+   return (
+     <>
+-      {children}
+-      <div className="fixed bottom-3 right-3 z-[9999] hidden rounded-full border border-white/40 bg-slate-950/85 px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-2xl backdrop-blur-xl md:flex">
+-      <span className="text-white/50">Layout:</span>
+-      <button
+-        type="button"
+-        onClick={() => {
+-          window.localStorage.setItem(STORAGE_KEY, "auto");
+-          window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "auto" } }));
+-        }}
+-        className={`ml-2 rounded-full px-2 py-1 ${mode === "auto" ? "bg-white text-slate-950" : "text-white/70"}`}
+-      >
+-        Auto/{resolvedMode}
+-      </button>
+-      <button
+-        type="button"
+-        onClick={() => {
+-          window.localStorage.setItem(STORAGE_KEY, "mobile");
+-          window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "mobile" } }));
+-        }}
+-        className={`rounded-full px-2 py-1 ${mode === "mobile" ? "bg-white text-slate-950" : "text-white/70"}`}
+-      >
+-        Mobile
+-      </button>
+-      <button
+-        type="button"
+-        onClick={() => {
+-          window.localStorage.setItem(STORAGE_KEY, "desktop");
+-          window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "desktop" } }));
+-        }}
+-        className={`rounded-full px-2 py-1 ${mode === "desktop" ? "bg-white text-slate-950" : "text-white/70"}`}
+-      >
+-        Desktop
+-      </button>
+-      <button
+-        type="button"
+-        onClick={() => {
+-          window.localStorage.setItem(STORAGE_KEY, "desktop-mini");
+-          window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "desktop-mini" } }));
+-        }}
+-        className={`rounded-full px-2 py-1 ${mode === "desktop-mini" ? "bg-white text-slate-950" : "text-white/70"}`}
+-      >
+-        Mini
+-      </button>
++      {previewChildren}
++      <div className="fixed bottom-3 right-3 z-[9999] hidden rounded-2xl border border-white/40 bg-slate-950/85 p-2 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-2xl backdrop-blur-xl md:flex md:items-center md:gap-1">
++        <span className="px-2 text-white/50">Layout</span>
++
++        <button
++          type="button"
++          onClick={() => applyTesterMode("auto")}
++          className={`rounded-xl px-2 py-1 ${mode === "auto" ? "bg-white text-slate-950" : "text-white/70"}`}
++        >
++          Auto Detect
++        </button>
++
++        <button
++          type="button"
++          onClick={() => applyTesterMode("mobile")}
++          className={`rounded-xl px-2 py-1 ${mode === "mobile" ? "bg-white text-slate-950" : "text-white/70"}`}
++        >
++          Mobile Vertical
++        </button>
++
++        <button
++          type="button"
++          onClick={() => applyTesterMode("desktop")}
++          className={`rounded-xl px-2 py-1 ${mode === "desktop" ? "bg-white text-slate-950" : "text-white/70"}`}
++        >
++          Desktop Full
++        </button>
++
++        <button
++          type="button"
++          onClick={() => {
++            window.localStorage.removeItem(STORAGE_KEY);
++            applyTesterMode("auto");
++          }}
++          className="rounded-xl px-2 py-1 text-white/70"
++        >
++          Reset
++        </button>
+       </div>
+     </>
+   );
+diff --git a/components/ResultsClient.tsx b/components/ResultsClient.tsx
+index fdda3fe..fb72e90 100644
+--- a/components/ResultsClient.tsx
++++ b/components/ResultsClient.tsx
+@@ -1181,7 +1181,7 @@ export function ResultsClient() {
+   return (
+     <div className="space-y-5">
+       {accountPlan !== "free_buyer" ? customerNav : null}
+-      {!isSellerAudience && accountPlan === "buyer_pro" ? <ShopperResultHistoryCorner /> : null}
++      {!isSellerAudience && ["buyer_pro", "buyer_beta", "shopper_beta"].includes(String(accountPlan)) ? <ShopperResultHistoryCorner /> : null}
+       <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[1.6rem] sm:p-4">
+         <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-b from-teal via-ocean to-amber" />
+         <div className="flex flex-col gap-4 pl-2 lg:flex-row lg:items-center lg:justify-between">
+diff --git a/components/ShopperResultHistoryCorner.tsx b/components/ShopperResultHistoryCorner.tsx
+index 0cb8679..bf3d5ac 100644
+--- a/components/ShopperResultHistoryCorner.tsx
++++ b/components/ShopperResultHistoryCorner.tsx
+@@ -95,7 +95,7 @@ function limitForAccount(items: HistoryItem[], account: unknown) {
+ 
+   // Shopper Premium / Buyer Pro should show the server-backed history list.
+   // Do not cap it to 10 per week; that was hiding newly saved scans.
+-  if (plan === "buyer_pro") {
++  if (["buyer_pro", "buyer_beta", "shopper_beta"].includes(plan)) {
+     return items.slice(0, 50);
+   }
+ 
+@@ -321,17 +321,17 @@ export function ShopperResultHistoryCorner() {
+   if (!items.length) return null;
+ 
+   return (
+-    <div className="reviewintel-result-history-anchor fixed left-5 top-28 z-50 w-[280px] max-w-[calc(100vw-2rem)]">
++    <div className="reviewintel-result-history-anchor fixed left-3 right-3 top-24 z-50 w-auto max-w-[calc(100vw-1.5rem)] sm:left-5 sm:right-auto sm:top-28 sm:w-[280px] sm:max-w-[calc(100vw-2rem)]">
+       <button
+         type="button"
+         onClick={() => setOpen((value) => !value)}
+-        className="flex rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-lg hover:border-teal-300 hover:text-teal-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
++        className="flex max-w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-lg hover:border-teal-300 hover:text-teal-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
+       >
+         🕘 {shopperHistoryCopy(readStoredLocale()).history} · {items.length}
+       </button>
+ 
+       {open ? (
+-        <div className="reviewintel-history-popup-panel mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
++        <div className="reviewintel-history-popup-panel mt-2 max-w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
+           <div className="flex items-center justify-between gap-2">
+             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+               {shopperHistoryCopy(readStoredLocale()).savedTests}
+@@ -354,7 +354,7 @@ export function ShopperResultHistoryCorner() {
+                 <button
+                   type="button"
+                   onClick={() => openSaved(item)}
+-                  className="text-left text-xs font-black text-slate-700 hover:text-teal-700 dark:text-slate-200"
++                  className="min-w-0 flex-1 text-left text-xs font-black text-slate-700 hover:text-teal-700 dark:text-slate-200"
+                 >
+                   <span className="block truncate">{resultTitle(item.result)}</span>
+                   <span className="mt-1 block text-[10px] text-slate-400">{formatDate(item.savedAt)}</span>
+diff --git a/components/mobile/MobileTinyNav.tsx b/components/mobile/MobileTinyNav.tsx
+index 35f2641..21b1121 100644
+--- a/components/mobile/MobileTinyNav.tsx
++++ b/components/mobile/MobileTinyNav.tsx
+@@ -41,7 +41,13 @@ function isShopperPremiumAccount(account: ClientAccount | null) {
+ 
+ export default function MobileTinyNav() {
+   const pathname = usePathname();
+-  const isPublicMarketingPage = pathname === "/" || pathname === "/reviews" || pathname === "/advertise" || pathname === "/pricing";
++  const isPublicMarketingPage =
++    pathname === "/" ||
++    pathname === "/login" ||
++    pathname === "/signup" ||
++    pathname === "/reviews" ||
++    pathname === "/advertise" ||
++    pathname === "/pricing";
+   const [account, setAccount] = useState<ClientAccount | null>(null);
+ 
+   useEffect(() => {

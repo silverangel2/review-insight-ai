@@ -1,0 +1,138 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+
+type LayoutMode = "auto" | "mobile" | "desktop";
+type ResolvedLayoutMode = "mobile" | "desktop";
+
+const STORAGE_KEY = "reviewintel_layout_mode";
+
+function safeMode(value: string | null): LayoutMode {
+  if (value === "mobile" || value === "desktop" || value === "auto") {
+    return value;
+  }
+
+  return "auto";
+}
+
+function resolveLayoutMode(mode: LayoutMode): ResolvedLayoutMode {
+  if (mode === "mobile" || mode === "desktop") {
+    return mode;
+  }
+
+  if (typeof window === "undefined") {
+    return "desktop";
+  }
+
+  return window.matchMedia("(max-width: 767px)").matches ? "mobile" : "desktop";
+}
+
+export default function LayoutModeProvider({ children }: { children: ReactNode }) {
+  const [mode, setMode] = useState<LayoutMode>("auto");
+  const [, setResolvedMode] = useState<ResolvedLayoutMode>("desktop");
+  const showTester = process.env.NODE_ENV !== "production";
+
+  useEffect(() => {
+    const initialMode = showTester
+      ? safeMode(window.localStorage.getItem(STORAGE_KEY))
+      : "auto";
+
+    if (!showTester) {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+
+    const applyMode = (nextMode: LayoutMode) => {
+      const nextResolved = resolveLayoutMode(nextMode);
+
+      setMode(nextMode);
+      setResolvedMode(nextResolved);
+
+      // Important:
+      // Never put data-layout-mode="auto" on the real DOM.
+      // "auto" must resolve to either mobile or desktop.
+      document.documentElement.dataset.layoutMode = nextResolved;
+      document.documentElement.dataset.layoutPreference = nextMode;
+    };
+
+    applyMode(initialMode);
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+
+    function onViewportChange() {
+      applyMode(showTester ? safeMode(window.localStorage.getItem(STORAGE_KEY)) : "auto");
+    }
+
+    function onStorage(event: StorageEvent) {
+      if (event.key !== STORAGE_KEY) return;
+      applyMode(showTester ? safeMode(event.newValue) : "auto");
+    }
+
+    function onLayoutModeChange(event: Event) {
+      const detail = (event as CustomEvent<{ mode?: string }>).detail;
+      applyMode(showTester ? safeMode(detail?.mode ?? null) : "auto");
+    }
+
+    mediaQuery.addEventListener("change", onViewportChange);
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("reviewintel-layout-mode", onLayoutModeChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", onViewportChange);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("reviewintel-layout-mode", onLayoutModeChange);
+    };
+  }, [showTester]);
+
+  if (!showTester) return <>{children}</>;
+
+  const applyTesterMode = (nextMode: LayoutMode) => {
+    window.localStorage.setItem(STORAGE_KEY, nextMode);
+    window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: nextMode } }));
+  };
+
+  return (
+    <>
+      {children}
+      <div className="fixed bottom-3 right-3 z-[9999] hidden rounded-2xl border border-white/40 bg-slate-950/85 p-2 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-2xl backdrop-blur-xl md:flex md:items-center md:gap-1">
+        <span className="px-2 text-white/50">Layout</span>
+
+        <button
+          type="button"
+          onClick={() => applyTesterMode("auto")}
+          className={`rounded-xl px-2 py-1 ${mode === "auto" ? "bg-white text-slate-950" : "text-white/70"}`}
+        >
+          Auto Detect
+        </button>
+
+        <button
+          type="button"
+          onClick={() => applyTesterMode("mobile")}
+          className={`rounded-xl px-2 py-1 ${mode === "mobile" ? "bg-white text-slate-950" : "text-white/70"}`}
+        >
+          Mobile Vertical
+        </button>
+
+        <button
+          type="button"
+          onClick={() => applyTesterMode("desktop")}
+          className={`rounded-xl px-2 py-1 ${mode === "desktop" ? "bg-white text-slate-950" : "text-white/70"}`}
+        >
+          Desktop Full
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            window.localStorage.removeItem(STORAGE_KEY);
+            applyTesterMode("auto");
+          }}
+          className="rounded-xl px-2 py-1 text-white/70"
+        >
+          Reset
+        </button>
+      </div>
+    </>
+  );
+}

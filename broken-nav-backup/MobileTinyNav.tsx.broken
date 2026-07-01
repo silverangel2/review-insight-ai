@@ -1,0 +1,58 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
+const mainLinks = [
+  ["Analyze", "/analyze"],
+  ["Results", "/results"],
+  ["Pricing", "/pricing"],
+  ["Advertise", "/advertise"],
+  ["Profile", "/account"],
+];
+
+const moreLinks = [
+  ["FAQ", "/faq"],
+  ["Contact", "/contact"],
+  ["Terms", "/terms"],
+  ["Privacy", "/privacy"],
+  ["Disclaimer", "/disclaimer"],
+  ["Refunds", "/refunds"],
+  ["Cookies", "/cookies"],
+  ["Acceptable Use", "/acceptable-use"],
+  ["Billing Support", "/billing-support"],
+  ["Account Support", "/account-support"],
+  ["Delete Account", "/delete-account"],
+  ["Manage Subscription", "/manage-subscription"],
+  ["Buyer Review Analyzer", "/buyer-review-analyzer"],
+  ["Amazon Review Analyzer", "/amazon-review-analyzer"],
+  ["Fake Review Detector", "/fake-review-detector"],
+  ["Seller Review Analytics", "/seller-review-analytics"],
+];
+
+export default function MobileTinyNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="ri-mobile-tiny-nav" aria-label="Mobile navigation">
+      <div className="ri-mobile-tiny-row">
+        {mainLinks.map(([label, href]) => (
+          <a key={href} href={href} aria-current={pathname === href ? "page" : undefined}>
+            {label}
+          </a>
+        ))}
+
+        <details className="ri-mobile-more-details">
+          <summary>More</summary>
+
+          <div className="ri-mobile-more-menu">
+            {moreLinks.map(([label, href]) => (
+              <a key={href} href={href}>
+                {label}
+              </a>
+            ))}
+          </div>
+        </details>
+      </div>
+    </nav>
+  );
+}

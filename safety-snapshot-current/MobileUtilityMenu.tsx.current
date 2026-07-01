@@ -1,0 +1,18 @@
+"use client";
+
+
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+
+export default function MobileUtilityMenu() {
+  return (
+    <div className="ri-mobile-utility-menu">
+      <div className="ri-mobile-utility-row">
+        <a className="ri-mobile-utility-more-link" href="/mobile-more">
+          More
+        </a>
+
+        <LanguageSwitcher />
+      </div>
+    </div>
+  );
+}

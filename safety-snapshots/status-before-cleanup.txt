@@ -1,0 +1,52 @@
+ M components/AccountWorkspacePermission.tsx
+ M components/LayoutModeProvider.tsx
+ M components/ResultsClient.tsx
+ M components/ShopperResultHistoryCorner.tsx
+ M components/mobile/MobileTinyNav.tsx
+?? app/api/auth/signup/route.ts.backup-before-auto-verification-email
+?? app/auth/callback/page.tsx.backup-before-google-admin-session-cleanup
+?? app/dashboard/seller/page.tsx.backup-before-seller-dashboard-mobile-readable
+?? app/globals.css.backup-before-dashboard-font-cleanup
+?? app/globals.css.backup-before-desktop-header-button-fix
+?? app/globals.css.backup-before-desktop-history-popup-inner-font-fix
+?? app/globals.css.backup-before-desktop-results-hero-tone-down
+?? app/globals.css.backup-before-one-more-undo
+?? app/globals.css.backup-before-removing-two-bad-blocks
+?? app/globals.css.backup-before-shopper-compare-desktop-premium
+?? app/globals.css.backup-before-shopper-dashboard-bigger-mobile
+?? app/globals.css.backup-before-undo-last-patches
+?? app/layout.tsx.backup-before-mount-session-idle-logout
+?? broken-nav-backup/
+?? components/AccountDashboard.tsx.backup-before-beta-profile-fields
+?? components/AccountWorkspacePermission.tsx.backup-before-private-file-access-final
+?? components/AccountWorkspacePermission.tsx.backup-before-remove-global-file-blocker
+?? components/AccountWorkspacePermission.tsx.backup-before-translated-private-access
+?? components/AnalyzerForm.tsx.backup-before-analyze-auth-header
+?? components/CompareForm.tsx.backup-before-real-shopper-compare-reasons
+?? components/Header.tsx.backup-before-header-global-mobile-controls
+?? components/Header.tsx.backup-before-seller-pro-compare-nav
+?? components/InsightList.tsx.backup-before-seller-dashboard-mobile-readable
+?? components/LayoutModeProvider.tsx.backup-before-mobile-preview-shell
+?? components/LayoutModeProvider.tsx.backup-before-public-auto-layout
+?? components/LayoutModeProvider.tsx.backup-before-resolved-layout-mode
+?? components/LayoutModeProvider.tsx.backup-before-restore-layout-buttons
+?? components/LoginForm.tsx.backup-before-remove-manual-verify-link
+?? components/MobileAccountTopNav.tsx.backup-before-seller-pro-mobile-compare
+?? components/ResultsClient.tsx.backup-before-beta-shopper-history
+?? components/ResultsClient.tsx.backup-before-short-product-names-results
+?? components/SellerResultHistoryCorner.tsx.backup-before-close-string-rawcode
+?? components/SellerResultHistoryCorner.tsx.backup-before-fix-seller-history-short-name-syntax
+?? components/SellerResultHistoryCorner.tsx.backup-before-short-seller-history-names
+?? components/ShopperResultHistoryCorner.tsx.backup-before-mobile-width-fix
+?? components/ShopperResultHistoryCorner.tsx.backup-before-short-shopper-history-names
+?? components/mobile/MobileTinyNav.tsx.backup-before-login-mobile-nav
+?? components/mobile/MobileTinyNav.tsx.backup-before-seller-mobile-compare
+?? components/mobile/MobileTinyNav.tsx.backup-before-seller-pro-compare-route
+?? components/mobile/MobileTinyNav.tsx.backup-before-shopper-compare-link
+?? components/mobile/MobileUtilityMenu.tsx.backup-before-fix-language-switcher-import
+?? lib/clientAccount.ts.backup-before-beta-timer-fields
+?? lib/notifications.ts.backup-before-admin-email-alerts
+?? lib/supabaseServer.ts.backup-before-preserve-user-plans
+?? messages/en.json.backup-before-remove-payoff-word
+?? safety-snapshot-current/
+?? safety-snapshots/

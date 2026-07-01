@@ -1,0 +1,23 @@
+import { NextResponse } from "next/server";
+import { disconnectFacebookConnection } from "@/lib/facebookConnector";
+
+export const dynamic = "force-dynamic";
+
+export async function POST() {
+  try {
+    await disconnectFacebookConnection();
+
+    return NextResponse.json({
+      ok: true,
+      message: "Facebook disconnected.",
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error?.message || "Failed to disconnect Facebook.",
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -495,7 +495,6 @@ function KpiCard({
             </div>
             <p className="seller-kpi-metric mt-1 text-[1.35rem] font-black leading-none text-slate-950">{metric}</p>
             <p className="seller-kpi-insight mt-2 text-[11px] font-bold leading-[1.35rem] text-slate-700">{compactText(insight)}</p>
-            <p className="seller-kpi-tap-hint mt-auto text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">Tap for business proof</p>
           </div>
         </article>
 

@@ -4,6 +4,36 @@ import { readAccountSession } from "@/lib/accountSession";
 import { deleteAnalysisHistory, saveAnalysisRecord, supabaseDelete, supabaseSelect } from "@/lib/supabaseServer";
 
 
+function readDashboardScore(...sources: Record<string, unknown>[]) {
+  const keys = [
+    "productScore",
+    "product_score",
+    "healthScore",
+    "buyingConfidence",
+    "score",
+    "confidenceScore",
+    "confidence_score",
+    "buyerSatisfaction",
+    "customer_satisfaction_score"
+  ];
+
+  for (const source of sources) {
+    for (const key of keys) {
+      const raw = source[key];
+      const value = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN;
+      if (!Number.isFinite(value)) continue;
+
+      if (/confidence|satisfaction/i.test(key) && value > 0 && value <= 1) {
+        return Math.round(value * 100);
+      }
+
+      return Math.round(value);
+    }
+  }
+
+  return null;
+}
+
 function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
   if (!item || typeof item !== "object") return item;
 
@@ -17,17 +47,33 @@ function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
 
   if (!isSellerCompare) {
     const result = row.result || row.analysis || row.report || row.analysis_json;
+    const resultRecord = recordOf(result);
+    const nestedAnalysis = recordOf(resultRecord.analysis);
+    const nestedSeller = recordOf(resultRecord.seller_insights);
+    const productScore = readDashboardScore(row, resultRecord, nestedAnalysis, nestedSeller);
+    const normalizedResult =
+      result && typeof result === "object"
+        ? {
+            ...(result as Record<string, unknown>),
+            productScore: resultRecord.productScore ?? productScore ?? undefined,
+            product_score: resultRecord.product_score ?? productScore ?? undefined
+          }
+        : result;
 
     return {
       ...row,
-      result,
-      analysis: row.analysis || result,
-      report: row.report || result,
+      productScore: row.productScore ?? productScore ?? undefined,
+      product_score: row.product_score ?? productScore ?? undefined,
+      score: row.score ?? productScore ?? undefined,
+      result: normalizedResult,
+      analysis: row.analysis || normalizedResult,
+      report: row.report || normalizedResult,
       createdAt: row.createdAt || row.created_at || row.timestamp,
     };
   }
 
   const rawId = String(row.id || "");
+  const compareScore = readDashboardScore(row, analysisJson);
   const cmrCode =
     row.displayCode ||
     row.code ||
@@ -61,6 +107,10 @@ function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
     result: row.result || row.analysis || row.report || row.analysis_json,
     analysis: row.analysis || row.result || row.analysis_json,
     report: row.report || row.result || row.analysis_json,
+
+    productScore: row.productScore ?? compareScore ?? undefined,
+    product_score: row.product_score ?? compareScore ?? undefined,
+    score: row.score ?? compareScore ?? undefined,
 
     counted: row.counted ?? analysisJson.counted ?? false,
     scanCount: row.scanCount ?? analysisJson.scanCount ?? 0,
@@ -332,7 +382,17 @@ export async function POST(request: Request) {
         analysisRecord.productName ??
         "Analyzed product",
     platform: isComparePayload ? "compare" : body?.platform ?? analysisRecord.platform ?? null,
-    product_score: isComparePayload ? null : body?.product_score ?? body?.productScore ?? analysisRecord.score ?? null,
+    product_score: isComparePayload
+      ? null
+      : body?.product_score ??
+        body?.productScore ??
+        analysisRecord.product_score ??
+        analysisRecord.productScore ??
+        analysisRecord.healthScore ??
+        analysisRecord.buyingConfidence ??
+        analysisRecord.score ??
+        readDashboardScore(analysisRecord, recordOf(analysisRecord.analysis)) ??
+        null,
     recommendation: isComparePayload
       ? String(body?.recommendation ?? analysisRecord.verdict ?? analysisRecord.winner ?? "")
       : body?.recommendation ?? analysisRecord.verdict ?? null,

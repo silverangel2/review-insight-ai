@@ -1,0 +1,47 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { getClientAccount, logoutEverywhere } from "@/lib/clientAccount";
+
+export default function MobileUtilityMenu() {
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    function syncAccount() {
+      setLoggedIn(Boolean(getClientAccount()));
+    }
+
+    syncAccount();
+    window.addEventListener("storage", syncAccount);
+    window.addEventListener("focus", syncAccount);
+
+    return () => {
+      window.removeEventListener("storage", syncAccount);
+      window.removeEventListener("focus", syncAccount);
+    };
+  }, []);
+
+  return (
+    <div className="flex items-center justify-center gap-2 px-3 pb-2 md:hidden">
+      <LanguageSwitcher compact />
+      {loggedIn ? (
+        <button
+          type="button"
+          onClick={() => void logoutEverywhere("/login")}
+          className="rounded-full bg-ink px-3 py-2 text-xs font-black text-white dark:bg-white dark:text-ink"
+        >
+          Log out
+        </button>
+      ) : (
+        <Link
+          href="/login"
+          className="rounded-full bg-ink px-3 py-2 text-xs font-black text-white dark:bg-white dark:text-ink"
+        >
+          Log in
+        </Link>
+      )}
+    </div>
+  );
+}
