@@ -294,8 +294,8 @@ export default function AdminSocialAutoPost() {
       return;
     }
 
-    if (options?.videoOnly && selectedFiles.some((file) => file.size > 25 * 1024 * 1024)) {
-      setStatus("Homepage video is too large. Upload a vertical MP4/H.264 file under 25 MB.");
+    if (options?.videoOnly && selectedFiles.some((file) => file.size > 60 * 1024 * 1024)) {
+      setStatus("Homepage video is too large. Upload a vertical MP4/H.264 file under 60 MB.");
       return;
     }
 
@@ -798,7 +798,7 @@ export default function AdminSocialAutoPost() {
                 Instructional video for visitors
               </h3>
               <p className="mt-1 max-w-2xl text-xs font-bold leading-5 text-slate-600 dark:text-slate-300">
-                Upload one vertical MP4, WEBM, or MOV. Best format: MP4/H.264, 1080×1920, under 25 MB. The newest active homepage video replaces the old payoff-card section and starts silently with controls so visitors can turn sound on.
+                Upload one vertical MP4, WEBM, or MOV. Best format: MP4/H.264, 1080×1920, under 60 MB. The newest active homepage video replaces the old payoff-card section and starts silently with controls so visitors can turn sound on.
               </p>
               {homepageVideo ? (
                 <p className="mt-2 truncate rounded-xl bg-white/80 px-3 py-2 text-xs font-black text-emerald-700 dark:bg-slate-900 dark:text-emerald-200">

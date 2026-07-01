@@ -11,9 +11,9 @@ const allowedTypes: Record<string, { ext: string; mediaType: "image" | "video"; 
   "image/png": { ext: "png", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
   "image/webp": { ext: "webp", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
   "image/gif": { ext: "gif", mediaType: "image", maxBytes: 10 * 1024 * 1024 },
-  "video/mp4": { ext: "mp4", mediaType: "video", maxBytes: 25 * 1024 * 1024 },
-  "video/webm": { ext: "webm", mediaType: "video", maxBytes: 25 * 1024 * 1024 },
-  "video/quicktime": { ext: "mov", mediaType: "video", maxBytes: 25 * 1024 * 1024 },
+  "video/mp4": { ext: "mp4", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
+  "video/webm": { ext: "webm", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
+  "video/quicktime": { ext: "mov", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     if (file.size > config.maxBytes) {
       return NextResponse.json(
-        { ok: false, error: config.mediaType === "image" ? "Images must be 8 MB or smaller." : "Videos must be 25 MB or smaller. For best results, upload a vertical MP4/H.264 file." },
+        { ok: false, error: config.mediaType === "image" ? "Images must be 8 MB or smaller." : "Videos must be 60 MB or smaller. For best results, upload a vertical MP4/H.264 file." },
         { status: 400 }
       );
     }
