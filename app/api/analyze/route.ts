@@ -11,6 +11,7 @@ import {
 } from "@/lib/supabaseServer";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
+import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -490,7 +491,7 @@ function normalizeResult(rawValue: unknown, vision: VisionFacts, locale = "en") 
     valueForMoney,
     reviewAuthenticity: {
       label: trustLabel,
-      score: clampScore(reviewAuthenticity.score),
+      score: typeof reviewAuthenticity.score === "number" ? clampScore(reviewAuthenticity.score) : null,
       suspiciousReviewRisk,
       reasons: asTextArray(reviewAuthenticity.reasons, 5)
     },
@@ -500,7 +501,8 @@ function normalizeResult(rawValue: unknown, vision: VisionFacts, locale = "en") 
     notIdealFor: asTextArray(raw.notIdealFor, 4),
     bottomLine: String(raw.bottomLine || fallbackCopy.needMoreEvidence),
     sourcesUsed: normalizeSources(raw),
-    researchQuality: normalizeResearchQuality(raw)
+    researchQuality: normalizeResearchQuality(raw),
+    reviewEvidence: raw.reviewEvidence || null
   };
 }
 
@@ -744,7 +746,10 @@ function hasSeriousBuyingComplaints(result: ReturnType<typeof normalizeResult>) 
 }
 
 function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, locale = "en") {
-  const aiReviewSigns = clampScore(result.reviewAuthenticity.score);
+  const aiReviewSigns =
+    typeof result.reviewAuthenticity.score === "number"
+      ? clampScore(result.reviewAuthenticity.score)
+      : 0;
   const hasSeriousComplaints = hasSeriousBuyingComplaints(result);
   const canRewriteCopy = normalizedLocaleCode(locale) === "en";
 
@@ -1330,7 +1335,7 @@ reviewAuthenticity.reasons must only mention review-writing signals, such as:
 
 Do not put product complaints like durability, zipper issues, shipping, packaging, or quality reports inside reviewAuthenticity.reasons.
 
-If you did not retrieve enough full review text, set reviewAuthenticity.score to 0, suspiciousReviewRisk to "Low", and write one reviewAuthenticity reason in ${outputLanguage} meaning: not enough full review text was found to judge AI-generated wording.
+Do not fake reviewAuthenticity. Review authenticity must be based on real review/comment evidence supplied by ReviewIntel's reviewEvidence scan. If no real review/comment evidence is supplied, do not invent fake-review findings. Say the review evidence was not verified instead of pretending the risk is Low or Medium.
 
 Do not say AI-generated reviews are confirmed unless a source proves it.
 5. Screenshot facts remain locked for store, price, visible rating, and visible review count.
@@ -1370,7 +1375,42 @@ Return only the required JSON.
     }
   });
 
-  return normalizeResult(raw, vision, locale);
+  const productForReviewEvidence =
+    vision.normalizedSearchQuery ||
+    [vision.brand, vision.category]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+  const reviewEvidence = await collectAndAnalyzeReviewEvidence({
+    productName: productForReviewEvidence || vision.category || "unknown product",
+    brand: vision.brand,
+    model: undefined,
+  });
+
+  const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
+  const reviewAuthenticity =
+    reviewEvidence.commentsAnalyzed > 0
+      ? reviewEvidence.reviewAuthenticity
+      : {
+          ...(rawRecord.reviewAuthenticity && typeof rawRecord.reviewAuthenticity === "object"
+            ? (rawRecord.reviewAuthenticity as JsonRecord)
+            : {}),
+          score: null,
+          label: "Review scan not verified",
+          suspiciousReviewRisk: "Not scored",
+          reasons: reviewEvidence.reviewAuthenticity.reasons,
+        };
+
+  return normalizeResult(
+    {
+      ...rawRecord,
+      reviewEvidence,
+      reviewAuthenticity,
+    },
+    vision,
+    locale
+  );
 }
 
 export async function POST(request: Request) {
@@ -1584,7 +1624,8 @@ export async function POST(request: Request) {
           citationCount: 0,
           notes: [fallbackCopy.needClearerInput]
         }
-      };
+      ,
+        reviewEvidence: null};
 
       return NextResponse.json(await recordCompletedScan(attachLanguageMeta(enforceFinalResultConsistency(fallbackResult, locale), locale, outputLanguage)));
     }

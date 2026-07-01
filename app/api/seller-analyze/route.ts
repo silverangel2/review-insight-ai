@@ -11,6 +11,7 @@ import {
 } from "@/lib/supabaseServer";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
+import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -362,6 +363,30 @@ const sellerAnalysisSchema = {
   ],
 };
 
+
+function sellerProductNameFromRows(rows: unknown[]) {
+  const first = rows.find((row) => row && typeof row === "object") as Record<string, unknown> | undefined;
+  if (!first) return "seller product";
+
+  const possibleKeys = [
+    "productName",
+    "product_name",
+    "product",
+    "title",
+    "item",
+    "name",
+    "sku",
+    "asin",
+  ];
+
+  for (const key of possibleKeys) {
+    const value = first[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  return "seller product";
+}
+
 export async function POST(request: Request) {
   try {
     const limit = await rateLimitRequest(request, {
@@ -502,6 +527,24 @@ ${sample}
 
     const raw = await openAIResponse(prompt);
     const result = normalizeSellerResult(raw, rows.length);
+
+    const reviewEvidence = await collectAndAnalyzeReviewEvidence({
+      productName: sellerProductNameFromRows(rows),
+    });
+
+    Object.assign(result, {
+      reviewEvidence,
+      reviewAuthenticity:
+        reviewEvidence.commentsAnalyzed > 0
+          ? reviewEvidence.reviewAuthenticity
+          : {
+              score: null,
+              label: "Review scan not verified",
+              suspiciousReviewRisk: "Not scored",
+              reasons: reviewEvidence.reviewAuthenticity.reasons,
+              suspiciousComments: [],
+            },
+    });
     if (email && !isCompareSideAnalysis) {
       const analysisRecord = await saveAnalysisRecord({
         profile_email: email,

@@ -3,6 +3,7 @@ import { isAdminRole, normalizePlan, normalizeRole } from "@/lib/account";
 import { readAccountSession } from "@/lib/accountSession";
 import { normalizeLocale } from "@/lib/i18n";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
+import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,53 @@ function normalize(rawValue: unknown) {
     summary: text(raw.summary, "ReviewIntel compared both products using the available AI scan results."),
     reasons: list(raw.reasons, ["Compare score, complaints, value, review trust, and evidence quality."]).slice(0, 4),
     nextSteps: list(raw.nextSteps, ["Check exact use case, return policy, warranty, and recent reviews before buying."]).slice(0, 3),
+  };
+}
+
+
+type ProductRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): ProductRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as ProductRecord) : {};
+}
+
+function readStringField(record: ProductRecord, keys: string[]): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function getReviewEvidenceInput(product: unknown) {
+  const record = asRecord(product);
+
+  const productName =
+    readStringField(record, [
+      "productName",
+      "product_name",
+      "name",
+      "title",
+      "productTitle",
+      "detectedProductName",
+      "itemName",
+      "item",
+    ]) || JSON.stringify(product).slice(0, 220);
+
+  const brand = readStringField(record, ["brand", "brandName", "manufacturer"]);
+  const model = readStringField(record, ["model", "modelNumber", "sku"]);
+
+  return { productName, brand, model };
+}
+
+async function attachRealReviewEvidence(product: unknown) {
+  const record = asRecord(product);
+  const reviewEvidence = await collectAndAnalyzeReviewEvidence(getReviewEvidenceInput(product));
+
+  return {
+    ...record,
+    reviewEvidence,
+    reviewAuthenticity: reviewEvidence.reviewAuthenticity,
   };
 }
 
@@ -186,6 +234,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Both product scan results are required." }, { status: 400 });
     }
 
+    const [productAWithReviewEvidence, productBWithReviewEvidence] = await Promise.all([
+      attachRealReviewEvidence(productA),
+      attachRealReviewEvidence(productB),
+    ]);
+
     const prompt = `
 You are ReviewIntel Shopper Premium Compare.
 
@@ -201,7 +254,10 @@ Language:
 Comparison rules:
 - First decide whether the products are direct substitutes for the same shopping need.
 - If they are unrelated or serve materially different needs, return winner "INCOMPARABLE" and directSubstitutes false.
-- If comparable, compare score, verdict, valueForMoney, complaints, strengths, reviewAuthenticity, price, rating, review count, bottomLine, and evidence quality.
+- If comparable, compare score, verdict, valueForMoney, complaints, strengths, reviewAuthenticity, reviewEvidence, price, rating, review count, bottomLine, and evidence quality.
+- Use the attached reviewEvidence fields as real review-reading evidence.
+- Mention when one product has stronger review evidence, more comments analyzed, or higher AI-like review risk.
+- Do not invent review evidence beyond the attached reviewEvidence objects.
 - Do not force a BUY-style answer when both products have weak evidence.
 - Reasons must read like a side-by-side analysis: name Product A and Product B, state which signal gives an edge, and explain why.
 - Include at least one reason about risk/review trust and one reason about practical use-case or value.
@@ -210,10 +266,10 @@ Comparison rules:
 - Never output generic filler such as "compare reviews" unless you also say which exact risk, concern, or specification to compare.
 
 Product A:
-${JSON.stringify(productA, null, 2)}
+${JSON.stringify(productAWithReviewEvidence, null, 2)}
 
 Product B:
-${JSON.stringify(productB, null, 2)}
+${JSON.stringify(productBWithReviewEvidence, null, 2)}
 
 Return JSON only:
 {
