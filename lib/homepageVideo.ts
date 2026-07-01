@@ -25,7 +25,12 @@ export async function getHomepageVideo(): Promise<HomepageVideo | null> {
   );
 
   const video = Array.isArray(rows) ? rows[0] : null;
-  if (!video?.file_url) return null;
+  if (!video?.file_url) return {
+    id: "manual-supabase-homepage-video",
+    title: "ReviewIntel Homepage Instructional Video",
+    file_url: "https://iqakizejitdhcwbnsxpj.supabase.co/storage/v1/object/public/reviewintel-media/getreviewintel.com.mp4",
+    thumbnail_url: "",
+  };
 
   return {
     id: video.id,
