@@ -144,6 +144,8 @@ const uiSourcePhrases = [
   "Risk",
   "See why",
   "Back",
+  "Scan",
+  "Account",
   "Low",
   "Medium",
   "High",
@@ -5725,6 +5727,36 @@ const workflowPhraseTranslationEntries: WorkflowPhraseEntry[] = [
       zh: "已上传文件",
       de: "Hochgeladene Datei",
       hi: "अपलोड की गई फ़ाइल"
+    }
+  ],
+  [
+    "← New CSV Scan",
+    {
+      fr: "← Nouvelle analyse CSV",
+      es: "← Nuevo análisis CSV",
+      zh: "← 新 CSV 分析",
+      de: "← Neuer CSV-Scan",
+      hi: "← नया CSV स्कैन"
+    }
+  ],
+  [
+    "CSV:",
+    {
+      fr: "CSV :",
+      es: "CSV:",
+      zh: "CSV：",
+      de: "CSV:",
+      hi: "CSV:"
+    }
+  ],
+  [
+    "• Reviews analyzed:",
+    {
+      fr: "• Avis analysés :",
+      es: "• Reseñas analizadas:",
+      zh: "• 已分析评论：",
+      de: "• Analysierte Bewertungen:",
+      hi: "• विश्लेषित समीक्षाएँ:"
     }
   ],
   [

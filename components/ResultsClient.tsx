@@ -310,6 +310,125 @@ const resultCopy: Record<
   }
 };
 
+type CompareTitleLabels = {
+  productA: string;
+  productB: string;
+  productComparison: string;
+  comparePrefix: string;
+};
+
+type ShopperCompareCopy = CompareTitleLabels & {
+  aiCompareResult: string;
+  recommendation: string;
+  checkBeforeBuying: string;
+  aiExplanation: string;
+  defaultVerdict: string;
+  defaultSummary: string;
+  defaultAReason: string;
+  defaultBReason: string;
+  defaultRisk: string;
+  chooseProduct: (winner: string) => string;
+};
+
+const shopperCompareCopy: Record<ReviewIntelLocale, ShopperCompareCopy> = {
+  en: {
+    aiCompareResult: "AI compare result",
+    recommendation: "Recommendation",
+    productA: "Product A",
+    productB: "Product B",
+    checkBeforeBuying: "Check before buying",
+    aiExplanation: "AI explanation",
+    productComparison: "Product comparison",
+    comparePrefix: "Compare",
+    defaultVerdict: "Both products are close, but one may still fit you better.",
+    defaultSummary: "ReviewIntel compared both products using review quality, buyer confidence, value, risk signals, and common complaint patterns.",
+    defaultAReason: "Product A may still be worth considering if its features, price, or brand fit your needs better.",
+    defaultBReason: "Product B may be stronger if it has better buyer confidence, cleaner review patterns, or better value.",
+    defaultRisk: "Before buying, check repeated complaints, durability issues, return policy, and review authenticity signals.",
+    chooseProduct: (winner) => `I would choose Product ${winner}.`
+  },
+  fr: {
+    aiCompareResult: "Résultat de comparaison IA",
+    recommendation: "Recommandation",
+    productA: "Produit A",
+    productB: "Produit B",
+    checkBeforeBuying: "À vérifier avant l’achat",
+    aiExplanation: "Explication IA",
+    productComparison: "Comparaison de produits",
+    comparePrefix: "Comparer",
+    defaultVerdict: "Les deux produits sont proches, mais l’un peut mieux vous convenir.",
+    defaultSummary: "ReviewIntel a comparé les deux produits selon la qualité des avis, la confiance acheteur, la valeur, les signaux de risque et les plaintes récurrentes.",
+    defaultAReason: "Le Produit A peut rester intéressant si ses fonctions, son prix ou sa marque correspondent mieux à vos besoins.",
+    defaultBReason: "Le Produit B peut être plus fort s’il offre une meilleure confiance acheteur, des avis plus propres ou une meilleure valeur.",
+    defaultRisk: "Avant d’acheter, vérifiez les plaintes répétées, la durabilité, la politique de retour et les signaux d’authenticité des avis.",
+    chooseProduct: (winner) => `Je choisirais le Produit ${winner}.`
+  },
+  es: {
+    aiCompareResult: "Resultado de comparación con IA",
+    recommendation: "Recomendación",
+    productA: "Producto A",
+    productB: "Producto B",
+    checkBeforeBuying: "Revisar antes de comprar",
+    aiExplanation: "Explicación de IA",
+    productComparison: "Comparación de productos",
+    comparePrefix: "Comparar",
+    defaultVerdict: "Los dos productos están cerca, pero uno puede ajustarse mejor a tus necesidades.",
+    defaultSummary: "ReviewIntel comparó ambos productos usando calidad de reseñas, confianza del comprador, valor, señales de riesgo y patrones de quejas comunes.",
+    defaultAReason: "El Producto A puede seguir siendo buena opción si sus funciones, precio o marca encajan mejor con tus necesidades.",
+    defaultBReason: "El Producto B puede ser más fuerte si tiene mejor confianza del comprador, patrones de reseñas más limpios o mejor valor.",
+    defaultRisk: "Antes de comprar, revisa quejas repetidas, problemas de durabilidad, política de devolución y señales de autenticidad de reseñas.",
+    chooseProduct: (winner) => `Yo elegiría el Producto ${winner}.`
+  },
+  zh: {
+    aiCompareResult: "AI 对比结果",
+    recommendation: "建议",
+    productA: "产品 A",
+    productB: "产品 B",
+    checkBeforeBuying: "购买前检查",
+    aiExplanation: "AI 解释",
+    productComparison: "产品对比",
+    comparePrefix: "对比",
+    defaultVerdict: "两个产品接近，但其中一个可能更适合你。",
+    defaultSummary: "ReviewIntel 根据评论质量、买家信心、价值、风险信号和常见投诉模式比较了两个产品。",
+    defaultAReason: "如果产品 A 的功能、价格或品牌更符合你的需求，它仍然值得考虑。",
+    defaultBReason: "如果产品 B 有更高的买家信心、更干净的评论模式或更好的价值，它可能更有优势。",
+    defaultRisk: "购买前，请检查重复投诉、耐用性问题、退货政策和评论真实性信号。",
+    chooseProduct: (winner) => `我会选择产品 ${winner}。`
+  },
+  de: {
+    aiCompareResult: "KI-Vergleichsergebnis",
+    recommendation: "Empfehlung",
+    productA: "Produkt A",
+    productB: "Produkt B",
+    checkBeforeBuying: "Vor dem Kauf prüfen",
+    aiExplanation: "KI-Erklärung",
+    productComparison: "Produktvergleich",
+    comparePrefix: "Vergleich",
+    defaultVerdict: "Beide Produkte liegen nah beieinander, aber eines kann besser zu dir passen.",
+    defaultSummary: "ReviewIntel hat beide Produkte anhand von Bewertungsqualität, Käufervertrauen, Wert, Risikosignalen und typischen Beschwerdemustern verglichen.",
+    defaultAReason: "Produkt A kann weiterhin sinnvoll sein, wenn Funktionen, Preis oder Marke besser zu deinen Anforderungen passen.",
+    defaultBReason: "Produkt B kann stärker sein, wenn Käufervertrauen, Bewertungsmuster oder Wert besser sind.",
+    defaultRisk: "Prüfe vor dem Kauf wiederholte Beschwerden, Haltbarkeit, Rückgaberegeln und Signale zur Echtheit der Bewertungen.",
+    chooseProduct: (winner) => `Ich würde Produkt ${winner} wählen.`
+  },
+  hi: {
+    aiCompareResult: "AI तुलना परिणाम",
+    recommendation: "सिफारिश",
+    productA: "उत्पाद A",
+    productB: "उत्पाद B",
+    checkBeforeBuying: "खरीदने से पहले जांचें",
+    aiExplanation: "AI व्याख्या",
+    productComparison: "उत्पाद तुलना",
+    comparePrefix: "तुलना",
+    defaultVerdict: "दोनों उत्पाद काफ़ी करीब हैं, लेकिन एक आपकी ज़रूरतों में बेहतर फिट हो सकता है।",
+    defaultSummary: "ReviewIntel ने दोनों उत्पादों की समीक्षा गुणवत्ता, खरीदार भरोसा, मूल्य, जोखिम संकेत और सामान्य शिकायत पैटर्न के आधार पर तुलना की।",
+    defaultAReason: "अगर इसके फीचर, कीमत या ब्रांड आपकी ज़रूरतों से बेहतर मेल खाते हैं, तो उत्पाद A अभी भी विचार योग्य हो सकता है।",
+    defaultBReason: "अगर खरीदार भरोसा, साफ समीक्षा पैटर्न या मूल्य बेहतर है, तो उत्पाद B मजबूत हो सकता है।",
+    defaultRisk: "खरीदने से पहले दोहराई गई शिकायतें, टिकाऊपन, रिटर्न नीति और समीक्षा की प्रामाणिकता जांचें।",
+    chooseProduct: (winner) => `मैं उत्पाद ${winner} चुनूंगा।`
+  }
+};
+
 function asTextArray(value: unknown, limit = 8) {
   return Array.isArray(value) ? value.map(String).filter(Boolean).slice(0, limit) : [];
 }
@@ -533,7 +652,15 @@ function compareSideName(value: unknown, fallback: string) {
   );
 }
 
-function compareResultTitle(value: unknown) {
+function compareResultTitle(
+  value: unknown,
+  labels: CompareTitleLabels = {
+    productA: "Product A",
+    productB: "Product B",
+    productComparison: "Product comparison",
+    comparePrefix: "Compare"
+  }
+) {
   const record = recordOf(value);
   const productA = record.productA || record.resultA || record.a;
   const productB = record.productB || record.resultB || record.b;
@@ -542,103 +669,106 @@ function compareResultTitle(value: unknown) {
     record.title ||
       record.fileName ||
       record.productName ||
-      `Compare: ${compareSideName(productA, "Product A")} vs ${compareSideName(productB, "Product B")}`,
-    "Product comparison"
+      `${labels.comparePrefix}: ${compareSideName(productA, labels.productA)} vs ${compareSideName(productB, labels.productB)}`,
+    labels.productComparison
   );
 }
 
 function ShopperCompareDetail({ result }: { result: AnalyzeResponse }) {
+  const locale = localeFromResult(result);
+  const copy = shopperCompareCopy[locale];
   const record = recordOf(result);
   const productA = record.productA || record.resultA || record.a;
   const productB = record.productB || record.resultB || record.b;
-  const nameA = compareSideName(productA, "Product A");
-  const nameB = compareSideName(productB, "Product B");
+  const nameA = compareSideName(productA, copy.productA);
+  const nameB = compareSideName(productB, copy.productB);
 
   const winner = String(record.winner || record.recommendedProduct || record.bestChoice || "").trim();
-  const verdict = String(
+  const verdict = translateResultText(locale, String(
     record.verdict ||
       record.finalVerdict ||
-      (winner && winner !== "TIE" ? `I would choose Product ${winner}.` : "Both products are close, but one may still fit you better.")
-  );
+      (winner && winner !== "TIE" ? copy.chooseProduct(winner) : copy.defaultVerdict)
+  ));
 
-  const summary = String(
+  const summary = translateResultText(locale, String(
     record.summary ||
       record.bottomLine ||
       record.reason ||
       record.why ||
-      "ReviewIntel compared both products using review quality, buyer confidence, value, risk signals, and common complaint patterns."
-  );
+      copy.defaultSummary
+  ));
 
-  const whyWinner = String(
+  const whyWinner = translateResultText(locale, String(
     record.whyWinner ||
       record.winnerReason ||
       record.reasonWhy ||
       record.explanation ||
       record.recommendationReason ||
       summary
-  );
+  ));
 
-  const productAReason = String(
+  const productAReason = translateResultText(locale, String(
     record.productAReason ||
       record.reasonA ||
       record.productAStrength ||
       record.aReason ||
-      "Product A may still be worth considering if its features, price, or brand fit your needs better."
-  );
+      copy.defaultAReason
+  ));
 
-  const productBReason = String(
+  const productBReason = translateResultText(locale, String(
     record.productBReason ||
       record.reasonB ||
       record.productBStrength ||
       record.bReason ||
-      "Product B may be stronger if it has better buyer confidence, cleaner review patterns, or better value."
-  );
+      copy.defaultBReason
+  ));
 
-  const riskReason = String(
+  const riskReason = translateResultText(locale, String(
     record.riskReason ||
       record.biggestRisk ||
       record.warning ||
       record.redFlag ||
-      "Before buying, check repeated complaints, durability issues, return policy, and review authenticity signals."
-  );
+      copy.defaultRisk
+  ));
 
-  const code = displayCodeForResult({ ...record, type: "compare" }, compareResultTitle(record));
+  const title = compareResultTitle(record, copy);
+  const code = displayCodeForResult({ ...record, type: "compare" }, title);
 
   return (
     <section className="shopper-compare-ai-result ri-reveal-pop rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:p-7">
       <div className="space-y-2">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">AI compare result</p>
-        <h2 className="text-2xl font-semibold leading-tight text-ink dark:text-white">{compareResultTitle(record)}</h2>
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">{copy.aiCompareResult}</p>
+        <h2 className="text-2xl font-semibold leading-tight text-ink dark:text-white">{title}</h2>
         <p className="text-sm font-normal leading-6 text-slate-500 dark:text-slate-400">{code}</p>
       </div>
 
       <div className="mt-5 rounded-[1.5rem] border border-ocean/15 bg-gradient-to-br from-ocean/8 via-white to-cyan-50 p-5 dark:border-cyan-300/20 dark:from-cyan-300/10 dark:via-slate-950 dark:to-slate-900">
-        <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Recommendation</p>
+        <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">{copy.recommendation}</p>
         <h3 className="mt-2 text-xl font-semibold leading-snug text-ink dark:text-white">{verdict}</h3>
         <p className="mt-3 text-sm font-normal leading-6 text-slate-700 dark:text-slate-200">{whyWinner}</p>
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-2xl border border-line bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
-          <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">Product A</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">{copy.productA}</p>
           <h3 className="mt-2 text-base font-semibold leading-snug text-ink dark:text-white">{nameA}</h3>
           <p className="mt-2 text-sm font-normal leading-6 text-slate-600 dark:text-slate-300">{productAReason}</p>
         </div>
 
         <div className="rounded-2xl border border-line bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
-          <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">Product B</p>
+          <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">{copy.productB}</p>
           <h3 className="mt-2 text-base font-semibold leading-snug text-ink dark:text-white">{nameB}</h3>
           <p className="mt-2 text-sm font-normal leading-6 text-slate-600 dark:text-slate-300">{productBReason}</p>
         </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-300/20 dark:bg-amber-300/10">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">Check before buying</p>
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-200">{copy.checkBeforeBuying}</p>
         <p className="mt-2 text-sm font-normal leading-6 text-amber-950 dark:text-amber-100">{riskReason}</p>
       </div>
 
       <div className="mt-4 rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
-        <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">AI explanation</p>
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.16em] text-slate-500">{copy.aiExplanation}</p>
         <p className="mt-2 text-sm font-normal leading-6 text-slate-700 dark:text-slate-200">{summary}</p>
       </div>
     </section>
@@ -953,6 +1083,8 @@ export function ResultsClient() {
     accountPlan === "seller_pro"
       ? "/dashboard/seller"
       : "/dashboard/customer";
+  const activeLocale = result ? localeFromResult(result) : normalizeLocale(readStoredLocale());
+  const navText = (source: string) => getUiTextTranslation(activeLocale, source) || source;
 
   const customerNav = (
     <div className="reviewintel-results-secondary-nav mb-5 flex flex-wrap items-center gap-2">
@@ -961,25 +1093,25 @@ export function ResultsClient() {
         onClick={() => window.history.back()}
         className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
       >
-        ← Back
+        ← {navText("Back")}
       </button>
       <Link
         href={dashboardHref}
         className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
       >
-        Dashboard
+        {navText("Dashboard")}
       </Link>
       <Link
         href="/analyze"
         className="rounded-full bg-ink px-4 py-2 text-xs font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean dark:bg-white dark:text-ink"
       >
-        Scan
+        {navText("Scan")}
       </Link>
       <Link
         href="/account"
         className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
       >
-        Account
+        {navText("Account")}
       </Link>
     </div>
   );

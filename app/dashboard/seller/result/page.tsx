@@ -259,7 +259,7 @@ export default function SellerResultPage() {
 
             <div className="seller-result-summary-card rounded-[2rem] border border-cyan-200 bg-cyan-50 p-6">
               <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-700">Executive Summary</p>
-              <p className="mt-3 text-2xl font-black leading-tight text-slate-950">{result.summary}</p>
+              <p className="mt-3 text-lg leading-8 text-slate-700 sm:text-xl">{result.summary}</p>
             </div>
           </div>
         </section>
@@ -411,6 +411,7 @@ export default function SellerResultPage() {
               display: block !important;
               margin-top: 0.5rem !important;
               font-size: 1rem !important;
+              font-weight: 400 !important;
               line-height: 1.35 !important;
               overflow: visible !important;
             }

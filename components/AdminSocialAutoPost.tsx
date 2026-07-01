@@ -140,6 +140,16 @@ export default function AdminSocialAutoPost() {
     });
   }
 
+  function toggleDailyPublishing() {
+    const next = !settings.full_auto_enabled;
+    setSettings({ ...settings, full_auto_enabled: next });
+    setStatus(
+      next
+        ? "Daily publishing is set to ON. Press Save all social settings to apply it."
+        : "Daily publishing is set to OFF. Press Save all social settings to apply it."
+    );
+  }
+
   async function saveSettings() {
     setSaving(true);
     setStatus("Saving social auto-post settings...");
@@ -514,25 +524,27 @@ export default function AdminSocialAutoPost() {
                 ? "text-emerald-700 dark:text-emerald-300"
                 : "text-slate-500 dark:text-slate-300"
             }`}>
-              Daily schedule
+              {settings.full_auto_enabled ? "Daily publishing: ON" : "Daily publishing: OFF"}
             </p>
 
             <button
               type="button"
-              onClick={() => setSettings({ ...settings, full_auto_enabled: !settings.full_auto_enabled })}
+              onClick={toggleDailyPublishing}
+              aria-pressed={settings.full_auto_enabled}
               className={`mt-3 w-full rounded-2xl px-4 py-3 text-sm font-black shadow-soft transition ${
                 settings.full_auto_enabled
                   ? "bg-rose-600 text-white hover:bg-rose-700"
                   : "bg-ocean text-white hover:bg-ocean/90"
               }`}
             >
-              {settings.full_auto_enabled ? "Pause Daily Publishing" : "Enable Daily Publishing"}
+              {settings.full_auto_enabled ? "Turn daily publishing OFF" : "Turn daily publishing ON"}
             </button>
 
             <p className="mt-2 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
               {settings.full_auto_enabled
-                ? `Daily publishing is ON. Vercel cron will publish around ${settings.daily_time || "09:00"} if emergency pause is off.`
-                : "Daily publishing is OFF. Post Now / Test can still be used for checking."}
+                ? `Saved ON means Vercel cron publishes around ${settings.daily_time || "09:00"} when emergency pause is off.`
+                : "Saved OFF means only manual test posts can run."}
+              {" "}Changes apply after Save all social settings.
             </p>
           </div>
 
@@ -654,80 +666,100 @@ export default function AdminSocialAutoPost() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={saveSettings}
-            disabled={saving}
-            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save Settings"}
-          </button>
-          <button
-            type="button"
-            onClick={runNow}
-            disabled={saving}
-            className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-60"
-          >
-            Post Now / Test
-          </button>
-          <button
-            type="button"
-            onClick={checkFacebook}
-            disabled={saving}
-            className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-slate-900 dark:text-cyan-200"
-          >
-            Check Facebook
-          </button>
-                    <div className="grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                window.location.href = "/api/auth/tiktok/start";
-              }}
-              className="rounded-2xl bg-black px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-black/90"
-            >
-              Connect TikTok
-            </button>
-
-            <button
-              type="button"
-              onClick={async () => {
-                const confirmed = window.confirm("Disconnect TikTok from ReviewIntel?");
-                if (!confirmed) return;
-
-                const response = await fetch("/api/auth/tiktok/disconnect", {
-                  method: "POST",
-                });
-
-                if (!response.ok) {
-                  alert("TikTok disconnect failed.");
-                  return;
-                }
-
-                alert("TikTok disconnected.");
-                await checkTikTok();
-              }}
-              className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-soft transition hover:bg-mist dark:border-white/10 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
-            >
-              Disconnect TikTok
-            </button>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-slate-900">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
+              Save and publish
+            </p>
+            <div className="mt-3 grid gap-2">
+              <button
+                type="button"
+                onClick={saveSettings}
+                disabled={saving}
+                className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save all social settings"}
+              </button>
+              <button
+                type="button"
+                onClick={runNow}
+                disabled={saving}
+                className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+              >
+                Post one test now
+              </button>
+            </div>
           </div>
 
-<button
-            type="button"
-            onClick={checkTikTok}
-            disabled={saving}
-            className="rounded-2xl border border-rose-300/40 bg-white px-5 py-3 text-sm font-black text-rose-600 shadow-soft disabled:opacity-60 dark:border-rose-300/30 dark:bg-slate-900 dark:text-rose-200"
-          >
-            Check TikTok
-          </button>
-          <a
-            href="/admin/social/tiktok-approval"
-            className="rounded-2xl border border-violet-300/40 bg-white px-5 py-3 text-center text-sm font-black text-violet-700 shadow-soft transition hover:border-violet-500 disabled:opacity-60 dark:border-violet-300/30 dark:bg-slate-900 dark:text-violet-200"
-          >
-            TikTok Approval Flow
-          </a>
+          <div className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
+              Connector checks
+            </p>
+            <div className="mt-3 grid gap-2">
+              <button
+                type="button"
+                onClick={checkFacebook}
+                disabled={saving}
+                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-slate-950 dark:text-cyan-200"
+              >
+                Check Facebook / Instagram
+              </button>
+              <button
+                type="button"
+                onClick={checkTikTok}
+                disabled={saving}
+                className="rounded-2xl border border-rose-300/40 bg-white px-5 py-3 text-sm font-black text-rose-600 shadow-soft disabled:opacity-60 dark:border-rose-300/30 dark:bg-slate-950 dark:text-rose-200"
+              >
+                Check TikTok
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
+              TikTok connection
+            </p>
+            <div className="mt-3 grid gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/api/auth/tiktok/start";
+                }}
+                className="rounded-2xl bg-black px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-black/90"
+              >
+                Connect TikTok
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const confirmed = window.confirm("Disconnect TikTok from ReviewIntel?");
+                  if (!confirmed) return;
+
+                  const response = await fetch("/api/auth/tiktok/disconnect", {
+                    method: "POST",
+                  });
+
+                  if (!response.ok) {
+                    alert("TikTok disconnect failed.");
+                    return;
+                  }
+
+                  alert("TikTok disconnected.");
+                  await checkTikTok();
+                }}
+                className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-soft transition hover:bg-mist dark:border-white/10 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+              >
+                Disconnect TikTok
+              </button>
+              <a
+                href="/admin/social/tiktok-approval"
+                className="rounded-2xl border border-violet-300/40 bg-white px-5 py-3 text-center text-sm font-black text-violet-700 shadow-soft transition hover:border-violet-500 dark:border-violet-300/30 dark:bg-slate-950 dark:text-violet-200"
+              >
+                TikTok approval guide
+              </a>
+            </div>
+          </div>
         </div>
 
         <p className="mt-4 rounded-2xl bg-mist p-4 text-sm font-black text-slate-700 dark:bg-slate-900 dark:text-slate-200">
