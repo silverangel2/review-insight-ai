@@ -803,8 +803,51 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   };
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
   const percent = decisionPercent(shopper);
-  const visibleRating = shopper.product.rating || copy.notShown;
-  const visibleReviews = shopper.product.reviewCount ? `${shopper.product.reviewCount} ${copy.reviews}` : copy.reviewCountNotShown;
+  const resultEvidenceSource = result as Record<string, unknown>;
+  const nestedAnalysisForEvidence =
+    resultEvidenceSource.analysis &&
+    typeof resultEvidenceSource.analysis === "object"
+      ? (resultEvidenceSource.analysis as Record<string, unknown>)
+      : null;
+
+  const reviewEvidenceForDisplay =
+    (resultEvidenceSource.reviewEvidence ||
+      nestedAnalysisForEvidence?.reviewEvidence ||
+      null) as Record<string, unknown> | null;
+
+  const listingEvidenceForDisplay =
+    (reviewEvidenceForDisplay?.listingEvidence || null) as Record<string, unknown> | null;
+
+  const evidenceReviewCount =
+    typeof listingEvidenceForDisplay?.reviewCount === "number" && listingEvidenceForDisplay.reviewCount > 0
+      ? listingEvidenceForDisplay.reviewCount
+      : typeof reviewEvidenceForDisplay?.reviewsFound === "number" && reviewEvidenceForDisplay.reviewsFound > 0
+        ? reviewEvidenceForDisplay.reviewsFound
+        : null;
+
+  const evidenceRating =
+    typeof listingEvidenceForDisplay?.rating === "number" && listingEvidenceForDisplay.rating > 0
+      ? listingEvidenceForDisplay.rating
+      : null;
+
+  const hasExactListingEvidence = Boolean(listingEvidenceForDisplay?.exactListingUrl);
+  const hasUsefulReviewEvidence = Boolean(hasExactListingEvidence && evidenceReviewCount);
+
+  const visibleRating = evidenceRating ? `${evidenceRating}/5` : shopper.product.rating || copy.notShown;
+  const visibleReviews = evidenceReviewCount
+    ? `${evidenceReviewCount} reviews from current listing`
+    : shopper.product.reviewCount
+      ? `${shopper.product.reviewCount} ${copy.reviews}`
+      : copy.reviewCountNotShown;
+
+  const visibleProductScore = hasUsefulReviewEvidence
+    ? Math.max(Number(shopper.productScore || 0), 60)
+    : shopper.productScore;
+
+  const visibleValueForMoney =
+    hasUsefulReviewEvidence && String(shopper.valueForMoney || "").toLowerCase() === "poor"
+      ? "Fair"
+      : shopper.valueForMoney;
   const sourcesLine = shopper.sourcesUsed.length
     ? copy.sourcesChecked(Math.min(shopper.sourcesUsed.length, 8), shopper.sourcesUsed.slice(0, 4), shopper.sourcesUsed.length > 4)
     : copy.sourcesLimited;
@@ -838,8 +881,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="ri-mobile-metric-grid mt-4 grid grid-cols-2 gap-2 border-t border-black/10 pt-3 text-left">
-            <MiniMetric label={copy.buyScore} value={`${Math.round(shopper.productScore / 10)}/10`} />
-            <MiniMetric label={copy.value} value={localizedValueLabel(locale, shopper.valueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
+            <MiniMetric label={copy.buyScore} value={`${Math.round(visibleProductScore / 10)}/10`} />
+            <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
             <MiniMetric label={copy.aiLikeReviews} value={`${shopper.fakeReviewPercent}% ${copy.signs}`} helper={`${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`} />
             <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
           </div>
@@ -989,8 +1032,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 md:grid-cols-4 sm:mt-6 sm:pt-5">
-              <MiniMetric label={copy.buyScore} value={`${Math.round(shopper.productScore / 10)}/10`} />
-              <MiniMetric label={copy.value} value={localizedValueLabel(locale, shopper.valueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
+              <MiniMetric label={copy.buyScore} value={`${Math.round(visibleProductScore / 10)}/10`} />
+              <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
               <MiniMetric label={copy.aiLikeReviews} value={`${shopper.fakeReviewPercent}% ${copy.signs}`} helper={`${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`} />
               <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
             </div>
