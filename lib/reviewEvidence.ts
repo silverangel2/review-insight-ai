@@ -15,6 +15,7 @@ export type ReviewEvidenceResult = {
   evidenceStrength: "none" | "weak" | "limited" | "usable" | "strong";
   sourceNotes: string[];
   sourceLinks?: Array<{ label: string; url: string; domain?: string }>;
+  exactListingConfirmed?: boolean;
   listingEvidence?: ExactProductSearchResult | null;
   reviewAuthenticity: {
     score: number | null;
@@ -124,15 +125,6 @@ function emptyEvidence(reason = "No review evidence collected."): ReviewEvidence
     },
   };
 }
-
-function cleanJsonText(text: string) {
-  return text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-}
-
 
 function extractNumberFromEvidenceText(text: string, patterns: RegExp[]) {
   for (const pattern of patterns) {
@@ -662,7 +654,7 @@ Scoring rules:
       return emptyEvidence("OpenAI web review search returned no review evidence.");
     }
 
-    const parsed = JSON.parse(cleanJsonText(outputText));
+    const parsed = safeParseReviewEvidenceJson(outputText);
 
     const commentsAnalyzed = Number(parsed.commentsAnalyzed || 0);
     const parsedScore =
@@ -715,6 +707,46 @@ Scoring rules:
             : parsedScore
         : null;
 
+    const normalizedListingEvidence = normalizeListingConfidence(
+      listingDomainMatchesRequestedStore(
+        listingMatchesRequestedSignals(
+          normalizeListingEvidenceNumbers(listingEvidence),
+          input
+        ),
+        input
+      ),
+      input
+    );
+
+    const listingNotes = Array.isArray(normalizedListingEvidence?.notes)
+      ? normalizedListingEvidence.notes.join(" ").toLowerCase()
+      : "";
+
+    const listingIsUnconfirmed =
+      normalizedListingEvidence?.confidence === "low" ||
+      listingNotes.includes("not confirmed") ||
+      listingNotes.includes("requested product appears") ||
+      listingNotes.includes("similar listing") ||
+      listingNotes.includes("downgraded");
+
+    const rawEvidenceStrength =
+      commentsAnalyzed >= 30
+        ? "strong"
+        : commentsAnalyzed >= 15
+          ? "usable"
+          : commentsAnalyzed >= 5
+            ? "limited"
+            : commentsAnalyzed > 0
+              ? "weak"
+              : "none";
+
+    const cappedEvidenceStrength =
+      listingIsUnconfirmed && rawEvidenceStrength === "strong"
+        ? "usable"
+        : listingIsUnconfirmed && rawEvidenceStrength === "usable"
+          ? "limited"
+          : rawEvidenceStrength;
+
     return {
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
@@ -722,34 +754,17 @@ Scoring rules:
             ...parsed.sourcesChecked.map(String),
           ]))
         : listingEvidence.sourcesChecked,
-      listingEvidence: normalizeListingConfidence(
-        listingMatchesRequestedSignals(
-          normalizeListingEvidenceNumbers(listingEvidence),
-          input
-        ),
-        input
-      ),
+      listingEvidence: normalizedListingEvidence,
+      exactListingConfirmed: !listingIsUnconfirmed && normalizedListingEvidence?.confidence === "high",
       sourceLinks: normalizeSourceLinks(parsed.sourceLinks),
       reviewsFound: Number(
         parsed.reviewsFound ||
-          listingMatchesRequestedSignals(
-            normalizeListingEvidenceNumbers(listingEvidence),
-            input
-          )?.reviewCount ||
+          normalizedListingEvidence?.reviewCount ||
           commentsAnalyzed ||
           0
       ),
       commentsAnalyzed,
-      evidenceStrength:
-        commentsAnalyzed >= 30
-          ? "strong"
-          : commentsAnalyzed >= 15
-            ? "usable"
-            : commentsAnalyzed >= 5
-              ? "limited"
-              : commentsAnalyzed > 0
-                ? "weak"
-                : "none",
+      evidenceStrength: cappedEvidenceStrength,
       sourceNotes: Array.isArray(parsed.sourceNotes) ? parsed.sourceNotes : [],
       reviewAuthenticity: {
         score: commentsAnalyzed > 0 ? score : null,
