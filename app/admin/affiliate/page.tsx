@@ -1,0 +1,161 @@
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
+
+type ChecklistItem = {
+  label: string;
+  done: boolean;
+  note: string;
+};
+
+type AffiliateDiagnostics = {
+  ok?: boolean;
+  status?: string;
+  amazon?: {
+    tagConnected?: boolean;
+    tagPreview?: string | null;
+    envName?: string;
+    sampleAffiliateUrl?: string;
+    linkBuilderWorking?: boolean;
+  };
+  disclosure?: {
+    text?: string;
+    envName?: string;
+    usingDefault?: boolean;
+  };
+  betterPicks?: {
+    endpoint?: string;
+    shopperOnly?: boolean;
+    resultPage?: string;
+  };
+  checklist?: ChecklistItem[];
+  error?: string;
+};
+
+async function getBaseUrl() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) return siteUrl.replace(/\/$/, "");
+
+  const headerStore = await headers();
+  const host = headerStore.get("host") || "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+
+  return `${protocol}://${host}`;
+}
+
+async function getDiagnostics(): Promise<AffiliateDiagnostics> {
+  const cookieStore = await cookies();
+  const baseUrl = await getBaseUrl();
+
+  const response = await fetch(`${baseUrl}/api/admin/affiliate-diagnostics`, {
+    cache: "no-store",
+    headers: { cookie: cookieStore.toString() },
+  });
+
+  if (response.status === 401) redirect("/owner-access");
+
+  return response.json().catch(() => ({
+    ok: false,
+    error: "Could not read affiliate diagnostics.",
+  }));
+}
+
+export default async function AffiliateAdminPage() {
+  const diagnostics = await getDiagnostics();
+  const tagConnected = Boolean(diagnostics.amazon?.tagConnected);
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600">
+            ReviewIntel admin
+          </p>
+          <h1 className="mt-2 text-3xl font-black">Affiliate Settings</h1>
+          <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+            Amazon affiliate readiness, Better Picks status, and disclosure diagnostics.
+          </p>
+
+          <div className="mt-4 inline-flex rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+            {tagConnected ? "Amazon active" : "Ready, not connected"}
+          </div>
+        </section>
+
+        <section className="grid gap-5 md:grid-cols-2">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              Amazon Associates
+            </p>
+            <h2 className="mt-2 text-xl font-black">Amazon Tag</h2>
+
+            <div className="mt-4 space-y-3 text-sm font-bold text-slate-600 dark:text-slate-300">
+              <p>Status: <span className="font-black text-slate-950 dark:text-white">{tagConnected ? "Connected" : "Not connected yet"}</span></p>
+              <p>Env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.amazon?.envName || "AMAZON_ASSOCIATE_TAG"}</code></p>
+              <p>Tag preview: <span className="font-black text-slate-950 dark:text-white">{diagnostics.amazon?.tagPreview || "—"}</span></p>
+              <p>Link builder: <span className="font-black text-slate-950 dark:text-white">{diagnostics.amazon?.linkBuilderWorking ? "Working" : "Waiting"}</span></p>
+            </div>
+
+            <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
+{`AMAZON_ASSOCIATE_TAG=your-tag-here`}
+            </pre>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              Disclosure
+            </p>
+            <h2 className="mt-2 text-xl font-black">Affiliate Disclosure</h2>
+
+            <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold leading-relaxed text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-100">
+              {diagnostics.disclosure?.text ||
+                "ReviewIntel may earn a commission from qualifying purchases through affiliate links. This does not affect our verdicts or review analysis."}
+            </p>
+
+            <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
+{`NEXT_PUBLIC_AFFILIATE_DISCLOSURE=As an Amazon Associate, ReviewIntel earns from qualifying purchases. This does not affect our verdicts or review analysis.`}
+            </pre>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+            Better Picks
+          </p>
+          <h2 className="mt-2 text-xl font-black">Shopper Recommendation System</h2>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl bg-slate-50 p-4 dark:bg-white/5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Endpoint</p>
+              <p className="mt-2 text-sm font-black">{diagnostics.betterPicks?.endpoint || "/api/product-recommendations"}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4 dark:bg-white/5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Placement</p>
+              <p className="mt-2 text-sm font-black">{diagnostics.betterPicks?.resultPage || "/results"}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4 dark:bg-white/5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Mode</p>
+              <p className="mt-2 text-sm font-black">{diagnostics.betterPicks?.shopperOnly ? "Shopper only" : "Check placement"}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+            Checklist
+          </p>
+          <h2 className="mt-2 text-xl font-black">Affiliate Launch Checklist</h2>
+
+          <div className="mt-5 space-y-3">
+            {(diagnostics.checklist || []).map((item) => (
+              <div key={item.label} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="font-black">{item.done ? "✓ " : "! "}{item.label}</p>
+                <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">{item.note}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
