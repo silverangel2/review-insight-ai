@@ -133,6 +133,56 @@ function cleanJsonText(text: string) {
     .trim();
 }
 
+
+function extractNumberFromEvidenceText(text: string, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const value = Number(String(match[1]).replace(/,/g, ""));
+      if (Number.isFinite(value)) return value;
+    }
+  }
+  return null;
+}
+
+function normalizeListingEvidenceNumbers(
+  listingEvidence: ExactProductSearchResult | null | undefined
+): ExactProductSearchResult | null | undefined {
+  if (!listingEvidence || typeof listingEvidence !== "object") return listingEvidence;
+
+  const record = listingEvidence as Record<string, unknown>;
+
+  const notesText = [
+    typeof record.exactListingTitle === "string" ? record.exactListingTitle : "",
+    ...(Array.isArray(record.notes) ? record.notes : []),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const parsedRating =
+    typeof record.rating === "number"
+      ? record.rating
+      : extractNumberFromEvidenceText(notesText, [
+          /rating\s*\(?\s*(\d+(?:\.\d+)?)\s*(?:out of|\/)?\s*5/i,
+          /(\d+(?:\.\d+)?)\s*(?:out of|\/)\s*5\s*stars/i,
+          /(\d+(?:\.\d+)?)\s*stars/i,
+        ]);
+
+  const parsedReviewCount =
+    typeof record.reviewCount === "number"
+      ? record.reviewCount
+      : extractNumberFromEvidenceText(notesText, [
+          /(\d[\d,]*)\s*(?:ratings|reviews|review count)/i,
+          /review count\s*\(?\s*(\d[\d,]*)/i,
+        ]);
+
+  return {
+    ...listingEvidence,
+    rating: parsedRating,
+    reviewCount: parsedReviewCount,
+  };
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
@@ -342,9 +392,14 @@ Scoring rules:
             ...parsed.sourcesChecked.map(String),
           ]))
         : listingEvidence.sourcesChecked,
-      listingEvidence,
+      listingEvidence: normalizeListingEvidenceNumbers(listingEvidence),
       sourceLinks: normalizeSourceLinks(parsed.sourceLinks),
-      reviewsFound: Number(parsed.reviewsFound || listingEvidence.reviewCount || commentsAnalyzed || 0),
+      reviewsFound: Number(
+        parsed.reviewsFound ||
+          normalizeListingEvidenceNumbers(listingEvidence)?.reviewCount ||
+          commentsAnalyzed ||
+          0
+      ),
       commentsAnalyzed,
       evidenceStrength:
         commentsAnalyzed >= 30
