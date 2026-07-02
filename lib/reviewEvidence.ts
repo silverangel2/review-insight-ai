@@ -230,7 +230,7 @@ function listingMatchesRequestedSignals(
   if (
     typeof signals.requestedRating === "number" &&
     typeof listingEvidence.rating === "number" &&
-    Math.abs(signals.requestedRating - listingEvidence.rating) > 0.25
+    Math.abs(signals.requestedRating - listingEvidence.rating) > 0.15
   ) {
     mismatchCount += 1;
     mismatchNotes.push(
@@ -243,7 +243,7 @@ function listingMatchesRequestedSignals(
     typeof listingEvidence.reviewCount === "number"
   ) {
     const diff = Math.abs(signals.requestedReviewCount - listingEvidence.reviewCount);
-    const tolerance = Math.max(30, signals.requestedReviewCount * 0.35);
+    const tolerance = Math.max(20, signals.requestedReviewCount * 0.2);
 
     if (diff > tolerance) {
       mismatchCount += 1;
@@ -251,6 +251,16 @@ function listingMatchesRequestedSignals(
         `Requested review count ${signals.requestedReviewCount}, but matched listing review count is ${listingEvidence.reviewCount}.`
       );
     }
+  }
+
+  if (
+    typeof signals.requestedPrice === "number" &&
+    listingEvidence.price == null
+  ) {
+    mismatchCount += 1;
+    mismatchNotes.push(
+      `Requested price ${signals.requestedPrice}, but matched listing price was not confirmed.`
+    );
   }
 
   if (
@@ -270,7 +280,7 @@ function listingMatchesRequestedSignals(
 
   return {
     ...listingEvidence,
-    confidence: "low",
+    confidence: mismatchCount >= 2 ? "low" : "medium",
     notes: [
       ...notes,
       ...mismatchNotes,
@@ -305,7 +315,7 @@ function normalizeListingConfidence(
   if (requestedHasRatingOrReviews && listingMissingRatingOrReviews) {
     return {
       ...listingEvidence,
-      confidence: listingEvidence.confidence === "high" ? "medium" : listingEvidence.confidence,
+      confidence: "medium",
       notes: [
         ...notes,
         "Exact listing URL was found, but rating/review count were not confirmed from the listing fields.",
