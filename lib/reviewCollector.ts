@@ -358,6 +358,124 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Pr
 }
 
 
+
+function buildPublicReviewSearchQueries(productName: string, listingUrl: string): string[] {
+  const normalized = cleanText(productName).slice(0, 180);
+  let host = "";
+
+  try {
+    host = new URL(listingUrl).hostname.replace(/^www\./, "");
+  } catch {
+    host = "";
+  }
+
+  return [
+    `${normalized} ${host} reviews`,
+    `${normalized} customer reviews`,
+    `${normalized} complaints`,
+    `${normalized} buyer reviews`,
+  ].filter(Boolean);
+}
+
+function collectSearchResultLinks(html: string, listingUrl: string): string[] {
+  const decoded = htmlDecodeLight(html);
+  const links = new Set<string>();
+
+  const urlMatches = decoded.matchAll(/https?:\/\/[^"' <>)\\]+/gi);
+  for (const match of urlMatches) {
+    const url = match[0];
+
+    if (
+      /google\.|bing\.|duckduckgo\.|yahoo\.|facebook\.com\/sharer|twitter\.com\/share/i.test(url)
+    ) {
+      continue;
+    }
+
+    if (/review|reviews|complaint|customer|product/i.test(url)) {
+      links.add(url);
+    }
+  }
+
+  try {
+    links.add(listingUrl);
+  } catch {
+    // ignore
+  }
+
+  return [...links].slice(0, 10);
+}
+
+async function fetchSearchPage(query: string): Promise<string | null> {
+  const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-CA,en;q=0.9",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return null;
+    return await response.text();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPublicReviewFallback(input: {
+  productName: string;
+  listingUrl: string;
+  maxReviews: number;
+}): Promise<CollectedReview[]> {
+  const reviews: CollectedReview[] = [];
+  const queries = buildPublicReviewSearchQueries(input.productName, input.listingUrl);
+
+  for (const query of queries) {
+    if (reviews.length >= input.maxReviews) break;
+
+    const searchHtml = await fetchSearchPage(query);
+    if (!searchHtml) continue;
+
+    const resultLinks = collectSearchResultLinks(searchHtml, input.listingUrl);
+
+    for (const url of resultLinks) {
+      if (reviews.length >= input.maxReviews) break;
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "user-agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            accept: "application/json,text/plain,text/html,*/*",
+            "accept-language": "en-CA,en;q=0.9",
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) continue;
+
+        const text = await response.text();
+        const decoded = htmlDecodeLight(text);
+
+        reviews.push(...collectJsonLdReviews(decoded, url));
+        reviews.push(...collectEmbeddedReviewText(decoded, url));
+        reviews.push(...collectEmbeddedJsonReviews(decoded, url));
+      } catch {
+        // continue with next result
+      }
+    }
+  }
+
+  return dedupeReviews(reviews, input.maxReviews);
+}
+
+
 export function formatCollectedReviewsForPrompt(result: ReviewCollectorResult): string {
   if (!result.reviews.length) {
     return `Review collector attempted: ${result.attempted ? "yes" : "no"}.
@@ -439,13 +557,26 @@ export async function collectWrittenReviewsFromListing(input: {
       Math.max(0, maxReviews - listingReviews.length)
     );
 
-    const reviews = dedupeReviews([...listingReviews, ...discoveredReviews], maxReviews);
+    let reviews = dedupeReviews([...listingReviews, ...discoveredReviews], maxReviews);
+
+    let publicFallbackReviews: CollectedReview[] = [];
+
+    if (reviews.length === 0) {
+      publicFallbackReviews = await fetchPublicReviewFallback({
+        productName: input.productName || listingUrl,
+        listingUrl,
+        maxReviews,
+      });
+
+      reviews = dedupeReviews([...reviews, ...publicFallbackReviews], maxReviews);
+    }
 
     console.log("[ReviewIntel DEBUG reviewCollector]", {
       listingUrl,
       discoveredReviewUrls: discoveredReviewUrls.length,
       listingReviews: listingReviews.length,
       discoveredReviews: discoveredReviews.length,
+      publicFallbackReviews: publicFallbackReviews.length,
       reviewsCollected: reviews.length,
     });
 
@@ -456,8 +587,8 @@ export async function collectWrittenReviewsFromListing(input: {
         : reviews.length
           ? `${reviews.length} written review texts were collected.`
           : total
-            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML or discovered review URLs.`
-            : "No written review text was accessible from the listing HTML or discovered review URLs.";
+            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML, discovered review URLs, or public review search fallback.`
+            : "No written review text was accessible from the listing HTML, discovered review URLs, or public review search fallback.";
 
     return {
       sourceUrl: listingUrl,
