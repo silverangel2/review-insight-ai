@@ -1705,11 +1705,19 @@ function computeVerdictConfidenceAudit(input: {
       ? Math.min(10, 4 + prosCount + consCount + repeatedSignals)
       : 0;
 
-  // Gate 5: Did RI calculate an overall score from evidence?
+  // Gate 5: Did RI make the correct score decision?
+  // It gets credit if it calculated a Buy Score from real review evidence,
+  // OR if it correctly withheld the Buy Score because review evidence was not enough.
+  const hasEnoughReviewCoverage =
+    commentsAnalyzed >= 15 &&
+    reviewCoverageRatio >= 0.05;
+
   const scoreCalculationScore =
-    typeof input.buyScore === "number" && commentsAnalyzed > 0
+    typeof input.buyScore === "number" && hasEnoughReviewCoverage
       ? 10
-      : 0;
+      : input.buyScore === null && !hasEnoughReviewCoverage
+        ? 10
+        : 0;
 
   // Gate 6: Is the final verdict ratified/correct based on evidence state?
   const verdict = String(input.verdict || "").toUpperCase();
@@ -1717,19 +1725,16 @@ function computeVerdictConfidenceAudit(input: {
 
   let verdictRatificationScore = 0;
 
-  if (
-    marketplaceReviewCount > 0 &&
-    commentsAnalyzed < Math.max(5, marketplaceReviewCount * 0.05) &&
-    (verdict === "LIMITED REVIEW EVIDENCE" || finalDecisionSource === "limitedReviewEvidence")
-  ) {
+  const isLimitedEvidenceVerdict =
+    verdict.includes("LIMITED") ||
+    verdict.includes("EVIDENCE") ||
+    finalDecisionSource === "limitedReviewEvidence" ||
+    finalDecisionSource === "reviewEvidenceNotEnough";
+
+  if (!hasEnoughReviewCoverage && isLimitedEvidenceVerdict) {
     verdictRatificationScore = 10;
   } else if (
-    commentsAnalyzed === 0 &&
-    (verdict === "REVIEW EVIDENCE NOT ENOUGH" || finalDecisionSource === "reviewEvidenceNotEnough")
-  ) {
-    verdictRatificationScore = 10;
-  } else if (
-    commentsAnalyzed >= 15 &&
+    hasEnoughReviewCoverage &&
     ["BUY", "CONSIDER", "AVOID"].includes(verdict) &&
     finalDecisionSource === "reviewEvidence"
   ) {
