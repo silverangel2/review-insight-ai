@@ -1,3 +1,4 @@
+import { governBuyerDecision } from "@/lib/decisionGovernor";
 import { humanVerdictRules, explainVerdictChange } from "@/lib/reviewToolHelpers";
 import { buildToolAudit } from "@/lib/toolAudit";
 import { createClient } from "@supabase/supabase-js";
@@ -296,6 +297,37 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
   const rating = memory.rating;
   const reviewCount = memory.reviewCount;
   const severeComplaints = hasSevereComplaintSignal(result, memory.reviewEvidence);
+
+  const governedDecision = governBuyerDecision({
+    rating,
+    reviewCount,
+    aiLikeRisk: aiLikeScore,
+    commentsAnalyzed,
+    severeComplaints,
+    currentVerdict:
+      typeof result.verdict === "string"
+        ? result.verdict
+        : typeof result.recommendation === "string"
+          ? result.recommendation
+          : null,
+    bottomLine:
+      typeof result.bottomLine === "string"
+        ? result.bottomLine
+        : typeof result.summary === "string"
+          ? result.summary
+          : null,
+    productText: JSON.stringify({
+      title: memory.title,
+      brand: memory.brand,
+      store: memory.store,
+      price: memory.price,
+      reviewEvidence: memory.reviewEvidence,
+    }),
+  });
+
+  if (governedDecision) {
+    return governedDecision;
+  }
 
   const humanRule = humanVerdictRules({
     rating,
