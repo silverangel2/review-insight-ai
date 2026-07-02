@@ -1,3 +1,15 @@
+
+function toOptionalNumber(value: string | number | null | undefined): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[^0-9.]/g, "");
+    if (!cleaned) return undefined;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
 import { normalizeSourceLinks } from "@/lib/reviewToolHelpers";
 import { createClient } from "@supabase/supabase-js";
 import { findExactProductListing, type ExactProductSearchResult } from "@/lib/exactProductSearch";
@@ -6,6 +18,11 @@ type ReviewEvidenceInput = {
   brand?: string;
   model?: string;
   forceRefresh?: boolean;
+  store?: string | null;
+  price?: string | number | null;
+  rating?: string | number | null;
+  reviewCount?: string | number | null;
+
 };
 
 export type ReviewEvidenceResult = {
@@ -623,6 +640,10 @@ export async function collectAndAnalyzeReviewEvidence(
   const listingEvidence = await findExactProductListing({
     productName: product,
     brand: input.brand,
+    store: input.store || undefined,
+    price: toOptionalNumber(input.price),
+    rating: toOptionalNumber(input.rating),
+    reviewCount: toOptionalNumber(input.reviewCount),
   });
 
   const prompt = `

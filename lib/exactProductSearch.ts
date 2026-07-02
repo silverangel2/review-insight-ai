@@ -4,6 +4,9 @@ type ExactProductSearchInput = {
   brand?: string;
   store?: string;
   price?: number;
+  rating?: number | null;
+  reviewCount?: number | null;
+
 };
 
 export type ExactProductSearchResult = {

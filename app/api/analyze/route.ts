@@ -1387,6 +1387,10 @@ Return only the required JSON.
     productName: productForReviewEvidence || vision.category || "unknown product",
     brand: vision.brand,
     model: undefined,
+    store: vision.store,
+    price: vision.priceBelongsToProduct ? vision.price : undefined,
+    rating: vision.ratingBelongsToProduct ? vision.rating : undefined,
+    reviewCount: vision.reviewCountBelongsToProduct ? vision.reviewCount : undefined,
   });
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
