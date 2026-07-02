@@ -576,19 +576,37 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
       );
     });
 
+  const isWalmartCaListing =
+    String(listingEvidence?.store || "").toLowerCase().includes("walmart.ca") ||
+    String(listingEvidence?.exactListingUrl || "").toLowerCase().includes("walmart.ca");
+
+  const filteredSuspiciousComments = suspiciousComments.filter((comment) => {
+    const source = String(comment?.source || "").toLowerCase();
+
+    // Do not use Walmart.com reviews as exact authenticity evidence for a Walmart.ca listing.
+    if (isWalmartCaListing && source.includes("walmart.com")) return false;
+
+    return true;
+  });
+
   const cleanedAuthenticity =
-    result.reviewAuthenticity && suspiciousComments.length === 0 && !hasRiskReasons
+    result.reviewAuthenticity && filteredSuspiciousComments.length === 0
       ? {
           ...result.reviewAuthenticity,
           score: 0,
           label: "Low AI-like review risk",
           suspiciousReviewRisk: "Low" as const,
           reasons: [
-            "No suspicious review patterns were found in the available evidence. Risk remains limited by the amount of public review text available.",
+            "No suspicious review patterns were found in the exact product evidence available. Review risk remains limited because written Walmart.ca review comments were not fully available.",
           ],
           suspiciousComments: [],
         }
-      : result.reviewAuthenticity;
+      : result.reviewAuthenticity
+        ? {
+            ...result.reviewAuthenticity,
+            suspiciousComments: filteredSuspiciousComments,
+          }
+        : result.reviewAuthenticity;
 
   const cleanedSourceNotes = Array.isArray(result.sourceNotes)
     ? result.sourceNotes.filter((note) => {
@@ -603,6 +621,11 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
           return false;
         }
 
+        // Do not let Walmart.com review summaries appear as exact evidence for Walmart.ca products.
+        if (isWalmartCaListing && text.includes("walmart.com")) {
+          return false;
+        }
+
         return true;
       })
     : result.sourceNotes;
@@ -610,6 +633,13 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
   const uniqueSourceLinks = Array.isArray(result.sourceLinks)
     ? result.sourceLinks.filter((link, index, links) => {
         const url = String(link?.url || "");
+        const lowerUrl = url.toLowerCase();
+
+        // Keep Walmart.ca exact listing. Drop Walmart.com review pages for Walmart.ca exact listings.
+        if (isWalmartCaListing && lowerUrl.includes("walmart.com/reviews")) {
+          return false;
+        }
+
         return url && links.findIndex((candidate) => String(candidate?.url || "") === url) === index;
       })
     : result.sourceLinks;
