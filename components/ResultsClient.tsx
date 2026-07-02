@@ -1,5 +1,6 @@
 "use client";
 
+import { ResultIntelligencePanel } from "@/components/ResultIntelligencePanel";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -992,6 +993,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       </section>
 
       <ToolEvidenceCard result={result} />
+
+          <ResultIntelligencePanel result={result} />
 
       <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor} empty={copy.bestForEmpty} />
