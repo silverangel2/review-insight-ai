@@ -519,7 +519,7 @@ function isImpossibleCachedShopperResult(value: unknown) {
 
   if (!source || typeof source !== "object") return false;
 
-  const verdict = String(source.verdict || "").toUpperCase();
+  const verdict = governedVerdictFromSource(source as Record<string, unknown>);
   if (verdict !== "BUY") return false;
 
   const productScore = clampScore(source.productScore, 0);
@@ -578,7 +578,18 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
   const complaints = asTextArray(source.topComplaints?.length ? source.topComplaints : analysis?.common_complaints?.length ? analysis.common_complaints : analysis?.negative_points, 6);
   const bestFor = asTextArray(source.bestFor, 4);
   const notIdealFor = asTextArray(source.notIdealFor?.length ? source.notIdealFor : analysis?.quality_concerns, 4);
-  const bottomLine = String(source.bottomLine || analysis?.buyer_recommendation?.rationale || analysis?.overall_summary || "Latest scan loaded.");
+  const sourceRecord = source as Record<string, unknown>;
+  const analysisRecord = (analysis || {}) as Record<string, unknown>;
+
+  const bottomLine = String(
+    sourceRecord.stableVerdictReason ||
+      sourceRecord.bottomLine ||
+      sourceRecord.summary ||
+      analysisRecord.stableVerdictReason ||
+      analysis?.buyer_recommendation?.rationale ||
+      analysis?.overall_summary ||
+      "Latest scan loaded."
+  );
   const fakeReviewPercent = clampScore(authenticity?.score ?? analysis?.fake_review_risk_score, 0);
   const fakeReviewRisk =
     authenticity?.suspiciousReviewRisk ||
@@ -1056,6 +1067,17 @@ function ToolProofPill({ label, value }: { label: string; value: string | number
   );
 }
 
+
+function governedVerdictFromSource(source: Record<string, unknown>) {
+  return String(
+    source.stableVerdict ||
+      source.finalVerdict ||
+      source.verdict ||
+      source.recommendation ||
+      "CONSIDER"
+  ).toUpperCase();
+}
+
 function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
   const raw = result as unknown as ToolProofRecord;
   const analysis = getToolProofRecord(raw, "analysis");
@@ -1458,7 +1480,11 @@ export function ResultsClient() {
                 rating: source.product?.rating || "",
                 reviewCount: source.product?.reviewCount || ""
               },
-              verdict: source.verdict || "CONSIDER",
+              verdict:
+                  (source as Record<string, unknown>).stableVerdict ||
+                  (source as Record<string, unknown>).finalVerdict ||
+                  source.verdict ||
+                  "CONSIDER",
               productScore: source.productScore || source.buyingConfidence || 0,
               buyingConfidence: source.buyingConfidence || source.productScore || 0,
               valueForMoney: source.valueForMoney || "Fair",
@@ -1469,7 +1495,11 @@ export function ResultsClient() {
               notIdealFor: source.notIdealFor || [],
               bottomLine: source.bottomLine || "Latest scan loaded.",
               analysis: {
-                verdict: source.verdict || "CONSIDER",
+                verdict:
+                  (source as Record<string, unknown>).stableVerdict ||
+                  (source as Record<string, unknown>).finalVerdict ||
+                  source.verdict ||
+                  "CONSIDER",
                 score: source.productScore || source.buyingConfidence || 0,
                 buyingConfidence: source.buyingConfidence || source.productScore || 0,
                 valueForMoney: source.valueForMoney || "Fair",
