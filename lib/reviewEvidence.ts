@@ -505,6 +505,71 @@ function safeParseReviewEvidenceJson(text: string) {
   }
 }
 
+
+function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceResult {
+  const listingEvidence = result.listingEvidence;
+
+  const cleanedListingEvidence =
+    listingEvidence && typeof listingEvidence === "object"
+      ? {
+          ...listingEvidence,
+          notes: Array.isArray(listingEvidence.notes)
+            ? listingEvidence.notes.filter((note) => {
+                const text = String(note || "").toLowerCase();
+
+                if (
+                  text.includes("matches the provided details") &&
+                  (listingEvidence.price == null ||
+                    listingEvidence.rating == null ||
+                    listingEvidence.reviewCount == null)
+                ) {
+                  return false;
+                }
+
+                return true;
+              })
+            : [],
+        }
+      : listingEvidence;
+
+  const suspiciousComments = Array.isArray(result.reviewAuthenticity?.suspiciousComments)
+    ? result.reviewAuthenticity.suspiciousComments
+    : [];
+
+  const hasRiskReasons =
+    Array.isArray(result.reviewAuthenticity?.reasons) &&
+    result.reviewAuthenticity.reasons.some((reason) => {
+      const text = String(reason || "").toLowerCase();
+      return (
+        text.includes("suspicious") ||
+        text.includes("repetitive") ||
+        text.includes("generic") ||
+        text.includes("bot") ||
+        text.includes("ai-like") ||
+        text.includes("incentivized")
+      );
+    });
+
+  const cleanedAuthenticity =
+    result.reviewAuthenticity && suspiciousComments.length === 0 && !hasRiskReasons
+      ? {
+          ...result.reviewAuthenticity,
+          score: 0,
+          label: "Low AI-like review risk",
+          suspiciousReviewRisk: "Low" as const,
+          reasons: [
+            "No suspicious review patterns were found in the available evidence. Risk remains limited by the amount of public review text available.",
+          ],
+          suspiciousComments: [],
+        }
+      : result.reviewAuthenticity;
+
+  return {
+    ...result,
+    listingEvidence: cleanedListingEvidence,
+    reviewAuthenticity: cleanedAuthenticity,
+  };
+}
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
@@ -747,7 +812,7 @@ Scoring rules:
           ? "limited"
           : rawEvidenceStrength;
 
-    return {
+    return cleanFinalReviewEvidence({
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
             ...listingEvidence.sourcesChecked,
@@ -795,7 +860,7 @@ Scoring rules:
           : [],
         suspiciousComments,
       },
-    };
+    });
   } catch (error: unknown) {
     return emptyEvidence(`Review evidence scan failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
