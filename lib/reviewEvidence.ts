@@ -698,6 +698,31 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
     reviewAuthenticity: cleanedAuthenticity,
   };
 }
+
+function reviewEvidenceMatchesRequestedStore(
+  evidence: ReviewEvidenceResult | null,
+  input: ReviewEvidenceInput
+): boolean {
+  if (!evidence) return false;
+
+  const requestedStore = String(input.store || "").toLowerCase();
+  const requiresWalmartCa =
+    requestedStore.includes("walmart.ca") ||
+    requestedStore.includes("walmart canada");
+
+  if (!requiresWalmartCa) return true;
+
+  const url = evidence.listingEvidence?.exactListingUrl;
+  if (!url) return true;
+
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    return host === "walmart.ca" || host.endsWith(".walmart.ca");
+  } catch {
+    return false;
+  }
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
@@ -718,8 +743,16 @@ export async function collectAndAnalyzeReviewEvidence(
   }
 
   const rememberedEvidence = input.forceRefresh ? null : await loadRecentReviewEvidenceFromMemory(input);
-  if (rememberedEvidence) {
+  if (rememberedEvidence && reviewEvidenceMatchesRequestedStore(rememberedEvidence, input)) {
     return rememberedEvidence;
+  }
+
+  if (rememberedEvidence && !reviewEvidenceMatchesRequestedStore(rememberedEvidence, input)) {
+    console.log("[ReviewIntel DEBUG memory rejected]", {
+      inputStore: input.store,
+      rememberedExactListingUrl: rememberedEvidence.listingEvidence?.exactListingUrl,
+      reason: "Remembered evidence host does not match requested store.",
+    });
   }
 
   const rawListingEvidence = await findExactProductListing({
