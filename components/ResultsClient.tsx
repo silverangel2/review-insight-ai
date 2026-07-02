@@ -841,9 +841,15 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       ? `${shopper.product.reviewCount} ${copy.reviews}`
       : copy.reviewCountNotShown;
 
-  // Do not inflate ReviewIntel scores in the UI.
-  // Score must come from evidence-weighted review analysis only.
-  const visibleProductScore = shopper.productScore;
+  // Do not use mapped shopper fallback scores here.
+  // The displayed Buy Score must come only from the raw backend score.
+  const rawResultForScore = result as Record<string, unknown>;
+  const visibleProductScore =
+    typeof rawResultForScore.buyScore === "number"
+      ? rawResultForScore.buyScore
+      : typeof rawResultForScore.productScore === "number"
+        ? rawResultForScore.productScore
+        : null;
 
   const visibleValueForMoney =
     hasUsefulReviewEvidence && String(shopper.valueForMoney || "").toLowerCase() === "poor"
@@ -884,7 +890,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           <div className="ri-mobile-metric-grid mt-4 grid grid-cols-2 gap-2 border-t border-black/10 pt-3 text-left">
             <MiniMetric
               label={copy.buyScore}
-              value={typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored"}
+              value={typeof visibleProductScore === "number" ? typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored" : "Not scored"}
             />
             <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
             <MiniMetric
@@ -1042,7 +1048,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 md:grid-cols-4 sm:mt-6 sm:pt-5">
               <MiniMetric
               label={copy.buyScore}
-              value={typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored"}
+              value={typeof visibleProductScore === "number" ? typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored" : "Not scored"}
             />
               <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
               <MiniMetric
