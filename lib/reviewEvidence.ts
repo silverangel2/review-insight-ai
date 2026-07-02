@@ -722,7 +722,7 @@ export async function collectAndAnalyzeReviewEvidence(
     return rememberedEvidence;
   }
 
-  const listingEvidence = await findExactProductListing({
+  const rawListingEvidence = await findExactProductListing({
     productName: product,
     brand: input.brand,
     store: input.store || undefined,
@@ -730,6 +730,41 @@ export async function collectAndAnalyzeReviewEvidence(
     rating: toOptionalNumber(input.rating),
     reviewCount: toOptionalNumber(input.reviewCount),
   });
+
+  const requestedStoreHost = String(input.store || "").toLowerCase();
+  const requiresWalmartCa =
+    requestedStoreHost.includes("walmart.ca") ||
+    requestedStoreHost.includes("walmart canada");
+
+  const returnedExactHost = (() => {
+    try {
+      return rawListingEvidence.exactListingUrl
+        ? new URL(rawListingEvidence.exactListingUrl).hostname.toLowerCase().replace(/^www\./, "")
+        : "";
+    } catch {
+      return "";
+    }
+  })();
+
+  const listingEvidence =
+    requiresWalmartCa &&
+    returnedExactHost &&
+    returnedExactHost !== "walmart.ca" &&
+    !returnedExactHost.endsWith(".walmart.ca")
+      ? {
+          ...rawListingEvidence,
+          exactListingUrl: null,
+          price: null,
+          rating: null,
+          reviewCount: null,
+          confidence: "low" as const,
+          notes: [
+            ...(Array.isArray(rawListingEvidence.notes) ? rawListingEvidence.notes : []),
+            `Rejected returned listing because requested store is Walmart.ca, but returned host was ${returnedExactHost}.`,
+            "ReviewIntel did not use this listing as exact product evidence.",
+          ],
+        }
+      : rawListingEvidence;
 
   const prompt = `
 You are ReviewIntel's review-evidence scanner.
