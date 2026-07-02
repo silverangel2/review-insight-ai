@@ -327,6 +327,49 @@ function normalizeListingConfidence(
   return listingEvidence;
 }
 
+
+function listingDomainMatchesRequestedStore(
+  listingEvidence: ExactProductSearchResult | null | undefined,
+  input: {
+    productName?: string;
+    brand?: string;
+    model?: string;
+  }
+): ExactProductSearchResult | null | undefined {
+  if (!listingEvidence) return listingEvidence;
+
+  const requestText = [input.productName, input.brand, input.model]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const url = String(listingEvidence.exactListingUrl || "").toLowerCase();
+  const notes = Array.isArray(listingEvidence.notes) ? listingEvidence.notes : [];
+
+  const requestedWalmart = requestText.includes("walmart");
+  const requestedCanada =
+    requestText.includes("walmart.ca") ||
+    requestText.includes("canada") ||
+    requestText.includes("cad") ||
+    requestText.includes("$59.99");
+
+  const foundWalmartCom = url.includes("walmart.com/");
+  const foundWalmartCa = url.includes("walmart.ca/");
+
+  if (requestedWalmart && requestedCanada && foundWalmartCom && !foundWalmartCa) {
+    return {
+      ...listingEvidence,
+      confidence: "low",
+      notes: [
+        ...notes,
+        "Requested product appears to be Walmart Canada/CAD, but the matched listing is Walmart.com. Treat this as a similar listing, not confirmed exact product evidence.",
+      ],
+    };
+  }
+
+  return listingEvidence;
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
