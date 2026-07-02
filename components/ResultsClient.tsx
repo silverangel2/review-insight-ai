@@ -119,7 +119,7 @@ const resultCopy: Record<
     reviews: "reviews",
     sourcesLimited: "Public evidence was limited at analysis time.",
     sourcesChecked: (count, names, more) => `We checked ${count} source${count === 1 ? "" : "s"} including ${names.join(", ")}${more ? " and more" : ""}.`,
-    buyerConfidence: "Buyer confidence",
+    buyerConfidence: "Verdict confidence",
     buyScore: "Buy score",
     value: "Value",
     aiLikeReviews: "AI-like reviews",
@@ -153,7 +153,7 @@ const resultCopy: Record<
     reviews: "avis",
     sourcesLimited: "Les preuves publiques étaient limitées au moment de l’analyse.",
     sourcesChecked: (count, names, more) => `Nous avons vérifié ${count} source${count === 1 ? "" : "s"}, dont ${names.join(", ")}${more ? " et d’autres" : ""}.`,
-    buyerConfidence: "Confiance acheteur",
+    buyerConfidence: "Confiance du verdict",
     buyScore: "Score d’achat",
     value: "Valeur",
     aiLikeReviews: "Avis de type IA",
@@ -187,7 +187,7 @@ const resultCopy: Record<
     reviews: "reseñas",
     sourcesLimited: "La evidencia pública era limitada al momento del análisis.",
     sourcesChecked: (count, names, more) => `Revisamos ${count} fuente${count === 1 ? "" : "s"}, incluidas ${names.join(", ")}${more ? " y más" : ""}.`,
-    buyerConfidence: "Confianza del comprador",
+    buyerConfidence: "Confianza del veredicto",
     buyScore: "Puntuación de compra",
     value: "Valor",
     aiLikeReviews: "Reseñas tipo IA",
@@ -221,7 +221,7 @@ const resultCopy: Record<
     reviews: "条评论",
     sourcesLimited: "分析时可用的公开证据有限。",
     sourcesChecked: (count, names, more) => `我们检查了 ${count} 个来源，包括 ${names.join("、")}${more ? " 等" : ""}。`,
-    buyerConfidence: "购买信心",
+    buyerConfidence: "判定可信度",
     buyScore: "购买评分",
     value: "价值",
     aiLikeReviews: "类似 AI 的评论",
@@ -255,7 +255,7 @@ const resultCopy: Record<
     reviews: "Bewertungen",
     sourcesLimited: "Zum Analysezeitpunkt waren öffentliche Belege begrenzt.",
     sourcesChecked: (count, names, more) => `Wir haben ${count} Quelle${count === 1 ? "" : "n"} geprüft, darunter ${names.join(", ")}${more ? " und weitere" : ""}.`,
-    buyerConfidence: "Käufervertrauen",
+    buyerConfidence: "Urteilsvertrauen",
     buyScore: "Kaufwertung",
     value: "Wert",
     aiLikeReviews: "KI-ähnliche Bewertungen",
@@ -289,7 +289,7 @@ const resultCopy: Record<
     reviews: "समीक्षाएँ",
     sourcesLimited: "विश्लेषण के समय सार्वजनिक प्रमाण सीमित थे।",
     sourcesChecked: (count, names, more) => `हमने ${count} स्रोत जाँचे, जिनमें ${names.join(", ")}${more ? " और अन्य" : ""} शामिल हैं।`,
-    buyerConfidence: "खरीदार भरोसा",
+    buyerConfidence: "निर्णय भरोसा",
     buyScore: "खरीद स्कोर",
     value: "मूल्य",
     aiLikeReviews: "AI जैसी समीक्षाएँ",
@@ -453,10 +453,6 @@ function optionalVerdictFromBuyer(value: unknown): ShopperVerdict | null {
   if (verdict === "BUY" || verdict === "CONSIDER" || verdict === "MAYBE") return verdict === "BUY" ? "BUY" : "CONSIDER";
   if (verdict === "AVOID") return "AVOID";
   return null;
-}
-
-function decisionPercent(result: ShopperProductResult) {
-  return clampScore(result.buyingConfidence || result.productScore, result.productScore);
 }
 
 function localeFromResult(result: AnalyzeResponse): ReviewIntelLocale {
@@ -802,7 +798,12 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     ...copy.verdicts[shopper.verdict]
   };
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
-  const percent = decisionPercent(shopper);
+  const verdictConfidence =
+    typeof (result as Record<string, unknown>).verdictConfidence === "number"
+      ? Number((result as Record<string, unknown>).verdictConfidence)
+      : typeof shopper.buyingConfidence === "number"
+        ? shopper.buyingConfidence
+        : 0;
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -869,7 +870,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {percent}% {copy.buyerConfidence}
+            {verdictConfidence}% {copy.buyerConfidence}
           </div>
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
@@ -881,9 +882,16 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="ri-mobile-metric-grid mt-4 grid grid-cols-2 gap-2 border-t border-black/10 pt-3 text-left">
-            <MiniMetric label={copy.buyScore} value={`${Math.round(visibleProductScore / 10)}/10`} />
+            <MiniMetric
+              label={copy.buyScore}
+              value={typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored"}
+            />
             <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
-            <MiniMetric label={copy.aiLikeReviews} value={`${shopper.fakeReviewPercent}% ${copy.signs}`} helper={`${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`} />
+            <MiniMetric
+              label={copy.aiLikeReviews}
+              value={shopper.productScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
+              helper={shopper.productScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+            />
             <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
           </div>
         </section>
@@ -1025,16 +1033,23 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{percent}%</p>
+                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence}%</p>
                   <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 md:grid-cols-4 sm:mt-6 sm:pt-5">
-              <MiniMetric label={copy.buyScore} value={`${Math.round(visibleProductScore / 10)}/10`} />
+              <MiniMetric
+              label={copy.buyScore}
+              value={typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored"}
+            />
               <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
-              <MiniMetric label={copy.aiLikeReviews} value={`${shopper.fakeReviewPercent}% ${copy.signs}`} helper={`${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`} />
+              <MiniMetric
+              label={copy.aiLikeReviews}
+              value={shopper.productScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
+              helper={shopper.productScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+            />
               <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
             </div>
           </section>
