@@ -29,6 +29,12 @@ export type ReviewEvidenceResult = {
   sourcesChecked: string[];
   reviewsFound: number;
   marketplaceReviewCount?: number | null;
+  reviewCollector?: {
+    attempted: boolean;
+    sourceUrl: string | null;
+    reviewsCollected: number;
+    coverageNote: string;
+  };
   commentsAnalyzed: number;
   evidenceStrength: "none" | "weak" | "limited" | "usable" | "strong";
   aiPatternSignals?: string[];
