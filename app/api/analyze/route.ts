@@ -12,7 +12,6 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
-import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
