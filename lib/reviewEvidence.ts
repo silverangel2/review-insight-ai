@@ -532,6 +532,66 @@ function safeParseReviewEvidenceJson(text: string) {
 }
 
 
+
+function applyObservedScreenshotSignalsToListing(
+  listingEvidence: ExactProductSearchResult | null,
+  input: ReviewEvidenceInput
+): ExactProductSearchResult | null {
+  if (!listingEvidence?.exactListingUrl) return listingEvidence;
+
+  const observedPrice = toOptionalNumber(input.price);
+  const observedRating = toOptionalNumber(input.rating);
+  const observedReviewCount = toOptionalNumber(input.reviewCount);
+
+  const notes = Array.isArray(listingEvidence.notes) ? [...listingEvidence.notes] : [];
+
+  const next: ExactProductSearchResult = {
+    ...listingEvidence,
+    price:
+      typeof listingEvidence.price === "number" && listingEvidence.price > 0
+        ? listingEvidence.price
+        : observedPrice ?? listingEvidence.price ?? null,
+    rating:
+      typeof listingEvidence.rating === "number" && listingEvidence.rating > 0
+        ? listingEvidence.rating
+        : observedRating ?? listingEvidence.rating ?? null,
+    reviewCount:
+      typeof listingEvidence.reviewCount === "number" && listingEvidence.reviewCount > 0
+        ? listingEvidence.reviewCount
+        : observedReviewCount ?? listingEvidence.reviewCount ?? null,
+    notes,
+  };
+
+  if (
+    observedPrice &&
+    (typeof listingEvidence.price !== "number" || listingEvidence.price <= 0)
+  ) {
+    next.notes.push(
+      `Price ${observedPrice} was observed from the screenshot/request and used as an identity clue, but was not independently confirmed from Walmart.ca structured fields.`
+    );
+  }
+
+  if (
+    observedRating &&
+    (typeof listingEvidence.rating !== "number" || listingEvidence.rating <= 0)
+  ) {
+    next.notes.push(
+      `Rating ${observedRating} was observed from the screenshot/request and used as an identity clue, but was not independently confirmed from Walmart.ca structured fields.`
+    );
+  }
+
+  if (
+    observedReviewCount &&
+    (typeof listingEvidence.reviewCount !== "number" || listingEvidence.reviewCount <= 0)
+  ) {
+    next.notes.push(
+      `Review count ${observedReviewCount} was observed from the screenshot/request and used as an identity clue, but was not independently confirmed from Walmart.ca structured fields.`
+    );
+  }
+
+  return next;
+}
+
 function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceResult {
   const listingEvidence = result.listingEvidence;
 
@@ -855,6 +915,11 @@ Scoring rules:
       input
     );
 
+    const displayListingEvidence = applyObservedScreenshotSignalsToListing(
+      normalizedListingEvidence ?? null,
+      input
+    );
+
     const listingNotes = Array.isArray(normalizedListingEvidence?.notes)
       ? normalizedListingEvidence.notes.join(" ").toLowerCase()
       : "";
@@ -896,7 +961,7 @@ Scoring rules:
             ...parsed.sourcesChecked.map(String),
           ]))
         : listingEvidence.sourcesChecked,
-      listingEvidence: normalizedListingEvidence,
+      listingEvidence: displayListingEvidence,
       exactListingConfirmed: !listingIsUnconfirmed && normalizedListingEvidence?.confidence === "high",
       sourceLinks: normalizeSourceLinks([
         ...(Array.isArray(parsed.sourceLinks) ? parsed.sourceLinks : []),
@@ -911,24 +976,29 @@ Scoring rules:
           : []),
       ]),
       reviewsFound: Number(
-        normalizedListingEvidence?.reviewCount ||
+        displayListingEvidence?.reviewCount ||
+          normalizedListingEvidence?.reviewCount ||
           parsed.reviewsFound ||
           commentsAnalyzed ||
           0
       ),
-      commentsAnalyzed: normalizedListingEvidence?.exactListingUrl ? 0 : commentsAnalyzed,
+      commentsAnalyzed: displayListingEvidence?.exactListingUrl ? 0 : commentsAnalyzed,
       evidenceStrength: cappedEvidenceStrength,
-      sourceNotes: normalizedListingEvidence?.exactListingUrl
+      sourceNotes: displayListingEvidence?.exactListingUrl
         ? [
-            normalizedListingEvidence.confidence === "high"
+            normalizedListingEvidence?.confidence === "high"
               ? "Exact product listing was found and matched the requested product signals."
               : "Exact product listing was found, but current public listing signals differ from the screenshot/requested signals.",
-            normalizedListingEvidence.reviewCount
+            normalizedListingEvidence?.reviewCount
               ? `Current public listing shows ${normalizedListingEvidence.reviewCount} reviews.`
-              : "Current public listing review count was not fully confirmed from structured listing fields.",
-            normalizedListingEvidence.rating
+              : displayListingEvidence?.reviewCount
+                ? `Screenshot/request showed ${displayListingEvidence.reviewCount} reviews; Walmart.ca structured review count was not independently confirmed.`
+                : "Current public listing review count was not fully confirmed from structured listing fields.",
+            normalizedListingEvidence?.rating
               ? `Current public listing rating is ${normalizedListingEvidence.rating}.`
-              : "Current public listing rating was not fully confirmed from structured listing fields.",
+              : displayListingEvidence?.rating
+                ? `Screenshot/request showed a ${displayListingEvidence.rating} rating; Walmart.ca structured rating was not independently confirmed.`
+                : "Current public listing rating was not fully confirmed from structured listing fields.",
           ]
         : Array.isArray(parsed.sourceNotes)
           ? parsed.sourceNotes
