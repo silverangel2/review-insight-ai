@@ -4,6 +4,7 @@ import { readAccountSession } from "@/lib/accountSession";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import { normalizeLocale } from "@/lib/i18n";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
+import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 
 export const dynamic = "force-dynamic";
 
@@ -105,11 +106,14 @@ async function attachRealReviewEvidence(product: unknown) {
   const record = asRecord(product);
   const reviewEvidence = await collectAndAnalyzeReviewEvidence(getReviewEvidenceInput(product));
 
-  return {
-    ...record,
-    reviewEvidence,
-    reviewAuthenticity: reviewEvidence.reviewAuthenticity,
-  };
+  return await stabilizeAnalysisResultWithMemory(
+    {
+      ...record,
+      reviewEvidence,
+      reviewAuthenticity: reviewEvidence.reviewAuthenticity,
+    },
+    { reviewEvidence }
+  );
 }
 
 async function callOpenAI(prompt: string) {

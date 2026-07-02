@@ -991,6 +991,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
         <p className="mt-3 text-sm font-bold leading-6 text-slate-700 dark:text-slate-200 sm:text-base sm:leading-7">{shopper.bottomLine}</p>
       </section>
 
+      <ToolEvidenceCard result={result} />
+
       <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor} empty={copy.bestForEmpty} />
         <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor} empty={copy.notIdealEmpty} />
@@ -999,6 +1001,175 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     </>
   );
 }
+
+
+type ToolProofRecord = Record<string, unknown>;
+
+function isToolProofRecord(value: unknown): value is ToolProofRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function getToolProofRecord(source: ToolProofRecord, key: string): ToolProofRecord | null {
+  const value = source[key];
+  return isToolProofRecord(value) ? value : null;
+}
+
+function getToolProofString(source: ToolProofRecord | null, key: string): string {
+  if (!source) return "";
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getToolProofNumber(source: ToolProofRecord | null, key: string): number | null {
+  if (!source) return null;
+  const value = source[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function getToolProofArray(source: ToolProofRecord | null, key: string): unknown[] {
+  if (!source) return [];
+  const value = source[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function toolProofValue(value: string | number | null | undefined, empty = "Not found") {
+  if (value === null || value === undefined || value === "") return empty;
+  return String(value);
+}
+
+function ToolProofPill({ label, value }: { label: string; value: string | number | null | undefined }) {
+  return (
+    <div className="rounded-2xl border border-line bg-white/80 p-3 shadow-soft dark:border-white/10 dark:bg-slate-950/70">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-ink dark:text-white">{toolProofValue(value)}</p>
+    </div>
+  );
+}
+
+function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
+  const raw = result as unknown as ToolProofRecord;
+  const analysis = getToolProofRecord(raw, "analysis");
+  const reviewEvidence =
+    getToolProofRecord(raw, "reviewEvidence") ||
+    getToolProofRecord(analysis || {}, "reviewEvidence");
+
+  const productIdentity =
+    getToolProofRecord(raw, "productIdentity") ||
+    getToolProofRecord(analysis || {}, "productIdentity");
+
+  const listingEvidence = reviewEvidence ? getToolProofRecord(reviewEvidence, "listingEvidence") : null;
+  const reviewAuthenticity =
+    getToolProofRecord(raw, "reviewAuthenticity") ||
+    (reviewEvidence ? getToolProofRecord(reviewEvidence, "reviewAuthenticity") : null) ||
+    getToolProofRecord(analysis || {}, "reviewAuthenticity");
+
+  const stableProductKey =
+    getToolProofString(raw, "stableProductKey") ||
+    getToolProofString(raw, "productKey") ||
+    getToolProofString(analysis || {}, "stableProductKey") ||
+    getToolProofString(analysis || {}, "productKey");
+
+  const sourcesChecked = getToolProofArray(reviewEvidence, "sourcesChecked");
+  const commentsAnalyzed = getToolProofNumber(reviewEvidence, "commentsAnalyzed");
+  const reviewsFound = getToolProofNumber(reviewEvidence, "reviewsFound");
+  const evidenceStrength = getToolProofString(reviewEvidence, "evidenceStrength");
+  const aiLikeScore = getToolProofNumber(reviewAuthenticity, "score");
+  const exactConfidence = getToolProofString(listingEvidence, "confidence");
+
+  const store =
+    getToolProofString(productIdentity, "store") ||
+    getToolProofString(listingEvidence, "store");
+
+  const brand = getToolProofString(productIdentity, "brand");
+  const price =
+    getToolProofNumber(productIdentity, "price") ??
+    getToolProofNumber(listingEvidence, "price");
+
+  const rating =
+    getToolProofNumber(productIdentity, "rating") ??
+    getToolProofNumber(listingEvidence, "rating");
+
+  const reviewCount =
+    getToolProofNumber(productIdentity, "reviewCount") ??
+    getToolProofNumber(listingEvidence, "reviewCount");
+
+  const exactListingUrl = getToolProofString(listingEvidence, "exactListingUrl");
+  const exactListingTitle = getToolProofString(listingEvidence, "exactListingTitle");
+
+  const hasProof =
+    Boolean(stableProductKey) ||
+    Boolean(reviewEvidence) ||
+    Boolean(productIdentity) ||
+    Boolean(listingEvidence);
+
+  if (!hasProof) return null;
+
+  return (
+    <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 shadow-soft dark:border-sky-300/20 dark:bg-sky-300/10 sm:rounded-[1.5rem] sm:p-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600 dark:text-sky-200">
+            AI tool proof
+          </p>
+          <h2 className="mt-1 text-lg font-black text-ink dark:text-white sm:text-xl">
+            What ReviewIntel checked
+          </h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-200">
+            Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available.
+          </p>
+        </div>
+        {exactListingUrl ? (
+          <a
+            href={exactListingUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-ink px-4 py-2 text-xs font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean dark:bg-white dark:text-ink"
+          >
+            Open source
+          </a>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ToolProofPill label="Store" value={store || "Not confirmed"} />
+        <ToolProofPill label="Brand" value={brand || "Not confirmed"} />
+        <ToolProofPill label="Price" value={price !== null ? `$${price}` : null} />
+        <ToolProofPill label="Stable key" value={stableProductKey ? "Matched" : "New/unknown"} />
+        <ToolProofPill label="Rating" value={rating !== null ? `${rating}/5` : null} />
+        <ToolProofPill label="Review count" value={reviewCount} />
+        <ToolProofPill label="Sources checked" value={sourcesChecked.length} />
+        <ToolProofPill label="Comments analyzed" value={commentsAnalyzed ?? reviewsFound} />
+        <ToolProofPill label="Evidence strength" value={evidenceStrength || "Not enough"} />
+        <ToolProofPill label="Exact listing" value={exactConfidence || "Not confirmed"} />
+        <ToolProofPill label="AI-like risk" value={aiLikeScore !== null ? `${aiLikeScore}%` : "Not scored"} />
+        <ToolProofPill label="Memory" value={stableProductKey ? "Saved/merged" : "Not saved"} />
+      </div>
+
+      {exactListingTitle ? (
+        <p className="mt-4 rounded-2xl bg-white/70 p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-slate-950/50 dark:text-slate-300">
+          Exact listing candidate: {exactListingTitle}
+        </p>
+      ) : null}
+
+      {sourcesChecked.length > 0 ? (
+        <div className="mt-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Sources checked</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {sourcesChecked.slice(0, 8).map((source, index) => (
+              <span
+                key={`${String(source)}-${index}`}
+                className="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-black text-sky-700 dark:border-sky-300/20 dark:bg-slate-950 dark:text-sky-200"
+              >
+                {String(source).slice(0, 44)}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 
 function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
   const source = result as AnalyzeResponse & {

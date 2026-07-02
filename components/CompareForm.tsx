@@ -560,6 +560,185 @@ function SideInput({
   );
 }
 
+
+type CompareToolProofRecord = Record<string, unknown>;
+
+function isCompareToolProofRecord(value: unknown): value is CompareToolProofRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function proofRecord(source: CompareToolProofRecord | null, key: string): CompareToolProofRecord | null {
+  if (!source) return null;
+  const value = source[key];
+  return isCompareToolProofRecord(value) ? value : null;
+}
+
+function proofString(source: CompareToolProofRecord | null, key: string): string {
+  if (!source) return "";
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
+function proofNumber(source: CompareToolProofRecord | null, key: string): number | null {
+  if (!source) return null;
+  const value = source[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function proofArray(source: CompareToolProofRecord | null, key: string): unknown[] {
+  if (!source) return [];
+  const value = source[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function proofProductName(result: AnalyzeResult, fallback: string) {
+  const product = isCompareToolProofRecord(result.product) ? result.product : null;
+  return (
+    proofString(product, "title") ||
+    proofString(product, "name") ||
+    proofString(product, "productName") ||
+    fallback
+  );
+}
+
+function getCompareProof(result: AnalyzeResult) {
+  const raw = result as unknown as CompareToolProofRecord;
+  const analysis = proofRecord(raw, "analysis");
+
+  const productIdentity =
+    proofRecord(raw, "productIdentity") ||
+    proofRecord(analysis, "productIdentity");
+
+  const reviewEvidence =
+    proofRecord(raw, "reviewEvidence") ||
+    proofRecord(analysis, "reviewEvidence");
+
+  const listingEvidence = proofRecord(reviewEvidence, "listingEvidence");
+
+  const reviewAuthenticity =
+    proofRecord(raw, "reviewAuthenticity") ||
+    proofRecord(reviewEvidence, "reviewAuthenticity") ||
+    proofRecord(analysis, "reviewAuthenticity");
+
+  const stableKey =
+    proofString(raw, "stableProductKey") ||
+    proofString(raw, "productKey") ||
+    proofString(analysis, "stableProductKey") ||
+    proofString(analysis, "productKey");
+
+  return {
+    stableKey,
+    store: proofString(productIdentity, "store") || proofString(listingEvidence, "store"),
+    brand: proofString(productIdentity, "brand"),
+    price: proofNumber(productIdentity, "price") ?? proofNumber(listingEvidence, "price"),
+    rating: proofNumber(productIdentity, "rating") ?? proofNumber(listingEvidence, "rating"),
+    reviewCount: proofNumber(productIdentity, "reviewCount") ?? proofNumber(listingEvidence, "reviewCount"),
+    sourcesChecked: proofArray(reviewEvidence, "sourcesChecked"),
+    commentsAnalyzed: proofNumber(reviewEvidence, "commentsAnalyzed") ?? proofNumber(reviewEvidence, "reviewsFound"),
+    evidenceStrength: proofString(reviewEvidence, "evidenceStrength"),
+    exactListingConfidence: proofString(listingEvidence, "confidence"),
+    aiLikeRisk: proofNumber(reviewAuthenticity, "score"),
+  };
+}
+
+function CompareProofPill({ label, value }: { label: string; value: string | number | null | undefined }) {
+  const display = value === null || value === undefined || value === "" ? "Not found" : String(value);
+
+  return (
+    <div className="rounded-2xl border border-line bg-white/80 p-3 shadow-soft dark:border-white/10 dark:bg-slate-950/70">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-ink dark:text-white">{display}</p>
+    </div>
+  );
+}
+
+function ProductCompareToolProof({ label, result }: { label: string; result: AnalyzeResult }) {
+  const proof = getCompareProof(result);
+
+  return (
+    <div className="rounded-3xl border border-sky-200 bg-sky-50/80 p-4 dark:border-sky-300/20 dark:bg-sky-300/10">
+      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600 dark:text-sky-200">
+        {label} tool proof
+      </p>
+      <h3 className="mt-1 text-lg font-black text-ink dark:text-white">
+        {proofProductName(result, label)}
+      </h3>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <CompareProofPill label="Store" value={proof.store || "Not confirmed"} />
+        <CompareProofPill label="Brand" value={proof.brand || "Not confirmed"} />
+        <CompareProofPill label="Price" value={proof.price !== null ? `$${proof.price}` : null} />
+        <CompareProofPill label="Rating" value={proof.rating !== null ? `${proof.rating}/5` : null} />
+        <CompareProofPill label="Review count" value={proof.reviewCount} />
+        <CompareProofPill label="Sources checked" value={proof.sourcesChecked.length} />
+        <CompareProofPill label="Comments analyzed" value={proof.commentsAnalyzed} />
+        <CompareProofPill label="Evidence strength" value={proof.evidenceStrength || "Not enough"} />
+        <CompareProofPill label="Exact listing" value={proof.exactListingConfidence || "Not confirmed"} />
+        <CompareProofPill label="AI-like risk" value={proof.aiLikeRisk !== null ? `${proof.aiLikeRisk}%` : "Not scored"} />
+        <CompareProofPill label="Memory" value={proof.stableKey ? "Saved/merged" : "New/unknown"} />
+        <CompareProofPill label="Stable key" value={proof.stableKey ? "Matched" : "Not matched"} />
+      </div>
+
+      {proof.sourcesChecked.length > 0 ? (
+        <div className="mt-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Sources checked</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {proof.sourcesChecked.slice(0, 6).map((source, index) => (
+              <span
+                key={`${String(source)}-${index}`}
+                className="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-black text-sky-700 dark:border-sky-300/20 dark:bg-slate-950 dark:text-sky-200"
+              >
+                {String(source).slice(0, 40)}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ShopperCompareToolProof({ productA, productB }: { productA: AnalyzeResult; productB: AnalyzeResult }) {
+  const a = getCompareProof(productA);
+  const b = getCompareProof(productB);
+
+  const aEvidenceScore = a.sourcesChecked.length * 3 + (a.commentsAnalyzed || 0) + (a.reviewCount || 0) / 100;
+  const bEvidenceScore = b.sourcesChecked.length * 3 + (b.commentsAnalyzed || 0) + (b.reviewCount || 0) / 100;
+
+  const evidenceAdvantage =
+    Math.abs(aEvidenceScore - bEvidenceScore) < 2
+      ? "Both products have similar review evidence."
+      : aEvidenceScore > bEvidenceScore
+        ? "Product A has stronger review evidence."
+        : "Product B has stronger review evidence.";
+
+  return (
+    <section className="rounded-[2rem] border border-sky-200 bg-white p-4 shadow-soft dark:border-sky-300/20 dark:bg-slate-950 sm:p-6">
+      <div className="mb-5">
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-600 dark:text-sky-200">
+          AI tool proof
+        </p>
+        <h2 className="mt-1 text-xl font-black text-ink dark:text-white">
+          What ReviewIntel checked for this comparison
+        </h2>
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
+          Compare uses product memory, exact listing search, and review evidence for both products before deciding.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ProductCompareToolProof label="Product A" result={productA} />
+        <ProductCompareToolProof label="Product B" result={productB} />
+      </div>
+
+      <p className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm font-black text-sky-800 dark:border-sky-300/20 dark:bg-sky-300/10 dark:text-sky-100">
+        {evidenceAdvantage}
+      </p>
+    </section>
+  );
+}
+
+
 function ResultCard({ label, result, winner }: { label: "A" | "B"; result: AnalyzeResult; winner: boolean }) {
   return (
     <div
@@ -930,6 +1109,58 @@ async function compareProductsWithAi(productA: AnalyzeResult, productB: AnalyzeR
   }
 
   return data as ShopperComparison;
+}
+
+
+export 
+const COMPARE_PROGRESS_STEPS = [
+  "Identifying both products",
+  "Creating stable product keys",
+  "Finding exact listings",
+  "Reading review evidence for Product A",
+  "Reading review evidence for Product B",
+  "Checking AI-like review patterns",
+  "Comparing buyer confidence",
+];
+
+function CompareProgressSteps() {
+  return (
+    <div className="rounded-[2rem] border border-sky-200 bg-sky-50/80 p-4 shadow-soft dark:border-sky-300/20 dark:bg-sky-300/10 sm:p-5">
+      <div className="mb-4">
+        <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-600 dark:text-sky-200">
+          Compare tools working
+        </p>
+        <h3 className="mt-1 text-lg font-black text-ink dark:text-white">
+          ReviewIntel is checking both products before comparing
+        </h3>
+
+        <CompareProgressSteps />
+      </div>
+
+      <div className="space-y-3">
+        {COMPARE_PROGRESS_STEPS.map((step, index) => (
+          <div key={step} className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 dark:bg-slate-950/60">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-600 text-xs font-black text-white dark:bg-sky-300 dark:text-slate-950">
+              {index + 1}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-ink dark:text-white">{step}</p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-slate-800">
+                <div
+                  className="h-full animate-pulse rounded-full bg-sky-500 dark:bg-sky-300"
+                  style={{ width: `${Math.min(100, 20 + index * 12)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-4 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
+        Compare should use product memory, exact listing search, and review evidence for both products.
+      </p>
+    </div>
+  );
 }
 
 
@@ -1304,6 +1535,8 @@ export function CompareForm() {
       `}</style>
               <ResultCard label="A" result={productA.result!} winner={winner === "A"} />
               <ResultCard label="B" result={productB.result!} winner={winner === "B"} />
+
+              <ShopperCompareToolProof productA={productA.result!} productB={productB.result!} />
             </div>
           </section>
         )}

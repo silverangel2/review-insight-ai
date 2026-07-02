@@ -12,6 +12,7 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
+import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -1402,14 +1403,17 @@ Return only the required JSON.
           reasons: reviewEvidence.reviewAuthenticity.reasons,
         };
 
-  return normalizeResult(
-    {
-      ...rawRecord,
-      reviewEvidence,
-      reviewAuthenticity,
-    },
-    vision,
-    locale
+  return await stabilizeAnalysisResultWithMemory(
+    normalizeResult(
+      {
+        ...rawRecord,
+        reviewEvidence,
+        reviewAuthenticity,
+      },
+      vision,
+      locale
+    ),
+    { vision, reviewEvidence }
   );
 }
 

@@ -12,6 +12,7 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
+import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -545,6 +546,8 @@ ${sample}
               suspiciousComments: [],
             },
     });
+
+    Object.assign(result, await stabilizeAnalysisResultWithMemory(result as Record<string, unknown>, { reviewEvidence }));
     if (email && !isCompareSideAnalysis) {
       const analysisRecord = await saveAnalysisRecord({
         profile_email: email,

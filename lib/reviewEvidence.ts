@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+import { findExactProductListing, type ExactProductSearchResult } from "@/lib/exactProductSearch";
 type ReviewEvidenceInput = {
   productName: string;
   brand?: string;
@@ -10,6 +12,7 @@ export type ReviewEvidenceResult = {
   commentsAnalyzed: number;
   evidenceStrength: "none" | "weak" | "limited" | "usable" | "strong";
   sourceNotes: string[];
+  listingEvidence?: ExactProductSearchResult | null;
   reviewAuthenticity: {
     score: number | null;
     label: string;
@@ -24,6 +27,82 @@ export type ReviewEvidenceResult = {
   };
 };
 
+
+
+function getReviewEvidenceSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) return null;
+
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+function normalizeEvidenceProductKey(input: ReviewEvidenceInput) {
+  return [input.brand, input.productName, input.model]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(with|and|for|the|a|an|set|bag|bags|suitcase|spinner|wheels|lock|lightweight|travel|women|men)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 10)
+    .join(" ");
+}
+
+function isFreshEvidence(updatedAt: unknown) {
+  if (typeof updatedAt !== "string") return false;
+  const time = new Date(updatedAt).getTime();
+  if (!Number.isFinite(time)) return false;
+
+  const ageMs = Date.now() - time;
+  const maxAgeMs = 1000 * 60 * 60 * 24 * 14; // 14 days
+  return ageMs >= 0 && ageMs <= maxAgeMs;
+}
+
+async function loadRecentReviewEvidenceFromMemory(input: ReviewEvidenceInput): Promise<ReviewEvidenceResult | null> {
+  const supabase = getReviewEvidenceSupabaseClient();
+  if (!supabase) return null;
+
+  const normalized = normalizeEvidenceProductKey(input);
+  if (!normalized) return null;
+
+  const { data, error } = await supabase
+    .from("reviewintel_product_memory")
+    .select("product_key, review_evidence, updated_at")
+    .ilike("normalized_title", `%${normalized.split(" ").slice(0, 4).join("%")}%`)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (error || !data || data.length === 0) return null;
+
+  const row = data[0] as {
+    product_key?: string;
+    review_evidence?: ReviewEvidenceResult | null;
+    updated_at?: string;
+  };
+
+  if (!row.review_evidence || !isFreshEvidence(row.updated_at)) return null;
+
+  const evidence = row.review_evidence;
+
+  return {
+    ...evidence,
+    sourceNotes: [
+      "Reused recent ReviewIntel product memory instead of repeating a fresh web search.",
+      ...(Array.isArray(evidence.sourceNotes) ? evidence.sourceNotes : []),
+    ],
+  };
+}
+
+
 function emptyEvidence(reason = "No review evidence collected."): ReviewEvidenceResult {
   return {
     sourcesChecked: [],
@@ -31,6 +110,7 @@ function emptyEvidence(reason = "No review evidence collected."): ReviewEvidence
     commentsAnalyzed: 0,
     evidenceStrength: "none",
     sourceNotes: [reason],
+    listingEvidence: null,
     reviewAuthenticity: {
       score: null,
       label: "Review scan not verified",
@@ -68,12 +148,29 @@ export async function collectAndAnalyzeReviewEvidence(
     return emptyEvidence("Product name was not clear enough to search reviews.");
   }
 
+  const rememberedEvidence = await loadRecentReviewEvidenceFromMemory(input);
+  if (rememberedEvidence) {
+    return rememberedEvidence;
+  }
+
+  const listingEvidence = await findExactProductListing({
+    productName: product,
+    brand: input.brand,
+  });
+
   const prompt = `
 You are ReviewIntel's review-evidence scanner.
 
 Task:
 Search the web for public review evidence about this product:
 "${product}"
+
+Exact listing evidence already collected by ReviewIntel:
+${JSON.stringify(listingEvidence, null, 2)}
+
+Use exact listing evidence as the anchor when it is medium or high confidence.
+If exact listing evidence contains rating or reviewCount, preserve it.
+Do not override it with weaker screenshot-only assumptions.
 
 Search intent:
 - buyer reviews
@@ -228,8 +325,14 @@ Scoring rules:
         : null;
 
     return {
-      sourcesChecked: Array.isArray(parsed.sourcesChecked) ? parsed.sourcesChecked : [],
-      reviewsFound: Number(parsed.reviewsFound || commentsAnalyzed || 0),
+      sourcesChecked: Array.isArray(parsed.sourcesChecked)
+        ? Array.from(new Set([
+            ...listingEvidence.sourcesChecked,
+            ...parsed.sourcesChecked.map(String),
+          ]))
+        : listingEvidence.sourcesChecked,
+      listingEvidence,
+      reviewsFound: Number(parsed.reviewsFound || listingEvidence.reviewCount || commentsAnalyzed || 0),
       commentsAnalyzed,
       evidenceStrength:
         commentsAnalyzed >= 30

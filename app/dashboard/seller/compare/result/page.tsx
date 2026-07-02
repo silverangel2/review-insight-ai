@@ -33,6 +33,213 @@ function score(value: unknown) {
   return typeof value === "number" ? `${Math.round(value)}% confidence` : "AI confidence";
 }
 
+
+type SellerCompareProofRecord = Record<string, unknown>;
+
+function isSellerCompareProofRecord(value: unknown): value is SellerCompareProofRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function sellerProofRecord(source: SellerCompareProofRecord | null, key: string): SellerCompareProofRecord | null {
+  if (!source) return null;
+  const value = source[key];
+  return isSellerCompareProofRecord(value) ? value : null;
+}
+
+function sellerProofString(source: SellerCompareProofRecord | null, key: string): string {
+  if (!source) return "";
+  const value = source[key];
+  return typeof value === "string" ? value : "";
+}
+
+function sellerProofNumber(source: SellerCompareProofRecord | null, key: string): number | null {
+  if (!source) return null;
+  const value = source[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function sellerProofArray(source: SellerCompareProofRecord | null, key: string): unknown[] {
+  if (!source) return [];
+  const value = source[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function getSellerCompareProof(product: unknown) {
+  const raw = isSellerCompareProofRecord(product) ? product : {};
+  const analysis = sellerProofRecord(raw, "analysis");
+
+  const productIdentity =
+    sellerProofRecord(raw, "productIdentity") ||
+    sellerProofRecord(analysis, "productIdentity");
+
+  const reviewEvidence =
+    sellerProofRecord(raw, "reviewEvidence") ||
+    sellerProofRecord(analysis, "reviewEvidence");
+
+  const listingEvidence = sellerProofRecord(reviewEvidence, "listingEvidence");
+
+  const reviewAuthenticity =
+    sellerProofRecord(raw, "reviewAuthenticity") ||
+    sellerProofRecord(reviewEvidence, "reviewAuthenticity") ||
+    sellerProofRecord(analysis, "reviewAuthenticity");
+
+  const stableKey =
+    sellerProofString(raw, "stableProductKey") ||
+    sellerProofString(raw, "productKey") ||
+    sellerProofString(analysis, "stableProductKey") ||
+    sellerProofString(analysis, "productKey");
+
+  return {
+    stableKey,
+    store: sellerProofString(productIdentity, "store") || sellerProofString(listingEvidence, "store"),
+    brand: sellerProofString(productIdentity, "brand"),
+    price: sellerProofNumber(productIdentity, "price") ?? sellerProofNumber(listingEvidence, "price"),
+    rating: sellerProofNumber(productIdentity, "rating") ?? sellerProofNumber(listingEvidence, "rating"),
+    reviewCount: sellerProofNumber(productIdentity, "reviewCount") ?? sellerProofNumber(listingEvidence, "reviewCount"),
+    sourcesChecked: sellerProofArray(reviewEvidence, "sourcesChecked"),
+    commentsAnalyzed: sellerProofNumber(reviewEvidence, "commentsAnalyzed") ?? sellerProofNumber(reviewEvidence, "reviewsFound"),
+    evidenceStrength: sellerProofString(reviewEvidence, "evidenceStrength"),
+    exactListingConfidence: sellerProofString(listingEvidence, "confidence"),
+    aiLikeRisk: sellerProofNumber(reviewAuthenticity, "score"),
+  };
+}
+
+function SellerProofPill({ label, value }: { label: string; value: string | number | null | undefined }) {
+  const display = value === null || value === undefined || value === "" ? "Not found" : String(value);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-950 dark:text-white">{display}</p>
+    </div>
+  );
+}
+
+function SellerProductProofCard({ label, product }: { label: string; product: unknown }) {
+  const proof = getSellerCompareProof(product);
+
+  return (
+    <div className="rounded-3xl border border-cyan-200 bg-cyan-50/80 p-4 dark:border-cyan-300/20 dark:bg-cyan-300/10">
+      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-700 dark:text-cyan-200">
+        {label} tool proof
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <SellerProofPill label="Store" value={proof.store || "Not confirmed"} />
+        <SellerProofPill label="Brand" value={proof.brand || "Not confirmed"} />
+        <SellerProofPill label="Price" value={proof.price !== null ? `$${proof.price}` : null} />
+        <SellerProofPill label="Rating" value={proof.rating !== null ? `${proof.rating}/5` : null} />
+        <SellerProofPill label="Review count" value={proof.reviewCount} />
+        <SellerProofPill label="Sources checked" value={proof.sourcesChecked.length} />
+        <SellerProofPill label="Comments analyzed" value={proof.commentsAnalyzed} />
+        <SellerProofPill label="Evidence strength" value={proof.evidenceStrength || "Not enough"} />
+        <SellerProofPill label="Exact listing" value={proof.exactListingConfidence || "Not confirmed"} />
+        <SellerProofPill label="AI-like risk" value={proof.aiLikeRisk !== null ? `${proof.aiLikeRisk}%` : "Not scored"} />
+        <SellerProofPill label="Memory" value={proof.stableKey ? "Saved/merged" : "New/unknown"} />
+        <SellerProofPill label="Stable key" value={proof.stableKey ? "Matched" : "Not matched"} />
+      </div>
+
+      {proof.sourcesChecked.length > 0 ? (
+        <div className="mt-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Sources checked</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {proof.sourcesChecked.slice(0, 6).map((source, index) => (
+              <span
+                key={`${String(source)}-${index}`}
+                className="rounded-full border border-cyan-200 bg-white px-3 py-1 text-xs font-black text-cyan-800 dark:border-cyan-300/20 dark:bg-slate-950 dark:text-cyan-200"
+              >
+                {String(source).slice(0, 40)}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SellerCompareToolProof({ result }: { result: unknown }) {
+  const raw = result as unknown as SellerCompareProofRecord;
+
+  const yourProduct =
+    raw.yourProduct ||
+    raw.productA ||
+    raw.primaryProduct ||
+    raw.yourAnalysis ||
+    raw.yourResult ||
+    raw.yourScan ||
+    raw.sellerProduct ||
+    raw.sellerAnalysis ||
+    raw.leftProduct ||
+    raw.firstProduct ||
+    null;
+
+  const competitorProduct =
+    raw.competitorProduct ||
+    raw.productB ||
+    raw.competitorAnalysis ||
+    raw.competitorResult ||
+    raw.competitorScan ||
+    raw.competitor ||
+    raw.rightProduct ||
+    raw.secondProduct ||
+    null;
+
+  const yourProof = getSellerCompareProof(yourProduct);
+  const competitorProof = getSellerCompareProof(competitorProduct);
+
+  const yourEvidenceScore =
+    yourProof.sourcesChecked.length * 3 +
+    (yourProof.commentsAnalyzed || 0) +
+    (yourProof.reviewCount || 0) / 100;
+
+  const competitorEvidenceScore =
+    competitorProof.sourcesChecked.length * 3 +
+    (competitorProof.commentsAnalyzed || 0) +
+    (competitorProof.reviewCount || 0) / 100;
+
+  const evidenceGap =
+    Math.abs(yourEvidenceScore - competitorEvidenceScore) < 2
+      ? "Both products have similar review evidence depth."
+      : yourEvidenceScore > competitorEvidenceScore
+        ? "Your product has stronger review evidence depth."
+        : "The competitor has stronger review evidence depth.";
+
+  const hasAnyProof =
+    Boolean(yourProduct) ||
+    Boolean(competitorProduct) ||
+    yourProof.sourcesChecked.length > 0 ||
+    competitorProof.sourcesChecked.length > 0;
+
+  if (!hasAnyProof) return null;
+
+  return (
+    <section className="rounded-[2rem] border border-cyan-200 bg-white p-4 shadow-sm dark:border-cyan-300/20 dark:bg-slate-950 sm:p-6">
+      <div className="mb-5">
+        <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-700 dark:text-cyan-200">
+          AI tool proof
+        </p>
+        <h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
+          What ReviewIntel checked for seller compare
+        </h2>
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
+          Seller Compare uses product memory, exact listing search, and review evidence to show the buyer trust gap.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SellerProductProofCard label="Your product" product={yourProduct} />
+        <SellerProductProofCard label="Competitor" product={competitorProduct} />
+      </div>
+
+      <p className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm font-black text-cyan-900 dark:border-cyan-300/20 dark:bg-cyan-300/10 dark:text-cyan-100">
+        {evidenceGap}
+      </p>
+    </section>
+  );
+}
+
+
 export default function SellerCompareResultPage() {
   const [active, setActive] = useState<SellerCompareHistoryItem | null>(null);
   const [history, setHistory] = useState<SellerCompareHistoryItem[]>([]);
@@ -158,6 +365,8 @@ export default function SellerCompareResultPage() {
           </div>
 
           <div className="seller-compare-strategy-grid seller-compare-strategy-grid-3 grid gap-5 border-t border-slate-200 bg-slate-50 p-6 md:grid-cols-3 md:p-8">
+            <SellerCompareToolProof result={visibleActive} />
+
             <StrategyCard title="Competitor wins because" items={competitorAdvantages} tone="amber" />
             <StrategyCard title="You already win on" items={yourAdvantages} tone="teal" />
             <StrategyCard title="Conversion leaks" items={conversionGaps} tone="rose" />
@@ -426,7 +635,8 @@ export default function SellerCompareResultPage() {
           }
         `}</style>
       </section>
-    </main>
+    
+</main>
   );
 }
 
