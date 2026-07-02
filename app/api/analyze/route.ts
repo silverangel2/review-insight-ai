@@ -1813,14 +1813,28 @@ function buildReviewEvidenceShopperResult(input: {
     repeatedComplaints.length > 0 ||
     commentsAnalyzed > 0;
 
+  const reviewCoverageRatio =
+    marketplaceReviewCount > 0
+      ? commentsAnalyzed / marketplaceReviewCount
+      : commentsAnalyzed > 0
+        ? commentsAnalyzed / 50
+        : 0;
+
+  // RI is only allowed to give BUY / CONSIDER / AVOID when it actually analyzed
+  // a meaningful amount of written buyer review text.
   const hasUsableReviewEvidence =
     hasReadableReviewEvidence &&
-    reviewsFound > 0 &&
+    commentsAnalyzed >= 15 &&
+    reviewSnippets.length >= 5 &&
+    reviewCoverageRatio >= 0.05 &&
     !["none", "weak"].includes(evidenceStrength);
 
+  // If RI found the product/review count but did not reach enough written reviews,
+  // it must be honest: LIMITED REVIEW EVIDENCE, not a scored verdict.
   const hasLimitedReviewEvidence =
-    hasReadableReviewEvidence ||
+    marketplaceReviewCount > 0 ||
     reviewsFound > 0 ||
+    hasReadableReviewEvidence ||
     evidenceStrength === "weak" ||
     evidenceStrength === "limited";
 
