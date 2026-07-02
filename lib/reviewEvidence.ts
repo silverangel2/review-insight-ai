@@ -1283,9 +1283,9 @@ Scoring rules:
           ? parsed.sourceNotes
           : [],
       reviewAuthenticity: {
-        score: actualCommentsAnalyzed > 0 ? score : null,
+        score: commentsAnalyzed > 0 ? score : null,
         label:
-          actualCommentsAnalyzed > 0
+          commentsAnalyzed > 0
             ? score === null
               ? "Review evidence analyzed"
               : score >= 76
