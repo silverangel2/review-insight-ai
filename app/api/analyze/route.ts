@@ -1846,7 +1846,6 @@ function buildReviewEvidenceShopperResult(input: {
   let decisionStatus = "not_enough_evidence";
   let finalDecisionSource = "reviewEvidenceNotEnough";
   let buyScore: number | null = null;
-  let buyerConfidence: number | null = null;
   let valueForMoney = "Unknown";
   let bottomLine =
     "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
@@ -1858,21 +1857,18 @@ function buildReviewEvidenceShopperResult(input: {
     if (complaintThemes.length >= 3 && complaintThemes.length > praiseThemes.length) {
       verdict = "AVOID";
       buyScore = 3;
-      buyerConfidence = 74;
       valueForMoney = "Risky";
       bottomLine =
         "ReviewIntel found usable review evidence with repeated complaint themes. Avoid unless the seller, return policy, or newer reviews clearly reduce the risk.";
     } else if (praiseThemes.length >= 2 && complaintThemes.length === 0) {
       verdict = "BUY";
       buyScore = 8;
-      buyerConfidence = 78;
       valueForMoney = "Good";
       bottomLine =
         "ReviewIntel found usable review evidence with repeated positive buyer themes and no repeated complaint pattern in the collected evidence.";
     } else {
       verdict = "CONSIDER";
       buyScore = 6;
-      buyerConfidence = 68;
       valueForMoney = "Fair";
       bottomLine =
         "ReviewIntel found usable review evidence, but the signals are mixed or not strong enough for a confident Buy.";
