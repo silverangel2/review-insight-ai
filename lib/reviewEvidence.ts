@@ -1200,14 +1200,19 @@ Scoring rules:
               ? "weak"
               : "none";
 
-    const cappedEvidenceStrength =
-      listingIsUnconfirmed && rawEvidenceStrength === "strong"
-        ? "usable"
-        : listingIsUnconfirmed && rawEvidenceStrength === "usable"
-          ? "limited"
-          : rawEvidenceStrength;
+    const collectorReviewsCollected = collectedWrittenReviews.reviewsCollected || 0;
+    const collectorHasWrittenReviews = collectorReviewsCollected > 0;
 
-    const reviewSnippets = Array.isArray(parsed.reviewSnippets)
+    const cappedEvidenceStrength =
+      !collectorHasWrittenReviews
+        ? "none"
+        : listingIsUnconfirmed && rawEvidenceStrength === "strong"
+          ? "usable"
+          : listingIsUnconfirmed && rawEvidenceStrength === "usable"
+            ? "limited"
+            : rawEvidenceStrength;
+
+    const reviewSnippets = collectorHasWrittenReviews && Array.isArray(parsed.reviewSnippets)
       ? parsed.reviewSnippets
           .map((item: Record<string, unknown>) => ({
             source: String(item.source || "Unknown source").slice(0, 120),
@@ -1222,7 +1227,7 @@ Scoring rules:
           .slice(0, 20)
       : [];
 
-    const repeatedPraises = Array.isArray(parsed.repeatedPraises)
+    const repeatedPraises = collectorHasWrittenReviews && Array.isArray(parsed.repeatedPraises)
       ? parsed.repeatedPraises
           .map((item: Record<string, unknown>) => ({
             theme: String(item.theme || "").slice(0, 140),
@@ -1235,7 +1240,7 @@ Scoring rules:
           .slice(0, 8)
       : [];
 
-    const repeatedComplaints = Array.isArray(parsed.repeatedComplaints)
+    const repeatedComplaints = collectorHasWrittenReviews && Array.isArray(parsed.repeatedComplaints)
       ? parsed.repeatedComplaints
           .map((item: Record<string, unknown>) => ({
             theme: String(item.theme || "").slice(0, 140),
@@ -1248,7 +1253,6 @@ Scoring rules:
           .slice(0, 8)
       : [];
 
-    const collectorReviewsCollected = collectedWrittenReviews.reviewsCollected || 0;
     const groundedCommentsAnalyzed = Math.max(
       collectorReviewsCollected,
       reviewSnippets.length,
@@ -1263,13 +1267,7 @@ Scoring rules:
       toOptionalNumber(displayListingEvidence?.reviewCount) ??
       null;
 
-    const actualCommentsAnalyzed =
-      parsedCommentsAnalyzed > 0 &&
-      parsedCommentsAnalyzed !== parsedMarketplaceReviewCountForGrounding &&
-      parsedCommentsAnalyzed !== (toOptionalNumber(parsed.reviewsFound) ?? 0) &&
-      parsedCommentsAnalyzed <= Math.max(groundedCommentsAnalyzed, reviewSnippets.length)
-        ? parsedCommentsAnalyzed
-        : groundedCommentsAnalyzed;
+    const actualCommentsAnalyzed = groundedCommentsAnalyzed;
 
     const marketplaceReviewCount =
       toOptionalNumber(parsed.marketplaceReviewCount) ??
@@ -1278,19 +1276,19 @@ Scoring rules:
       toOptionalNumber(displayListingEvidence?.reviewCount) ??
       null;
 
-    const aiPatternSignals = Array.isArray(parsed.aiPatternSignals)
+    const aiPatternSignals = collectorHasWrittenReviews && Array.isArray(parsed.aiPatternSignals)
       ? parsed.aiPatternSignals.map(String).filter(Boolean).slice(0, 8)
       : [];
 
-    const buyerExperienceSignals = Array.isArray(parsed.buyerExperienceSignals)
+    const buyerExperienceSignals = collectorHasWrittenReviews && Array.isArray(parsed.buyerExperienceSignals)
       ? parsed.buyerExperienceSignals.map(String).filter(Boolean).slice(0, 8)
       : [];
 
-    const productPros = Array.isArray(parsed.productPros)
+    const productPros = collectorHasWrittenReviews && Array.isArray(parsed.productPros)
       ? parsed.productPros.map(String).filter(Boolean).slice(0, 8)
       : [];
 
-    const productCons = Array.isArray(parsed.productCons)
+    const productCons = collectorHasWrittenReviews && Array.isArray(parsed.productCons)
       ? parsed.productCons.map(String).filter(Boolean).slice(0, 8)
       : [];
 
@@ -1356,7 +1354,7 @@ Scoring rules:
           ? parsed.sourceNotes
           : [],
       reviewAuthenticity: {
-        score: actualCommentsAnalyzed > 0 ? score : null,
+        score: collectorHasWrittenReviews ? score : null,
         label:
           actualCommentsAnalyzed > 0
             ? score === null
