@@ -59,6 +59,34 @@ function parsePositiveInteger(value: unknown) {
   return Math.round(value);
 }
 
+
+function acceptedExactDomainForStore(store: unknown): string | null {
+  const value = String(store || "").toLowerCase();
+
+  if (value.includes("walmart.ca") || value.includes("walmart canada")) return "walmart.ca";
+  if (value.includes("walmart.com") || value === "walmart") return "walmart.com";
+  if (value.includes("amazon.ca")) return "amazon.ca";
+  if (value.includes("amazon.com")) return "amazon.com";
+  if (value.includes("bestbuy.ca") || value.includes("best buy canada")) return "bestbuy.ca";
+  if (value.includes("bestbuy.com")) return "bestbuy.com";
+  if (value.includes("costco.ca") || value.includes("costco canada")) return "costco.ca";
+  if (value.includes("costco.com")) return "costco.com";
+
+  return null;
+}
+
+function urlHostMatchesAcceptedDomain(url: string | null, acceptedDomain: string | null): boolean {
+  if (!acceptedDomain) return true;
+  if (!url) return false;
+
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    return host === acceptedDomain || host.endsWith(`.${acceptedDomain}`);
+  } catch {
+    return false;
+  }
+}
+
 function parseConfidence(value: unknown): ExactProductSearchResult["confidence"] {
   if (value === "high" || value === "medium" || value === "low" || value === "none") {
     return value;
@@ -186,11 +214,42 @@ Rules:
 
     const parsed = JSON.parse(cleanJsonText(outputText)) as Record<string, unknown>;
 
+    const exactListingUrl =
+      typeof parsed.exactListingUrl === "string" && parsed.exactListingUrl.trim()
+        ? parsed.exactListingUrl.trim()
+        : null;
+
+    const acceptedDomain = acceptedExactDomainForStore(input.store);
+
+    if (!urlHostMatchesAcceptedDomain(exactListingUrl, acceptedDomain)) {
+      return {
+        exactListingUrl: null,
+        exactListingTitle:
+          typeof parsed.exactListingTitle === "string" && parsed.exactListingTitle.trim()
+            ? parsed.exactListingTitle.trim()
+            : null,
+        store:
+          typeof parsed.store === "string" && parsed.store.trim()
+            ? parsed.store.trim()
+            : null,
+        price: null,
+        rating: null,
+        reviewCount: null,
+        confidence: "low",
+        sourcesChecked: Array.isArray(parsed.sourcesChecked)
+          ? parsed.sourcesChecked.map(String).slice(0, 12)
+          : exactListingUrl
+            ? [exactListingUrl]
+            : [],
+        notes: [
+          `Rejected returned listing because requested store requires ${acceptedDomain}, but the returned URL was ${exactListingUrl || "missing"}.`,
+          "ReviewIntel did not use this as exact product evidence.",
+        ],
+      };
+    }
+
     return {
-      exactListingUrl:
-        typeof parsed.exactListingUrl === "string" && parsed.exactListingUrl.trim()
-          ? parsed.exactListingUrl.trim()
-          : null,
+      exactListingUrl,
       exactListingTitle:
         typeof parsed.exactListingTitle === "string" && parsed.exactListingTitle.trim()
           ? parsed.exactListingTitle.trim()
