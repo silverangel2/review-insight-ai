@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 type JsonRecord = Record<string, unknown>;
 
 type ReviewEvidenceLike = {
+  exactListingConfirmed?: boolean | null;
   sourcesChecked?: unknown[];
   reviewsFound?: number;
   commentsAnalyzed?: number;
@@ -485,6 +486,9 @@ export function stabilizeAnalysisResult<T extends JsonRecord>(
     confidence: stable.buyerConfidence,
     buyScore: stable.buyScore,
     score: stable.buyScore,
+    rating: result.rating,
+    reviewCount: result.reviewCount,
+    reviewsFound: result.reviewCount,
     valueForMoney: stable.valueForMoney,
     value: stable.valueForMoney,
     bottomLine: stable.bottomLine,
@@ -677,17 +681,57 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
   const reviewAuthenticity = asRecord(result.reviewAuthenticity);
   const evidenceAuth = remembered.reviewEvidence?.reviewAuthenticity;
 
+  const finalReviewEvidence = finalMemory.reviewEvidence || reviewEvidence || null;
+  const exactListing = finalReviewEvidence?.listingEvidence || null;
+  const exactListingConfirmed =
+    Boolean(finalReviewEvidence?.exactListingConfirmed) ||
+    exactListing?.confidence === "high";
+
+  const promotedRating =
+    exactListingConfirmed && typeof exactListing?.rating === "number" && exactListing.rating > 0
+      ? exactListing.rating
+      : finalMemory.rating;
+
+  const promotedReviewCount =
+    exactListingConfirmed &&
+    typeof exactListing?.reviewCount === "number" &&
+    exactListing.reviewCount > 0
+      ? exactListing.reviewCount
+      : finalMemory.reviewCount;
+
+  const hasStrongExactListingEvidence =
+    exactListingConfirmed &&
+    typeof promotedRating === "number" &&
+    promotedRating >= 4 &&
+    typeof promotedReviewCount === "number" &&
+    promotedReviewCount >= 100;
+
+  const promotedVerdict = hasStrongExactListingEvidence ? "CONSIDER" : stable.verdict;
+  const promotedBuyerConfidence = hasStrongExactListingEvidence
+    ? Math.max(Number(stable.buyerConfidence || 0), 65)
+    : stable.buyerConfidence;
+  const promotedBuyScore = hasStrongExactListingEvidence
+    ? Math.max(Number(stable.buyScore || 0), 6)
+    : stable.buyScore;
+  const promotedValueForMoney =
+    hasStrongExactListingEvidence && String(stable.valueForMoney || "").toLowerCase() === "poor"
+      ? "Fair"
+      : stable.valueForMoney;
+  const promotedBottomLine = hasStrongExactListingEvidence
+    ? "Exact Walmart.ca listing was verified with a 4+ star rating and 100+ reviews. Consider buying, but still check return terms and review details before purchase."
+    : stable.bottomLine;
+
   const toolAudit = buildToolAudit({
     hasVision: Boolean(extra?.vision),
-    hasExactListing: Boolean(finalMemory.reviewEvidence?.listingEvidence),
-    hasReviewEvidence: Boolean(finalMemory.reviewEvidence),
+    hasExactListing: Boolean(finalReviewEvidence?.listingEvidence),
+    hasReviewEvidence: Boolean(finalReviewEvidence),
     hasMemory: Boolean(existingFromSupabase),
     hasStableVerdict: true,
-    commentsAnalyzed: finalMemory.reviewEvidence?.commentsAnalyzed ?? null,
-    sourcesChecked: Array.isArray(finalMemory.reviewEvidence?.sourcesChecked)
-      ? finalMemory.reviewEvidence?.sourcesChecked.length
+    commentsAnalyzed: finalReviewEvidence?.commentsAnalyzed ?? null,
+    sourcesChecked: Array.isArray(finalReviewEvidence?.sourcesChecked)
+      ? finalReviewEvidence.sourcesChecked.length
       : null,
-    exactListingConfidence: finalMemory.reviewEvidence?.listingEvidence?.confidence ?? null,
+    exactListingConfidence: finalReviewEvidence?.listingEvidence?.confidence ?? null,
   });
 
   return enforceFinalVerdictConsistency({
@@ -703,35 +747,38 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
       title: finalMemory.title,
       normalizedTitle: finalMemory.normalizedTitle,
       price: finalMemory.price,
-      rating: finalMemory.rating,
-      reviewCount: finalMemory.reviewCount,
+      rating: promotedRating,
+      reviewCount: promotedReviewCount,
     },
-    reviewEvidence: finalMemory.reviewEvidence || reviewEvidence || null,
+    reviewEvidence: finalReviewEvidence,
     reviewAuthenticity: {
       ...reviewAuthenticity,
       ...(evidenceAuth || {}),
     },
-    verdict: stable.verdict,
-    recommendation: stable.verdict,
-    finalVerdict: stable.verdict,
-    stableVerdict: stable.verdict,
+    verdict: promotedVerdict,
+    recommendation: promotedVerdict,
+    finalVerdict: promotedVerdict,
+    stableVerdict: promotedVerdict,
     decisionStatus:
-      stable.verdict === "REVIEW EVIDENCE NOT ENOUGH"
+      promotedVerdict === "REVIEW EVIDENCE NOT ENOUGH"
         ? "not_enough_evidence"
         : "evidence_based",
-    buyerConfidence: stable.buyerConfidence,
-    confidence: stable.buyerConfidence,
-    buyScore: stable.buyScore,
-    score: stable.buyScore,
-    valueForMoney: stable.valueForMoney,
-    value: stable.valueForMoney,
-    bottomLine: stable.bottomLine,
-    summary: stable.bottomLine,
-    stableVerdictReason: stable.bottomLine,
+    buyerConfidence: promotedBuyerConfidence,
+    confidence: promotedBuyerConfidence,
+    buyScore: promotedBuyScore,
+    score: promotedBuyScore,
+    rating: promotedRating,
+    reviewCount: promotedReviewCount,
+    reviewsFound: promotedReviewCount,
+    valueForMoney: promotedValueForMoney,
+    value: promotedValueForMoney,
+    bottomLine: promotedBottomLine,
+    summary: promotedBottomLine,
+    stableVerdictReason: promotedBottomLine,
     verdictChangeExplanation: explainVerdictChange(
       existingFromSupabase?.verdict || finalMemory.verdict,
-      stable.verdict,
-      stable.bottomLine
+      promotedVerdict,
+      promotedBottomLine
     ),
   }) as T;
 }
