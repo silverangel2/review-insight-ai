@@ -279,6 +279,44 @@ function listingMatchesRequestedSignals(
   };
 }
 
+
+function normalizeListingConfidence(
+  listingEvidence: ExactProductSearchResult | null | undefined,
+  input: {
+    productName?: string;
+    brand?: string;
+    model?: string;
+  }
+): ExactProductSearchResult | null | undefined {
+  if (!listingEvidence) return listingEvidence;
+
+  const signals = extractRequestedReviewSignals(input);
+  const notes = Array.isArray(listingEvidence.notes) ? listingEvidence.notes : [];
+
+  const requestedHasRatingOrReviews =
+    typeof signals.requestedRating === "number" ||
+    typeof signals.requestedReviewCount === "number" ||
+    typeof signals.requestedPrice === "number";
+
+  const listingMissingRatingOrReviews =
+    listingEvidence.rating == null ||
+    listingEvidence.reviewCount == null;
+
+  if (requestedHasRatingOrReviews && listingMissingRatingOrReviews) {
+    return {
+      ...listingEvidence,
+      confidence: listingEvidence.confidence === "high" ? "medium" : listingEvidence.confidence,
+      notes: [
+        ...notes,
+        "Exact listing URL was found, but rating/review count were not confirmed from the listing fields.",
+        "Screenshot/requested rating or review count should be treated as observed product identity, not as independently verified listing evidence.",
+      ],
+    };
+  }
+
+  return listingEvidence;
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
@@ -488,8 +526,11 @@ Scoring rules:
             ...parsed.sourcesChecked.map(String),
           ]))
         : listingEvidence.sourcesChecked,
-      listingEvidence: listingMatchesRequestedSignals(
-        normalizeListingEvidenceNumbers(listingEvidence),
+      listingEvidence: normalizeListingConfidence(
+        listingMatchesRequestedSignals(
+          normalizeListingEvidenceNumbers(listingEvidence),
+          input
+        ),
         input
       ),
       sourceLinks: normalizeSourceLinks(parsed.sourceLinks),
