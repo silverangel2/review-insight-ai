@@ -28,8 +28,15 @@ type ReviewEvidenceInput = {
 export type ReviewEvidenceResult = {
   sourcesChecked: string[];
   reviewsFound: number;
+  marketplaceReviewCount?: number | null;
   commentsAnalyzed: number;
   evidenceStrength: "none" | "weak" | "limited" | "usable" | "strong";
+  aiPatternSignals?: string[];
+  buyerExperienceSignals?: string[];
+  productPros?: string[];
+  productCons?: string[];
+  overallImpact?: string;
+  buyAssessment?: string;
   reviewSnippets?: Array<{
     source: string;
     snippet: string;
@@ -485,7 +492,8 @@ function recoverPartialReviewEvidenceFromText(text: string) {
   return {
     sourcesChecked: urls,
     reviewsFound: reviewMatch?.[1] ? Number(reviewMatch[1].replace(/,/g, "")) : 0,
-    commentsAnalyzed: urls.length > 0 ? Math.min(5, urls.length) : 0,
+    // URLs/source links are not analyzed reviews.
+    commentsAnalyzed: 0,
     evidenceStrength: urls.length > 0 ? "limited" : "none",
     sourceNotes: [
       "ReviewIntel found the exact product listing and recovered available public evidence from the web search results. Written review comments were not available from the source.",
@@ -882,8 +890,28 @@ Required JSON shape:
 {
   "sourcesChecked": ["source name or domain"],
   "reviewsFound": 0,
+  "marketplaceReviewCount": null,
   "commentsAnalyzed": 0,
   "evidenceStrength": "none | weak | limited | usable | strong",
+
+  "aiPatternSignals": [
+    "short signal about repetitive wording, generic praise, suspicious timing, review stuffing, or low-detail review patterns"
+  ],
+
+  "buyerExperienceSignals": [
+    "short signal about what buyers actually experienced after purchase/use"
+  ],
+
+  "productPros": [
+    "specific positive product signal supported by reviewSnippets"
+  ],
+
+  "productCons": [
+    "specific negative product signal supported by reviewSnippets"
+  ],
+
+  "overallImpact": "short evidence-based summary of the product's real buyer impact",
+  "buyAssessment": "short answer: is this really a good product to buy based only on analyzed review text?",
 
   "reviewSnippets": [
     {
@@ -941,9 +969,16 @@ Scoring rules:
 - Do NOT give a high score because sources are reputable.
 - Reputable sources, verified purchases, diverse user feedback, and specific complaints should LOWER the score.
 - Only give score above 60 when there are actual suspicious review snippets or repeated suspicious patterns.
+- marketplaceReviewCount means the public total review count shown on the marketplace/listing, for example 273 reviews.
+- commentsAnalyzed means the number of actual written review/comment texts you read and analyzed.
+- reviewsFound should equal marketplaceReviewCount when the listing exposes a public review count.
+- Do not treat marketplaceReviewCount as analyzed evidence.
 - commentsAnalyzed must equal the number of actual review/comment snippets you found and analyzed.
 - reviewSnippets must contain the actual review/comment evidence used for the assessment.
-- repeatedPraises and repeatedComplaints must only be based on reviewSnippets.
+- repeatedPraises, repeatedComplaints, aiPatternSignals, buyerExperienceSignals, productPros, and productCons must only be based on reviewSnippets.
+- If marketplaceReviewCount is high but commentsAnalyzed is low, evidenceStrength must remain weak or limited.
+- Do not give Buy/Consider/Avoid from rating or marketplaceReviewCount alone.
+- The final review intelligence must answer: AI-pattern risk, pros, cons, buyer experience, overall impact, and whether this is really a good product to buy.
 - If reviewSnippets is empty, commentsAnalyzed must be 0.
 - If commentsAnalyzed is 0, score must be null and risk must be "Not scored".
 - commentsAnalyzed 1-4: evidenceStrength = "weak"
@@ -1080,7 +1115,7 @@ Scoring rules:
             ? "limited"
             : listingReviewCount >= 100 && listingRating >= 4
               ? "limited"
-              : commentsAnalyzed > 0 || listingReviewCount > 0 || listingRating > 0
+              : commentsAnalyzed > 0
                 ? "weak"
                 : "none";
 
@@ -1134,6 +1169,32 @@ Scoring rules:
 
     const actualCommentsAnalyzed = Math.max(commentsAnalyzed, reviewSnippets.length);
 
+    const marketplaceReviewCount =
+      toOptionalNumber(parsed.marketplaceReviewCount) ??
+      toOptionalNumber(parsed.reviewCount) ??
+      toOptionalNumber(normalizedListingEvidence?.reviewCount) ??
+      toOptionalNumber(displayListingEvidence?.reviewCount) ??
+      null;
+
+    const aiPatternSignals = Array.isArray(parsed.aiPatternSignals)
+      ? parsed.aiPatternSignals.map(String).filter(Boolean).slice(0, 8)
+      : [];
+
+    const buyerExperienceSignals = Array.isArray(parsed.buyerExperienceSignals)
+      ? parsed.buyerExperienceSignals.map(String).filter(Boolean).slice(0, 8)
+      : [];
+
+    const productPros = Array.isArray(parsed.productPros)
+      ? parsed.productPros.map(String).filter(Boolean).slice(0, 8)
+      : [];
+
+    const productCons = Array.isArray(parsed.productCons)
+      ? parsed.productCons.map(String).filter(Boolean).slice(0, 8)
+      : [];
+
+    const overallImpact = parsed.overallImpact ? String(parsed.overallImpact).slice(0, 700) : "";
+    const buyAssessment = parsed.buyAssessment ? String(parsed.buyAssessment).slice(0, 700) : "";
+
     return cleanFinalReviewEvidence({
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
@@ -1156,17 +1217,23 @@ Scoring rules:
           : []),
       ]),
       reviewsFound: Number(
-        parsed.reviewsFound ||
-          actualCommentsAnalyzed ||
-          displayListingEvidence?.reviewCount ||
-          normalizedListingEvidence?.reviewCount ||
+        marketplaceReviewCount ??
+          parsed.reviewsFound ??
+          actualCommentsAnalyzed ??
           0
       ),
+      marketplaceReviewCount,
       commentsAnalyzed: actualCommentsAnalyzed,
       evidenceStrength: cappedEvidenceStrength,
       reviewSnippets,
       repeatedPraises,
       repeatedComplaints,
+      aiPatternSignals,
+      buyerExperienceSignals,
+      productPros,
+      productCons,
+      overallImpact,
+      buyAssessment,
       sourceNotes: displayListingEvidence?.exactListingUrl
         ? [
             normalizedListingEvidence?.confidence === "high"

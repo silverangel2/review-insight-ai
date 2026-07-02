@@ -1516,8 +1516,15 @@ function buildReviewEvidenceShopperResult(input: {
   const reviewSnippets = Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
   const repeatedPraises = Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
   const repeatedComplaints = Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints : [];
+  const aiPatternSignals = Array.isArray(evidence.aiPatternSignals) ? evidence.aiPatternSignals.map(String).filter(Boolean) : [];
+  const buyerExperienceSignals = Array.isArray(evidence.buyerExperienceSignals) ? evidence.buyerExperienceSignals.map(String).filter(Boolean) : [];
+  const productPros = Array.isArray(evidence.productPros) ? evidence.productPros.map(String).filter(Boolean) : [];
+  const productCons = Array.isArray(evidence.productCons) ? evidence.productCons.map(String).filter(Boolean) : [];
+  const overallImpact = String(evidence.overallImpact || "").trim();
+  const buyAssessment = String(evidence.buyAssessment || "").trim();
 
   const reviewsFound = Number(evidence.reviewsFound || 0);
+  const marketplaceReviewCount = Number(evidence.marketplaceReviewCount || evidence.reviewsFound || 0);
   const commentsAnalyzed = Number(evidence.commentsAnalyzed || 0);
   const evidenceStrength = String(evidence.evidenceStrength || "none").toLowerCase();
 
@@ -1596,7 +1603,7 @@ function buildReviewEvidenceShopperResult(input: {
     decisionStatus = "limited_review_evidence";
     finalDecisionSource = "limitedReviewEvidence";
     bottomLine =
-      "ReviewIntel searched the web and found only weak or limited review evidence. This is not enough to make a confident Buy, Consider, or Avoid judgment.";
+      "ReviewIntel found the public marketplace review count, but could only access a limited number of written review signals. It cannot judge the product until it analyzes enough of the buyer experiences inside those reviews.";
   }
 
   return {
@@ -1622,7 +1629,7 @@ function buildReviewEvidenceShopperResult(input: {
       store,
       price,
       rating: evidence.rating ?? null,
-      reviewCount: evidence.reviewCount ?? null,
+      reviewCount: (evidence.reviewCount ?? marketplaceReviewCount) || null,
       exactListingUrl: listingEvidence?.exactListingUrl || listingEvidence?.url || null,
     },
 
@@ -1638,6 +1645,7 @@ function buildReviewEvidenceShopperResult(input: {
       },
       exactListingEvidence: listingEvidence,
       reviewEvidence: {
+        marketplaceReviewCount,
         reviewsFound,
         commentsAnalyzed,
         evidenceStrength,
@@ -1664,13 +1672,19 @@ function buildReviewEvidenceShopperResult(input: {
     value: valueForMoney,
 
     rating: evidence.rating ?? null,
-    reviewCount: evidence.reviewCount ?? null,
+    reviewCount: (evidence.reviewCount ?? marketplaceReviewCount) || null,
     reviewsFound,
+    marketplaceReviewCount,
+    commentsAnalyzed,
 
-    topStrengths: hasUsableReviewEvidence ? praiseThemes : [],
-    topComplaints: hasUsableReviewEvidence ? complaintThemes : [],
-    strengths: hasUsableReviewEvidence ? praiseThemes : [],
-    complaints: hasUsableReviewEvidence ? complaintThemes : [],
+    topStrengths: hasUsableReviewEvidence ? (productPros.length ? productPros : praiseThemes) : [],
+    topComplaints: hasUsableReviewEvidence ? (productCons.length ? productCons : complaintThemes) : [],
+    strengths: hasUsableReviewEvidence ? (productPros.length ? productPros : praiseThemes) : [],
+    complaints: hasUsableReviewEvidence ? (productCons.length ? productCons : complaintThemes) : [],
+    aiPatternSignals,
+    buyerExperienceSignals,
+    overallImpact,
+    buyAssessment,
 
     screenshotOnly: false,
     screenshotOnlyWarning: false,
