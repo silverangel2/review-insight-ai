@@ -1918,6 +1918,23 @@ function buildReviewEvidenceShopperResult(input: {
 
   const verdictConfidence = verdictConfidenceAudit.verdictConfidence;
 
+  console.log("[ReviewIntel DEBUG verdictAudit]", {
+    verdict,
+    finalDecisionSource,
+    buyScore,
+    verdictConfidence,
+    productMatchScore: verdictConfidenceAudit.audit.productMatchScore,
+    listingInfoScore: verdictConfidenceAudit.audit.listingInfoScore,
+    reviewCoverageScore: verdictConfidenceAudit.audit.reviewCoverageScore,
+    prosConsScore: verdictConfidenceAudit.audit.prosConsScore,
+    scoreCalculationScore: verdictConfidenceAudit.audit.scoreCalculationScore,
+    verdictRatificationScore: verdictConfidenceAudit.audit.verdictRatificationScore,
+    marketplaceReviewCount: verdictConfidenceAudit.audit.marketplaceReviewCount,
+    commentsAnalyzed: verdictConfidenceAudit.audit.commentsAnalyzed,
+    reviewCoverageRatio: verdictConfidenceAudit.audit.reviewCoverageRatio,
+    reason: verdictConfidenceAudit.audit.reason,
+  });
+
   return {
     ...rawRecord,
 
