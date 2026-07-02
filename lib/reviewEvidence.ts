@@ -426,18 +426,90 @@ function extractJsonObjectText(text: string) {
   return partial;
 }
 
+
+function recoverPartialReviewEvidenceFromText(text: string) {
+  const urls = Array.from(
+    new Set(
+      (text.match(/https?:\/\/[^\s"'<>]+/g) || [])
+        .map((url) => url.replace(/[),.]+$/, ""))
+    )
+  ).slice(0, 12);
+
+  const ratingMatch =
+    text.match(/(\d+(?:\.\d+)?)\s*(?:out of|\/)\s*5/i) ||
+    text.match(/(\d+(?:\.\d+)?)\s*stars?/i) ||
+    text.match(/rating[^0-9]*(\d+(?:\.\d+)?)/i);
+
+  const reviewMatch =
+    text.match(/(\d[\d,]*)\s*(?:reviews?|ratings?)/i) ||
+    text.match(/review count[^0-9]*(\d[\d,]*)/i);
+
+  const priceMatch =
+    text.match(/\$\s*(\d+(?:\.\d+)?)/i) ||
+    text.match(/price[^0-9]*(\d+(?:\.\d+)?)/i);
+
+  return {
+    sourcesChecked: urls,
+    reviewsFound: reviewMatch?.[1] ? Number(reviewMatch[1].replace(/,/g, "")) : 0,
+    commentsAnalyzed: urls.length > 0 ? Math.min(5, urls.length) : 0,
+    evidenceStrength: urls.length > 0 ? "limited" : "none",
+    sourceNotes: [
+      "Review evidence JSON was malformed, so ReviewIntel recovered partial evidence from the raw web-search response instead of discarding the scan.",
+    ],
+    sourceLinks: urls.map((url) => ({
+      label: url.replace(/^https?:\/\//, "").slice(0, 80),
+      url,
+      domain: (() => {
+        try {
+          return new URL(url).hostname;
+        } catch {
+          return undefined;
+        }
+      })(),
+    })),
+    listingEvidence: urls.length > 0
+      ? {
+          exactListingUrl: urls[0],
+          exactListingTitle: "Recovered source from malformed review evidence response",
+          store: urls[0].includes("walmart") ? "Walmart" : null,
+          price: priceMatch?.[1] ? Number(priceMatch[1]) : null,
+          rating: ratingMatch?.[1] ? Number(ratingMatch[1]) : null,
+          reviewCount: reviewMatch?.[1] ? Number(reviewMatch[1].replace(/,/g, "")) : null,
+          confidence: "low",
+          sourcesChecked: urls,
+          notes: [
+            "Recovered from malformed JSON. Treat as partial evidence, not confirmed exact listing evidence.",
+          ],
+        }
+      : null,
+    reviewAuthenticity: {
+      score: null,
+      label: "Review scan partially recovered",
+      suspiciousReviewRisk: "Not scored",
+      reasons: [
+        "The model response was malformed, but ReviewIntel recovered available links/numbers instead of discarding the scan.",
+      ],
+      suspiciousComments: [],
+    },
+  };
+}
+
 function safeParseReviewEvidenceJson(text: string) {
   const jsonText = extractJsonObjectText(text);
 
   try {
     return JSON.parse(jsonText);
   } catch {
-    // Repair common bad control characters / trailing commas.
-    const repaired = jsonText
-      .replace(/[\u0000-\u001F]+/g, " ")
-      .replace(/,\s*([}\]])/g, "$1");
+    try {
+      const repaired = jsonText
+        .replace(/[\u0000-\u001F]+/g, " ")
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
 
-    return JSON.parse(repaired);
+      return JSON.parse(repaired);
+    } catch {
+      return recoverPartialReviewEvidenceFromText(text);
+    }
   }
 }
 
