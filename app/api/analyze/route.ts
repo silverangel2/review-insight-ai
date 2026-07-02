@@ -1210,8 +1210,13 @@ async function openAIResponse(payload: JsonRecord) {
 function normalizeVision(rawValue: unknown): VisionFacts {
   const raw = asRecord(rawValue);
   const priceBelongsToProduct = readBoolean(raw, "priceBelongsToProduct", false);
-  const ratingBelongsToProduct = readBoolean(raw, "ratingBelongsToProduct", false);
-  const reviewCountBelongsToProduct = readBoolean(raw, "reviewCountBelongsToProduct", false);
+  const rawStore = readKnownString(raw, "store");
+  const isWalmartScreenshot = String(rawStore || "").toLowerCase().includes("walmart");
+
+  const ratingBelongsToProduct =
+    readBoolean(raw, "ratingBelongsToProduct", false) || isWalmartScreenshot;
+  const reviewCountBelongsToProduct =
+    readBoolean(raw, "reviewCountBelongsToProduct", false) || isWalmartScreenshot;
 
   return {
     name: readString(raw, "name"),
