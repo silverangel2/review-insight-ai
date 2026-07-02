@@ -794,6 +794,9 @@ Scoring rules:
       listingNotes.includes("similar listing") ||
       listingNotes.includes("downgraded");
 
+    const listingReviewCount = Number(normalizedListingEvidence?.reviewCount || 0);
+    const listingRating = Number(normalizedListingEvidence?.rating || 0);
+
     const rawEvidenceStrength =
       commentsAnalyzed >= 30
         ? "strong"
@@ -801,9 +804,11 @@ Scoring rules:
           ? "usable"
           : commentsAnalyzed >= 5
             ? "limited"
-            : commentsAnalyzed > 0
-              ? "weak"
-              : "none";
+            : listingReviewCount >= 100 && listingRating >= 4
+              ? "limited"
+              : commentsAnalyzed > 0 || listingReviewCount > 0 || listingRating > 0
+                ? "weak"
+                : "none";
 
     const cappedEvidenceStrength =
       listingIsUnconfirmed && rawEvidenceStrength === "strong"
@@ -821,7 +826,18 @@ Scoring rules:
         : listingEvidence.sourcesChecked,
       listingEvidence: normalizedListingEvidence,
       exactListingConfirmed: !listingIsUnconfirmed && normalizedListingEvidence?.confidence === "high",
-      sourceLinks: normalizeSourceLinks(parsed.sourceLinks),
+      sourceLinks: normalizeSourceLinks([
+        ...(Array.isArray(parsed.sourceLinks) ? parsed.sourceLinks : []),
+        ...(normalizedListingEvidence?.exactListingUrl
+          ? [
+              {
+                label: normalizedListingEvidence.exactListingTitle || "Exact product listing",
+                url: normalizedListingEvidence.exactListingUrl,
+                domain: normalizedListingEvidence.store || "Walmart Canada",
+              },
+            ]
+          : []),
+      ]),
       reviewsFound: Number(
         parsed.reviewsFound ||
           normalizedListingEvidence?.reviewCount ||
