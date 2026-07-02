@@ -853,26 +853,45 @@ If you cannot find enough review/comment evidence, return score null.
 
 Review acquisition rules:
 1. First confirm the exact product/listing using store + brand + normalized title + price/image clues.
-2. Then search specifically for buyer reviews using the exact listing title and store domain.
-3. Search these evidence paths when applicable:
-   - exact listing page reviews
-   - "[brand] [product title] reviews"
-   - "[brand] [product title] complaints"
-   - "[product title] walmart reviews"
-   - "[product title] reddit"
-   - "[product title] forum"
-4. Exact listing evidence is identity evidence only. It is not review evidence.
-5. Rating/review count is useful only if visible from a trusted source.
-6. reviewSnippets must contain actual buyer-review/comment evidence, not search-result summaries.
-7. repeatedPraises and repeatedComplaints must be built only from reviewSnippets.
-8. If you find the product listing but cannot access/read buyer reviews, return:
-   reviewsFound: 0
+2. Extract the public marketplace rating and public marketplace review count when visible.
+   Example: if Walmart shows 4.3 stars and 273 reviews, return marketplaceReviewCount: 273.
+3. Then perform a separate review-content drill-down. The goal is to find the written review text inside or about those public reviews.
+4. Search specifically for written buyer review content using:
+   - exact listing URL + reviews
+   - exact listing title + Walmart reviews
+   - exact listing title + customer reviews
+   - exact listing title + complaints
+   - brand + exact product title + reviews
+   - brand + exact product title + complaints
+   - product title + reddit
+   - product title + forum
+   - product title + "verified purchase"
+5. Exact listing evidence is identity evidence only. It is not review evidence.
+6. Public rating/review count is listing metadata only. It is not analyzed review evidence.
+7. reviewSnippets must contain actual buyer-review/comment evidence, not search-result summaries, not generic product descriptions, and not listing metadata.
+8. commentsAnalyzed must equal the number of actual written review/comment snippets analyzed.
+9. repeatedPraises, repeatedComplaints, aiPatternSignals, buyerExperienceSignals, productPros, and productCons must be built only from reviewSnippets.
+10. If marketplaceReviewCount is high but commentsAnalyzed is low, clearly say coverage is limited.
+11. If you find the listing but cannot access/read written buyer reviews, return:
    commentsAnalyzed: 0
    evidenceStrength: "none"
    reviewSnippets: []
    repeatedPraises: []
    repeatedComplaints: []
-9. Do not convert limited listing evidence into Buy, Consider, Avoid, Good, Poor, or product quality judgment.
+   aiPatternSignals: []
+   buyerExperienceSignals: []
+   productPros: []
+   productCons: []
+   overallImpact: "Public review count was found, but written review content was not accessible enough to analyze buyer experience."
+   buyAssessment: "ReviewIntel cannot judge whether this is a good product to buy without enough written review evidence."
+12. Do not convert rating, public review count, or listing evidence into Buy, Consider, Avoid, Good, Poor, or product quality judgment.
+13. The analysis must answer from written review text only:
+   - Are there AI-pattern or fake-review signals?
+   - What are the real pros?
+   - What are the real cons?
+   - What is the buyer experience?
+   - What is the overall product impact?
+   - Is this really a good product to buy?
 
 Analyze each collected review/comment snippet for suspicious or AI-like signals:
 - generic praise with no product-specific detail
