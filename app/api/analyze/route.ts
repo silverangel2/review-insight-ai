@@ -592,9 +592,38 @@ function countSeriousComplaints(items: string[]) {
 }
 
 function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
-  const rating = parseVisibleRating(result.product.rating);
-  const reviewCount = parseVisibleReviewCount(result.product.reviewCount);
-  const sourcesCount = result.sourcesUsed.length;
+  const reviewEvidence = asRecord(result.reviewEvidence);
+  const listingEvidence = asRecord(reviewEvidence.listingEvidence);
+
+  const evidenceRating =
+    typeof listingEvidence.rating === "number" && Number.isFinite(listingEvidence.rating) && listingEvidence.rating > 0
+      ? listingEvidence.rating
+      : null;
+
+  const evidenceReviewCount =
+    typeof listingEvidence.reviewCount === "number" && Number.isFinite(listingEvidence.reviewCount) && listingEvidence.reviewCount > 0
+      ? listingEvidence.reviewCount
+      : typeof reviewEvidence.reviewsFound === "number" && Number.isFinite(reviewEvidence.reviewsFound) && reviewEvidence.reviewsFound > 0
+        ? reviewEvidence.reviewsFound
+        : null;
+
+  const exactListingUrl =
+    typeof listingEvidence.exactListingUrl === "string" && listingEvidence.exactListingUrl.trim()
+      ? listingEvidence.exactListingUrl.trim()
+      : "";
+
+  const evidenceStrength =
+    typeof reviewEvidence.evidenceStrength === "string"
+      ? reviewEvidence.evidenceStrength.toLowerCase()
+      : "";
+
+  const rating = evidenceRating ?? parseVisibleRating(result.product.rating);
+  const reviewCount = evidenceReviewCount ?? parseVisibleReviewCount(result.product.reviewCount);
+  const sourcesCount = Math.max(
+    result.sourcesUsed.length,
+    exactListingUrl ? 1 : 0,
+    evidenceStrength === "limited" || evidenceStrength === "usable" || evidenceStrength === "strong" ? 1 : 0
+  );
   const seriousComplaintCount = countSeriousComplaints([
     ...result.topComplaints,
     ...result.notIdealFor
