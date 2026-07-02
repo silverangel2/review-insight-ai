@@ -656,10 +656,30 @@ function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
     ? reviewEvidence.productCons
     : [];
 
-  const commentsAnalyzed =
+  const rawScoreCommentsAnalyzed =
     typeof reviewEvidence.commentsAnalyzed === "number" && Number.isFinite(reviewEvidence.commentsAnalyzed)
       ? reviewEvidence.commentsAnalyzed
       : 0;
+
+  const scoreCollector = asRecord(reviewEvidence.reviewCollector);
+  const scoreCollectorReviewsCollected =
+    typeof scoreCollector.reviewsCollected === "number" && Number.isFinite(scoreCollector.reviewsCollected)
+      ? scoreCollector.reviewsCollected
+      : 0;
+
+  const scoreGroundedCommentsAnalyzed = Math.max(
+    scoreCollectorReviewsCollected,
+    reviewSnippets.length,
+    repeatedPraises.length,
+    repeatedComplaints.length
+  );
+
+  const commentsAnalyzed =
+    rawScoreCommentsAnalyzed > 0 &&
+    rawScoreCommentsAnalyzed !== publicReviewCount &&
+    rawScoreCommentsAnalyzed <= Math.max(scoreGroundedCommentsAnalyzed, reviewSnippets.length)
+      ? rawScoreCommentsAnalyzed
+      : scoreGroundedCommentsAnalyzed;
 
   const analyzedReviewCount = Math.max(commentsAnalyzed, reviewSnippets.length);
 
