@@ -42,8 +42,6 @@ export function governBuyerDecision(input: {
   const rating = typeof input.rating === "number" ? input.rating : null;
   const reviewCount = typeof input.reviewCount === "number" ? input.reviewCount : null;
   const aiLikeRisk = typeof input.aiLikeRisk === "number" ? input.aiLikeRisk : null;
-  const commentsAnalyzed = input.commentsAnalyzed ?? 0;
-
   const text = `${input.currentVerdict || ""} ${input.bottomLine || ""} ${input.productText || ""}`;
   const actualDanger = hasActualDangerSignal(text);
 
@@ -85,19 +83,21 @@ export function governBuyerDecision(input: {
     };
   }
 
-  // Screenshot missing rating/review count must never become Avoid by itself.
+  // Incomplete screenshot is not negative evidence.
+  // The app should search/match memory first. If no evidence is found after tools run,
+  // return an honest no-decision state, not fake Consider and not fake Avoid.
   if (
     (rating === null || reviewCount === null) &&
     !actualDanger &&
     !(aiLikeRisk !== null && aiLikeRisk >= 75)
   ) {
     return {
-      verdict: "CONSIDER",
-      buyerConfidence: 55,
-      buyScore: 5,
-      valueForMoney: "Needs evidence",
+      verdict: "REVIEW EVIDENCE NOT ENOUGH",
+      buyerConfidence: 0,
+      buyScore: 0,
+      valueForMoney: "Unknown",
       bottomLine:
-        "Review evidence is not enough from this screenshot alone. Do not treat missing rating or review count as an Avoid signal.",
+        "ReviewIntel could not confirm enough public review evidence after the available product match/search. This is not an Avoid verdict; it means the app needs stronger listing or review evidence before recommending.",
     };
   }
 

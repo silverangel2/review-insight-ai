@@ -481,7 +481,6 @@ export function stabilizeAnalysisResult<T extends JsonRecord>(
     valueForMoney: stable.valueForMoney,
     value: stable.valueForMoney,
     bottomLine: stable.bottomLine,
-    stableVerdictReason: stable.bottomLine,
     verdictChangeExplanation: explainVerdictChange(
       memory.verdict,
       stable.verdict,
@@ -712,7 +711,6 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     valueForMoney: stable.valueForMoney,
     value: stable.valueForMoney,
     bottomLine: stable.bottomLine,
-    stableVerdictReason: stable.bottomLine,
     verdictChangeExplanation: explainVerdictChange(
       existingFromSupabase?.verdict || finalMemory.verdict,
       stable.verdict,
