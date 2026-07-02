@@ -798,12 +798,12 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     ...copy.verdicts[shopper.verdict]
   };
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
+  const rawResultForVerdict = result as Record<string, unknown>;
+
   const verdictConfidence =
-    typeof (result as Record<string, unknown>).verdictConfidence === "number"
-      ? Number((result as Record<string, unknown>).verdictConfidence)
-      : typeof shopper.buyingConfidence === "number"
-        ? shopper.buyingConfidence
-        : 0;
+    typeof rawResultForVerdict.verdictConfidence === "number"
+      ? Number(rawResultForVerdict.verdictConfidence)
+      : 0;
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -895,8 +895,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
             <MiniMetric
               label={copy.aiLikeReviews}
-              value={shopper.productScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={shopper.productScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              value={visibleProductScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
+              helper={visibleProductScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
             <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
           </div>
@@ -1053,8 +1053,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
               <MiniMetric
               label={copy.aiLikeReviews}
-              value={shopper.productScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={shopper.productScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              value={visibleProductScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
+              helper={visibleProductScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
               <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
             </div>
