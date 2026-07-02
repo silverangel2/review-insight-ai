@@ -562,20 +562,6 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
     ? result.reviewAuthenticity.suspiciousComments
     : [];
 
-  const hasRiskReasons =
-    Array.isArray(result.reviewAuthenticity?.reasons) &&
-    result.reviewAuthenticity.reasons.some((reason) => {
-      const text = String(reason || "").toLowerCase();
-      return (
-        text.includes("suspicious") ||
-        text.includes("repetitive") ||
-        text.includes("generic") ||
-        text.includes("bot") ||
-        text.includes("ai-like") ||
-        text.includes("incentivized")
-      );
-    });
-
   const isWalmartCaListing =
     String(listingEvidence?.store || "").toLowerCase().includes("walmart.ca") ||
     String(listingEvidence?.exactListingUrl || "").toLowerCase().includes("walmart.ca");
@@ -925,14 +911,28 @@ Scoring rules:
           : []),
       ]),
       reviewsFound: Number(
-        parsed.reviewsFound ||
-          normalizedListingEvidence?.reviewCount ||
+        normalizedListingEvidence?.reviewCount ||
+          parsed.reviewsFound ||
           commentsAnalyzed ||
           0
       ),
-      commentsAnalyzed,
+      commentsAnalyzed: normalizedListingEvidence?.exactListingUrl ? 0 : commentsAnalyzed,
       evidenceStrength: cappedEvidenceStrength,
-      sourceNotes: Array.isArray(parsed.sourceNotes) ? parsed.sourceNotes : [],
+      sourceNotes: normalizedListingEvidence?.exactListingUrl
+        ? [
+            normalizedListingEvidence.confidence === "high"
+              ? "Exact product listing was found and matched the requested product signals."
+              : "Exact product listing was found, but current public listing signals differ from the screenshot/requested signals.",
+            normalizedListingEvidence.reviewCount
+              ? `Current public listing shows ${normalizedListingEvidence.reviewCount} reviews.`
+              : "Current public listing review count was not fully confirmed from structured listing fields.",
+            normalizedListingEvidence.rating
+              ? `Current public listing rating is ${normalizedListingEvidence.rating}.`
+              : "Current public listing rating was not fully confirmed from structured listing fields.",
+          ]
+        : Array.isArray(parsed.sourceNotes)
+          ? parsed.sourceNotes
+          : [],
       reviewAuthenticity: {
         score: commentsAnalyzed > 0 ? score : null,
         label:
