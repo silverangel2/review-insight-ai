@@ -681,7 +681,32 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
   const reviewAuthenticity = asRecord(result.reviewAuthenticity);
   const evidenceAuth = remembered.reviewEvidence?.reviewAuthenticity;
 
-  const finalReviewEvidence = finalMemory.reviewEvidence || reviewEvidence || null;
+  const currentReviewEvidence = reviewEvidence || null;
+  const rememberedReviewEvidence = finalMemory.reviewEvidence || null;
+
+  const currentListing = currentReviewEvidence?.listingEvidence || null;
+  const rememberedListing = rememberedReviewEvidence?.listingEvidence || null;
+
+  const currentExactListingConfirmed =
+    Boolean(currentReviewEvidence?.exactListingConfirmed) ||
+    currentListing?.confidence === "high";
+
+  const rememberedExactListingConfirmed =
+    Boolean(rememberedReviewEvidence?.exactListingConfirmed) ||
+    rememberedListing?.confidence === "high";
+
+  const currentReviewCount = Number(currentListing?.reviewCount || 0);
+  const rememberedReviewCount = Number(rememberedListing?.reviewCount || 0);
+
+  const finalReviewEvidence =
+    currentExactListingConfirmed
+      ? currentReviewEvidence
+      : rememberedExactListingConfirmed
+        ? rememberedReviewEvidence
+        : currentReviewCount > rememberedReviewCount
+          ? currentReviewEvidence
+          : rememberedReviewEvidence || currentReviewEvidence || null;
+
   const exactListing = finalReviewEvidence?.listingEvidence || null;
   const exactListingConfirmed =
     Boolean(finalReviewEvidence?.exactListingConfirmed) ||
