@@ -1,3 +1,4 @@
+import { storeSearchTarget } from "@/lib/reviewToolHelpers";
 type ExactProductSearchInput = {
   productName: string;
   brand?: string;
@@ -81,11 +82,16 @@ export async function findExactProductListing(
     return emptyExactResult("Product identity was not clear enough for exact listing search.");
   }
 
+  const storeTarget = storeSearchTarget(input.store);
+
   const prompt = `
 You are ReviewIntel's exact product listing finder.
 
 Find the most likely exact public product listing for:
 "${product}"
+
+Preferred store targeting:
+${storeTarget || "No specific store target. Search broadly."}
 
 Priority:
 1. Exact store listing if store is known, especially Walmart, Amazon, Best Buy, Costco, Target.
@@ -106,7 +112,14 @@ JSON shape:
   "reviewCount": null,
   "confidence": "none | low | medium | high",
   "sourcesChecked": [],
-  "notes": []
+  "notes": [],
+  "sourceLinks": [
+    {
+      "label": "source title",
+      "url": "https://example.com",
+      "domain": "example.com"
+    }
+  ]
 }
 
 Rules:

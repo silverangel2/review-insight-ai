@@ -1,3 +1,4 @@
+import { humanVerdictRules, explainVerdictChange } from "@/lib/reviewToolHelpers";
 import { buildToolAudit } from "@/lib/toolAudit";
 import { createClient } from "@supabase/supabase-js";
 type JsonRecord = Record<string, unknown>;
@@ -296,6 +297,27 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
   const reviewCount = memory.reviewCount;
   const severeComplaints = hasSevereComplaintSignal(result, memory.reviewEvidence);
 
+  const humanRule = humanVerdictRules({
+    rating,
+    reviewCount,
+    aiLikeRisk: aiLikeScore,
+    commentsAnalyzed,
+    severeComplaints,
+  });
+
+  if (
+    humanRule.reason.includes("Review evidence is not enough") ||
+    (typeof rating === "number" && typeof reviewCount === "number" && reviewCount >= 100)
+  ) {
+    return {
+      verdict: humanRule.verdict,
+      buyerConfidence: humanRule.confidence,
+      buyScore: humanRule.score,
+      valueForMoney: humanRule.value,
+      bottomLine: humanRule.reason,
+    };
+  }
+
   const hasReviewEvidence =
     commentsAnalyzed >= 5 ||
     (typeof rating === "number" && typeof reviewCount === "number" && reviewCount >= 10);
@@ -428,6 +450,11 @@ export function stabilizeAnalysisResult<T extends JsonRecord>(
     value: stable.valueForMoney,
     bottomLine: stable.bottomLine,
     stableVerdictReason: stable.bottomLine,
+    verdictChangeExplanation: explainVerdictChange(
+      memory.verdict,
+      stable.verdict,
+      stable.bottomLine
+    ),
   } as T;
 }
 
@@ -654,5 +681,10 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     value: stable.valueForMoney,
     bottomLine: stable.bottomLine,
     stableVerdictReason: stable.bottomLine,
+    verdictChangeExplanation: explainVerdictChange(
+      existingFromSupabase?.verdict || finalMemory.verdict,
+      stable.verdict,
+      stable.bottomLine
+    ),
   } as T;
 }

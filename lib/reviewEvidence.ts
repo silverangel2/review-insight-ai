@@ -1,9 +1,11 @@
+import { normalizeSourceLinks } from "@/lib/reviewToolHelpers";
 import { createClient } from "@supabase/supabase-js";
 import { findExactProductListing, type ExactProductSearchResult } from "@/lib/exactProductSearch";
 type ReviewEvidenceInput = {
   productName: string;
   brand?: string;
   model?: string;
+  forceRefresh?: boolean;
 };
 
 export type ReviewEvidenceResult = {
@@ -12,6 +14,7 @@ export type ReviewEvidenceResult = {
   commentsAnalyzed: number;
   evidenceStrength: "none" | "weak" | "limited" | "usable" | "strong";
   sourceNotes: string[];
+  sourceLinks?: Array<{ label: string; url: string; domain?: string }>;
   listingEvidence?: ExactProductSearchResult | null;
   reviewAuthenticity: {
     score: number | null;
@@ -110,6 +113,7 @@ function emptyEvidence(reason = "No review evidence collected."): ReviewEvidence
     commentsAnalyzed: 0,
     evidenceStrength: "none",
     sourceNotes: [reason],
+    sourceLinks: [],
     listingEvidence: null,
     reviewAuthenticity: {
       score: null,
@@ -148,7 +152,7 @@ export async function collectAndAnalyzeReviewEvidence(
     return emptyEvidence("Product name was not clear enough to search reviews.");
   }
 
-  const rememberedEvidence = await loadRecentReviewEvidenceFromMemory(input);
+  const rememberedEvidence = input.forceRefresh ? null : await loadRecentReviewEvidenceFromMemory(input);
   if (rememberedEvidence) {
     return rememberedEvidence;
   }
@@ -205,6 +209,13 @@ Required JSON shape:
   "commentsAnalyzed": 0,
   "evidenceStrength": "none | weak | limited | usable | strong",
   "sourceNotes": ["short notes"],
+  "sourceLinks": [
+    {
+      "label": "source title",
+      "url": "https://example.com",
+      "domain": "example.com"
+    }
+  ],
   "reviewAuthenticity": {
     "score": null,
     "label": "Review scan not verified",
@@ -332,6 +343,7 @@ Scoring rules:
           ]))
         : listingEvidence.sourcesChecked,
       listingEvidence,
+      sourceLinks: normalizeSourceLinks(parsed.sourceLinks),
       reviewsFound: Number(parsed.reviewsFound || listingEvidence.reviewCount || commentsAnalyzed || 0),
       commentsAnalyzed,
       evidenceStrength:
