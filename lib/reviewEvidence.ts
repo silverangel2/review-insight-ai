@@ -564,8 +564,34 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
         }
       : result.reviewAuthenticity;
 
+  const cleanedSourceNotes = Array.isArray(result.sourceNotes)
+    ? result.sourceNotes.filter((note) => {
+        const text = String(note || "").toLowerCase();
+
+        if (
+          text.includes("matches the provided details") &&
+          (listingEvidence?.price == null ||
+            listingEvidence?.rating == null ||
+            listingEvidence?.reviewCount == null)
+        ) {
+          return false;
+        }
+
+        return true;
+      })
+    : result.sourceNotes;
+
+  const uniqueSourceLinks = Array.isArray(result.sourceLinks)
+    ? result.sourceLinks.filter((link, index, links) => {
+        const url = String(link?.url || "");
+        return url && links.findIndex((candidate) => String(candidate?.url || "") === url) === index;
+      })
+    : result.sourceLinks;
+
   return {
     ...result,
+    sourceNotes: cleanedSourceNotes,
+    sourceLinks: uniqueSourceLinks,
     listingEvidence: cleanedListingEvidence,
     reviewAuthenticity: cleanedAuthenticity,
   };
