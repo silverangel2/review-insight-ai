@@ -370,6 +370,77 @@ function listingDomainMatchesRequestedStore(
   return listingEvidence;
 }
 
+
+function stripJsonCodeFence(text: string) {
+  return text
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+}
+
+function extractJsonObjectText(text: string) {
+  const cleaned = stripJsonCodeFence(text);
+  const first = cleaned.indexOf("{");
+  if (first === -1) return cleaned;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = first; i < cleaned.length; i += 1) {
+    const char = cleaned[i];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "{") depth += 1;
+    if (char === "}") depth -= 1;
+
+    if (depth === 0) {
+      return cleaned.slice(first, i + 1);
+    }
+  }
+
+  // If JSON is truncated, close braces as best effort.
+  let partial = cleaned.slice(first);
+  if (inString) partial += '"';
+  while (depth > 0) {
+    partial += "}";
+    depth -= 1;
+  }
+  return partial;
+}
+
+function safeParseReviewEvidenceJson(text: string) {
+  const jsonText = extractJsonObjectText(text);
+
+  try {
+    return JSON.parse(jsonText);
+  } catch {
+    // Repair common bad control characters / trailing commas.
+    const repaired = jsonText
+      .replace(/[\u0000-\u001F]+/g, " ")
+      .replace(/,\s*([}\]])/g, "$1");
+
+    return JSON.parse(repaired);
+  }
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
