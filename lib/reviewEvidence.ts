@@ -833,7 +833,49 @@ export async function collectAndAnalyzeReviewEvidence(
         }
       : rawListingEvidence;
 
+  const listingUrlForReviewCollector =
+    typeof listingEvidence?.exactListingUrl === "string" && listingEvidence.exactListingUrl.trim()
+      ? listingEvidence.exactListingUrl
+      : null;
+
+  const marketplaceReviewCountForCollector =
+    typeof listingEvidence?.reviewCount === "number" && Number.isFinite(listingEvidence.reviewCount)
+      ? listingEvidence.reviewCount
+      : null;
+
+  const collectedWrittenReviews = listingUrlForReviewCollector
+    ? await collectWrittenReviewsFromListing({
+        listingUrl: listingUrlForReviewCollector,
+        productName: input.productName,
+        marketplaceReviewCount: marketplaceReviewCountForCollector,
+        maxReviews: 80,
+      })
+    : {
+        attempted: false,
+        sourceUrl: null,
+        reviewsCollected: 0,
+        reviews: [],
+        coverageNote: "No exact listing URL was available for written review collection.",
+      };
+
+  const collectedWrittenReviewsPrompt = formatCollectedReviewsForPrompt(
+    collectedWrittenReviews
+  );
+
+  console.log("[ReviewIntel DEBUG reviewCollectorInput]", {
+    listingUrlForReviewCollector,
+    marketplaceReviewCountForCollector,
+    reviewsCollected: collectedWrittenReviews.reviewsCollected,
+    coverageNote: collectedWrittenReviews.coverageNote,
+  });
+
   const prompt = `
+Collected written reviews from exact listing:
+${collectedWrittenReviewsPrompt}
+
+Written review collection coverage:
+${collectedWrittenReviews.coverageNote}
+
 You are ReviewIntel's review-evidence scanner.
 
 Task:
@@ -1054,7 +1096,7 @@ Scoring rules:
 
     const parsed = safeParseReviewEvidenceJson(outputText);
 
-    const commentsAnalyzed = Number(parsed.commentsAnalyzed || 0);
+    const parsedCommentsAnalyzed = Number(parsed.commentsAnalyzed || 0);
     const parsedScore =
       typeof parsed.reviewAuthenticity?.score === "number"
         ? Math.max(0, Math.min(100, Math.round(parsed.reviewAuthenticity.score)))
@@ -1096,8 +1138,15 @@ Scoring rules:
         typeof comment.riskScore === "number" && comment.riskScore >= 60
     );
 
+    const groundedCommentsAvailableForScore = Math.max(
+      collectedWrittenReviews.reviewsCollected || 0,
+      Array.isArray(parsed.reviewSnippets) ? parsed.reviewSnippets.length : 0,
+      Array.isArray(parsed.repeatedPraises) ? parsed.repeatedPraises.length : 0,
+      Array.isArray(parsed.repeatedComplaints) ? parsed.repeatedComplaints.length : 0
+    );
+
     const score =
-      commentsAnalyzed > 0 && parsedScore !== null
+      groundedCommentsAvailableForScore > 0 && parsedScore !== null
         ? !hasHighRiskComments && (saysNoSuspiciousSignals || positiveCredibilitySignals)
           ? Math.min(parsedScore, 15)
           : !hasHighRiskComments && parsedScore >= 60
@@ -1132,21 +1181,24 @@ Scoring rules:
       listingNotes.includes("similar listing") ||
       listingNotes.includes("downgraded");
 
-    const listingReviewCount = Number(normalizedListingEvidence?.reviewCount || 0);
-    const listingRating = Number(normalizedListingEvidence?.rating || 0);
+
+    const provisionalGroundedComments = Math.max(
+      collectedWrittenReviews.reviewsCollected || 0,
+      Array.isArray(parsed.reviewSnippets) ? parsed.reviewSnippets.length : 0,
+      Array.isArray(parsed.repeatedPraises) ? parsed.repeatedPraises.length : 0,
+      Array.isArray(parsed.repeatedComplaints) ? parsed.repeatedComplaints.length : 0
+    );
 
     const rawEvidenceStrength =
-      commentsAnalyzed >= 30
+      provisionalGroundedComments >= 30
         ? "strong"
-        : commentsAnalyzed >= 15
+        : provisionalGroundedComments >= 15
           ? "usable"
-          : commentsAnalyzed >= 5
+          : provisionalGroundedComments >= 5
             ? "limited"
-            : listingReviewCount >= 100 && listingRating >= 4
-              ? "limited"
-              : commentsAnalyzed > 0
-                ? "weak"
-                : "none";
+            : provisionalGroundedComments > 0
+              ? "weak"
+              : "none";
 
     const cappedEvidenceStrength =
       listingIsUnconfirmed && rawEvidenceStrength === "strong"
@@ -1196,7 +1248,28 @@ Scoring rules:
           .slice(0, 8)
       : [];
 
-    const actualCommentsAnalyzed = Math.max(commentsAnalyzed, reviewSnippets.length);
+    const collectorReviewsCollected = collectedWrittenReviews.reviewsCollected || 0;
+    const groundedCommentsAnalyzed = Math.max(
+      collectorReviewsCollected,
+      reviewSnippets.length,
+      repeatedPraises.length,
+      repeatedComplaints.length
+    );
+
+    const parsedMarketplaceReviewCountForGrounding =
+      toOptionalNumber(parsed.marketplaceReviewCount) ??
+      toOptionalNumber(parsed.reviewCount) ??
+      toOptionalNumber(normalizedListingEvidence?.reviewCount) ??
+      toOptionalNumber(displayListingEvidence?.reviewCount) ??
+      null;
+
+    const actualCommentsAnalyzed =
+      parsedCommentsAnalyzed > 0 &&
+      parsedCommentsAnalyzed !== parsedMarketplaceReviewCountForGrounding &&
+      parsedCommentsAnalyzed !== (toOptionalNumber(parsed.reviewsFound) ?? 0) &&
+      parsedCommentsAnalyzed <= Math.max(groundedCommentsAnalyzed, reviewSnippets.length)
+        ? parsedCommentsAnalyzed
+        : groundedCommentsAnalyzed;
 
     const marketplaceReviewCount =
       toOptionalNumber(parsed.marketplaceReviewCount) ??
@@ -1283,9 +1356,9 @@ Scoring rules:
           ? parsed.sourceNotes
           : [],
       reviewAuthenticity: {
-        score: commentsAnalyzed > 0 ? score : null,
+        score: actualCommentsAnalyzed > 0 ? score : null,
         label:
-          commentsAnalyzed > 0
+          actualCommentsAnalyzed > 0
             ? score === null
               ? "Review evidence analyzed"
               : score >= 76
