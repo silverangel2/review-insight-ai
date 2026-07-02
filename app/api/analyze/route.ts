@@ -590,6 +590,27 @@ function countSeriousComplaints(items: string[]) {
   }).length;
 }
 
+function fractionalReviewVolumeWeight(reviewCount: number | null) {
+  if (reviewCount === null || reviewCount <= 0) return 0;
+
+  // Review count should never directly bump the score by whole numbers.
+  // It only increases confidence in the public rating using a fractional curve.
+  // Examples:
+  // 1 review   -> low reliability
+  // 50 reviews -> moderate reliability
+  // 278 reviews -> good reliability
+  // 1000+ reviews -> capped reliability
+  return Math.max(0.25, Math.min(0.95, Math.log10(reviewCount + 1) / 3.2));
+}
+
+function evidenceCoverageWeight(commentsAnalyzed: number) {
+  if (!Number.isFinite(commentsAnalyzed) || commentsAnalyzed <= 0) return 0;
+
+  // Written review text must dominate the score.
+  // Coverage grows gradually and caps around 50 analyzed reviews.
+  return Math.max(0.05, Math.min(1, commentsAnalyzed / 50));
+}
+
 function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
   const reviewEvidence = asRecord(result.reviewEvidence);
   const listingEvidence = asRecord(reviewEvidence.listingEvidence);
@@ -597,84 +618,152 @@ function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
   const evidenceRating =
     typeof listingEvidence.rating === "number" && Number.isFinite(listingEvidence.rating) && listingEvidence.rating > 0
       ? listingEvidence.rating
-      : null;
-
-  const evidenceReviewCount =
-    typeof listingEvidence.reviewCount === "number" && Number.isFinite(listingEvidence.reviewCount) && listingEvidence.reviewCount > 0
-      ? listingEvidence.reviewCount
-      : typeof reviewEvidence.reviewsFound === "number" && Number.isFinite(reviewEvidence.reviewsFound) && reviewEvidence.reviewsFound > 0
-        ? reviewEvidence.reviewsFound
+      : typeof reviewEvidence.rating === "number" && Number.isFinite(reviewEvidence.rating) && reviewEvidence.rating > 0
+        ? reviewEvidence.rating
         : null;
 
-  const exactListingUrl =
-    typeof listingEvidence.exactListingUrl === "string" && listingEvidence.exactListingUrl.trim()
-      ? listingEvidence.exactListingUrl.trim()
-      : "";
-
-  const evidenceStrength =
-    typeof reviewEvidence.evidenceStrength === "string"
-      ? reviewEvidence.evidenceStrength.toLowerCase()
-      : "";
+  const marketplaceReviewCount =
+    typeof reviewEvidence.marketplaceReviewCount === "number" && Number.isFinite(reviewEvidence.marketplaceReviewCount)
+      ? reviewEvidence.marketplaceReviewCount
+      : typeof listingEvidence.reviewCount === "number" && Number.isFinite(listingEvidence.reviewCount)
+        ? listingEvidence.reviewCount
+        : null;
 
   const rating = evidenceRating ?? parseVisibleRating(result.product.rating);
-  const reviewCount = evidenceReviewCount ?? parseVisibleReviewCount(result.product.reviewCount);
-  const sourcesCount = Math.max(
-    result.sourcesUsed.length,
-    exactListingUrl ? 1 : 0,
-    evidenceStrength === "limited" || evidenceStrength === "usable" || evidenceStrength === "strong" ? 1 : 0
-  );
+  const publicReviewCount = marketplaceReviewCount ?? parseVisibleReviewCount(result.product.reviewCount);
+
+  const reviewSnippets = Array.isArray(reviewEvidence.reviewSnippets)
+    ? reviewEvidence.reviewSnippets
+    : [];
+
+  const repeatedPraises = Array.isArray(reviewEvidence.repeatedPraises)
+    ? reviewEvidence.repeatedPraises
+    : [];
+
+  const repeatedComplaints = Array.isArray(reviewEvidence.repeatedComplaints)
+    ? reviewEvidence.repeatedComplaints
+    : [];
+
+  const aiPatternSignals = Array.isArray(reviewEvidence.aiPatternSignals)
+    ? reviewEvidence.aiPatternSignals
+    : [];
+
+  const productPros = Array.isArray(reviewEvidence.productPros)
+    ? reviewEvidence.productPros
+    : [];
+
+  const productCons = Array.isArray(reviewEvidence.productCons)
+    ? reviewEvidence.productCons
+    : [];
+
+  const commentsAnalyzed =
+    typeof reviewEvidence.commentsAnalyzed === "number" && Number.isFinite(reviewEvidence.commentsAnalyzed)
+      ? reviewEvidence.commentsAnalyzed
+      : 0;
+
+  const analyzedReviewCount = Math.max(commentsAnalyzed, reviewSnippets.length);
+
+  const publicRatingReliability = fractionalReviewVolumeWeight(publicReviewCount);
+  const writtenReviewCoverage = evidenceCoverageWeight(analyzedReviewCount);
+
+  // 35% max from online rating.
+  // The public review count only changes reliability as a fraction.
+  // Example: 4.3 stars with 278 reviews can support the score, but cannot dominate it.
+  const onlineRatingComponent =
+    rating === null
+      ? 0
+      : (rating / 5) * 35 * publicRatingReliability;
+
   const seriousComplaintCount = countSeriousComplaints([
     ...result.topComplaints,
-    ...result.notIdealFor
+    ...result.notIdealFor,
+    ...productCons.map(String),
+    ...repeatedComplaints.map((item) =>
+      item && typeof item === "object"
+        ? String((item as Record<string, unknown>).theme || "")
+        : String(item || "")
+    ),
   ]);
 
-  let productScore = rating === null ? 50 : Math.round((rating / 5) * 100);
+  const praiseCount = Math.min(
+    8,
+    productPros.length + repeatedPraises.length + result.topStrengths.length
+  );
 
-  if (reviewCount === null) productScore -= 10;
-  else if (reviewCount < 10) productScore -= 30;
-  else if (reviewCount < 50) productScore -= 22;
-  else if (reviewCount < 100) productScore -= 12;
-  else if (reviewCount > 500) productScore += 5;
+  const complaintCount = Math.min(
+    8,
+    productCons.length + repeatedComplaints.length + result.topComplaints.length
+  );
 
-  productScore -= Math.min(35, seriousComplaintCount * 9);
+  // 65% max from actual written review analysis.
+  // If RI did not analyze written reviews, this component is near zero.
+  let writtenReviewSignal = 50;
+  writtenReviewSignal += praiseCount * 5;
+  writtenReviewSignal -= complaintCount * 7;
+  writtenReviewSignal -= seriousComplaintCount * 8;
+  writtenReviewSignal -= Math.min(25, aiPatternSignals.length * 6);
 
-  if (result.reviewAuthenticity.suspiciousReviewRisk === "High") productScore -= 18;
-  if (result.reviewAuthenticity.suspiciousReviewRisk === "Medium") productScore -= 8;
+  writtenReviewSignal = clampScore(writtenReviewSignal);
 
-  if (result.valueForMoney === "Excellent") productScore += 8;
-  if (result.valueForMoney === "Good") productScore += 4;
-  if (result.valueForMoney === "Poor") productScore -= 12;
+  const writtenReviewComponent =
+    (writtenReviewSignal / 100) * 65 * writtenReviewCoverage;
 
-  if (sourcesCount === 0) productScore -= 15;
-  else if (sourcesCount === 1) productScore -= 8;
-  else if (sourcesCount >= 3) productScore += 5;
+  let productScore = Math.round(onlineRatingComponent + writtenReviewComponent);
+
+  // AI-like/fake-review risk can only penalize when actual review text was analyzed.
+  if (analyzedReviewCount > 0) {
+    if (result.reviewAuthenticity.suspiciousReviewRisk === "High") productScore -= 12;
+    if (result.reviewAuthenticity.suspiciousReviewRisk === "Medium") productScore -= 6;
+  }
 
   productScore = clampScore(productScore);
 
-  let buyingConfidence = 45;
+  // Confidence is not the product score.
+  // Confidence measures how much RI actually analyzed.
+  let buyingConfidence = 10;
 
-  if (result.product.name) buyingConfidence += 10;
-  if (result.product.store) buyingConfidence += 5;
-  if (result.product.price) buyingConfidence += 5;
-  if (rating !== null) buyingConfidence += 10;
-  if (reviewCount !== null) buyingConfidence += 5;
-  if (reviewCount !== null && reviewCount < 50) buyingConfidence -= 15;
-  if (sourcesCount >= 2) buyingConfidence += 15;
-  if (sourcesCount >= 4) buyingConfidence += 10;
-  if (sourcesCount === 0) buyingConfidence -= 20;
+  if (rating !== null) buyingConfidence += Math.round(15 * publicRatingReliability);
+  if (publicReviewCount !== null && publicReviewCount >= 50) buyingConfidence += 5;
+  if (analyzedReviewCount > 0) buyingConfidence += Math.round(65 * writtenReviewCoverage);
+  if (reviewSnippets.length >= 10) buyingConfidence += 5;
+  if (reviewSnippets.length >= 30) buyingConfidence += 5;
+  if (aiPatternSignals.length >= 3) buyingConfidence -= 10;
   if (seriousComplaintCount >= 2) buyingConfidence -= 10;
 
   buyingConfidence = clampScore(buyingConfidence);
 
   let verdict: Verdict = "CONSIDER";
 
-  if (productScore >= 75 && buyingConfidence >= 70 && result.reviewAuthenticity.suspiciousReviewRisk !== "High") {
+  // Do not allow confident BUY/AVOID from public rating/count alone.
+  if (analyzedReviewCount < 5) {
+    verdict = "CONSIDER";
+  } else if (
+    productScore >= 75 &&
+    buyingConfidence >= 70 &&
+    result.reviewAuthenticity.suspiciousReviewRisk !== "High"
+  ) {
     verdict = "BUY";
-  } else if (productScore < 45 || buyingConfidence < 35) {
+  } else if (productScore < 45 || seriousComplaintCount >= 4) {
     verdict = "AVOID";
   }
 
-  return { productScore, buyingConfidence, verdict };
+  return {
+    productScore,
+    buyingConfidence,
+    verdict,
+    scoreAudit: {
+      onlineRatingComponent: Math.round(onlineRatingComponent),
+      publicRatingReliability,
+      writtenReviewComponent: Math.round(writtenReviewComponent),
+      writtenReviewCoverage,
+      publicReviewCount,
+      analyzedReviewCount,
+      aiPatternSignalCount: aiPatternSignals.length,
+      praiseCount,
+      complaintCount,
+      seriousComplaintCount,
+    },
+  };
 }
 
 function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithScores>, locale = "en") {
@@ -1484,6 +1573,196 @@ Return only the required JSON.
 }
 
 
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function computeVerdictConfidenceAudit(input: {
+  exactListingUrl?: unknown;
+  exactListingConfirmed?: unknown;
+  screenshotTitle?: unknown;
+  listingTitle?: unknown;
+  screenshotStore?: unknown;
+  listingStore?: unknown;
+  screenshotPrice?: unknown;
+  listingPrice?: unknown;
+  rating?: unknown;
+  marketplaceReviewCount?: unknown;
+  commentsAnalyzed?: unknown;
+  repeatedPraisesCount?: number;
+  repeatedComplaintsCount?: number;
+  productProsCount?: number;
+  productConsCount?: number;
+  buyScore?: number | null;
+  verdict?: string;
+  finalDecisionSource?: string;
+}) {
+  const exactListingUrl = String(input.exactListingUrl || "").trim();
+  const screenshotTitle = String(input.screenshotTitle || "").trim();
+  const listingTitle = String(input.listingTitle || "").trim();
+  const screenshotStore = String(input.screenshotStore || "").trim().toLowerCase();
+  const listingStore = String(input.listingStore || "").trim().toLowerCase();
+  const screenshotPrice = String(input.screenshotPrice || "").replace(/[^0-9.]/g, "");
+  const listingPrice = String(input.listingPrice || "").replace(/[^0-9.]/g, "");
+
+  const rating = Number(input.rating);
+  const marketplaceReviewCount = Number(input.marketplaceReviewCount || 0);
+  const commentsAnalyzed = Number(input.commentsAnalyzed || 0);
+
+  const hasExactListing = Boolean(exactListingUrl);
+  const sameStore =
+    Boolean(screenshotStore && listingStore && (listingStore.includes(screenshotStore) || screenshotStore.includes(listingStore))) ||
+    Boolean(screenshotStore && exactListingUrl.toLowerCase().includes(screenshotStore.replace(".ca", "").replace(".com", "")));
+
+  const titleLooksMatched =
+    Boolean(screenshotTitle && listingTitle) &&
+    screenshotTitle
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((word) => word.length >= 4)
+      .slice(0, 8)
+      .some((word) => listingTitle.toLowerCase().includes(word));
+
+  const priceMatches =
+    Boolean(screenshotPrice && listingPrice) &&
+    Math.abs(Number(screenshotPrice) - Number(listingPrice)) <= 1;
+
+  // Gate 1: Did RI reach the right product?
+  const productMatchScore =
+    hasExactListing && (titleLooksMatched || priceMatches) && sameStore
+      ? 25
+      : hasExactListing && sameStore
+        ? 16
+        : hasExactListing
+          ? 8
+          : 0;
+
+  // Hard fail: wrong/no product identity means no trust.
+  if (productMatchScore < 8) {
+    return {
+      verdictConfidence: 0,
+      audit: {
+        productMatchScore,
+        listingInfoScore: 0,
+        reviewCoverageScore: 0,
+        prosConsScore: 0,
+        scoreCalculationScore: 0,
+        verdictRatificationScore: 0,
+        marketplaceReviewCount,
+        commentsAnalyzed,
+        reviewCoverageRatio: 0,
+        reason: "ReviewIntel did not verify the exact product strongly enough.",
+      },
+    };
+  }
+
+  // Gate 2: Did RI get listing info right?
+  let listingInfoScore = 0;
+  if (sameStore) listingInfoScore += 6;
+  if (priceMatches || !screenshotPrice) listingInfoScore += 4;
+  if (Number.isFinite(rating) && rating > 0) listingInfoScore += 5;
+  if (marketplaceReviewCount > 0) listingInfoScore += 5;
+  listingInfoScore = Math.min(20, listingInfoScore);
+
+  // Hard fail if website/store is wrong.
+  if (!sameStore) {
+    return {
+      verdictConfidence: 0,
+      audit: {
+        productMatchScore,
+        listingInfoScore: 0,
+        reviewCoverageScore: 0,
+        prosConsScore: 0,
+        scoreCalculationScore: 0,
+        verdictRatificationScore: 0,
+        marketplaceReviewCount,
+        commentsAnalyzed,
+        reviewCoverageRatio: 0,
+        reason: "ReviewIntel did not verify the same store/website.",
+      },
+    };
+  }
+
+  // Gate 3: Did RI reach the reviews?
+  const reviewCoverageRatio =
+    marketplaceReviewCount > 0
+      ? Math.min(1, commentsAnalyzed / marketplaceReviewCount)
+      : commentsAnalyzed > 0
+        ? Math.min(1, commentsAnalyzed / 50)
+        : 0;
+
+  const reviewCoverageScore = Math.round(25 * reviewCoverageRatio);
+
+  // Gate 4: Did RI separate pros and cons?
+  const prosCount = Number(input.productProsCount || 0);
+  const consCount = Number(input.productConsCount || 0);
+  const repeatedSignals = Number(input.repeatedPraisesCount || 0) + Number(input.repeatedComplaintsCount || 0);
+
+  const prosConsScore =
+    commentsAnalyzed > 0 && (prosCount > 0 || consCount > 0 || repeatedSignals > 0)
+      ? Math.min(10, 4 + prosCount + consCount + repeatedSignals)
+      : 0;
+
+  // Gate 5: Did RI calculate an overall score from evidence?
+  const scoreCalculationScore =
+    typeof input.buyScore === "number" && commentsAnalyzed > 0
+      ? 10
+      : 0;
+
+  // Gate 6: Is the final verdict ratified/correct based on evidence state?
+  const verdict = String(input.verdict || "").toUpperCase();
+  const finalDecisionSource = String(input.finalDecisionSource || "");
+
+  let verdictRatificationScore = 0;
+
+  if (
+    marketplaceReviewCount > 0 &&
+    commentsAnalyzed < Math.max(5, marketplaceReviewCount * 0.05) &&
+    (verdict === "LIMITED REVIEW EVIDENCE" || finalDecisionSource === "limitedReviewEvidence")
+  ) {
+    verdictRatificationScore = 10;
+  } else if (
+    commentsAnalyzed === 0 &&
+    (verdict === "REVIEW EVIDENCE NOT ENOUGH" || finalDecisionSource === "reviewEvidenceNotEnough")
+  ) {
+    verdictRatificationScore = 10;
+  } else if (
+    commentsAnalyzed >= 15 &&
+    ["BUY", "CONSIDER", "AVOID"].includes(verdict) &&
+    finalDecisionSource === "reviewEvidence"
+  ) {
+    verdictRatificationScore = 10;
+  }
+
+  const verdictConfidence = clampPercent(
+    productMatchScore +
+      listingInfoScore +
+      reviewCoverageScore +
+      prosConsScore +
+      scoreCalculationScore +
+      verdictRatificationScore
+  );
+
+  return {
+    verdictConfidence,
+    audit: {
+      productMatchScore,
+      listingInfoScore,
+      reviewCoverageScore,
+      prosConsScore,
+      scoreCalculationScore,
+      verdictRatificationScore,
+      marketplaceReviewCount,
+      commentsAnalyzed,
+      reviewCoverageRatio,
+      reason: "Verdict Confidence is based on product match, listing accuracy, review coverage, pros/cons extraction, score calculation, and verdict ratification.",
+    },
+  };
+}
+
+
 function buildReviewEvidenceShopperResult(input: {
   vision: Record<string, unknown>;
   reviewEvidence: Record<string, unknown>;
@@ -1606,6 +1885,29 @@ function buildReviewEvidenceShopperResult(input: {
       "ReviewIntel found the public marketplace review count, but could only access a limited number of written review signals. It cannot judge the product until it analyzes enough of the buyer experiences inside those reviews.";
   }
 
+  const verdictConfidenceAudit = computeVerdictConfidenceAudit({
+    exactListingUrl: listingEvidence?.exactListingUrl || listingEvidence?.url || null,
+    exactListingConfirmed: evidence.exactListingConfirmed,
+    screenshotTitle: vision.name || vision.title || vision.category,
+    listingTitle: productName,
+    screenshotStore: vision.store,
+    listingStore: store,
+    screenshotPrice: vision.price,
+    listingPrice: price,
+    rating: evidence.rating ?? listingEvidence?.rating ?? null,
+    marketplaceReviewCount,
+    commentsAnalyzed,
+    repeatedPraisesCount: repeatedPraises.length,
+    repeatedComplaintsCount: repeatedComplaints.length,
+    productProsCount: productPros.length,
+    productConsCount: productCons.length,
+    buyScore,
+    verdict,
+    finalDecisionSource,
+  });
+
+  const verdictConfidence = verdictConfidenceAudit.verdictConfidence;
+
   return {
     ...rawRecord,
 
@@ -1654,6 +1956,7 @@ function buildReviewEvidenceShopperResult(input: {
         repeatedComplaints: repeatedComplaints.length,
       },
       finalDecisionSource,
+      verdictConfidenceAudit: verdictConfidenceAudit.audit,
     },
 
     verdict,
@@ -1662,8 +1965,10 @@ function buildReviewEvidenceShopperResult(input: {
     stableVerdict: verdict,
     decisionStatus,
 
-    buyerConfidence,
-    confidence: buyerConfidence,
+    buyerConfidence: verdictConfidence,
+    confidence: verdictConfidence,
+    verdictConfidence,
+    verdictConfidenceAudit: verdictConfidenceAudit.audit,
     buyScore,
     score: buyScore,
     productScore: buyScore,

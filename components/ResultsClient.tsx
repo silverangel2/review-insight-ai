@@ -840,9 +840,9 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       ? `${shopper.product.reviewCount} ${copy.reviews}`
       : copy.reviewCountNotShown;
 
-  const visibleProductScore = hasUsefulReviewEvidence
-    ? Math.max(Number(shopper.productScore || 0), 60)
-    : shopper.productScore;
+  // Do not inflate ReviewIntel scores in the UI.
+  // Score must come from evidence-weighted review analysis only.
+  const visibleProductScore = shopper.productScore;
 
   const visibleValueForMoney =
     hasUsefulReviewEvidence && String(shopper.valueForMoney || "").toLowerCase() === "poor"
@@ -1678,8 +1678,8 @@ export function ResultsClient() {
                   (source as Record<string, unknown>).finalVerdict ||
                   source.verdict ||
                   "CONSIDER",
-              productScore: source.productScore || source.buyingConfidence || 0,
-              buyingConfidence: source.buyingConfidence || source.productScore || 0,
+              productScore: source.productScore ?? null,
+              buyingConfidence: source.buyingConfidence ?? null,
               valueForMoney: source.valueForMoney || "Fair",
               reviewAuthenticity: source.reviewAuthenticity,
               topStrengths: source.topStrengths || [],
@@ -1693,8 +1693,8 @@ export function ResultsClient() {
                   (source as Record<string, unknown>).finalVerdict ||
                   source.verdict ||
                   "CONSIDER",
-                score: source.productScore || source.buyingConfidence || 0,
-                buyingConfidence: source.buyingConfidence || source.productScore || 0,
+                score: source.productScore ?? null,
+                buyingConfidence: source.buyingConfidence ?? null,
                 valueForMoney: source.valueForMoney || "Fair",
                 summary: source.bottomLine || "Latest scan loaded.",
                 mainConcerns: source.topComplaints || [],
