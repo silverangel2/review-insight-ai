@@ -1809,7 +1809,32 @@ function buildReviewEvidenceShopperResult(input: {
 
   const reviewsFound = Number(evidence.reviewsFound || 0);
   const marketplaceReviewCount = Number(evidence.marketplaceReviewCount || evidence.reviewsFound || 0);
-  const commentsAnalyzed = Number(evidence.commentsAnalyzed || 0);
+
+  const rawCommentsAnalyzed = Number(evidence.commentsAnalyzed || 0);
+
+  const collectorReviewsCollected =
+    evidence.reviewCollector &&
+    typeof evidence.reviewCollector === "object" &&
+    typeof (evidence.reviewCollector as Record<string, unknown>).reviewsCollected === "number"
+      ? Number((evidence.reviewCollector as Record<string, unknown>).reviewsCollected)
+      : 0;
+
+  // commentsAnalyzed must be grounded in actual written review text.
+  // Never allow the AI to copy marketplaceReviewCount/reviewsFound and pretend all reviews were analyzed.
+  const groundedCommentsAnalyzed = Math.max(
+    collectorReviewsCollected,
+    reviewSnippets.length,
+    repeatedPraises.length,
+    repeatedComplaints.length
+  );
+
+  const commentsAnalyzed =
+    rawCommentsAnalyzed > 0 &&
+    rawCommentsAnalyzed !== marketplaceReviewCount &&
+    rawCommentsAnalyzed !== reviewsFound &&
+    rawCommentsAnalyzed <= Math.max(groundedCommentsAnalyzed, reviewSnippets.length)
+      ? rawCommentsAnalyzed
+      : groundedCommentsAnalyzed;
   const evidenceStrength = String(evidence.evidenceStrength || "none").toLowerCase();
 
   const hasReadableReviewEvidence =
@@ -1935,6 +1960,9 @@ function buildReviewEvidenceShopperResult(input: {
     scoreCalculationScore: verdictConfidenceAudit.audit.scoreCalculationScore,
     verdictRatificationScore: verdictConfidenceAudit.audit.verdictRatificationScore,
     marketplaceReviewCount: verdictConfidenceAudit.audit.marketplaceReviewCount,
+    rawCommentsAnalyzed,
+    collectorReviewsCollected,
+    groundedCommentsAnalyzed,
     commentsAnalyzed: verdictConfidenceAudit.audit.commentsAnalyzed,
     reviewCoverageRatio: verdictConfidenceAudit.audit.reviewCoverageRatio,
     reason: verdictConfidenceAudit.audit.reason,
