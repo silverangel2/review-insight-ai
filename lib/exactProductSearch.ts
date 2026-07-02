@@ -75,7 +75,14 @@ export async function findExactProductListing(
     return emptyExactResult("OPENAI_API_KEY is missing.");
   }
 
-  const product = [input.store, input.brand, input.productName, input.price ? `$${input.price}` : ""]
+  const product = [
+    input.store,
+    input.brand,
+    input.productName,
+    input.price ? `$${input.price}` : "",
+    input.rating ? `${input.rating} rating` : "",
+    input.reviewCount ? `${input.reviewCount} reviews` : "",
+  ]
     .filter(Boolean)
     .join(" ")
     .replace(/\s+/g, " ")
@@ -95,6 +102,14 @@ Find the most likely exact public product listing for:
 
 Preferred store targeting:
 ${storeTarget || "No specific store target. Search broadly."}
+
+Known screenshot/listing clues:
+- Store: ${input.store || "not provided"}
+- Price: ${input.price ?? "not provided"}
+- Rating: ${input.rating ?? "not provided"}
+- Review count: ${input.reviewCount ?? "not provided"}
+
+Use these clues as identity signals. Prefer listings where title, store, price, rating, and review count match. Do not invent missing rating or review count.
 
 Priority:
 1. Exact store listing if store is known, especially Walmart, Amazon, Best Buy, Costco, Target.
