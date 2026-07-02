@@ -1246,7 +1246,113 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 }
 
 
+
+function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" | "usable" | null {
+  if (!value || typeof value !== "object") return null;
+
+  const result = value as Record<string, unknown>;
+
+  if (String(result.analysisVersion || "") !== "review-evidence-v2") {
+    return null;
+  }
+
+  const trace =
+    result.reviewIntelTrace && typeof result.reviewIntelTrace === "object"
+      ? (result.reviewIntelTrace as Record<string, unknown>)
+      : null;
+
+  const finalDecisionSource = String(
+    trace?.finalDecisionSource ||
+      result.finalDecisionSource ||
+      result.decisionSource ||
+      ""
+  );
+
+  const decisionStatus = String(result.decisionStatus || "");
+  const verdict = String(
+    result.verdict ||
+      result.finalVerdict ||
+      result.recommendation ||
+      ""
+  ).toUpperCase();
+
+  if (
+    finalDecisionSource === "reviewEvidenceNotEnough" ||
+    decisionStatus === "not_enough_evidence" ||
+    verdict === "REVIEW EVIDENCE NOT ENOUGH"
+  ) {
+    return "not_enough";
+  }
+
+  if (
+    finalDecisionSource === "limitedReviewEvidence" ||
+    decisionStatus === "limited_review_evidence" ||
+    verdict === "LIMITED REVIEW EVIDENCE"
+  ) {
+    return "limited";
+  }
+
+  if (finalDecisionSource === "reviewEvidence") {
+    return "usable";
+  }
+
+  return null;
+}
+
+function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>(value: T): T {
+  const state = reviewEvidenceDecisionState(value);
+
+  if (state !== "not_enough" && state !== "limited") {
+    return value;
+  }
+
+  const verdict =
+    state === "not_enough"
+      ? "REVIEW EVIDENCE NOT ENOUGH"
+      : "LIMITED REVIEW EVIDENCE";
+
+  const bottomLine =
+    state === "not_enough"
+      ? "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product."
+      : "ReviewIntel searched the web and found only weak or limited review evidence. This is not enough to make a confident Buy, Consider, or Avoid judgment.";
+
+  return {
+    ...value,
+    verdict,
+    recommendation: verdict,
+    finalVerdict: verdict,
+    stableVerdict: verdict,
+    decisionStatus: state === "not_enough" ? "not_enough_evidence" : "limited_review_evidence",
+
+    buyerConfidence: null,
+    confidence: null,
+    buyScore: null,
+    score: null,
+    productScore: null,
+
+    valueForMoney: "Unknown",
+    value: "Unknown",
+
+    topStrengths: [],
+    topComplaints: [],
+    strengths: [],
+    complaints: [],
+    bestFor: [],
+    notIdealFor: [],
+
+    screenshotOnly: false,
+    screenshotOnlyWarning: false,
+
+    bottomLine,
+    summary: bottomLine,
+    stableVerdictReason: bottomLine,
+  } as T;
+}
+
+
 function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
+  result = enforceReviewEvidenceDisplayContract(result as unknown as Record<string, unknown>) as AnalyzeResponse;
+
   const source = result as AnalyzeResponse & {
     analysis?: Record<string, unknown>;
     topStrengths?: string[];
@@ -1256,7 +1362,10 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
   };
 
   const existing = source.analysis || {};
-  const strengths =
+  const reviewEvidenceState = reviewEvidenceDecisionState(source);
+  const strengths = reviewEvidenceState === "not_enough" || reviewEvidenceState === "limited"
+    ? []
+    :
     (existing.strengths as string[] | undefined) ||
     (existing.praised_features as string[] | undefined) ||
     (existing.praisedFeatures as string[] | undefined) ||
@@ -1265,7 +1374,9 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
     source.topStrengths ||
     [];
 
-  const complaints =
+  const complaints = reviewEvidenceState === "not_enough" || reviewEvidenceState === "limited"
+    ? []
+    :
     (existing.complaints as string[] | undefined) ||
     (existing.mainConcerns as string[] | undefined) ||
     (existing.negative_points as string[] | undefined) ||
@@ -1275,7 +1386,9 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
     source.topComplaints ||
     [];
 
-  const bestFor =
+  const bestFor = reviewEvidenceState === "not_enough" || reviewEvidenceState === "limited"
+    ? []
+    :
     (existing.bestFor as string[] | undefined) ||
     (existing.best_for as string[] | undefined) ||
     source.bestFor ||
