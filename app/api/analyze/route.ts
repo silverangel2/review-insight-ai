@@ -1735,9 +1735,7 @@ function computeVerdictConfidenceAudit(input: {
   const scoreCalculationScore =
     typeof input.buyScore === "number" && hasEnoughReviewCoverage
       ? 10
-      : input.buyScore === null && !hasEnoughReviewCoverage
-        ? 10
-        : 0;
+      : 0;
 
   // Gate 6: Is the final verdict ratified/correct based on evidence state?
   const verdict = String(input.verdict || "").toUpperCase();
@@ -1752,7 +1750,9 @@ function computeVerdictConfidenceAudit(input: {
     finalDecisionSource === "reviewEvidenceNotEnough";
 
   if (!hasEnoughReviewCoverage && isLimitedEvidenceVerdict) {
-    verdictRatificationScore = 10;
+    // RI gets small credit for refusing to fake a scored verdict,
+    // but this must not make the scan look highly reliable.
+    verdictRatificationScore = commentsAnalyzed > 0 ? 7 : 5;
   } else if (
     hasEnoughReviewCoverage &&
     ["BUY", "CONSIDER", "AVOID"].includes(verdict) &&
@@ -1761,7 +1761,7 @@ function computeVerdictConfidenceAudit(input: {
     verdictRatificationScore = 10;
   }
 
-  const verdictConfidence = clampPercent(
+  let verdictConfidence = clampPercent(
     productMatchScore +
       listingInfoScore +
       reviewCoverageScore +
@@ -1769,6 +1769,13 @@ function computeVerdictConfidenceAudit(input: {
       scoreCalculationScore +
       verdictRatificationScore
   );
+
+  // Hard caps: if RI did not actually read written reviews, confidence must stay low.
+  if (commentsAnalyzed <= 0) {
+    verdictConfidence = Math.min(verdictConfidence, 40);
+  } else if (reviewCoverageRatio < 0.05) {
+    verdictConfidence = Math.min(verdictConfidence, 55);
+  }
 
   return {
     verdictConfidence,
