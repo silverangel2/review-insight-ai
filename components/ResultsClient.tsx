@@ -1382,6 +1382,43 @@ export function ResultsClient() {
         const response = await fetch(`/api/account/analyses?${params.toString()}`, { cache: "no-store" }).catch(() => null);
         const data = response?.ok ? await response.json().catch(() => null) : null;
         const analyses = Array.isArray(data?.analyses) ? data.analyses : [];
+
+        const isReviewEvidenceV2History = (item: Record<string, unknown>) => {
+          const analysisJson =
+            item.analysis_json && typeof item.analysis_json === "object"
+              ? (item.analysis_json as Record<string, unknown>)
+              : {};
+
+          const restored =
+            analysisJson.result && typeof analysisJson.result === "object"
+              ? (analysisJson.result as Record<string, unknown>)
+              : analysisJson;
+
+          const trace =
+            restored.reviewIntelTrace && typeof restored.reviewIntelTrace === "object"
+              ? (restored.reviewIntelTrace as Record<string, unknown>)
+              : null;
+
+          const finalDecisionSource = String(
+            trace?.finalDecisionSource ||
+              restored.finalDecisionSource ||
+              restored.decisionSource ||
+              ""
+          );
+
+          return (
+            String(restored.analysisVersion || analysisJson.analysisVersion || "") === "review-evidence-v2" ||
+            Boolean(restored.reviewEvidence && typeof restored.reviewEvidence === "object") ||
+            finalDecisionSource === "reviewEvidence" ||
+            finalDecisionSource === "reviewEvidenceNotEnough" ||
+            finalDecisionSource === "limitedReviewEvidence"
+          );
+        };
+
+        const reviewEvidenceAnalyses = analyses.filter((item: Record<string, unknown>) =>
+          isReviewEvidenceV2History(item)
+        );
+
         const selectedHistoryId =
           typeof window !== "undefined"
             ? new URLSearchParams(window.location.search).get("history") ||
@@ -1389,7 +1426,7 @@ export function ResultsClient() {
             : null;
 
         const latest = selectedHistoryId
-          ? analyses.find((item: Record<string, unknown>) => {
+          ? reviewEvidenceAnalyses.find((item: Record<string, unknown>) => {
               const analysisJson =
                 item.analysis_json && typeof item.analysis_json === "object"
                   ? (item.analysis_json as Record<string, unknown>)
@@ -1401,8 +1438,8 @@ export function ResultsClient() {
                 String(analysisJson.serverId ?? "") === selectedHistoryId ||
                 String(analysisJson.compareId ?? "") === selectedHistoryId
               );
-            }) ?? analyses[0] ?? null
-          : analyses[0] ?? null;
+            }) ?? reviewEvidenceAnalyses[0] ?? null
+          : reviewEvidenceAnalyses[0] ?? null;
 
         const stored = latest?.analysis_json && typeof latest.analysis_json === "object"
           ? (latest.analysis_json as Record<string, unknown>)

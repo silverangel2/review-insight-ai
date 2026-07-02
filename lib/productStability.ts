@@ -724,27 +724,13 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
       ? exactListing.reviewCount
       : finalMemory.reviewCount;
 
-  const hasStrongExactListingEvidence =
-    exactListingConfirmed &&
-    typeof promotedRating === "number" &&
-    promotedRating >= 4 &&
-    typeof promotedReviewCount === "number" &&
-    promotedReviewCount >= 100;
-
-  const promotedVerdict = hasStrongExactListingEvidence ? "CONSIDER" : stable.verdict;
-  const promotedBuyerConfidence = hasStrongExactListingEvidence
-    ? Math.max(Number(stable.buyerConfidence || 0), 65)
-    : stable.buyerConfidence;
-  const promotedBuyScore = hasStrongExactListingEvidence
-    ? Math.max(Number(stable.buyScore || 0), 6)
-    : stable.buyScore;
-  const promotedValueForMoney =
-    hasStrongExactListingEvidence && String(stable.valueForMoney || "").toLowerCase() === "poor"
-      ? "Fair"
-      : stable.valueForMoney;
-  const promotedBottomLine = hasStrongExactListingEvidence
-    ? "Exact Walmart.ca listing was verified with a 4+ star rating and 100+ reviews. Consider buying, but still check return terms and review details before purchase."
-    : stable.bottomLine;
+  // Exact listing/rating/review count confirms product identity only.
+  // It must not promote verdict, confidence, score, value, or bottom line.
+  const promotedVerdict = stable.verdict;
+  const promotedBuyerConfidence = stable.buyerConfidence;
+  const promotedBuyScore = stable.buyScore;
+  const promotedValueForMoney = stable.valueForMoney;
+  const promotedBottomLine = stable.bottomLine;
 
   const toolAudit = buildToolAudit({
     hasVision: Boolean(extra?.vision),
@@ -759,11 +745,95 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     exactListingConfidence: finalReviewEvidence?.listingEvidence?.confidence ?? null,
   });
 
+  const evidenceRecord = (finalReviewEvidence || {}) as Record<string, unknown>;
+
+  const readableComments =
+    typeof finalReviewEvidence?.commentsAnalyzed === "number"
+      ? finalReviewEvidence.commentsAnalyzed
+      : typeof evidenceRecord.commentsRead === "number"
+        ? evidenceRecord.commentsRead
+        : typeof evidenceRecord.reviewsFound === "number"
+          ? evidenceRecord.reviewsFound
+          : 0;
+
+  const reviewSnippets = Array.isArray(evidenceRecord.reviewSnippets)
+    ? evidenceRecord.reviewSnippets
+    : Array.isArray(evidenceRecord.snippets)
+      ? evidenceRecord.snippets
+      : [];
+
+  const repeatedComplaints = Array.isArray(evidenceRecord.repeatedComplaints)
+    ? evidenceRecord.repeatedComplaints
+    : Array.isArray(evidenceRecord.complaints)
+      ? evidenceRecord.complaints
+      : [];
+
+  const repeatedPraises = Array.isArray(evidenceRecord.repeatedPraises)
+    ? evidenceRecord.repeatedPraises
+    : Array.isArray(evidenceRecord.praises)
+      ? evidenceRecord.praises
+      : [];
+
+  const evidenceReviewCount =
+    typeof evidenceRecord.reviewCount === "number"
+      ? evidenceRecord.reviewCount
+      : typeof evidenceRecord.reviewsCount === "number"
+        ? evidenceRecord.reviewsCount
+        : null;
+
+  const evidenceRating =
+    typeof evidenceRecord.rating === "number" ? evidenceRecord.rating : null;
+
+  const hasActualReviewEvidence =
+    readableComments >= 10 ||
+    reviewSnippets.length >= 3 ||
+    repeatedComplaints.length + repeatedPraises.length >= 3 ||
+    (typeof evidenceRating === "number" &&
+      typeof evidenceReviewCount === "number" &&
+      evidenceReviewCount >= 10);
+
+  const hasWeakReviewEvidence =
+    readableComments > 0 ||
+    reviewSnippets.length > 0 ||
+    repeatedComplaints.length + repeatedPraises.length > 0 ||
+    typeof evidenceRating === "number" ||
+    typeof evidenceReviewCount === "number";
+
+  const finalReviewDecisionVerdict = hasActualReviewEvidence
+    ? promotedVerdict
+    : hasWeakReviewEvidence
+      ? "LIMITED REVIEW EVIDENCE"
+      : "REVIEW EVIDENCE NOT ENOUGH";
+
+  const finalReviewDecisionStatus = hasActualReviewEvidence
+    ? "evidence_based"
+    : hasWeakReviewEvidence
+      ? "limited_review_evidence"
+      : "not_enough_evidence";
+
+  const finalReviewDecisionConfidence = hasActualReviewEvidence
+    ? promotedBuyerConfidence
+    : null;
+
+  const finalReviewDecisionScore = hasActualReviewEvidence ? promotedBuyScore : null;
+
+  const finalReviewDecisionValue = hasActualReviewEvidence
+    ? promotedValueForMoney
+    : "Unknown";
+
+  const finalReviewDecisionBottomLine = hasActualReviewEvidence
+    ? promotedBottomLine
+    : hasWeakReviewEvidence
+      ? "ReviewIntel found the exact product listing and weak review evidence, but not enough readable review evidence to make a confident product judgment. This is limited evidence, not a Buy or Avoid verdict."
+      : "Exact product identity may be found, but ReviewIntel could not access enough readable review evidence to assess this product. This is not a product judgment.";
+
   return enforceFinalVerdictConsistency({
     ...result,
     toolAudit,
     toolsUsed: toolAudit.toolsUsed,
-    decisionBasis: toolAudit.decisionBasis,
+    decisionBasis: hasActualReviewEvidence
+      ? toolAudit.decisionBasis
+      : "Review evidence not enough. Screenshot and exact listing were treated as product identity only.",
     productKey: finalMemory.productKey,
     stableProductKey: finalMemory.productKey,
     productIdentity: {
@@ -780,30 +850,53 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
       ...reviewAuthenticity,
       ...(evidenceAuth || {}),
     },
-    verdict: promotedVerdict,
-    recommendation: promotedVerdict,
-    finalVerdict: promotedVerdict,
-    stableVerdict: promotedVerdict,
-    decisionStatus:
-      promotedVerdict === "REVIEW EVIDENCE NOT ENOUGH"
-        ? "not_enough_evidence"
-        : "evidence_based",
-    buyerConfidence: promotedBuyerConfidence,
-    confidence: promotedBuyerConfidence,
-    buyScore: promotedBuyScore,
-    score: promotedBuyScore,
+    reviewIntelTrace: {
+      screenshotIdentity: {
+        store: finalMemory.store,
+        brand: finalMemory.brand,
+        title: finalMemory.title,
+        price: finalMemory.price,
+        rating: promotedRating,
+        reviewCount: promotedReviewCount,
+      },
+      exactListingEvidence: finalReviewEvidence?.listingEvidence || null,
+      reviewEvidence: {
+        readableComments,
+        reviewSnippets: reviewSnippets.length,
+        repeatedComplaints: repeatedComplaints.length,
+        repeatedPraises: repeatedPraises.length,
+        evidenceRating,
+        evidenceReviewCount,
+        hasActualReviewEvidence,
+      },
+      finalDecisionSource: hasActualReviewEvidence
+        ? "reviewEvidence"
+        : hasWeakReviewEvidence
+          ? "limitedReviewEvidence"
+          : "reviewEvidenceNotEnough",
+    },
+    verdict: finalReviewDecisionVerdict,
+    recommendation: finalReviewDecisionVerdict,
+    finalVerdict: finalReviewDecisionVerdict,
+    stableVerdict: finalReviewDecisionVerdict,
+    decisionStatus: finalReviewDecisionStatus,
+    buyerConfidence: finalReviewDecisionConfidence,
+    confidence: finalReviewDecisionConfidence,
+    buyScore: finalReviewDecisionScore,
+    score: finalReviewDecisionScore,
+    productScore: finalReviewDecisionScore,
     rating: promotedRating,
     reviewCount: promotedReviewCount,
-    reviewsFound: promotedReviewCount,
-    valueForMoney: promotedValueForMoney,
-    value: promotedValueForMoney,
-    bottomLine: promotedBottomLine,
-    summary: promotedBottomLine,
-    stableVerdictReason: promotedBottomLine,
+    reviewsFound: hasActualReviewEvidence ? promotedReviewCount : readableComments,
+    valueForMoney: finalReviewDecisionValue,
+    value: finalReviewDecisionValue,
+    bottomLine: finalReviewDecisionBottomLine,
+    summary: finalReviewDecisionBottomLine,
+    stableVerdictReason: finalReviewDecisionBottomLine,
     verdictChangeExplanation: explainVerdictChange(
       existingFromSupabase?.verdict || finalMemory.verdict,
-      promotedVerdict,
-      promotedBottomLine
+      finalReviewDecisionVerdict,
+      finalReviewDecisionBottomLine
     ),
   }) as T;
 }

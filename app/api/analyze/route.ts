@@ -1448,6 +1448,7 @@ Return only the required JSON.
       : undefined,
     rating: screenshotRating,
     reviewCount: screenshotReviewCount,
+    forceRefresh: true,
   });
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
@@ -1605,7 +1606,10 @@ export async function POST(request: Request) {
             product_score: scanResult.productScore ?? scanResult.buyingConfidence ?? null,
             recommendation: scanResult.verdict ?? null,
             summary: scanResult.bottomLine ?? null,
-            analysis_json: scanResult,
+            analysis_json: {
+              ...scanResult,
+              analysisVersion: "review-evidence-v2",
+            },
             account: { email, plan: accountPlan, role }
           }) as { id?: string; created_at?: string } | null)
         : null;

@@ -67,17 +67,6 @@ function hasExactListing(payload: unknown) {
   );
 }
 
-function hasMemoryMatch(payload: unknown) {
-  const text = JSON.stringify(payload || {}).toLowerCase();
-
-  return (
-    text.includes("product memory") ||
-    text.includes("memorymatched") ||
-    text.includes("supabase_product_memory") ||
-    text.includes("remembered") ||
-    text.includes("same product matched")
-  );
-}
 
 export function governBuyerDecision(input: {
   rating?: number | null;
@@ -95,22 +84,54 @@ export function governBuyerDecision(input: {
   const text = `${input.currentVerdict || ""} ${input.bottomLine || ""} ${input.productText || ""}`;
   const actualDanger = hasActualDangerSignal(text);
 
+  const hasListingIdentity = hasExactListing(input.productText);
+  const sourcesChecked = countSources(input.productText);
+
   const evidenceBundle = scoreEvidenceBundle({
     rating,
     reviewCount,
     aiLikeRisk,
     commentsAnalyzed: input.commentsAnalyzed ?? null,
-    sourcesChecked: countSources(input.productText),
-    exactListingMatched: hasExactListing(input.productText),
-    memoryMatched: hasMemoryMatch(input.productText),
+    sourcesChecked,
+
+    // Important:
+    // Exact listing and memory prove product identity only.
+    // They are NOT review evidence and must not inflate the buy score.
+    exactListingMatched: false,
+    memoryMatched: false,
+
     hasComplaints: actualDanger || Boolean(input.severeComplaints),
     hasPraise: textHasPraise(text),
   });
 
-  // Evidence bundle should beat screenshot weakness.
-  // This does not require rating to be visible in the screenshot.
+  const hasVerifiedReviewEvidence =
+    (rating !== null && rating > 0) ||
+    (reviewCount !== null && reviewCount > 0) ||
+    (typeof input.commentsAnalyzed === "number" && input.commentsAnalyzed >= 10);
+
+  // Product identity without readable reviews is not a product recommendation.
+  // It is an evidence-limited state.
+  if (
+    hasListingIdentity &&
+    !hasVerifiedReviewEvidence &&
+    !actualDanger &&
+    !(aiLikeRisk !== null && aiLikeRisk >= 75)
+  ) {
+    return {
+      verdict: "REVIEW EVIDENCE NOT ENOUGH",
+      buyerConfidence: 82,
+      buyScore: 0,
+      valueForMoney: "Unknown",
+      bottomLine:
+        "ReviewIntel found the product listing, but did not find enough readable review evidence to judge the product quality. This is not an Avoid verdict; it means the review evidence is limited.",
+    };
+  }
+
+  // Enough review evidence can support a cautious Consider.
+  // Listing identity or memory alone cannot trigger this.
   if (
     evidenceBundle.hasEnoughEvidence &&
+    hasVerifiedReviewEvidence &&
     !actualDanger &&
     !(aiLikeRisk !== null && aiLikeRisk >= 75)
   ) {
@@ -120,10 +141,10 @@ export function governBuyerDecision(input: {
       buyScore:
         rating !== null && rating >= 4.5 && reviewCount !== null && reviewCount >= 300
           ? 8
-          : 7,
-      valueForMoney: "Good",
+          : 6,
+      valueForMoney: "Fair",
       bottomLine:
-        "Decent option for the price. ReviewIntel found enough product, listing, memory, or review evidence to keep this out of Avoid, but not enough for a confident Buy. Check common complaints and return policy before purchasing.",
+        "ReviewIntel found usable review evidence, but not enough for a strong Buy. Check repeated complaints, current price, and return policy before purchasing.",
     };
   }
 

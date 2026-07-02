@@ -30,6 +30,22 @@ export type ReviewEvidenceResult = {
   reviewsFound: number;
   commentsAnalyzed: number;
   evidenceStrength: "none" | "weak" | "limited" | "usable" | "strong";
+  reviewSnippets?: Array<{
+    source: string;
+    snippet: string;
+    sentiment: "positive" | "mixed" | "negative";
+    evidenceType?: string;
+  }>;
+  repeatedPraises?: Array<{
+    theme: string;
+    evidenceCount: number;
+    supportingSnippets?: string[];
+  }>;
+  repeatedComplaints?: Array<{
+    theme: string;
+    evidenceCount: number;
+    supportingSnippets?: string[];
+  }>;
   sourceNotes: string[];
   sourceLinks?: Array<{ label: string; url: string; domain?: string }>;
   exactListingConfirmed?: boolean;
@@ -827,6 +843,29 @@ Do not invent reviews.
 Only analyze review snippets, comments, complaints, or buyer statements that you can find from search-accessible sources.
 If you cannot find enough review/comment evidence, return score null.
 
+Review acquisition rules:
+1. First confirm the exact product/listing using store + brand + normalized title + price/image clues.
+2. Then search specifically for buyer reviews using the exact listing title and store domain.
+3. Search these evidence paths when applicable:
+   - exact listing page reviews
+   - "[brand] [product title] reviews"
+   - "[brand] [product title] complaints"
+   - "[product title] walmart reviews"
+   - "[product title] reddit"
+   - "[product title] forum"
+4. Exact listing evidence is identity evidence only. It is not review evidence.
+5. Rating/review count is useful only if visible from a trusted source.
+6. reviewSnippets must contain actual buyer-review/comment evidence, not search-result summaries.
+7. repeatedPraises and repeatedComplaints must be built only from reviewSnippets.
+8. If you find the product listing but cannot access/read buyer reviews, return:
+   reviewsFound: 0
+   commentsAnalyzed: 0
+   evidenceStrength: "none"
+   reviewSnippets: []
+   repeatedPraises: []
+   repeatedComplaints: []
+9. Do not convert limited listing evidence into Buy, Consider, Avoid, Good, Poor, or product quality judgment.
+
 Analyze each collected review/comment snippet for suspicious or AI-like signals:
 - generic praise with no product-specific detail
 - repeated wording
@@ -845,6 +884,32 @@ Required JSON shape:
   "reviewsFound": 0,
   "commentsAnalyzed": 0,
   "evidenceStrength": "none | weak | limited | usable | strong",
+
+  "reviewSnippets": [
+    {
+      "source": "source name or domain",
+      "snippet": "short verbatim or closely paraphrased buyer review/comment evidence",
+      "sentiment": "positive | mixed | negative",
+      "evidenceType": "marketplace review | buyer comment | forum discussion | third-party review"
+    }
+  ],
+
+  "repeatedPraises": [
+    {
+      "theme": "short repeated praise theme",
+      "evidenceCount": 0,
+      "supportingSnippets": ["short snippets supporting this praise"]
+    }
+  ],
+
+  "repeatedComplaints": [
+    {
+      "theme": "short repeated complaint theme",
+      "evidenceCount": 0,
+      "supportingSnippets": ["short snippets supporting this complaint"]
+    }
+  ],
+
   "sourceNotes": ["short notes"],
   "sourceLinks": [
     {
@@ -876,7 +941,11 @@ Scoring rules:
 - Do NOT give a high score because sources are reputable.
 - Reputable sources, verified purchases, diverse user feedback, and specific complaints should LOWER the score.
 - Only give score above 60 when there are actual suspicious review snippets or repeated suspicious patterns.
-- commentsAnalyzed = 0: score must be null, risk must be "Not scored"
+- commentsAnalyzed must equal the number of actual review/comment snippets you found and analyzed.
+- reviewSnippets must contain the actual review/comment evidence used for the assessment.
+- repeatedPraises and repeatedComplaints must only be based on reviewSnippets.
+- If reviewSnippets is empty, commentsAnalyzed must be 0.
+- If commentsAnalyzed is 0, score must be null and risk must be "Not scored".
 - commentsAnalyzed 1-4: evidenceStrength = "weak"
 - commentsAnalyzed 5-14: evidenceStrength = "limited"
 - commentsAnalyzed 15-29: evidenceStrength = "usable"
@@ -1022,6 +1091,49 @@ Scoring rules:
           ? "limited"
           : rawEvidenceStrength;
 
+    const reviewSnippets = Array.isArray(parsed.reviewSnippets)
+      ? parsed.reviewSnippets
+          .map((item: Record<string, unknown>) => ({
+            source: String(item.source || "Unknown source").slice(0, 120),
+            snippet: String(item.snippet || "").slice(0, 500),
+            sentiment:
+              item.sentiment === "positive" || item.sentiment === "negative" || item.sentiment === "mixed"
+                ? item.sentiment
+                : "mixed",
+            evidenceType: item.evidenceType ? String(item.evidenceType).slice(0, 80) : undefined,
+          }))
+          .filter((item: { snippet: string }) => item.snippet.trim().length >= 12)
+          .slice(0, 20)
+      : [];
+
+    const repeatedPraises = Array.isArray(parsed.repeatedPraises)
+      ? parsed.repeatedPraises
+          .map((item: Record<string, unknown>) => ({
+            theme: String(item.theme || "").slice(0, 140),
+            evidenceCount: Number(item.evidenceCount || 0),
+            supportingSnippets: Array.isArray(item.supportingSnippets)
+              ? item.supportingSnippets.map(String).filter(Boolean).slice(0, 4)
+              : [],
+          }))
+          .filter((item: { theme: string }) => item.theme.trim().length > 0)
+          .slice(0, 8)
+      : [];
+
+    const repeatedComplaints = Array.isArray(parsed.repeatedComplaints)
+      ? parsed.repeatedComplaints
+          .map((item: Record<string, unknown>) => ({
+            theme: String(item.theme || "").slice(0, 140),
+            evidenceCount: Number(item.evidenceCount || 0),
+            supportingSnippets: Array.isArray(item.supportingSnippets)
+              ? item.supportingSnippets.map(String).filter(Boolean).slice(0, 4)
+              : [],
+          }))
+          .filter((item: { theme: string }) => item.theme.trim().length > 0)
+          .slice(0, 8)
+      : [];
+
+    const actualCommentsAnalyzed = Math.max(commentsAnalyzed, reviewSnippets.length);
+
     return cleanFinalReviewEvidence({
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
@@ -1044,14 +1156,17 @@ Scoring rules:
           : []),
       ]),
       reviewsFound: Number(
-        displayListingEvidence?.reviewCount ||
+        parsed.reviewsFound ||
+          actualCommentsAnalyzed ||
+          displayListingEvidence?.reviewCount ||
           normalizedListingEvidence?.reviewCount ||
-          parsed.reviewsFound ||
-          commentsAnalyzed ||
           0
       ),
-      commentsAnalyzed: displayListingEvidence?.exactListingUrl ? 0 : commentsAnalyzed,
+      commentsAnalyzed: actualCommentsAnalyzed,
       evidenceStrength: cappedEvidenceStrength,
+      reviewSnippets,
+      repeatedPraises,
+      repeatedComplaints,
       sourceNotes: displayListingEvidence?.exactListingUrl
         ? [
             normalizedListingEvidence?.confidence === "high"
@@ -1072,9 +1187,9 @@ Scoring rules:
           ? parsed.sourceNotes
           : [],
       reviewAuthenticity: {
-        score: commentsAnalyzed > 0 ? score : null,
+        score: actualCommentsAnalyzed > 0 ? score : null,
         label:
-          commentsAnalyzed > 0
+          actualCommentsAnalyzed > 0
             ? score === null
               ? "Review evidence analyzed"
               : score >= 76
@@ -1086,7 +1201,7 @@ Scoring rules:
                     : "Low AI-like review risk"
             : "Review scan not verified",
         suspiciousReviewRisk:
-          commentsAnalyzed === 0 || score === null
+          actualCommentsAnalyzed === 0 || score === null
             ? "Not scored"
             : score >= 76
               ? "Very high"
