@@ -1,3 +1,4 @@
+import { scoreEvidenceBundle } from "@/lib/evidenceBundle";
 export type GovernedDecision = {
   verdict: string;
   buyerConfidence: number;
@@ -29,6 +30,55 @@ function hasActualDangerSignal(text: string) {
   ].some((term) => value.includes(term));
 }
 
+
+function textHasPraise(text: string) {
+  const value = text.toLowerCase();
+
+  return [
+    "good quality",
+    "great value",
+    "worth it",
+    "sturdy",
+    "durable",
+    "lightweight",
+    "works well",
+    "recommended",
+    "love it",
+    "easy to use",
+    "good for the price",
+  ].some((term) => value.includes(term));
+}
+
+function countSources(payload: unknown) {
+  const text = JSON.stringify(payload || {});
+  const matches = text.match(/https?:\/\//g);
+  return matches ? matches.length : 0;
+}
+
+function hasExactListing(payload: unknown) {
+  const text = JSON.stringify(payload || {}).toLowerCase();
+
+  return (
+    text.includes("exactlisting") ||
+    text.includes("exact listing") ||
+    text.includes("listingevidence") ||
+    text.includes("exactlistingurl") ||
+    text.includes("exactlistingtitle")
+  );
+}
+
+function hasMemoryMatch(payload: unknown) {
+  const text = JSON.stringify(payload || {}).toLowerCase();
+
+  return (
+    text.includes("product memory") ||
+    text.includes("memorymatched") ||
+    text.includes("supabase_product_memory") ||
+    text.includes("remembered") ||
+    text.includes("same product matched")
+  );
+}
+
 export function governBuyerDecision(input: {
   rating?: number | null;
   reviewCount?: number | null;
@@ -45,22 +95,35 @@ export function governBuyerDecision(input: {
   const text = `${input.currentVerdict || ""} ${input.bottomLine || ""} ${input.productText || ""}`;
   const actualDanger = hasActualDangerSignal(text);
 
-  // Strong public evidence should beat screenshot weakness.
+  const evidenceBundle = scoreEvidenceBundle({
+    rating,
+    reviewCount,
+    aiLikeRisk,
+    commentsAnalyzed: input.commentsAnalyzed ?? null,
+    sourcesChecked: countSources(input.productText),
+    exactListingMatched: hasExactListing(input.productText),
+    memoryMatched: hasMemoryMatch(input.productText),
+    hasComplaints: actualDanger || Boolean(input.severeComplaints),
+    hasPraise: textHasPraise(text),
+  });
+
+  // Evidence bundle should beat screenshot weakness.
+  // This does not require rating to be visible in the screenshot.
   if (
-    rating !== null &&
-    rating >= 4.2 &&
-    reviewCount !== null &&
-    reviewCount >= 100 &&
+    evidenceBundle.hasEnoughEvidence &&
     !actualDanger &&
-    (aiLikeRisk === null || aiLikeRisk < 75)
+    !(aiLikeRisk !== null && aiLikeRisk >= 75)
   ) {
     return {
       verdict: "CONSIDER",
-      buyerConfidence: 74,
-      buyScore: 7,
+      buyerConfidence: Math.min(82, Math.max(60, evidenceBundle.evidenceScore)),
+      buyScore:
+        rating !== null && rating >= 4.5 && reviewCount !== null && reviewCount >= 300
+          ? 8
+          : 7,
       valueForMoney: "Good",
       bottomLine:
-        "Cautious buy. Public review evidence is strong enough to avoid an Avoid verdict, but check complaints and return terms first.",
+        "Decent option for the price. ReviewIntel found enough product, listing, memory, or review evidence to keep this out of Avoid, but not enough for a confident Buy. Check common complaints and return policy before purchasing.",
     };
   }
 
