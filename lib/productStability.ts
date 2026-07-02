@@ -474,6 +474,12 @@ export function stabilizeAnalysisResult<T extends JsonRecord>(
     },
     verdict: stable.verdict,
     recommendation: stable.verdict,
+    finalVerdict: stable.verdict,
+    stableVerdict: stable.verdict,
+    decisionStatus:
+      stable.verdict === "REVIEW EVIDENCE NOT ENOUGH"
+        ? "not_enough_evidence"
+        : "evidence_based",
     buyerConfidence: stable.buyerConfidence,
     confidence: stable.buyerConfidence,
     buyScore: stable.buyScore,
@@ -704,6 +710,12 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     },
     verdict: stable.verdict,
     recommendation: stable.verdict,
+    finalVerdict: stable.verdict,
+    stableVerdict: stable.verdict,
+    decisionStatus:
+      stable.verdict === "REVIEW EVIDENCE NOT ENOUGH"
+        ? "not_enough_evidence"
+        : "evidence_based",
     buyerConfidence: stable.buyerConfidence,
     confidence: stable.buyerConfidence,
     buyScore: stable.buyScore,

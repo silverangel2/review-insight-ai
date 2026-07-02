@@ -564,7 +564,11 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
   const product = source.product || {};
   const authenticity = source.reviewAuthenticity;
   const rawVerdict =
+    optionalVerdictFromBuyer((source as Record<string, unknown>).stableVerdict) ||
+    optionalVerdictFromBuyer((source as Record<string, unknown>).finalVerdict) ||
     source.verdict ||
+    optionalVerdictFromBuyer((analysis as Record<string, unknown> | undefined)?.stableVerdict) ||
+    optionalVerdictFromBuyer((analysis as Record<string, unknown> | undefined)?.finalVerdict) ||
     optionalVerdictFromBuyer((analysis as Record<string, unknown> | undefined)?.verdict) ||
     verdictFromBuyer(analysis?.buyer_recommendation?.verdict || analysis?.customer_recommendation?.verdict);
   const productScore = clampScore(source.productScore ?? analysis?.product_score ?? (analysis as Record<string, unknown> | undefined)?.score, 0);
