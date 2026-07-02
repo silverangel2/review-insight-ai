@@ -19,6 +19,10 @@ export async function POST(req: NextRequest) {
       productName,
       brand,
       model,
+      store: body.store ? String(body.store).trim() : undefined,
+      price: body.price ?? undefined,
+      rating: body.rating ?? undefined,
+      reviewCount: body.reviewCount ?? undefined,
     });
 
     return NextResponse.json({ ok: true, evidence });

@@ -635,8 +635,8 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
         const url = String(link?.url || "");
         const lowerUrl = url.toLowerCase();
 
-        // Keep Walmart.ca exact listing. Drop Walmart.com review pages for Walmart.ca exact listings.
-        if (isWalmartCaListing && lowerUrl.includes("walmart.com/reviews")) {
+        // Keep Walmart.ca exact listing. Drop all Walmart.com links for Walmart.ca exact listings.
+        if (isWalmartCaListing && lowerUrl.includes("walmart.com")) {
           return false;
         }
 
