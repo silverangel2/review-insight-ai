@@ -183,6 +183,102 @@ function normalizeListingEvidenceNumbers(
   };
 }
 
+
+function extractRequestedReviewSignals(input: {
+  productName?: string;
+  brand?: string;
+  model?: string;
+}) {
+  const text = [input.productName, input.brand, input.model].filter(Boolean).join(" ");
+
+  const ratingMatch =
+    text.match(/(\d+(?:\.\d+)?)\s*(?:out of|\/)?\s*5/i) ||
+    text.match(/rating\s*(\d+(?:\.\d+)?)/i) ||
+    text.match(/(\d+(?:\.\d+)?)\s*stars?/i);
+
+  const reviewMatch =
+    text.match(/(\d[\d,]*)\s*(?:reviews?|ratings?)/i) ||
+    text.match(/review\s*count\s*(\d[\d,]*)/i);
+
+  const priceMatch =
+    text.match(/\$\s*(\d+(?:\.\d+)?)/i) ||
+    text.match(/price\s*(\d+(?:\.\d+)?)/i);
+
+  return {
+    requestedRating: ratingMatch?.[1] ? Number(ratingMatch[1].replace(/,/g, "")) : null,
+    requestedReviewCount: reviewMatch?.[1] ? Number(reviewMatch[1].replace(/,/g, "")) : null,
+    requestedPrice: priceMatch?.[1] ? Number(priceMatch[1].replace(/,/g, "")) : null,
+  };
+}
+
+function listingMatchesRequestedSignals(
+  listingEvidence: ExactProductSearchResult | null | undefined,
+  input: {
+    productName?: string;
+    brand?: string;
+    model?: string;
+  }
+): ExactProductSearchResult | null | undefined {
+  if (!listingEvidence) return listingEvidence;
+
+  const signals = extractRequestedReviewSignals(input);
+  const notes = Array.isArray(listingEvidence.notes) ? listingEvidence.notes : [];
+  const mismatchNotes: string[] = [];
+
+  let mismatchCount = 0;
+
+  if (
+    typeof signals.requestedRating === "number" &&
+    typeof listingEvidence.rating === "number" &&
+    Math.abs(signals.requestedRating - listingEvidence.rating) > 0.25
+  ) {
+    mismatchCount += 1;
+    mismatchNotes.push(
+      `Requested rating ${signals.requestedRating}, but matched listing rating is ${listingEvidence.rating}.`
+    );
+  }
+
+  if (
+    typeof signals.requestedReviewCount === "number" &&
+    typeof listingEvidence.reviewCount === "number"
+  ) {
+    const diff = Math.abs(signals.requestedReviewCount - listingEvidence.reviewCount);
+    const tolerance = Math.max(30, signals.requestedReviewCount * 0.35);
+
+    if (diff > tolerance) {
+      mismatchCount += 1;
+      mismatchNotes.push(
+        `Requested review count ${signals.requestedReviewCount}, but matched listing review count is ${listingEvidence.reviewCount}.`
+      );
+    }
+  }
+
+  if (
+    typeof signals.requestedPrice === "number" &&
+    typeof listingEvidence.price === "number" &&
+    Math.abs(signals.requestedPrice - listingEvidence.price) > 5
+  ) {
+    mismatchCount += 1;
+    mismatchNotes.push(
+      `Requested price ${signals.requestedPrice}, but matched listing price is ${listingEvidence.price}.`
+    );
+  }
+
+  if (mismatchCount === 0) {
+    return listingEvidence;
+  }
+
+  return {
+    ...listingEvidence,
+    confidence: "low",
+    notes: [
+      ...notes,
+      ...mismatchNotes,
+      "Exact listing was downgraded because the public listing signals do not match the requested/screenshot signals closely enough.",
+    ],
+  };
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
@@ -392,11 +488,17 @@ Scoring rules:
             ...parsed.sourcesChecked.map(String),
           ]))
         : listingEvidence.sourcesChecked,
-      listingEvidence: normalizeListingEvidenceNumbers(listingEvidence),
+      listingEvidence: listingMatchesRequestedSignals(
+        normalizeListingEvidenceNumbers(listingEvidence),
+        input
+      ),
       sourceLinks: normalizeSourceLinks(parsed.sourceLinks),
       reviewsFound: Number(
         parsed.reviewsFound ||
-          normalizeListingEvidenceNumbers(listingEvidence)?.reviewCount ||
+          listingMatchesRequestedSignals(
+            normalizeListingEvidenceNumbers(listingEvidence),
+            input
+          )?.reviewCount ||
           commentsAnalyzed ||
           0
       ),
