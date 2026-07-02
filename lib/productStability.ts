@@ -1,3 +1,4 @@
+import { enforceFinalVerdictConsistency } from "@/lib/finalVerdictConsistency";
 import { governBuyerDecision } from "@/lib/decisionGovernor";
 import { humanVerdictRules, explainVerdictChange } from "@/lib/reviewToolHelpers";
 import { buildToolAudit } from "@/lib/toolAudit";
@@ -454,7 +455,7 @@ export function stabilizeAnalysisResult<T extends JsonRecord>(
   const reviewAuthenticity = asRecord(result.reviewAuthenticity);
   const evidenceAuth = reviewEvidence?.reviewAuthenticity;
 
-  return {
+  return enforceFinalVerdictConsistency({
     ...result,
     productKey: memory.productKey,
     stableProductKey: memory.productKey,
@@ -494,7 +495,7 @@ export function stabilizeAnalysisResult<T extends JsonRecord>(
       stable.verdict,
       stable.bottomLine
     ),
-  } as T;
+  }) as T;
 }
 
 
@@ -689,7 +690,7 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     exactListingConfidence: finalMemory.reviewEvidence?.listingEvidence?.confidence ?? null,
   });
 
-  return {
+  return enforceFinalVerdictConsistency({
     ...result,
     toolAudit,
     toolsUsed: toolAudit.toolsUsed,
@@ -732,5 +733,5 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
       stable.verdict,
       stable.bottomLine
     ),
-  } as T;
+  }) as T;
 }
