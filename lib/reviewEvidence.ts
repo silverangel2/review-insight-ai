@@ -197,6 +197,9 @@ function extractRequestedReviewSignals(input: {
   productName?: string;
   brand?: string;
   model?: string;
+  price?: string | number | null;
+  rating?: string | number | null;
+  reviewCount?: string | number | null;
 }) {
   const text = [input.productName, input.brand, input.model].filter(Boolean).join(" ");
 
@@ -214,9 +217,15 @@ function extractRequestedReviewSignals(input: {
     text.match(/price\s*(\d+(?:\.\d+)?)/i);
 
   return {
-    requestedRating: ratingMatch?.[1] ? Number(ratingMatch[1].replace(/,/g, "")) : null,
-    requestedReviewCount: reviewMatch?.[1] ? Number(reviewMatch[1].replace(/,/g, "")) : null,
-    requestedPrice: priceMatch?.[1] ? Number(priceMatch[1].replace(/,/g, "")) : null,
+    requestedRating:
+      toOptionalNumber(input.rating) ??
+      (ratingMatch?.[1] ? Number(ratingMatch[1].replace(/,/g, "")) : null),
+    requestedReviewCount:
+      toOptionalNumber(input.reviewCount) ??
+      (reviewMatch?.[1] ? Number(reviewMatch[1].replace(/,/g, "")) : null),
+    requestedPrice:
+      toOptionalNumber(input.price) ??
+      (priceMatch?.[1] ? Number(priceMatch[1].replace(/,/g, "")) : null),
   };
 }
 
