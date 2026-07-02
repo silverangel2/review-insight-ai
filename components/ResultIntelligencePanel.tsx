@@ -113,9 +113,10 @@ function getProductPayload(result: ResultRecord) {
       getNumber(productIdentity.price) ||
       getNumber(productIdentityCamel.price),
     verdict:
+      getString(result.stableVerdict) ||
+      getString(result.finalVerdict) ||
       getString(result.verdict) ||
-      getString(result.recommendation) ||
-      getString(result.finalVerdict),
+      getString(result.recommendation),
     rating:
       getNumber(result.rating) ||
       getNumber(productIdentity.rating) ||
