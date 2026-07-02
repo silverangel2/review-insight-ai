@@ -1412,14 +1412,37 @@ Return only the required JSON.
       .join(" ")
       .trim();
 
+  console.log("[ReviewIntel DEBUG vision]", {
+    name: vision.name,
+    brand: vision.brand,
+    store: vision.store,
+    price: vision.price,
+    rating: vision.rating,
+    reviewCount: vision.reviewCount,
+    ratingBelongsToProduct: vision.ratingBelongsToProduct,
+    reviewCountBelongsToProduct: vision.reviewCountBelongsToProduct,
+  });
+
+  const screenshotRating =
+    vision.ratingBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
+      ? vision.rating
+      : undefined;
+
+  const screenshotReviewCount =
+    vision.reviewCountBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
+      ? vision.reviewCount
+      : undefined;
+
   const reviewEvidence = await collectAndAnalyzeReviewEvidence({
     productName: productForReviewEvidence || vision.category || "unknown product",
     brand: vision.brand,
     model: undefined,
     store: vision.store,
-    price: vision.priceBelongsToProduct ? vision.price : undefined,
-    rating: vision.ratingBelongsToProduct ? vision.rating : undefined,
-    reviewCount: vision.reviewCountBelongsToProduct ? vision.reviewCount : undefined,
+    price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
+      ? vision.price
+      : undefined,
+    rating: screenshotRating,
+    reviewCount: screenshotReviewCount,
   });
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
@@ -1435,6 +1458,17 @@ Return only the required JSON.
           suspiciousReviewRisk: "Not scored",
           reasons: reviewEvidence.reviewAuthenticity.reasons,
         };
+
+  console.log("[ReviewIntel DEBUG reviewEvidence]", {
+    exactListingUrl: reviewEvidence?.listingEvidence?.exactListingUrl,
+    exactListingTitle: reviewEvidence?.listingEvidence?.exactListingTitle,
+    store: reviewEvidence?.listingEvidence?.store,
+    rating: reviewEvidence?.listingEvidence?.rating,
+    reviewCount: reviewEvidence?.listingEvidence?.reviewCount,
+    reviewsFound: reviewEvidence?.reviewsFound,
+    evidenceStrength: reviewEvidence?.evidenceStrength,
+    exactListingConfirmed: reviewEvidence?.exactListingConfirmed,
+  });
 
   return await stabilizeAnalysisResultWithMemory(
     normalizeResult(
