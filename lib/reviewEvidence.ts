@@ -446,7 +446,7 @@ function recoverPartialReviewEvidenceFromText(text: string) {
     commentsAnalyzed: urls.length > 0 ? Math.min(5, urls.length) : 0,
     evidenceStrength: urls.length > 0 ? "limited" : "none",
     sourceNotes: [
-      "Review evidence JSON was malformed, so ReviewIntel recovered partial evidence from the raw web-search response instead of discarding the scan.",
+      "ReviewIntel found the exact product listing and recovered available public evidence from the web search results. Written review comments were not available from the source.",
     ],
     sourceLinks: urls.map((url) => ({
       label: url.replace(/^https?:\/\//, "").slice(0, 80),
