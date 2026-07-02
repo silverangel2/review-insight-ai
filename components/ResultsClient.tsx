@@ -832,20 +832,30 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
   const hasExactListingEvidence = Boolean(listingEvidenceForDisplay?.exactListingUrl);
   const hasUsefulReviewEvidence = Boolean(hasExactListingEvidence && evidenceReviewCount);
+  const hasExactListingButLimitedReviews = Boolean(hasExactListingEvidence && !evidenceReviewCount);
 
-  const visibleRating = evidenceRating ? `${evidenceRating}/5` : shopper.product.rating || copy.notShown;
+  const visibleRating = evidenceRating
+    ? `${evidenceRating}/5`
+    : hasExactListingButLimitedReviews
+      ? "Limited"
+      : shopper.product.rating || copy.notShown;
+
   const visibleReviews = evidenceReviewCount
     ? `${evidenceReviewCount} reviews from current listing`
-    : shopper.product.reviewCount
-      ? `${shopper.product.reviewCount} ${copy.reviews}`
-      : copy.reviewCountNotShown;
+    : hasExactListingButLimitedReviews
+      ? "Exact listing found; reviews not available"
+      : shopper.product.reviewCount
+        ? `${shopper.product.reviewCount} ${copy.reviews}`
+        : copy.reviewCountNotShown;
 
-  const visibleProductScore = hasUsefulReviewEvidence
-    ? Math.max(Number(shopper.productScore || 0), 60)
-    : shopper.productScore;
+  const visibleProductScore =
+    hasUsefulReviewEvidence || hasExactListingButLimitedReviews
+      ? Math.max(Number(shopper.productScore || 0), hasUsefulReviewEvidence ? 60 : 50)
+      : shopper.productScore;
 
   const visibleValueForMoney =
-    hasUsefulReviewEvidence && String(shopper.valueForMoney || "").toLowerCase() === "poor"
+    (hasUsefulReviewEvidence || hasExactListingButLimitedReviews) &&
+    String(shopper.valueForMoney || "").toLowerCase() === "poor"
       ? "Fair"
       : shopper.valueForMoney;
   const sourcesLine = shopper.sourcesUsed.length
