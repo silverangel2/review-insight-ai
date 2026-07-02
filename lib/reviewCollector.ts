@@ -156,6 +156,208 @@ function dedupeReviews(reviews: CollectedReview[], maxReviews: number): Collecte
   return cleaned;
 }
 
+
+function safeJsonParse(text: string): unknown | null {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function htmlDecodeLight(value: string): string {
+  return value
+    .replace(/\\u0026/g, "&")
+    .replace(/\\\//g, "/")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'");
+}
+
+function collectReviewLikeObjects(value: unknown, source: string, reviews: CollectedReview[], depth = 0) {
+  if (depth > 10 || value === null || value === undefined) return;
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectReviewLikeObjects(item, source, reviews, depth + 1);
+    return;
+  }
+
+  if (typeof value !== "object") return;
+
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).map((key) => key.toLowerCase());
+
+  const textKeys = [
+    "reviewtext",
+    "reviewbody",
+    "review",
+    "body",
+    "comment",
+    "comments",
+    "content",
+    "text",
+    "customerreviewtext",
+    "reviewdescription",
+    "description",
+  ];
+
+  const ratingKeys = ["rating", "ratingvalue", "overallrating", "score", "stars"];
+  const titleKeys = ["title", "reviewtitle", "headline", "summary"];
+  const dateKeys = ["date", "submissiontime", "created", "createdat", "reviewdate", "lastmodificationtime"];
+  const verifiedKeys = ["verified", "isverified", "verifiedpurchase", "isverifiedpurchaser", "badges"];
+
+  const hasReviewShape =
+    keys.some((key) => key.includes("review")) ||
+    keys.some((key) => ratingKeys.includes(key)) ||
+    keys.some((key) => key.includes("recommend")) ||
+    keys.some((key) => key.includes("submission"));
+
+  let body = "";
+
+  for (const key of textKeys) {
+    const originalKey = Object.keys(record).find((candidate) => candidate.toLowerCase() === key);
+    const raw = originalKey ? record[originalKey] : null;
+
+    if (typeof raw === "string" && cleanText(raw).length > body.length) {
+      body = cleanText(raw);
+    }
+  }
+
+  if (hasReviewShape && body.length >= 25 && body.length <= 5000) {
+    const ratingKey = Object.keys(record).find((candidate) =>
+      ratingKeys.includes(candidate.toLowerCase())
+    );
+    const titleKey = Object.keys(record).find((candidate) =>
+      titleKeys.includes(candidate.toLowerCase())
+    );
+    const dateKey = Object.keys(record).find((candidate) =>
+      dateKeys.includes(candidate.toLowerCase())
+    );
+    const verifiedKey = Object.keys(record).find((candidate) =>
+      verifiedKeys.includes(candidate.toLowerCase())
+    );
+
+    const ratingValue = ratingKey ? Number(record[ratingKey]) : NaN;
+    const titleValue = titleKey && typeof record[titleKey] === "string" ? record[titleKey] : undefined;
+    const dateValue = dateKey && typeof record[dateKey] === "string" ? record[dateKey] : null;
+    const verifiedValue =
+      verifiedKey && typeof record[verifiedKey] === "boolean" ? record[verifiedKey] : null;
+
+    reviews.push({
+      source,
+      title: titleValue ? cleanText(titleValue) : undefined,
+      rating: Number.isFinite(ratingValue) ? ratingValue : null,
+      body,
+      date: dateValue ? cleanText(dateValue) : null,
+      verified: verifiedValue,
+    });
+  }
+
+  for (const child of Object.values(record)) {
+    collectReviewLikeObjects(child, source, reviews, depth + 1);
+  }
+}
+
+function collectEmbeddedJsonReviews(html: string, source: string): CollectedReview[] {
+  const reviews: CollectedReview[] = [];
+  const scriptMatches = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+
+  for (const match of scriptMatches) {
+    const script = htmlDecodeLight(match[1] || "").trim();
+    if (!script || !/review|rating|bazaarvoice|ugc|customer/i.test(script)) continue;
+
+    const jsonCandidates: string[] = [];
+
+    if (script.startsWith("{") || script.startsWith("[")) {
+      jsonCandidates.push(script);
+    }
+
+    const nextData = script.match(/self\.__next_f\.push\(\s*(\[[\s\S]*?\])\s*\)/);
+    if (nextData?.[1]) jsonCandidates.push(nextData[1]);
+
+    const assignmentJson = script.match(/(?:__NEXT_DATA__|window\.__PRELOADED_STATE__|window\.__INITIAL_STATE__)\s*=\s*({[\s\S]*?});/);
+    if (assignmentJson?.[1]) jsonCandidates.push(assignmentJson[1]);
+
+    for (const candidate of jsonCandidates) {
+      const parsed = safeJsonParse(candidate);
+      if (parsed) collectReviewLikeObjects(parsed, source, reviews);
+    }
+
+    // Also pull JSON-looking review fragments when the app state is escaped text.
+    const fragments = script.matchAll(/\{[^{}]{0,2000}(?:reviewText|reviewBody|customerReviewText|ratingValue|submissionTime)[^{}]{0,3000}\}/gi);
+    for (const fragment of fragments) {
+      const parsed = safeJsonParse(fragment[0]);
+      if (parsed) collectReviewLikeObjects(parsed, source, reviews);
+    }
+  }
+
+  return reviews;
+}
+
+function discoverReviewUrls(html: string, listingUrl: string): string[] {
+  const decoded = htmlDecodeLight(html);
+  const urls = new Set<string>();
+
+  const absoluteMatches = decoded.matchAll(/https?:\/\/[^"' <>)\\]+/gi);
+  for (const match of absoluteMatches) {
+    const url = match[0];
+    if (/review|bazaarvoice|ugc|ratings|product-reviews/i.test(url)) {
+      urls.add(url);
+    }
+  }
+
+  const relativeMatches = decoded.matchAll(/["'](\/[^"']*(?:review|ratings|ugc|bazaarvoice)[^"']*)["']/gi);
+  for (const match of relativeMatches) {
+    try {
+      urls.add(new URL(match[1], listingUrl).toString());
+    } catch {
+      // ignore malformed URLs
+    }
+  }
+
+  return [...urls].slice(0, 12);
+}
+
+async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Promise<CollectedReview[]> {
+  const reviews: CollectedReview[] = [];
+
+  for (const url of urls) {
+    if (reviews.length >= maxReviews) break;
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "user-agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+          accept: "application/json,text/plain,text/html,*/*",
+          "accept-language": "en-CA,en;q=0.9",
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) continue;
+
+      const text = await response.text();
+      const decoded = htmlDecodeLight(text);
+      const parsed = safeJsonParse(decoded);
+
+      if (parsed) {
+        collectReviewLikeObjects(parsed, url, reviews);
+      } else {
+        reviews.push(...collectEmbeddedReviewText(decoded, url));
+        reviews.push(...collectEmbeddedJsonReviews(decoded, url));
+      }
+    } catch {
+      // continue trying other discovered review URLs
+    }
+  }
+
+  return dedupeReviews(reviews, maxReviews);
+}
+
+
 export function formatCollectedReviewsForPrompt(result: ReviewCollectorResult): string {
   if (!result.reviews.length) {
     return `Review collector attempted: ${result.attempted ? "yes" : "no"}.
@@ -221,10 +423,31 @@ export async function collectWrittenReviewsFromListing(input: {
     }
 
     const html = await response.text();
-    const reviews = dedupeReviews(
-      [...collectJsonLdReviews(html, listingUrl), ...collectEmbeddedReviewText(html, listingUrl)],
+    const discoveredReviewUrls = discoverReviewUrls(html, listingUrl);
+
+    const listingReviews = dedupeReviews(
+      [
+        ...collectJsonLdReviews(html, listingUrl),
+        ...collectEmbeddedReviewText(html, listingUrl),
+        ...collectEmbeddedJsonReviews(html, listingUrl),
+      ],
       maxReviews
     );
+
+    const discoveredReviews = await fetchDiscoveredReviewUrls(
+      discoveredReviewUrls,
+      Math.max(0, maxReviews - listingReviews.length)
+    );
+
+    const reviews = dedupeReviews([...listingReviews, ...discoveredReviews], maxReviews);
+
+    console.log("[ReviewIntel DEBUG reviewCollector]", {
+      listingUrl,
+      discoveredReviewUrls: discoveredReviewUrls.length,
+      listingReviews: listingReviews.length,
+      discoveredReviews: discoveredReviews.length,
+      reviewsCollected: reviews.length,
+    });
 
     const total = input.marketplaceReviewCount || null;
     const coverage =
@@ -233,8 +456,8 @@ export async function collectWrittenReviewsFromListing(input: {
         : reviews.length
           ? `${reviews.length} written review texts were collected.`
           : total
-            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML.`
-            : "No written review text was accessible from the listing HTML.";
+            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML or discovered review URLs.`
+            : "No written review text was accessible from the listing HTML or discovered review URLs.";
 
     return {
       sourceUrl: listingUrl,
