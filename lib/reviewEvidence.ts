@@ -13,6 +13,10 @@ function toOptionalNumber(value: string | number | null | undefined): number | u
 import { normalizeSourceLinks } from "@/lib/reviewToolHelpers";
 import { createClient } from "@supabase/supabase-js";
 import { findExactProductListing, type ExactProductSearchResult } from "@/lib/exactProductSearch";
+import {
+  collectWrittenReviewsFromListing,
+  formatCollectedReviewsForPrompt,
+} from "@/lib/reviewCollector";
 type ReviewEvidenceInput = {
   productName: string;
   brand?: string;
