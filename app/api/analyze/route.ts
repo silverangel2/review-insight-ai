@@ -1476,19 +1476,212 @@ Return only the required JSON.
     exactListingConfirmed: reviewEvidence?.exactListingConfirmed,
   });
 
-  return await stabilizeAnalysisResultWithMemory(
-    normalizeResult(
-      {
-        ...rawRecord,
-        reviewEvidence,
-        reviewAuthenticity,
-      },
-      vision,
-      locale
-    ),
-    { vision, reviewEvidence }
-  );
+  return buildReviewEvidenceShopperResult({
+    vision: vision as Record<string, unknown>,
+    reviewEvidence: reviewEvidence as unknown as Record<string, unknown>,
+    reviewAuthenticity,
+    rawRecord,
+  });
 }
+
+
+function buildReviewEvidenceShopperResult(input: {
+  vision: Record<string, unknown>;
+  reviewEvidence: Record<string, unknown>;
+  reviewAuthenticity: unknown;
+  rawRecord?: Record<string, unknown>;
+}) {
+  const vision = input.vision || {};
+  const evidence = input.reviewEvidence || {};
+  const rawRecord = input.rawRecord || {};
+
+  const listingEvidence =
+    evidence.listingEvidence && typeof evidence.listingEvidence === "object"
+      ? (evidence.listingEvidence as Record<string, unknown>)
+      : null;
+
+  const productName = String(
+    listingEvidence?.exactListingTitle ||
+      listingEvidence?.title ||
+      listingEvidence?.name ||
+      vision.name ||
+      vision.title ||
+      vision.category ||
+      "Unknown product"
+  ).trim();
+
+  const brand = String(vision.brand || listingEvidence?.brand || "").trim();
+  const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
+  const price = String(vision.price || listingEvidence?.price || "").trim();
+
+  const reviewSnippets = Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
+  const repeatedPraises = Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
+  const repeatedComplaints = Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints : [];
+
+  const reviewsFound = Number(evidence.reviewsFound || 0);
+  const commentsAnalyzed = Number(evidence.commentsAnalyzed || 0);
+  const evidenceStrength = String(evidence.evidenceStrength || "none").toLowerCase();
+
+  const hasReadableReviewEvidence =
+    reviewSnippets.length > 0 ||
+    repeatedPraises.length > 0 ||
+    repeatedComplaints.length > 0 ||
+    commentsAnalyzed > 0;
+
+  const hasUsableReviewEvidence =
+    hasReadableReviewEvidence &&
+    reviewsFound > 0 &&
+    !["none", "weak"].includes(evidenceStrength);
+
+  const hasLimitedReviewEvidence =
+    hasReadableReviewEvidence ||
+    reviewsFound > 0 ||
+    evidenceStrength === "weak" ||
+    evidenceStrength === "limited";
+
+  const praiseThemes = repeatedPraises
+    .map((item) =>
+      item && typeof item === "object"
+        ? String((item as Record<string, unknown>).theme || "").trim()
+        : ""
+    )
+    .filter(Boolean)
+    .slice(0, 4);
+
+  const complaintThemes = repeatedComplaints
+    .map((item) =>
+      item && typeof item === "object"
+        ? String((item as Record<string, unknown>).theme || "").trim()
+        : ""
+    )
+    .filter(Boolean)
+    .slice(0, 4);
+
+  let verdict = "REVIEW EVIDENCE NOT ENOUGH";
+  let decisionStatus = "not_enough_evidence";
+  let finalDecisionSource = "reviewEvidenceNotEnough";
+  let buyScore: number | null = null;
+  let buyerConfidence: number | null = null;
+  let valueForMoney = "Unknown";
+  let bottomLine =
+    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
+
+  if (hasUsableReviewEvidence) {
+    finalDecisionSource = "reviewEvidence";
+    decisionStatus = "evidence_based";
+
+    if (complaintThemes.length >= 3 && complaintThemes.length > praiseThemes.length) {
+      verdict = "AVOID";
+      buyScore = 3;
+      buyerConfidence = 74;
+      valueForMoney = "Risky";
+      bottomLine =
+        "ReviewIntel found usable review evidence with repeated complaint themes. Avoid unless the seller, return policy, or newer reviews clearly reduce the risk.";
+    } else if (praiseThemes.length >= 2 && complaintThemes.length === 0) {
+      verdict = "BUY";
+      buyScore = 8;
+      buyerConfidence = 78;
+      valueForMoney = "Good";
+      bottomLine =
+        "ReviewIntel found usable review evidence with repeated positive buyer themes and no repeated complaint pattern in the collected evidence.";
+    } else {
+      verdict = "CONSIDER";
+      buyScore = 6;
+      buyerConfidence = 68;
+      valueForMoney = "Fair";
+      bottomLine =
+        "ReviewIntel found usable review evidence, but the signals are mixed or not strong enough for a confident Buy.";
+    }
+  } else if (hasLimitedReviewEvidence) {
+    verdict = "LIMITED REVIEW EVIDENCE";
+    decisionStatus = "limited_review_evidence";
+    finalDecisionSource = "limitedReviewEvidence";
+    bottomLine =
+      "ReviewIntel searched the web and found only weak or limited review evidence. This is not enough to make a confident Buy, Consider, or Avoid judgment.";
+  }
+
+  return {
+    ...rawRecord,
+
+    analysisVersion: "review-evidence-v2",
+    meta: {
+      audience: "buyer",
+      mode: "shopper",
+      source: "review-evidence-v2",
+    },
+
+    productName,
+    name: productName,
+    title: productName,
+    brand,
+    store,
+    price,
+
+    productIdentity: {
+      title: productName,
+      brand,
+      store,
+      price,
+      rating: evidence.rating ?? null,
+      reviewCount: evidence.reviewCount ?? null,
+      exactListingUrl: listingEvidence?.exactListingUrl || listingEvidence?.url || null,
+    },
+
+    reviewEvidence: evidence,
+    reviewAuthenticity: input.reviewAuthenticity,
+
+    reviewIntelTrace: {
+      screenshotIdentity: {
+        title: String(vision.name || vision.title || vision.category || "").trim(),
+        brand: String(vision.brand || "").trim(),
+        store: String(vision.store || "").trim(),
+        price: String(vision.price || "").trim(),
+      },
+      exactListingEvidence: listingEvidence,
+      reviewEvidence: {
+        reviewsFound,
+        commentsAnalyzed,
+        evidenceStrength,
+        reviewSnippets: reviewSnippets.length,
+        repeatedPraises: repeatedPraises.length,
+        repeatedComplaints: repeatedComplaints.length,
+      },
+      finalDecisionSource,
+    },
+
+    verdict,
+    recommendation: verdict,
+    finalVerdict: verdict,
+    stableVerdict: verdict,
+    decisionStatus,
+
+    buyerConfidence,
+    confidence: buyerConfidence,
+    buyScore,
+    score: buyScore,
+    productScore: buyScore,
+
+    valueForMoney,
+    value: valueForMoney,
+
+    rating: evidence.rating ?? null,
+    reviewCount: evidence.reviewCount ?? null,
+    reviewsFound,
+
+    topStrengths: hasUsableReviewEvidence ? praiseThemes : [],
+    topComplaints: hasUsableReviewEvidence ? complaintThemes : [],
+    strengths: hasUsableReviewEvidence ? praiseThemes : [],
+    complaints: hasUsableReviewEvidence ? complaintThemes : [],
+
+    screenshotOnly: false,
+    screenshotOnlyWarning: false,
+
+    bottomLine,
+    summary: bottomLine,
+    stableVerdictReason: bottomLine,
+  };
+}
+
 
 export async function POST(request: Request) {
   try {
@@ -1718,23 +1911,28 @@ export async function POST(request: Request) {
     ]);
 
     const memory = await getProductMemory(productKey);
-    const memorySummary = summarizeProductMemory(memory);
+    void memory;
 
-    const freshResult = enforceResearchQuality(
-      normalizeVerdictWithScores(await researchAndVerdict(vision, productLink, outputLanguage, locale), locale),
-      locale,
-    );
+    const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale);
+
+    // Shopper v2: do not re-score, normalize, or apply old product memory after the review-evidence result is built.
     const result = attachLanguageMeta(
-      enforceFinalResultConsistency(enforceResearchQuality(applyProductMemory(freshResult, memorySummary, locale), locale), locale),
+      freshResult,
       locale,
       outputLanguage,
     );
 
-    if (!isReviewIntelTestAccount(email)) {
+    // Shopper v2 is built only from review evidence.
+    // Do not save v2 results into old product memory, because that memory expects
+    // legacy screenshot-scored fields and can reintroduce old verdict authority.
+    const shouldWriteLegacyProductMemory =
+      String((result as Record<string, unknown>).analysisVersion || "") !== "review-evidence-v2";
+
+    if (!isReviewIntelTestAccount(email) && shouldWriteLegacyProductMemory) {
       await saveProductMemory({
         productKey,
         vision,
-        result,
+        result: result as unknown as Parameters<typeof saveProductMemory>[0]["result"],
         productLink
       });
     }
