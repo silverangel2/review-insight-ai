@@ -28,8 +28,10 @@ type AffiliateDiagnostics = {
     envNames?: {
       publisher?: string;
       affiliateId?: string;
+      network?: string;
       template?: string;
     };
+    network?: string;
     usingDefaultIds?: boolean;
     impactTemplateConfigured?: boolean;
     sampleAffiliateUrl?: string;
@@ -153,8 +155,10 @@ export default async function AffiliateAdminPage() {
               <p>Status: <span className="font-black text-slate-950 dark:text-white">{walmartConnected ? "Connected" : "Not connected yet"}</span></p>
               <p>SID / publisher env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.publisher || "WALMART_PUBLISHER_ID"}</code></p>
               <p>Affiliate ID env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.affiliateId || "WALMART_AFFILIATE_ID"}</code></p>
+              <p>Network env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.network || "WALMART_AFFILIATE_NETWORK"}</code></p>
               <p>SID preview: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.publisherPreview || "—"}</span></p>
               <p>Affiliate ID preview: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.affiliateIdPreview || "—"}</span></p>
+              <p>Network: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.network || "impact"}</span></p>
               <p>Official Impact template: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.impactTemplateConfigured ? "Configured" : "Using default path"}</span></p>
               <p>Link builder: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.linkBuilderWorking ? "Working" : "Waiting"}</span></p>
             </div>
@@ -186,6 +190,7 @@ export default async function AffiliateAdminPage() {
             <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
 {`WALMART_AFFILIATE_ID=ReviewIntel
 WALMART_PUBLISHER_ID=4722495
+WALMART_AFFILIATE_NETWORK=rakuten
 # Optional if Walmart gives you an exact Impact template:
 WALMART_IMPACT_TRACKING_URL_TEMPLATE=https://goto.walmart.com/c/{publisherId}/...?...&u={encodedUrl}`}
             </pre>
@@ -213,15 +218,16 @@ WALMART_IMPACT_TRACKING_URL_TEMPLATE=https://goto.walmart.com/c/{publisherId}/..
             </p>
             <h2 className="mt-2 text-xl font-black">Optional Qualifying Link</h2>
             <p className="mt-4 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
-              Turn this on only when you want the daily Facebook auto-post to append one disclosed Amazon/Walmart qualifying link.
-              The posted caption and admin history will both show the same affiliate disclosure.
+              Turn this on when you want daily Facebook auto-posts to mention ReviewIntel affiliate-ready picks.
+              If you add one exact Amazon/Walmart product URL, Facebook posts will append that qualifying source.
+              If you leave the URL empty, Facebook posts will link to ReviewIntel instead, where shopper result pages show affiliate-ready Amazon/Walmart picks.
             </p>
 
             <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
 {`SOCIAL_AFFILIATE_POSTS_ENABLED=true
-SOCIAL_AFFILIATE_URL=https://www.amazon.ca/dp/...
-# or:
-SOCIAL_AFFILIATE_URL=https://www.walmart.ca/en/ip/...
+# Optional direct product link:
+# SOCIAL_AFFILIATE_URL=https://www.amazon.ca/dp/...
+# SOCIAL_AFFILIATE_URL=https://www.walmart.ca/en/ip/...
 SOCIAL_AFFILIATE_DISCLOSURE=Affiliate link. ReviewIntel may earn from qualifying purchases.`}
             </pre>
           </div>

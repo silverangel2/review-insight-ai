@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
   const tag = process.env.AMAZON_ASSOCIATE_TAG || "";
   const walmartAffiliateId = getWalmartAffiliateId();
   const walmartPublisherId = getWalmartPublisherId();
+  const walmartNetwork = process.env.WALMART_AFFILIATE_NETWORK?.trim() || "impact";
   const walmartTemplate = getWalmartImpactTemplate();
   const disclosure = getAffiliateDisclosure();
   const sampleAmazonUrl = "https://www.amazon.ca/dp/B08N5WRWNW?ref_=reviewintel_test";
@@ -79,8 +80,10 @@ export async function GET(req: NextRequest) {
       envNames: {
         publisher: "WALMART_PUBLISHER_ID or WALMART_SID",
         affiliateId: "WALMART_AFFILIATE_ID",
+        network: "WALMART_AFFILIATE_NETWORK",
         template: "WALMART_IMPACT_TRACKING_URL_TEMPLATE",
       },
+      network: walmartNetwork,
       usingDefaultIds: !process.env.WALMART_PUBLISHER_ID && !process.env.WALMART_SID && !process.env.NEXT_PUBLIC_WALMART_PUBLISHER_ID && !process.env.NEXT_PUBLIC_WALMART_SID,
       impactTemplateConfigured: Boolean(walmartTemplate),
       sampleOriginalUrl: sampleWalmartUrl,
@@ -115,7 +118,9 @@ export async function GET(req: NextRequest) {
         done: Boolean(walmartTemplate),
         note: walmartTemplate
           ? "Official Walmart affiliate template is configured."
-          : "Using ReviewIntel's default Walmart Impact path. Add WALMART_IMPACT_TRACKING_URL_TEMPLATE if Walmart gives you a specific template.",
+          : walmartNetwork.toLowerCase() === "rakuten"
+            ? "Walmart network is marked Rakuten. Add WALMART_IMPACT_TRACKING_URL_TEMPLATE or WALMART_AFFILIATE_LINK_TEMPLATE if Rakuten gives you an exact deep-link template."
+            : "Using ReviewIntel's default Walmart Impact path. Add WALMART_IMPACT_TRACKING_URL_TEMPLATE if Walmart gives you a specific template.",
       },
       {
         label: "Affiliate disclosure",

@@ -1,6 +1,12 @@
 import { readdirSync, readFileSync } from "fs";
 import path from "path";
-import { buildAffiliateUrl, getAffiliateDisclosure, isSupportedAffiliateUrl } from "@/lib/affiliate";
+import {
+  buildAffiliateUrl,
+  getAffiliateDisclosure,
+  getAmazonAssociateTag,
+  getWalmartPublisherId,
+  isSupportedAffiliateUrl,
+} from "@/lib/affiliate";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
 import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
 import { getTikTokAccessTokenForPosting, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
@@ -369,7 +375,11 @@ function envEnabled(...names: string[]) {
   return ["1", "true", "yes", "on", "enabled"].includes(value);
 }
 
-function socialAffiliateAttachment(platform: string) {
+function hasAffiliateProgramConfigured() {
+  return Boolean(getAmazonAssociateTag() || getWalmartPublisherId());
+}
+
+function socialAffiliateAttachment(platform: string, topic: string) {
   if (platform !== "facebook") return null;
   if (!envEnabled("SOCIAL_AFFILIATE_POSTS_ENABLED", "FACEBOOK_AFFILIATE_POSTS_ENABLED")) return null;
 
@@ -380,23 +390,38 @@ function socialAffiliateAttachment(platform: string) {
     "FACEBOOK_QUALIFYING_LINK_URL"
   );
 
-  if (!rawUrl || !isSupportedAffiliateUrl(rawUrl)) return null;
-
-  const url = buildAffiliateUrl(rawUrl);
   const disclosure =
     envFirst("SOCIAL_AFFILIATE_DISCLOSURE", "FACEBOOK_AFFILIATE_DISCLOSURE") ||
     `${getAffiliateDisclosure()} #affiliate`;
 
+  if (rawUrl && isSupportedAffiliateUrl(rawUrl)) {
+    const url = buildAffiliateUrl(rawUrl);
+
+    return {
+      url,
+      disclosure,
+      label: "Shop qualifying source",
+      mode: "direct-product-affiliate",
+    };
+  }
+
+  if (!hasAffiliateProgramConfigured()) return null;
+
   return {
-    url,
+    url: platformUrl(platform, `${topic}_affiliate_picks`),
     disclosure,
+    label: "Scan products and see affiliate-ready picks",
+    mode: "reviewintel-affiliate-hub",
   };
 }
 
-function appendSocialAffiliateLink(caption: string, attachment: { url: string; disclosure: string } | null) {
+function appendSocialAffiliateLink(
+  caption: string,
+  attachment: { url: string; disclosure: string; label: string } | null
+) {
   if (!attachment || caption.includes(attachment.url)) return caption;
 
-  return `${caption}\n\nShop qualifying source: ${attachment.url}\n\nAffiliate disclosure: ${attachment.disclosure}`;
+  return `${caption}\n\n${attachment.label}: ${attachment.url}\n\nAffiliate disclosure: ${attachment.disclosure}`;
 }
 
 function cleanHashtag(value: string) {
@@ -1529,7 +1554,7 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
 
     for (const platform of platformsToPost) {
       const content = await generateAiReviewIntelContentPack(platform, topic, queue, media);
-      const affiliateAttachment = socialAffiliateAttachment(platform);
+      const affiliateAttachment = socialAffiliateAttachment(platform, topic);
       const baseCaption = finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
       const caption = appendSocialAffiliateLink(baseCaption, affiliateAttachment);
       const fingerprint = makeContentFingerprint({
@@ -1560,7 +1585,11 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
                 enabled: true,
                 url: affiliateAttachment.url,
                 disclosure: affiliateAttachment.disclosure,
-                note: "Affiliate source link appended only for Facebook because social affiliate posting was explicitly enabled.",
+                mode: affiliateAttachment.mode,
+                note:
+                  affiliateAttachment.mode === "direct-product-affiliate"
+                    ? "Direct Amazon/Walmart qualifying link appended only for Facebook because social affiliate posting was explicitly enabled."
+                    : "ReviewIntel affiliate hub link appended because affiliate posting is enabled and no exact product URL was configured.",
               }
             : null,
           queue,
