@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { attachAffiliateUrl, getAffiliateDisclosure, isAmazonUrl } from "@/lib/affiliate";
+import {
+  attachAffiliateUrl,
+  getAffiliateDisclosure,
+  getWalmartPublisherId,
+  isSupportedAffiliateUrl,
+  isWalmartUrl,
+} from "@/lib/affiliate";
 import { localeLabel, normalizeLocale } from "@/lib/i18n";
 
 function safeJsonParse(text: string) {
@@ -63,7 +69,7 @@ type RecommendationBase = {
 };
 
 async function extractOpenGraphImage(url: string) {
-  if (!isAmazonUrl(url)) return "";
+  if (!isSupportedAffiliateUrl(url)) return "";
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
@@ -150,15 +156,18 @@ Output language:
 Scanned product:
 ${JSON.stringify({ productName, brand, verdict, result }, null, 2)}
 
-Find up to 3 visible Amazon.ca product alternatives when possible:
+Find up to 3 visible Amazon.ca or Walmart.ca/Walmart.com product alternatives when possible:
 1. Primary Pick
 2. Better Value
 3. Stronger Quality
 
 Rules:
 - This is for shopper results only, not seller analytics.
-- Prefer Amazon.ca links.
-- Every recommendation must be an Amazon link.
+- Prefer the same store family as the scanned product when it is a strong match.
+- Prefer Amazon.ca and Walmart.ca for Canadian shoppers.
+- Walmart is useful when the scanned item came from Walmart, when Walmart has clearer pricing, or when Walmart has a better same-category substitute.
+- Amazon is useful when it has stronger review depth, better product images, or more comparable alternatives.
+- Every recommendation must be an Amazon or Walmart link.
 - Do not invent exact rating, review count, price, or product URLs.
 - Include imageUrl only if you can see a real Amazon/product image URL. Do not invent image URLs.
 - Do not recommend random unrelated products.
@@ -173,11 +182,11 @@ Rules:
 JSON format:
 {
   "ok": true,
-  "recommendations": [
+      "recommendations": [
     {
       "title": "product title",
-      "store": "Amazon.ca",
-      "url": "https://www.amazon.ca/...",
+      "store": "Amazon.ca or Walmart.ca",
+      "url": "https://www.amazon.ca/... or https://www.walmart.ca/...",
       "imageUrl": "https://...",
       "rating": 4.5,
       "reviewCount": 1200,
@@ -229,7 +238,7 @@ JSON format:
     const baseRecommendations: RecommendationBase[] = rawRecommendations
       .filter((item: unknown) => {
         const record = asRecord(item);
-        return getString(record.title) && isAmazonUrl(getString(record.url));
+        return getString(record.title) && isSupportedAffiliateUrl(getString(record.url));
       })
       .slice(0, 3)
       .map((item: unknown) => {
@@ -237,7 +246,7 @@ JSON format:
 
         return {
           title: getString(record.title),
-          store: getString(record.store) || "Amazon.ca",
+          store: getString(record.store) || (isWalmartUrl(getString(record.url)) ? "Walmart" : "Amazon.ca"),
           url: getString(record.url),
           imageUrl: getHttpsUrl(record.imageUrl) || getHttpsUrl(record.image),
           rating: getNumber(record.rating),
@@ -267,7 +276,11 @@ JSON format:
       shopperOnly: true,
       locale,
       outputLanguage,
-      affiliateReady: Boolean(process.env.AMAZON_ASSOCIATE_TAG),
+      affiliateReady: Boolean(process.env.AMAZON_ASSOCIATE_TAG || getWalmartPublisherId()),
+      affiliateProviders: {
+        amazonReady: Boolean(process.env.AMAZON_ASSOCIATE_TAG),
+        walmartReady: Boolean(getWalmartPublisherId()),
+      },
       disclosure: getAffiliateDisclosure(),
       recommendations,
     });

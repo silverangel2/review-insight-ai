@@ -2,6 +2,7 @@
 
 import { ResultIntelligencePanel } from "@/components/ResultIntelligencePanel";
 import { BetterPicksPanel } from "@/components/BetterPicksPanel";
+import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -1158,6 +1159,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
         </section>
 
+        <AffiliateSourcePanel result={result} compact />
+
         <BetterPicksPanel result={result} compact />
 
         <section className="grid grid-cols-2 gap-2">
@@ -1271,6 +1274,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       <ToolEvidenceCard result={result} />
 
           <ResultIntelligencePanel result={result} />
+
+          <AffiliateSourcePanel result={result} />
 
           <BetterPicksPanel result={result} />
 

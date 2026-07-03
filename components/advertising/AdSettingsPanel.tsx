@@ -134,7 +134,7 @@ export function AdSettingsPanel() {
 
         <ToggleButton
           label="Google AdSense"
-          description="Google ad blocks. Requires AdSense client and slot env values."
+          description="Google fills empty slots after paid sponsors when env values and optional cookie consent are ready."
           value={settings.googleAdsEnabled}
           onChange={(value) => saveSettings({ googleAdsEnabled: value })}
         />

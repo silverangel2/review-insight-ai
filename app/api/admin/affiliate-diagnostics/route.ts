@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildAmazonAffiliateUrl, getAffiliateDisclosure } from "@/lib/affiliate";
+import {
+  buildAmazonAffiliateUrl,
+  buildWalmartAffiliateUrl,
+  getAffiliateDisclosure,
+  getWalmartAffiliateId,
+  getWalmartImpactTemplate,
+  getWalmartPublisherId,
+} from "@/lib/affiliate";
 
 function getBaseUrl(req: NextRequest) {
   const envUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -44,13 +51,18 @@ export async function GET(req: NextRequest) {
   }
 
   const tag = process.env.AMAZON_ASSOCIATE_TAG || "";
+  const walmartAffiliateId = getWalmartAffiliateId();
+  const walmartPublisherId = getWalmartPublisherId();
+  const walmartTemplate = getWalmartImpactTemplate();
   const disclosure = getAffiliateDisclosure();
   const sampleAmazonUrl = "https://www.amazon.ca/dp/B08N5WRWNW?ref_=reviewintel_test";
+  const sampleWalmartUrl = "https://www.walmart.ca/en/ip/test-product/6000200000000";
   const sampleAffiliateUrl = buildAmazonAffiliateUrl(sampleAmazonUrl);
+  const sampleWalmartAffiliateUrl = buildWalmartAffiliateUrl(sampleWalmartUrl);
 
   return NextResponse.json({
     ok: true,
-    status: tag ? "active" : "affiliate_ready_not_connected",
+    status: tag || walmartPublisherId ? "active" : "affiliate_ready_not_connected",
     amazon: {
       tagConnected: Boolean(tag),
       tagPreview: tag ? `${tag.slice(0, 4)}••••${tag.slice(-3)}` : null,
@@ -58,6 +70,22 @@ export async function GET(req: NextRequest) {
       sampleOriginalUrl: sampleAmazonUrl,
       sampleAffiliateUrl,
       linkBuilderWorking: Boolean(tag && sampleAffiliateUrl.includes("tag=")),
+    },
+    walmart: {
+      publisherConnected: Boolean(walmartPublisherId),
+      affiliateIdConnected: Boolean(walmartAffiliateId),
+      publisherPreview: walmartPublisherId ? `${walmartPublisherId.slice(0, 2)}••••${walmartPublisherId.slice(-2)}` : null,
+      affiliateIdPreview: walmartAffiliateId ? `${walmartAffiliateId.slice(0, 4)}••••${walmartAffiliateId.slice(-3)}` : null,
+      envNames: {
+        publisher: "WALMART_PUBLISHER_ID or WALMART_SID",
+        affiliateId: "WALMART_AFFILIATE_ID",
+        template: "WALMART_IMPACT_TRACKING_URL_TEMPLATE",
+      },
+      usingDefaultIds: !process.env.WALMART_PUBLISHER_ID && !process.env.WALMART_SID && !process.env.NEXT_PUBLIC_WALMART_PUBLISHER_ID && !process.env.NEXT_PUBLIC_WALMART_SID,
+      impactTemplateConfigured: Boolean(walmartTemplate),
+      sampleOriginalUrl: sampleWalmartUrl,
+      sampleAffiliateUrl: sampleWalmartAffiliateUrl,
+      linkBuilderWorking: Boolean(walmartPublisherId && sampleWalmartAffiliateUrl.includes("goto.walmart.com")),
     },
     disclosure: {
       text: disclosure,
@@ -74,6 +102,20 @@ export async function GET(req: NextRequest) {
         label: "Amazon Associates Canada registration",
         done: Boolean(tag),
         note: tag ? "Amazon Associate tag is connected." : "Register later, then add AMAZON_ASSOCIATE_TAG in Vercel.",
+      },
+      {
+        label: "Walmart affiliate SID",
+        done: Boolean(walmartPublisherId),
+        note: walmartPublisherId
+          ? "Walmart SID / publisher ID is connected for Walmart Better Picks."
+          : "Add WALMART_PUBLISHER_ID or WALMART_SID in Vercel.",
+      },
+      {
+        label: "Walmart official Impact template",
+        done: Boolean(walmartTemplate),
+        note: walmartTemplate
+          ? "Official Walmart affiliate template is configured."
+          : "Using ReviewIntel's default Walmart Impact path. Add WALMART_IMPACT_TRACKING_URL_TEMPLATE if Walmart gives you a specific template.",
       },
       {
         label: "Affiliate disclosure",

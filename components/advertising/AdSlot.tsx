@@ -142,6 +142,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   const [settings, setSettings] = useState<LiveAdSettings | null>(null);
   const [ad, setAd] = useState<SponsorAd | null>(null);
   const [adSource, setAdSource] = useState<AdSource | null>(null);
+  const [googleConsent, setGoogleConsent] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -213,20 +214,46 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   }, [placement]);
 
   useEffect(() => {
+    setGoogleConsent(hasOptionalCookieConsent());
+
+    function onConsentChange() {
+      setGoogleConsent(hasOptionalCookieConsent());
+    }
+
+    window.addEventListener(COOKIE_CONSENT_EVENT, onConsentChange);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onConsentChange);
+  }, []);
+
+  useEffect(() => {
     if (!ad || adSource !== "direct") return;
     sendAdEvent("impression", ad.id, placement);
   }, [ad, adSource, placement]);
 
-  const effectiveSettings = settings ?? defaultAdSettings;
+  const effectiveSettings: LiveAdSettings = settings ?? {
+    ...defaultAdSettings,
+    placeholderAdsEnabled: true,
+  };
 
   // Priority:
   // 1. Private/direct sponsor ad when available.
-  // 2. ReviewIntel house fallback ad.
-  // 3. Google AdSense only if no ReviewIntel fallback exists.
+  // 2. Google AdSense when configured and optional consent is present.
+  // 3. ReviewIntel house fallback ad.
   // 4. Nothing.
+  const googleReady =
+    effectiveSettings.adsEnabled &&
+    effectiveSettings.googleAdsEnabled &&
+    effectiveSettings.placements?.[placement] &&
+    hasGoogleAdSenseConfig() &&
+    googleConsent;
+
+  if (!ad && googleReady) {
+    return <GoogleAdSenseBlock className={className} />;
+  }
 
   const fallbackAd =
-    effectiveSettings.adsEnabled && effectiveSettings.placements?.[placement]
+    effectiveSettings.adsEnabled &&
+    effectiveSettings.placeholderAdsEnabled &&
+    effectiveSettings.placements?.[placement]
       ? reviewIntelPlaceholderAds.find(
           (item) =>
             item.placement === placement &&
@@ -238,23 +265,13 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   const visibleAd = ad ?? fallbackAd;
   const visibleAdSource = ad ? adSource : fallbackAd ? "placeholder" : null;
 
-  if (
-    !visibleAd &&
-    effectiveSettings.adsEnabled &&
-    effectiveSettings.googleAdsEnabled &&
-    effectiveSettings.placements?.[placement] &&
-    hasGoogleAdSenseConfig()
-  ) {
-    return <GoogleAdSenseBlock className={className} />;
-  }
-
   if (!visibleAd) return null;
 
   const isHouseAd = visibleAdSource === "placeholder";
   const ctaLabel = isHouseAd ? "Advertise with ReviewIntel" : visibleAdSource === "direct" ? "Learn more" : "Apply for ads";
   const badgeLabel = isHouseAd ? "ReviewIntel ad spot" : "Sponsored";
   const ctaClassName =
-    "inline-flex shrink-0 items-center justify-center rounded-full bg-cyan-300 px-5 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200";
+    "inline-flex shrink-0 items-center justify-center rounded-full bg-ink px-5 py-2 text-sm font-bold text-white transition hover:bg-ocean dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200";
   const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl;
   const media = mediaUrl ? (
     visibleAd.mediaType === "video" ? (
@@ -264,14 +281,14 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         loop
         playsInline
         autoPlay
-        className="h-20 w-full rounded-2xl border border-white/10 object-cover sm:w-32"
+        className="h-24 w-full rounded-2xl border border-cyan-200/70 object-cover sm:w-36"
       />
     ) : (
       <img
         src={mediaUrl}
         alt=""
         loading="lazy"
-        className="h-20 w-full rounded-2xl border border-white/10 object-cover sm:w-32"
+        className="h-24 w-full rounded-2xl border border-cyan-200/70 object-cover sm:w-36"
       />
     )
   ) : null;
@@ -297,7 +314,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
 
   return (
     <aside
-      className={`rounded-3xl border border-cyan-200/20 bg-slate-950/70 p-4 text-white shadow-[0_0_30px_rgba(34,211,238,0.10)] backdrop-blur-xl ${isHouseAd ? "ri-house-ad-slot border-cyan-300/40" : ""} ${className}`}
+      className={`rounded-3xl border border-cyan-200/70 bg-[linear-gradient(135deg,rgba(232,252,255,0.96),rgba(255,255,255,0.98)_54%,rgba(255,247,226,0.9))] p-4 text-ink shadow-soft backdrop-blur-xl dark:border-cyan-300/25 dark:bg-slate-950/80 dark:text-white ${isHouseAd ? "ri-house-ad-slot" : ""} ${className}`}
       aria-label="Sponsored placement"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -305,16 +322,16 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
           {media}
 
           <div className="min-w-0">
-            <div className="mb-2 inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-100">
+            <div className="mb-2 inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-ocean dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">
               {badgeLabel}
             </div>
 
-            <p className="text-sm font-semibold text-cyan-100">{visibleAd.sponsorName}</p>
+            <p className="text-sm font-semibold text-ocean dark:text-cyan-100">{visibleAd.sponsorName}</p>
             <h3 className={compact ? "mt-1 text-lg font-bold" : "mt-1 text-xl font-bold"}>
               {visibleAd.headline}
             </h3>
             {visibleAd.description ? (
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {visibleAd.description}
               </p>
             ) : null}

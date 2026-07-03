@@ -1,16 +1,40 @@
 import { NextResponse } from "next/server";
-import { adPackages, type AdPackageId } from "@/lib/adConfig";
+import { adPackages, type AdPackageId, type AdPlacement } from "@/lib/adConfig";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
+import { saveAdCreative } from "@/lib/adCreativeUpload";
 import { supabaseFetch } from "@/lib/supabaseServer";
 
 type AdminAdvertisingBody = {
-  action?: "approve" | "reject" | "pause" | "activate" | "mark_paid" | "mark_unpaid";
+  action?: "approve" | "reject" | "pause" | "activate" | "mark_paid" | "mark_unpaid" | "create_manual";
   applicationId?: string;
   adId?: string;
+  sponsorName?: string;
+  headline?: string;
+  description?: string;
+  creativeUrl?: string;
+  mediaType?: string;
+  destinationUrl?: string;
+  placement?: string;
+  packageId?: string;
+  dailyImpressionCap?: number;
+  durationDays?: number;
+  active?: boolean;
 };
 
 type ApplicationRow = Record<string, unknown>;
 type SponsorAdRow = Record<string, unknown>;
+
+const adPlacements = new Set<AdPlacement>([
+  "homepage_hero",
+  "homepage_mid",
+  "analyze_below_card",
+  "analyze_premium_top",
+  "analyze_premium_bottom",
+  "results_below_verdict",
+  "buyer_dashboard",
+  "seller_dashboard",
+  "footer",
+]);
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -18,6 +42,32 @@ function clean(value: unknown) {
 
 function normalizePackage(value: unknown): AdPackageId {
   return value === "featured_monthly" ? "featured_monthly" : "sponsored_monthly";
+}
+
+function normalizePlacement(value: unknown): AdPlacement {
+  const placement = clean(value) as AdPlacement;
+  return adPlacements.has(placement) ? placement : "homepage_mid";
+}
+
+function cleanUrl(value: unknown) {
+  const raw = clean(value);
+  if (!raw) return "";
+  if (raw.startsWith("/") && !raw.startsWith("//")) return raw;
+
+  try {
+    const url = new URL(raw);
+    if (url.protocol === "http:" || url.protocol === "https:") return url.toString();
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
+function positiveNumber(value: unknown, fallback: number, min = 1, max = 100000) {
+  const next = Number(value);
+  if (!Number.isFinite(next)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(next)));
 }
 
 async function readJsonSafe(response: Response) {
@@ -127,6 +177,82 @@ async function readEventStats() {
   }, {});
 }
 
+async function readPayload(request: Request): Promise<AdminAdvertisingBody> {
+  const contentType = request.headers.get("content-type") || "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return (await request.json().catch(() => ({}))) as AdminAdvertisingBody;
+  }
+
+  const formData = await request.formData();
+  const file = formData.get("creativeFile");
+  const uploadedCreative = file instanceof File && file.size > 0 ? await saveAdCreative(file) : null;
+
+  return {
+    action: clean(formData.get("action")) as AdminAdvertisingBody["action"],
+    sponsorName: clean(formData.get("sponsorName")),
+    headline: clean(formData.get("headline")),
+    description: clean(formData.get("description")),
+    creativeUrl: uploadedCreative?.creativeUrl || clean(formData.get("creativeUrl")),
+    mediaType: uploadedCreative?.creativeType || clean(formData.get("mediaType")),
+    destinationUrl: clean(formData.get("destinationUrl")),
+    placement: clean(formData.get("placement")),
+    packageId: clean(formData.get("packageId")),
+    dailyImpressionCap: Number(formData.get("dailyImpressionCap")),
+    durationDays: Number(formData.get("durationDays")),
+    active: formData.get("active") !== "false",
+  };
+}
+
+async function createManualAd(body: AdminAdvertisingBody) {
+  const sponsorName = clean(body.sponsorName) || "ReviewIntel";
+  const headline = clean(body.headline) || "Try ReviewIntel before you buy";
+  const description = clean(body.description);
+  const destinationUrl = cleanUrl(body.destinationUrl) || "/analyze";
+  const creativeUrl = cleanUrl(body.creativeUrl);
+  const mediaType = clean(body.mediaType) === "video" ? "video" : "image";
+  const placement = normalizePlacement(body.placement);
+  const packageId = normalizePackage(body.packageId);
+  const adPackage = adPackages[packageId];
+  const durationDays = positiveNumber(body.durationDays, adPackage.durationDays, 1, 365);
+  const startsAt = new Date();
+  const endsAt = new Date(startsAt);
+  endsAt.setUTCDate(endsAt.getUTCDate() + durationDays);
+  const active = body.active !== false;
+
+  const response = await supabaseFetch("/rest/v1/sponsor_ads", {
+    method: "POST",
+    body: JSON.stringify({
+      sponsor_name: sponsorName,
+      headline,
+      description,
+      image_url: mediaType === "image" ? creativeUrl || null : null,
+      creative_url: creativeUrl || null,
+      media_type: mediaType,
+      destination_url: destinationUrl,
+      placement,
+      package_id: packageId,
+      package_name: clean(body.packageId) ? adPackage.name : "ReviewIntel owner campaign",
+      payment_status: "paid",
+      daily_impression_cap: positiveNumber(body.dailyImpressionCap, adPackage.dailyImpressionCap, 1, 250000),
+      duration_days: durationDays,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      active,
+      status: active ? "approved" : "paused",
+      created_at: startsAt.toISOString(),
+      updated_at: startsAt.toISOString(),
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    return { ok: false, details };
+  }
+
+  return { ok: true };
+}
+
 export async function GET(request: Request): Promise<Response> {
   const adminSession = adminSessionFromRequest(request);
 
@@ -168,13 +294,29 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const body = (await request.json()) as AdminAdvertisingBody;
+    const body = await readPayload(request);
     const action = body.action;
     const applicationId = clean(body.applicationId);
     const adId = clean(body.adId);
 
     if (!action) {
       return NextResponse.json({ error: "Action is required." }, { status: 400 });
+    }
+
+    if (action === "create_manual") {
+      const created = await createManualAd(body);
+
+      if (!created.ok) {
+        return NextResponse.json(
+          { error: "Could not create owner ad campaign.", details: created.details },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: "Owner ad campaign created and added to rotation.",
+      });
     }
 
     if ((action === "approve" || action === "reject" || action === "mark_paid" || action === "mark_unpaid") && !applicationId && !adId) {

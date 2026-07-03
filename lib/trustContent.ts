@@ -118,6 +118,16 @@ export const trustPages: Record<string, TrustPageContent> = {
           "Shopper Free usage may be limited. Shopper Premium and Seller subscriptions unlock additional usage and features. You must keep your login information secure and use accurate billing information."
       },
       {
+        title: "Advertising and affiliate links",
+        body:
+          "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.",
+        items: [
+          "As an Amazon Associate I earn from qualifying purchases.",
+          "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.",
+          "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear."
+        ]
+      },
+      {
         title: "Prohibited use",
         body:
           "You may not use ReviewIntel to upload unlawful content, personal data you are not allowed to process, malware, spam, deceptive material, or content intended to abuse marketplaces or reviewers.",

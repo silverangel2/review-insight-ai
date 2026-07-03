@@ -134,10 +134,10 @@ export function AdvertiserApplyForm() {
           <input
             name="creativeFile"
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
+            accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
             className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300 outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-300 file:px-4 file:py-2 file:text-sm file:font-black file:text-slate-950 focus:border-cyan-300"
           />
-          <span className="text-xs font-semibold text-slate-400">Images up to 4 MB. MP4/WEBM video up to 20 MB, muted autoplay.</span>
+          <span className="text-xs font-semibold text-slate-400">Images up to 8 MB. MP4/WEBM/MOV video up to 60 MB, muted autoplay.</span>
         </label>
 
         <label className="grid gap-2 text-sm font-bold">

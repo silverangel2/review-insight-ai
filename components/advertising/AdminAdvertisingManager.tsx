@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { adPackages, type AdPackageId, type AdPlacement } from "@/lib/adConfig";
 
 type AdvertiserApplication = {
   id: string;
@@ -45,6 +46,20 @@ type SponsorAdRow = {
   impressions?: number;
   clicks?: number;
 };
+
+const placementOptions: Array<{ value: AdPlacement; label: string }> = [
+  { value: "homepage_hero", label: "Homepage hero" },
+  { value: "homepage_mid", label: "Homepage middle" },
+  { value: "analyze_below_card", label: "Analyze page" },
+  { value: "analyze_premium_top", label: "Premium analyze top" },
+  { value: "analyze_premium_bottom", label: "Premium analyze bottom" },
+  { value: "results_below_verdict", label: "Results page" },
+  { value: "buyer_dashboard", label: "Buyer dashboard" },
+  { value: "seller_dashboard", label: "Seller dashboard" },
+  { value: "footer", label: "Footer" },
+];
+
+const packageOptions = Object.values(adPackages);
 
 function paymentLabel(status?: string | null) {
   if (status === "paid") return "Payment verified";
@@ -98,6 +113,9 @@ export function AdminAdvertisingManager() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [manualPackage, setManualPackage] = useState<AdPackageId>("sponsored_monthly");
+  const [manualBusy, setManualBusy] = useState(false);
+  const [manualMessage, setManualMessage] = useState("");
 
   async function loadData() {
     setLoading(true);
@@ -141,6 +159,35 @@ export function AdminAdvertisingManager() {
     }
   }
 
+  async function createOwnerAd(formData: FormData) {
+    setManualBusy(true);
+    setManualMessage("");
+    formData.set("action", "create_manual");
+    formData.set("packageId", manualPackage);
+
+    if (!formData.get("active")) {
+      formData.set("active", "false");
+    }
+
+    try {
+      const response = await fetch("/api/admin/advertising", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setManualMessage(data.error || "Owner ad could not be created.");
+        return;
+      }
+
+      setManualMessage(data.message || "Owner ad campaign created.");
+      await loadData();
+    } finally {
+      setManualBusy(false);
+    }
+  }
+
   useEffect(() => {
     loadData();
   }, []);
@@ -152,6 +199,164 @@ export function AdminAdvertisingManager() {
           {notice}
         </p>
       ) : null}
+
+      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean dark:text-cyan-200">
+              Owner Ad Queue
+            </p>
+            <h2 className="mt-2 text-2xl font-black">Add your own banner or video</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              Use this for ReviewIntel promos or your own approved creative. It is saved as a paid owner campaign, rotates by placement, and can be paused below.
+            </p>
+          </div>
+        </div>
+
+        <form action={createOwnerAd} className="mt-5 grid gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Sponsor / campaign name
+              <input
+                name="sponsorName"
+                defaultValue="ReviewIntel"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Placement
+              <select
+                name="placement"
+                defaultValue="homepage_mid"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              >
+                {placementOptions.map((placement) => (
+                  <option key={placement.value} value={placement.value}>
+                    {placement.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Headline
+              <input
+                name="headline"
+                required
+                placeholder="Try ReviewIntel before you buy"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Destination URL
+              <input
+                name="destinationUrl"
+                defaultValue="/analyze"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              />
+            </label>
+          </div>
+
+          <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+            Description
+            <textarea
+              name="description"
+              rows={3}
+              placeholder="Short, simple message for this ad placement."
+              className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+            />
+          </label>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Upload photo or video
+              <input
+                name="creativeFile"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-slate-600 outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-ocean file:px-4 file:py-2 file:text-sm file:font-black file:text-white focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
+              />
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Optional. Images up to 8 MB; video up to 60 MB.
+              </span>
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Or paste creative URL
+              <input
+                name="creativeUrl"
+                placeholder="https://..."
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              />
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Use this if the banner/video already lives in Supabase or another CDN.
+              </span>
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-4">
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Package priority
+              <select
+                value={manualPackage}
+                onChange={(event) => setManualPackage(event.target.value as AdPackageId)}
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              >
+                {packageOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Daily cap
+              <input
+                name="dailyImpressionCap"
+                type="number"
+                min="1"
+                defaultValue={adPackages[manualPackage].dailyImpressionCap}
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+              Days live
+              <input
+                name="durationDays"
+                type="number"
+                min="1"
+                defaultValue={adPackages[manualPackage].durationDays}
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              />
+            </label>
+
+            <label className="flex items-center gap-3 rounded-xl border border-line bg-mist px-4 py-3 text-sm font-black text-ink dark:border-white/10 dark:bg-white/[0.04] dark:text-white">
+              <input name="active" type="checkbox" value="true" defaultChecked className="h-4 w-4" />
+              Go live now
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="submit"
+              disabled={manualBusy}
+              className="rounded-full bg-ink px-6 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-50 dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200"
+            >
+              {manualBusy ? "Adding owner ad..." : "Add to ad rotation"}
+            </button>
+
+            {manualMessage ? (
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-300">{manualMessage}</p>
+            ) : null}
+          </div>
+        </form>
+      </section>
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">

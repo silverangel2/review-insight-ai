@@ -1997,6 +1997,12 @@ const siteWidePhraseTranslations = {
     "Accounts and subscriptions": "Comptes et abonnements",
     "Shopper Free usage may be limited. Shopper Premium and Seller subscriptions unlock additional usage and features. You must keep your login information secure and use accurate billing information.":
       "L’usage d’Acheteur gratuit peut être limité. Les abonnements Acheteur Premium et Vendeur débloquent plus d’usage et de fonctionnalités. Gardez vos identifiants sécurisés et vos informations de facturation exactes.",
+    "Advertising and affiliate links": "Publicité et liens d’affiliation",
+    "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
+      "ReviewIntel peut afficher des emplacements sponsorisés payants, des publicités ReviewIntel, des emplacements Google AdSense lorsqu’ils sont activés et des recommandations de produits affiliées. La rémunération publicitaire ou d’affiliation ne contrôle pas les verdicts, scores d’achat, analyses d’avis ou avertissements produit.",
+    "As an Amazon Associate I earn from qualifying purchases.": "En tant qu’associé Amazon, ReviewIntel gagne une commission sur les achats admissibles.",
+    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Des liens d’affiliation Amazon et Walmart peuvent apparaître dans Better Picks ou les sections de produits recommandés.",
+    "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Les emplacements sponsorisés sont des publicités, et les campagnes payantes doivent être approuvées avant leur affichage.",
     "Prohibited use": "Utilisation interdite",
     "You may not use ReviewIntel to upload unlawful content, personal data you are not allowed to process, malware, spam, deceptive material, or content intended to abuse marketplaces or reviewers.":
       "Vous ne pouvez pas utiliser ReviewIntel pour téléverser du contenu illégal, des données personnelles non autorisées, des logiciels malveillants, du spam, du contenu trompeur ou visant à abuser des marketplaces ou des auteurs d’avis.",
@@ -2219,6 +2225,12 @@ const siteWidePhraseTranslations = {
     "You may use ReviewIntel to analyze review text, uploaded review files, and screenshots that you have the right to submit. You are responsible for the content you upload and how you use the results.":
       "Puedes usar ReviewIntel para analizar reseñas, archivos y capturas que tengas derecho a enviar. Eres responsable del contenido que subes y de cómo usas los resultados.",
     "Accounts and subscriptions": "Cuentas y suscripciones",
+    "Advertising and affiliate links": "Publicidad y enlaces de afiliado",
+    "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
+      "ReviewIntel puede mostrar espacios patrocinados pagados, anuncios propios de ReviewIntel, espacios de Google AdSense cuando estén activados y recomendaciones de productos con afiliados. La compensación publicitaria o de afiliados no controla los veredictos, Buy Scores, análisis de reseñas ni advertencias de producto.",
+    "As an Amazon Associate I earn from qualifying purchases.": "Como asociado de Amazon, ReviewIntel gana por compras calificadas.",
+    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Los enlaces de afiliado de Amazon y Walmart pueden aparecer en Better Picks o en secciones de productos recomendados.",
+    "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Los espacios patrocinados son anuncios, y las campañas pagadas deben aprobarse antes de aparecer.",
     "Prohibited use": "Uso prohibido",
     Availability: "Disponibilidad",
     "Privacy Policy": "Política de privacidad",
@@ -2316,6 +2328,12 @@ const siteWidePhraseTranslations = {
     "Simple rules for using ReviewIntel": "Einfache Regeln für ReviewIntel",
     "Using the service": "Nutzung des Dienstes",
     "Accounts and subscriptions": "Konten und Abonnements",
+    "Advertising and affiliate links": "Werbung und Affiliate-Links",
+    "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
+      "ReviewIntel kann bezahlte Sponsorplatzierungen, eigene ReviewIntel-Anzeigen, aktivierte Google-AdSense-Platzierungen und Affiliate-Produktempfehlungen anzeigen. Affiliate- oder Werbevergütung steuert keine ReviewIntel-Urteile, Buy Scores, Bewertungsanalysen oder Produktwarnungen.",
+    "As an Amazon Associate I earn from qualifying purchases.": "Als Amazon-Partner verdient ReviewIntel an qualifizierten Käufen.",
+    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Amazon- und Walmart-Affiliate-Links können in Better Picks oder empfohlenen Produktbereichen erscheinen.",
+    "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Gesponserte Platzierungen sind Anzeigen; bezahlte Sponsor-Kampagnen müssen vor der Anzeige genehmigt werden.",
     "Prohibited use": "Verbotene Nutzung",
     Availability: "Verfügbarkeit",
     "Privacy Policy": "Datenschutzerklärung",
@@ -2411,6 +2429,12 @@ const siteWidePhraseTranslations = {
     "Simple rules for using ReviewIntel": "使用 ReviewIntel 的简单规则",
     "Using the service": "使用服务",
     "Accounts and subscriptions": "账户和订阅",
+    "Advertising and affiliate links": "广告和联盟链接",
+    "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
+      "ReviewIntel 可能展示付费赞助位、ReviewIntel 自有广告、启用时的 Google AdSense 广告位，以及联盟产品推荐。联盟或广告收入不会控制 ReviewIntel 的结论、购买评分、评价分析或产品警告。",
+    "As an Amazon Associate I earn from qualifying purchases.": "作为 Amazon 联盟成员，ReviewIntel 会从符合条件的购买中获得收入。",
+    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Amazon 和 Walmart 联盟链接可能出现在 Better Picks 或推荐产品区域。",
+    "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "赞助位属于广告，付费赞助活动必须获得批准后才会显示。",
     "Prohibited use": "禁止使用",
     Availability: "可用性",
     "Privacy Policy": "隐私政策",
@@ -2506,6 +2530,12 @@ const siteWidePhraseTranslations = {
     "Simple rules for using ReviewIntel": "ReviewIntel उपयोग के सरल नियम",
     "Using the service": "सेवा का उपयोग",
     "Accounts and subscriptions": "खाते और सदस्यताएँ",
+    "Advertising and affiliate links": "विज्ञापन और affiliate links",
+    "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
+      "ReviewIntel paid sponsor placements, ReviewIntel house ads, enabled Google AdSense placements और affiliate product recommendations दिखा सकता है। Affiliate या advertising compensation ReviewIntel verdicts, Buy Scores, review analysis या product warnings को control नहीं करता।",
+    "As an Amazon Associate I earn from qualifying purchases.": "Amazon Associate के रूप में, ReviewIntel qualifying purchases से कमाई करता है।",
+    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Amazon और Walmart affiliate links Better Picks या recommended product sections में दिख सकते हैं।",
+    "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Sponsored placements विज्ञापन हैं, और paid sponsor campaigns दिखने से पहले approve होने चाहिए।",
     "Prohibited use": "निषिद्ध उपयोग",
     Availability: "उपलब्धता",
     "Privacy Policy": "गोपनीयता नीति",

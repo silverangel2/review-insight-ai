@@ -20,6 +20,22 @@ type AffiliateDiagnostics = {
     sampleOriginalUrl?: string;
     linkBuilderWorking?: boolean;
   };
+  walmart?: {
+    publisherConnected?: boolean;
+    affiliateIdConnected?: boolean;
+    publisherPreview?: string | null;
+    affiliateIdPreview?: string | null;
+    envNames?: {
+      publisher?: string;
+      affiliateId?: string;
+      template?: string;
+    };
+    usingDefaultIds?: boolean;
+    impactTemplateConfigured?: boolean;
+    sampleAffiliateUrl?: string;
+    sampleOriginalUrl?: string;
+    linkBuilderWorking?: boolean;
+  };
   disclosure?: {
     text?: string;
     envName?: string;
@@ -65,6 +81,7 @@ async function getDiagnostics(): Promise<AffiliateDiagnostics> {
 export default async function AffiliateAdminPage() {
   const diagnostics = await getDiagnostics();
   const tagConnected = Boolean(diagnostics.amazon?.tagConnected);
+  const walmartConnected = Boolean(diagnostics.walmart?.publisherConnected);
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white">
@@ -75,11 +92,11 @@ export default async function AffiliateAdminPage() {
           </p>
           <h1 className="mt-2 text-3xl font-black">Affiliate Settings</h1>
           <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">
-            Amazon affiliate readiness, Better Picks status, and disclosure diagnostics.
+            Amazon and Walmart affiliate readiness, Better Picks status, and disclosure diagnostics.
           </p>
 
           <div className="mt-4 inline-flex rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-            {tagConnected ? "Amazon active" : "Ready, not connected"}
+            {tagConnected || walmartConnected ? "Affiliate active" : "Ready, not connected"}
           </div>
         </section>
 
@@ -128,6 +145,54 @@ export default async function AffiliateAdminPage() {
 
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              Walmart Affiliate
+            </p>
+            <h2 className="mt-2 text-xl font-black">Walmart SID</h2>
+
+            <div className="mt-4 space-y-3 text-sm font-bold text-slate-600 dark:text-slate-300">
+              <p>Status: <span className="font-black text-slate-950 dark:text-white">{walmartConnected ? "Connected" : "Not connected yet"}</span></p>
+              <p>SID / publisher env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.publisher || "WALMART_PUBLISHER_ID"}</code></p>
+              <p>Affiliate ID env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.affiliateId || "WALMART_AFFILIATE_ID"}</code></p>
+              <p>SID preview: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.publisherPreview || "—"}</span></p>
+              <p>Affiliate ID preview: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.affiliateIdPreview || "—"}</span></p>
+              <p>Official Impact template: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.impactTemplateConfigured ? "Configured" : "Using default path"}</span></p>
+              <p>Link builder: <span className="font-black text-slate-950 dark:text-white">{diagnostics.walmart?.linkBuilderWorking ? "Working" : "Waiting"}</span></p>
+            </div>
+
+            {diagnostics.walmart?.sampleAffiliateUrl ? (
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Click test
+                </p>
+                <p className="mt-2 break-all text-xs font-bold text-slate-500 dark:text-slate-300">
+                  {diagnostics.walmart.sampleAffiliateUrl}
+                </p>
+                <a
+                  href={diagnostics.walmart.sampleAffiliateUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950"
+                >
+                  Open Walmart test link
+                </a>
+                {!diagnostics.walmart.impactTemplateConfigured ? (
+                  <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 dark:bg-amber-400/10 dark:text-amber-100">
+                    Walmart can give a specific Impact template. Add it later with WALMART_IMPACT_TRACKING_URL_TEMPLATE if needed.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
+{`WALMART_AFFILIATE_ID=ReviewIntel
+WALMART_PUBLISHER_ID=4722495
+# Optional if Walmart gives you an exact Impact template:
+WALMART_IMPACT_TRACKING_URL_TEMPLATE=https://goto.walmart.com/c/{publisherId}/...?...&u={encodedUrl}`}
+            </pre>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
               Disclosure
             </p>
             <h2 className="mt-2 text-xl font-black">Affiliate Disclosure</h2>
@@ -138,7 +203,26 @@ export default async function AffiliateAdminPage() {
             </p>
 
             <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
-{`NEXT_PUBLIC_AFFILIATE_DISCLOSURE=As an Amazon Associate, ReviewIntel earns from qualifying purchases. This does not affect our verdicts or review analysis.`}
+{`NEXT_PUBLIC_AFFILIATE_DISCLOSURE=ReviewIntel may earn from qualifying purchases through Amazon Associates and Walmart affiliate links. Affiliate compensation does not affect ReviewIntel verdicts or review analysis.`}
+            </pre>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              Facebook posts
+            </p>
+            <h2 className="mt-2 text-xl font-black">Optional Qualifying Link</h2>
+            <p className="mt-4 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
+              Turn this on only when you want the daily Facebook auto-post to append one disclosed Amazon/Walmart qualifying link.
+              The posted caption and admin history will both show the same affiliate disclosure.
+            </p>
+
+            <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
+{`SOCIAL_AFFILIATE_POSTS_ENABLED=true
+SOCIAL_AFFILIATE_URL=https://www.amazon.ca/dp/...
+# or:
+SOCIAL_AFFILIATE_URL=https://www.walmart.ca/en/ip/...
+SOCIAL_AFFILIATE_DISCLOSURE=Affiliate link. ReviewIntel may earn from qualifying purchases.`}
             </pre>
           </div>
         </section>

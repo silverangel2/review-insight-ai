@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "fs";
 import path from "path";
+import { buildAffiliateUrl, getAffiliateDisclosure, isSupportedAffiliateUrl } from "@/lib/affiliate";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
 import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
 import { getTikTokAccessTokenForPosting, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
@@ -361,6 +362,41 @@ function platformUrl(platform: string, topic: string) {
   });
 
   return `${publicSiteUrl()}/?${params.toString()}`;
+}
+
+function envEnabled(...names: string[]) {
+  const value = envFirst(...names).toLowerCase();
+  return ["1", "true", "yes", "on", "enabled"].includes(value);
+}
+
+function socialAffiliateAttachment(platform: string) {
+  if (platform !== "facebook") return null;
+  if (!envEnabled("SOCIAL_AFFILIATE_POSTS_ENABLED", "FACEBOOK_AFFILIATE_POSTS_ENABLED")) return null;
+
+  const rawUrl = envFirst(
+    "SOCIAL_AFFILIATE_URL",
+    "FACEBOOK_AFFILIATE_URL",
+    "SOCIAL_QUALIFYING_LINK_URL",
+    "FACEBOOK_QUALIFYING_LINK_URL"
+  );
+
+  if (!rawUrl || !isSupportedAffiliateUrl(rawUrl)) return null;
+
+  const url = buildAffiliateUrl(rawUrl);
+  const disclosure =
+    envFirst("SOCIAL_AFFILIATE_DISCLOSURE", "FACEBOOK_AFFILIATE_DISCLOSURE") ||
+    `${getAffiliateDisclosure()} #affiliate`;
+
+  return {
+    url,
+    disclosure,
+  };
+}
+
+function appendSocialAffiliateLink(caption: string, attachment: { url: string; disclosure: string } | null) {
+  if (!attachment || caption.includes(attachment.url)) return caption;
+
+  return `${caption}\n\nShop qualifying source: ${attachment.url}\n\nAffiliate disclosure: ${attachment.disclosure}`;
 }
 
 function cleanHashtag(value: string) {
@@ -1493,7 +1529,9 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
 
     for (const platform of platformsToPost) {
       const content = await generateAiReviewIntelContentPack(platform, topic, queue, media);
-      const caption = finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
+      const affiliateAttachment = socialAffiliateAttachment(platform);
+      const baseCaption = finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
+      const caption = appendSocialAffiliateLink(baseCaption, affiliateAttachment);
       const fingerprint = makeContentFingerprint({
         platform,
         topic,
@@ -1509,7 +1547,7 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
         topic,
         caption,
         hashtags: content.hashtags,
-        link_url: content.link,
+        link_url: affiliateAttachment?.url || content.link,
         queue_day: queue.queueDay,
         cycle_number: queue.cycleNumber,
         recycle_count: queue.recycleCount,
@@ -1517,6 +1555,14 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
         content_fingerprint: fingerprint,
         metadata: {
           content,
+          affiliate: affiliateAttachment
+            ? {
+                enabled: true,
+                url: affiliateAttachment.url,
+                disclosure: affiliateAttachment.disclosure,
+                note: "Affiliate source link appended only for Facebook because social affiliate posting was explicitly enabled.",
+              }
+            : null,
           queue,
           media: media
             ? {

@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { NextResponse } from "next/server";
 import { adPackages, type AdPackageId, type AdPlacement } from "@/lib/adConfig";
+import { saveAdCreative } from "@/lib/adCreativeUpload";
 import { supabaseFetch } from "@/lib/supabaseServer";
 
 const adPlacements = new Set<AdPlacement>([
@@ -15,15 +13,6 @@ const adPlacements = new Set<AdPlacement>([
   "buyer_dashboard",
   "seller_dashboard",
   "footer",
-]);
-
-const allowedMediaTypes = new Map([
-  ["image/png", { extension: "png", mediaType: "image" }],
-  ["image/jpeg", { extension: "jpg", mediaType: "image" }],
-  ["image/webp", { extension: "webp", mediaType: "image" }],
-  ["image/gif", { extension: "gif", mediaType: "image" }],
-  ["video/mp4", { extension: "mp4", mediaType: "video" }],
-  ["video/webm", { extension: "webm", mediaType: "video" }],
 ]);
 
 type AdvertiserApplyBody = {
@@ -68,38 +57,13 @@ function safeUrl(value: string) {
   return "";
 }
 
-async function saveCreative(file: File) {
-  const mediaConfig = allowedMediaTypes.get(file.type);
-
-  if (!mediaConfig) {
-    throw new Error("Upload PNG, JPG, WEBP, GIF, MP4, or WEBM creative.");
-  }
-
-  const maxBytes = mediaConfig.mediaType === "video" ? 20 * 1024 * 1024 : 4 * 1024 * 1024;
-  if (file.size > maxBytes) {
-    throw new Error(mediaConfig.mediaType === "video" ? "Video ads must stay under 20 MB." : "Image ads must stay under 4 MB.");
-  }
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-  const uploadDir = join(process.cwd(), "public", "uploads", "ads");
-  const filename = `ad-${Date.now()}-${randomUUID()}.${mediaConfig.extension}`;
-
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(join(uploadDir, filename), bytes);
-
-  return {
-    creativeUrl: `/uploads/ads/${filename}`,
-    creativeType: mediaConfig.mediaType,
-  };
-}
-
 async function readPayload(request: Request) {
   const contentType = request.headers.get("content-type") || "";
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await request.formData();
     const file = formData.get("creativeFile");
-    const uploadedCreative = file instanceof File && file.size > 0 ? await saveCreative(file) : null;
+    const uploadedCreative = file instanceof File && file.size > 0 ? await saveAdCreative(file) : null;
 
     return {
       body: {

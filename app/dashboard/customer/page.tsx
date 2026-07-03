@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getClientAccount } from "@/lib/clientAccount";
 import { displayCodeForResult } from "@/lib/productDisplay";
+import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
 
 type ShopperScan = {
   id?: string;
@@ -11,6 +12,7 @@ type ShopperScan = {
   verdict?: string;
   score?: number;
   createdAt?: string;
+  result?: Record<string, unknown>;
 };
 
 function recordOf(value: unknown): Record<string, unknown> {
@@ -70,7 +72,8 @@ function scanFromHistoryItem(item: unknown): ShopperScan {
     productName: displayCodeForResult(result, result?.product?.name || result?.product?.title || result?.analysis?.summary || "Product scan"),
     verdict: result?.verdict || result?.analysis?.verdict || "Checked",
     score: readShopperScore(resultRecord, analysisRecord),
-    createdAt: historyItem.savedAt || result?.createdAt
+    createdAt: historyItem.savedAt || result?.createdAt,
+    result: resultRecord,
   };
 }
 
@@ -289,6 +292,14 @@ export default function CustomerDashboardPage() {
             <p className="mt-2 text-sm font-bold text-slate-500">Products to think twice about</p>
           </div>
         </section>
+
+        {isPremium && history[0]?.result ? (
+          <AffiliateSourcePanel
+            result={history[0].result}
+            compact
+            title="Latest scan qualifying links"
+          />
+        ) : null}
 
         <section id="recent-scans" className="mt-6 rounded-[1.5rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-6 dark:border-white/10 dark:bg-slate-950">
           <div className="flex items-center justify-between gap-4">

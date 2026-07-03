@@ -71,7 +71,7 @@ export default async function AdminAdvertisingPage() {
             }
             detail={
               googleAdSenseConfigured
-                ? "Google fills empty slots when no paid sponsor ad is available."
+                ? "Google fills empty slots after paid sponsors when visitors accept optional ad cookies."
                 : "Add AdSense client and slot env values before Google ads can show."
             }
           />

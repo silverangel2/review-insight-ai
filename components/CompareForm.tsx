@@ -2,6 +2,7 @@
 
 import { saveLatestResult } from "@/lib/resultStorage";
 import { getClientAccount, incrementStoredScanTally } from "@/lib/clientAccount";
+import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -1416,6 +1417,12 @@ export function CompareForm() {
                 productB={productB.result!}
                 comparison={comparison}
                 copy={copy}
+              />
+
+              <AffiliateSourcePanel
+                result={{ productA: productA.result, productB: productB.result, comparison }}
+                compact
+                title="Shop checked comparison sources"
               />
 
               {comparison ? (
