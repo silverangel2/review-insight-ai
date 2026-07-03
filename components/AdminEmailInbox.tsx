@@ -35,10 +35,30 @@ function statusClass(status?: string | null) {
   return "bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200";
 }
 
+const replyTemplates = [
+  {
+    label: "Login help",
+    body: "Hi {name},\n\nThanks for reaching out. I can help with your ReviewIntel login. Please try the password reset link first, then sign in again with the same email you used to create the account.\n\nIf it still does not work, reply with the email address you used and a screenshot of the error message. I will check the account status from the admin side.\n\nReviewIntel Support"
+  },
+  {
+    label: "Scan issue",
+    body: "Hi {name},\n\nThanks for reporting this scan issue. ReviewIntel should identify the product, collect usable review evidence, and explain the verdict clearly.\n\nPlease send the product screenshot, the product link if you have it, and what result looked wrong. I will verify the scan path and review evidence.\n\nReviewIntel Support"
+  },
+  {
+    label: "Billing",
+    body: "Hi {name},\n\nThanks for contacting ReviewIntel about billing. I will check the subscription/account status and confirm the next step.\n\nIf you have a Stripe receipt or the email used for checkout, please send it here so I can match it correctly.\n\nReviewIntel Support"
+  },
+  {
+    label: "Advertiser",
+    body: "Hi {name},\n\nThanks for your interest in advertising with ReviewIntel. Please send your brand name, destination link, preferred banner/video creative, target audience, and campaign dates.\n\nI will review it from the admin ad system and confirm approval or requested changes.\n\nReviewIntel Ads"
+  }
+];
+
 export function AdminEmailInbox() {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [selected, setSelected] = useState<ContactMessage | null>(null);
   const [replyBody, setReplyBody] = useState("");
+  const [adminNote, setAdminNote] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sendingReply, setSendingReply] = useState(false);
@@ -194,9 +214,18 @@ export function AdminEmailInbox() {
     setCopied(true);
   }
 
+  function applyReplyTemplate(template: string) {
+    const name = selected?.name?.trim() || "there";
+    setReplyBody(template.replaceAll("{name}", name));
+  }
+
   useEffect(() => {
     void loadMessages();
   }, [loadMessages]);
+
+  useEffect(() => {
+    setAdminNote(selected?.admin_notes ?? "");
+  }, [selected?.id, selected?.admin_notes]);
 
   return (
     <section className="rounded-[2rem] border border-line bg-white shadow-soft dark:border-white/10 dark:bg-slate-950">
@@ -367,11 +396,31 @@ export function AdminEmailInbox() {
                   <p className="whitespace-pre-wrap">{selected.message}</p>
                 </div>
 
-                {selected.admin_notes ? (
-                  <div className="mt-4 rounded-2xl border border-line p-4 text-xs font-bold text-slate-500 dark:border-white/10">
-                    Admin note: {selected.admin_notes}
+                <div className="mt-4 rounded-2xl border border-line p-4 dark:border-white/10">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-500 dark:text-slate-300">
+                        Internal note
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">
+                        Private admin note for follow-up context. Not sent to the customer.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void updateMessage(selected.id, { admin_notes: adminNote })}
+                      className="w-fit rounded-xl border border-line px-3 py-2 text-xs font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white"
+                    >
+                      Save note
+                    </button>
                   </div>
-                ) : null}
+                  <textarea
+                    value={adminNote}
+                    onChange={(event) => setAdminNote(event.target.value)}
+                    placeholder="Example: User needs reset follow-up, billing check, or scan evidence review."
+                    className="mt-3 min-h-24 w-full resize-y rounded-2xl border border-line bg-white p-3 text-sm font-semibold text-ink outline-none transition focus:border-ocean dark:border-white/10 dark:bg-slate-900 dark:text-white"
+                  />
+                </div>
               </div>
 
               <div className="border-t border-line bg-white p-5 dark:border-white/10 dark:bg-slate-950">
@@ -379,6 +428,19 @@ export function AdminEmailInbox() {
                   <p className="text-xs font-black uppercase tracking-[0.15em] text-ocean dark:text-cyan-300">
                     Reply to customer
                   </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {replyTemplates.map((template) => (
+                      <button
+                        key={template.label}
+                        type="button"
+                        onClick={() => applyReplyTemplate(template.body)}
+                        disabled={!selected.email || sendingReply}
+                        className="rounded-xl bg-mist px-3 py-2 text-xs font-black text-ink transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.06] dark:text-white"
+                      >
+                        {template.label}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     value={replyBody}
                     onChange={(event) => setReplyBody(event.target.value)}

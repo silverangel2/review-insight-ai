@@ -8,12 +8,17 @@ export type CollectedReview = {
   verified?: boolean | null;
 };
 
+export type ReviewExtractorName = "amazon" | "walmart" | "generic" | "none";
+
 export type ReviewCollectorResult = {
   sourceUrl: string | null;
   attempted: boolean;
+  extractor: ReviewExtractorName;
   reviews: CollectedReview[];
   reviewsCollected: number;
+  collectorHasWrittenReviews: boolean;
   coverageNote: string;
+  fallbackUrlsTried?: string[];
 };
 
 function cleanText(value: unknown): string {
@@ -33,6 +38,45 @@ function normalizeRating(value: unknown): number | null {
 
 function reviewKey(text: string) {
   return cleanText(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 180);
+}
+
+function extractorForUrl(url: string | null | undefined): ReviewExtractorName {
+  if (!url) return "none";
+
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("amazon.")) return "amazon";
+    if (host.includes("walmart.")) return "walmart";
+  } catch {
+    return "generic";
+  }
+
+  return "generic";
+}
+
+function isLikelyWrittenReviewBody(value: string): boolean {
+  const text = cleanText(value);
+  const lower = text.toLowerCase();
+
+  if (text.length < 25 || text.length > 5000) return false;
+  if (
+    /privacy policy|terms of use|add to cart|shipping|pickup|sponsored|advertisement|subscribe|cookie policy|write a review/i.test(
+      lower
+    )
+  ) {
+    return false;
+  }
+
+  const firstPersonOrUsage =
+    /\b(i|we|my|our|me|us|bought|purchased|received|used|using|works|worked|love|liked|disappointed|returned|broke|lasted|recommend)\b/i.test(
+      text
+    );
+  const productExperience =
+    /\b(quality|battery|fit|size|price|value|durable|comfortable|taste|smell|sound|charge|delivery|seller|return|packaging|material|review|stars?)\b/i.test(
+      text
+    );
+
+  return firstPersonOrUsage || productExperience;
 }
 
 function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedReview[]) {
@@ -57,7 +101,7 @@ function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedR
       cleanText(record.text) ||
       cleanText(record.name);
 
-    if (body.length >= 20) {
+    if (isLikelyWrittenReviewBody(body)) {
       const ratingValue =
         record.reviewRating && typeof record.reviewRating === "object"
           ? (record.reviewRating as Record<string, unknown>).ratingValue
@@ -114,7 +158,7 @@ function collectEmbeddedReviewText(html: string, sourceUrl: string): CollectedRe
     for (const match of html.matchAll(pattern)) {
       const body = cleanText(match[1]);
       if (
-        body.length >= 25 &&
+        isLikelyWrittenReviewBody(body) &&
         !/privacy policy|terms of use|add to cart|shipping|pickup|sponsored|advertisement/i.test(body)
       ) {
         reviews.push({
@@ -199,7 +243,6 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
     "text",
     "customerreviewtext",
     "reviewdescription",
-    "description",
   ];
 
   const ratingKeys = ["rating", "ratingvalue", "overallrating", "score", "stars"];
@@ -207,11 +250,21 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
   const dateKeys = ["date", "submissiontime", "created", "createdat", "reviewdate", "lastmodificationtime"];
   const verifiedKeys = ["verified", "isverified", "verifiedpurchase", "isverifiedpurchaser", "badges"];
 
-  const hasReviewShape =
+  const hasExplicitReviewKey =
     keys.some((key) => key.includes("review")) ||
-    keys.some((key) => ratingKeys.includes(key)) ||
-    keys.some((key) => key.includes("recommend")) ||
+    keys.some((key) => key.includes("comment")) ||
     keys.some((key) => key.includes("submission"));
+
+  const hasReviewShape =
+    hasExplicitReviewKey &&
+    (keys.some((key) => ratingKeys.includes(key)) ||
+      keys.some((key) =>
+        ["reviewtext", "reviewbody", "customerreviewtext", "reviewdescription"].includes(key)
+      ) ||
+      keys.some((key) => key.includes("recommend")) ||
+      keys.some((key) => key.includes("verified")) ||
+      keys.some((key) => key.includes("badge")) ||
+      keys.some((key) => key.includes("submission")));
 
   let body = "";
 
@@ -224,7 +277,7 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
     }
   }
 
-  if (hasReviewShape && body.length >= 25 && body.length <= 5000) {
+  if (hasReviewShape && isLikelyWrittenReviewBody(body)) {
     const ratingKey = Object.keys(record).find((candidate) =>
       ratingKeys.includes(candidate.toLowerCase())
     );
@@ -319,6 +372,84 @@ function discoverReviewUrls(html: string, listingUrl: string): string[] {
   return [...urls].slice(0, 12);
 }
 
+function extractAmazonAsin(listingUrl: string, html: string): string | null {
+  const patterns = [
+    /\/(?:dp|gp\/product|product-reviews)\/([A-Z0-9]{10})(?:[/?#]|$)/i,
+    /["']asin["']\s*:\s*["']([A-Z0-9]{10})["']/i,
+    /data-asin=["']([A-Z0-9]{10})["']/i,
+  ];
+
+  const haystack = `${listingUrl}\n${html}`;
+  for (const pattern of patterns) {
+    const match = haystack.match(pattern);
+    if (match?.[1]) return match[1].toUpperCase();
+  }
+
+  return null;
+}
+
+function amazonReviewUrls(listingUrl: string, html: string): string[] {
+  const asin = extractAmazonAsin(listingUrl, html);
+  if (!asin) return [];
+
+  try {
+    const base = new URL(listingUrl);
+    return [
+      `${base.origin}/product-reviews/${asin}/?reviewerType=all_reviews`,
+      `${base.origin}/product-reviews/${asin}/?sortBy=recent&reviewerType=all_reviews`,
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function collectAmazonHtmlReviews(html: string, sourceUrl: string): CollectedReview[] {
+  const decoded = htmlDecodeLight(html);
+  const reviews: CollectedReview[] = [];
+  const blocks = decoded.match(/<div[^>]+data-hook=["']review["'][\s\S]*?(?=<div[^>]+data-hook=["']review["']|$)/gi) || [];
+
+  for (const block of blocks) {
+    const bodyMatch =
+      block.match(/data-hook=["']review-body["'][^>]*>([\s\S]*?)<\/span>/i) ||
+      block.match(/class=["'][^"']*review-text[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+    const body = bodyMatch ? cleanText(bodyMatch[1]) : "";
+
+    if (!isLikelyWrittenReviewBody(body)) continue;
+
+    const titleMatch =
+      block.match(/data-hook=["']review-title["'][^>]*>([\s\S]*?)<\/a>/i) ||
+      block.match(/data-hook=["']review-title["'][^>]*>([\s\S]*?)<\/span>/i);
+    const ratingMatch = block.match(/(\d(?:\.\d)?)\s+out of\s+5\s+stars/i);
+    const dateMatch = block.match(/data-hook=["']review-date["'][^>]*>([\s\S]*?)<\/span>/i);
+
+    reviews.push({
+      source: "Amazon written review",
+      sourceUrl,
+      rating: ratingMatch?.[1] ? normalizeRating(Number(ratingMatch[1])) : null,
+      title: titleMatch ? cleanText(titleMatch[1]) : undefined,
+      body,
+      date: dateMatch ? cleanText(dateMatch[1]) : null,
+      verified: /verified purchase/i.test(block) ? true : null,
+    });
+  }
+
+  return reviews;
+}
+
+function marketplaceReviewUrls(extractor: ReviewExtractorName, html: string, listingUrl: string): string[] {
+  const discovered = discoverReviewUrls(html, listingUrl);
+
+  if (extractor === "amazon") {
+    return Array.from(new Set([...amazonReviewUrls(listingUrl, html), ...discovered]));
+  }
+
+  if (extractor === "walmart") {
+    return discovered.filter((url) => /review|ratings|bazaarvoice|ugc/i.test(url));
+  }
+
+  return discovered;
+}
+
 async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Promise<CollectedReview[]> {
   const reviews: CollectedReview[] = [];
 
@@ -361,6 +492,22 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Pr
 
 function buildPublicReviewSearchQueries(productName: string, listingUrl: string): string[] {
   const normalized = cleanText(productName).slice(0, 180);
+  const quoted = normalized ? `"${normalized.replace(/"/g, "")}"` : "";
+  const compactTitle = cleanText(
+    normalized
+      .replace(/\b(with|for|and|the|set|bag|bags|travel|lightweight|hardshell|spinner|wheels|lock)\b/gi, " ")
+      .replace(/\s+/g, " ")
+  );
+  const shortTitle = normalized.split(/\s+/).slice(0, 8).join(" ");
+  const quotedShortTitle = shortTitle ? `"${shortTitle.replace(/"/g, "")}"` : "";
+  const quotedCompactTitle = compactTitle ? `"${compactTitle.replace(/"/g, "")}"` : "";
+  const listingIdentifiers = Array.from(
+    new Set(
+      [listingUrl.match(/\/([A-Z0-9]{8,})(?:[/?#]|$)/i)?.[1], listingUrl]
+        .filter(Boolean)
+        .map((value) => cleanText(value))
+    )
+  ).slice(0, 3);
   let host = "";
 
   try {
@@ -369,12 +516,42 @@ function buildPublicReviewSearchQueries(productName: string, listingUrl: string)
     host = "";
   }
 
-  return [
-    `${normalized} ${host} reviews`,
-    `${normalized} customer reviews`,
-    `${normalized} complaints`,
-    `${normalized} buyer reviews`,
-  ].filter(Boolean);
+  const marketplaceFallbacks = [
+    ...listingIdentifiers.flatMap((identifier) => [
+      `"${identifier}" reviews`,
+      `"${identifier}" customer reviews`,
+      `"${identifier}" complaints`,
+    ]),
+    `${quoted} ${host} reviews`,
+    `${quoted} customer reviews`,
+    `${quoted} complaints`,
+    `${quoted} buyer reviews`,
+    `${quotedShortTitle} ${host} reviews`,
+    `${quotedShortTitle} customer reviews`,
+    `${quotedShortTitle} Walmart reviews`,
+    `${quotedCompactTitle} reviews`,
+    `${quotedCompactTitle} customer reviews`,
+    `${quoted} Amazon reviews`,
+    `${quoted} site:amazon.ca reviews`,
+    `${quoted} site:amazon.com reviews`,
+    `${quotedShortTitle} Amazon reviews`,
+    `${quotedShortTitle} site:amazon.ca reviews`,
+    `${quotedShortTitle} site:amazon.com reviews`,
+    `${quoted} Walmart reviews`,
+    `${quoted} site:walmart.ca reviews`,
+    `${quoted} Best Buy reviews`,
+    `${quoted} Costco reviews`,
+    `${quoted} Target reviews`,
+    `${quoted} manufacturer reviews`,
+    `${quoted} Reddit`,
+    `${quoted} forum`,
+    `${normalized} Amazon customer reviews`,
+    `${normalized} marketplace reviews`,
+  ];
+
+  return Array.from(
+    new Set(marketplaceFallbacks.map((query) => cleanText(query)).filter(Boolean))
+  ).slice(0, 18);
 }
 
 function collectSearchResultLinks(html: string, listingUrl: string): string[] {
@@ -479,13 +656,17 @@ async function fetchPublicReviewFallback(input: {
 export function formatCollectedReviewsForPrompt(result: ReviewCollectorResult): string {
   if (!result.reviews.length) {
     return `Review collector attempted: ${result.attempted ? "yes" : "no"}.
+Extractor: ${result.extractor}.
 Written reviews collected: 0.
+Collector has written reviews: no.
 Coverage note: ${result.coverageNote}`;
   }
 
   return [
     `Review collector attempted: ${result.attempted ? "yes" : "no"}.`,
+    `Extractor: ${result.extractor}.`,
     `Written reviews collected: ${result.reviewsCollected}.`,
+    `Collector has written reviews: ${result.collectorHasWrittenReviews ? "yes" : "no"}.`,
     `Coverage note: ${result.coverageNote}.`,
     "",
     ...result.reviews.map((review, index) => {
@@ -507,13 +688,16 @@ export async function collectWrittenReviewsFromListing(input: {
 }): Promise<ReviewCollectorResult> {
   const listingUrl = input.listingUrl || null;
   const maxReviews = Math.max(10, Math.min(input.maxReviews || 80, 120));
+  const extractor = extractorForUrl(listingUrl);
 
   if (!listingUrl) {
     return {
       sourceUrl: null,
       attempted: false,
+      extractor: "none",
       reviews: [],
       reviewsCollected: 0,
+      collectorHasWrittenReviews: false,
       coverageNote: "No exact listing URL was available for written-review collection.",
     };
   }
@@ -534,17 +718,20 @@ export async function collectWrittenReviewsFromListing(input: {
       return {
         sourceUrl: listingUrl,
         attempted: true,
+        extractor,
         reviews: [],
         reviewsCollected: 0,
+        collectorHasWrittenReviews: false,
         coverageNote: `Listing page was reachable but returned HTTP ${response.status}; written review text could not be collected.`,
       };
     }
 
     const html = await response.text();
-    const discoveredReviewUrls = discoverReviewUrls(html, listingUrl);
+    const discoveredReviewUrls = marketplaceReviewUrls(extractor, html, listingUrl);
 
     const listingReviews = dedupeReviews(
       [
+        ...(extractor === "amazon" ? collectAmazonHtmlReviews(html, listingUrl) : []),
         ...collectJsonLdReviews(html, listingUrl),
         ...collectEmbeddedReviewText(html, listingUrl),
         ...collectEmbeddedJsonReviews(html, listingUrl),
@@ -573,6 +760,7 @@ export async function collectWrittenReviewsFromListing(input: {
 
     console.log("[ReviewIntel DEBUG reviewCollector]", {
       listingUrl,
+      extractor,
       discoveredReviewUrls: discoveredReviewUrls.length,
       listingReviews: listingReviews.length,
       discoveredReviews: discoveredReviews.length,
@@ -593,16 +781,21 @@ export async function collectWrittenReviewsFromListing(input: {
     return {
       sourceUrl: listingUrl,
       attempted: true,
+      extractor,
       reviews,
       reviewsCollected: reviews.length,
+      collectorHasWrittenReviews: reviews.length > 0,
       coverageNote: coverage,
+      fallbackUrlsTried: discoveredReviewUrls.slice(0, 12),
     };
   } catch (error) {
     return {
       sourceUrl: listingUrl,
       attempted: true,
+      extractor,
       reviews: [],
       reviewsCollected: 0,
+      collectorHasWrittenReviews: false,
       coverageNote: `Written review collection failed: ${
         error instanceof Error ? error.message : "unknown error"
       }`,

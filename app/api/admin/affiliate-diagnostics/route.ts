@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       envName: "AMAZON_ASSOCIATE_TAG",
       sampleOriginalUrl: sampleAmazonUrl,
       sampleAffiliateUrl,
-      linkBuilderWorking: tag ? sampleAffiliateUrl.includes("tag=") : true,
+      linkBuilderWorking: Boolean(tag && sampleAffiliateUrl.includes("tag=")),
     },
     disclosure: {
       text: disclosure,

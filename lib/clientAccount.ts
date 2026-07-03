@@ -94,6 +94,8 @@ function getClientAccountRaw(): ClientAccount | null {
       postalCode: parsed.postalCode,
       country: parsed.country,
       website: parsed.website,
+      preferredLanguage: parsed.preferredLanguage,
+      preferredCurrency: parsed.preferredCurrency,
       profileNotes: parsed.profileNotes,
       marketingConsent: Boolean(parsed.marketingConsent),
       passwordUpdatedAt: parsed.passwordUpdatedAt,

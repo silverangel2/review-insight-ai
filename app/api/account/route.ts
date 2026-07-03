@@ -301,6 +301,7 @@ export async function POST(request: NextRequest) {
     website: body.website ?? null,
     preferred_language: body.preferredLanguage ?? body.preferred_language ?? "en",
     preferred_currency: body.preferredCurrency ?? body.preferred_currency ?? "CAD",
+    profile_notes: body.profileNotes ?? body.profile_notes ?? null,
     marketing_consent: Boolean(body.marketingConsent ?? body.marketing_consent),
     updated_at: new Date().toISOString(),
     last_login: new Date().toISOString()

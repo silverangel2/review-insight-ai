@@ -492,6 +492,96 @@ export default function AdminSocialAutoPost() {
     }
   }
 
+  async function deletePost(id: string) {
+    const confirmed = window.confirm("Delete this social post history item?");
+    if (!confirmed) return;
+
+    setSaving(true);
+    setStatus("Deleting social post history item...");
+
+    try {
+      const response = await fetch("/api/admin/social-autopost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete-post", id }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Could not delete social post history item.");
+        return;
+      }
+
+      setSettings(data.settings || settings);
+      setPosts(data.posts || []);
+      setStatus("Social post history item deleted.");
+    } catch {
+      setStatus("Could not delete social post history item.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function prunePostHistory() {
+    setSaving(true);
+    setStatus("Auto-cleaning social post history older than 30 days...");
+
+    try {
+      const response = await fetch("/api/admin/social-autopost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "prune-history", days: 30 }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Could not auto-clean social post history.");
+        return;
+      }
+
+      setSettings(data.settings || settings);
+      setPosts(data.posts || []);
+      setStatus("Auto-clean finished. Social post history older than 30 days was removed.");
+    } catch {
+      setStatus("Could not auto-clean social post history.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function clearPostHistory() {
+    const confirmed = window.confirm("Clear all social post history? This only deletes logs, not your media library or settings.");
+    if (!confirmed) return;
+
+    setSaving(true);
+    setStatus("Clearing all social post history...");
+
+    try {
+      const response = await fetch("/api/admin/social-autopost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear-history" }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Could not clear social post history.");
+        return;
+      }
+
+      setSettings(data.settings || settings);
+      setPosts(data.posts || []);
+      setStatus("All social post history was cleared. Media library and auto-post settings were not changed.");
+    } catch {
+      setStatus("Could not clear social post history.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function connectorCard(label: string, check: ConnectorHealth | null) {
     if (!check) return null;
 
@@ -875,13 +965,13 @@ export default function AdminSocialAutoPost() {
         <div className="mt-5 rounded-2xl border border-dashed border-ocean/30 bg-cyan-50/60 p-4 dark:border-cyan-300/20 dark:bg-cyan-300/10">
           <div className="mb-4 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
-              Built-in safety pack
+              Codex premium library
             </p>
             <p className="mt-1 text-sm font-black text-ink dark:text-white">
-              100 ReviewIntel house images are embedded and ready for the queue.
+              ReviewIntel uses the Codex-made premium images from the uploaded social library.
             </p>
             <p className="mt-1 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
-              Uploaded advertiser/sponsor media rotates first. Homepage instructional videos are kept separate. If no active upload is available, ReviewIntel posts its own branded creative automatically.
+              Active uploaded media rotates first. Homepage instructional videos are kept separate. If no active upload matches, ReviewIntel uses the Codex premium library instead of the old house image pack.
             </p>
           </div>
           <label className="block cursor-pointer rounded-2xl bg-white px-4 py-4 text-sm font-black text-ink shadow-soft dark:bg-slate-900 dark:text-white">
@@ -1001,28 +1091,66 @@ export default function AdminSocialAutoPost() {
       </div>
 
       <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">
-        <h2 className="text-xl font-black text-ink dark:text-white">Post history</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              Social logs
+            </p>
+            <h2 className="mt-1 text-xl font-black text-ink dark:text-white">Post history</h2>
+            <p className="mt-1 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
+              Clean old logs without touching media, queue settings, or platform connections.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={prunePostHistory}
+              disabled={saving}
+              className="rounded-xl border border-line px-3 py-2 text-xs font-black text-ink transition hover:border-ocean disabled:opacity-60 dark:border-white/10 dark:text-white"
+            >
+              Auto-clean 30+ days
+            </button>
+            <button
+              type="button"
+              onClick={clearPostHistory}
+              disabled={saving || posts.length === 0}
+              className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white transition hover:bg-rose-700 disabled:opacity-60"
+            >
+              Clear all history
+            </button>
+          </div>
+        </div>
         <div className="mt-4 space-y-3">
           {posts.length ? posts.map((post) => (
             <article key={post.id} className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-slate-900">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black capitalize text-ink dark:bg-slate-800 dark:text-white">
-                  {post.platform}
-                </span>
-                <span className={`rounded-full px-3 py-1 text-xs font-black capitalize ${
-                  post.status === "posted"
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"
-                    : post.status === "draft_ready"
-                      ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-200"
-                      : post.status === "failed"
-                        ? "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-200"
-                        : "bg-white text-ink dark:bg-slate-800 dark:text-white"
-                }`}>
-                  {post.status.replaceAll("_", " ")}
-                </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-300">
-                  {new Date(post.created_at).toLocaleString()}
-                </span>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black capitalize text-ink dark:bg-slate-800 dark:text-white">
+                    {post.platform}
+                  </span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-black capitalize ${
+                    post.status === "posted"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"
+                      : post.status === "draft_ready"
+                        ? "bg-cyan-100 text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-200"
+                        : post.status === "failed"
+                          ? "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-200"
+                          : "bg-white text-ink dark:bg-slate-800 dark:text-white"
+                  }`}>
+                    {post.status.replaceAll("_", " ")}
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-300">
+                    {new Date(post.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void deletePost(post.id)}
+                  disabled={saving}
+                  className="w-fit rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 dark:border-rose-300/20 dark:bg-slate-950 dark:text-rose-200"
+                >
+                  Delete log
+                </button>
               </div>
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
                 {post.caption}

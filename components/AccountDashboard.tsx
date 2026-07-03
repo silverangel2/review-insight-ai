@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/Badge";
-import { FREE_DAILY_REVIEW_LIMIT, hasUnlimitedUsage, isAdminRole, isSellerPlan, planLabel, type ClientAccount } from "@/lib/account";
+import {
+  FREE_DAILY_REVIEW_LIMIT,
+  hasUnlimitedUsage,
+  isAdminRole,
+  isSellerPlan,
+  planLabel,
+  profileCompletionMissingFields,
+  type ClientAccount
+} from "@/lib/account";
 import {
   accountHeaders,
   clearClientAccount,
@@ -225,6 +233,17 @@ export function AccountDashboard() {
   }, [account]);
 
   const activePlan = effectiveAccountPlan(account);
+  const profileCompletionAccount = account
+    ? {
+        ...account,
+        ...profileForm,
+        role: account.role,
+        plan: activePlan,
+        email: account.email,
+      }
+    : null;
+  const profileMissingFields = profileCompletionMissingFields(profileCompletionAccount);
+  const isProfileReady = profileMissingFields.length === 0;
   const isBetaAccountPlan = activePlan === "buyer_beta" || activePlan === "seller_beta";
   const betaDaysLeft = betaDaysRemaining(account?.betaExpiresAt);
   const betaExpiryText = formatBetaDate(account?.betaExpiresAt);
@@ -424,7 +443,7 @@ export function AccountDashboard() {
 
     if (mustCompleteProfile) {
       setIsEditingProfile(true);
-      setProfileNotice("Complete all profile fields before continuing to analysis.");
+      setProfileNotice("Complete the required basics before continuing to analysis.");
     }
   }, []);
 
@@ -483,28 +502,16 @@ export function AccountDashboard() {
     setError("");
     setProfileNotice("");
 
-    const requiredProfileFields = [
-      ["Display name", profileForm.name],
-      ["Company / store", profileForm.companyName],
-      ["Phone", profileForm.phone],
-      ["Address line 1", profileForm.addressLine1],
-      ["Address line 2", profileForm.addressLine2],
-      ["City", profileForm.city],
-      ["State / Province", profileForm.region],
-      ["Postal code", profileForm.postalCode],
-      ["Country", profileForm.country],
-      ["Website / product store", profileForm.website],
-      ["Language", profileForm.preferredLanguage],
-      ["Preferred currency", profileForm.preferredCurrency],
-      ["Notes / preferences", profileForm.profileNotes],
-    ];
-
-    const missingFields = requiredProfileFields
-      .filter(([, value]) => !String(value ?? "").trim())
-      .map(([label]) => label);
+    const missingFields = profileCompletionMissingFields({
+      ...account,
+      ...profileForm,
+      role: account.role,
+      plan: activePlan,
+      email: account.email,
+    });
 
     if (missingFields.length) {
-      setError(`Complete these required profile fields before saving: ${missingFields.join(", ")}.`);
+      setError(`Complete these required profile basics before saving: ${missingFields.join(", ")}.`);
       setProfileNotice("");
       setIsEditingProfile(true);
       return;
@@ -650,10 +657,14 @@ export function AccountDashboard() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Account profile</p>
-              <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">Identity, address, and account details</h2>
+              <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">Clean profile basics</h2>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+                Keep only the details ReviewIntel needs for access, support, billing, language, and account separation.
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={account.role === "admin" ? "good" : account.role === "seller" || isSellerPlan(account.plan) ? "info" : "good"}>{effectiveRoleLabel(account)} profile</Badge>
+              <Badge tone={isProfileReady ? "good" : "warn"}>{isProfileReady ? "Ready" : "Needs basics"}</Badge>
               {!isEditingProfile ? (
                 <button
                   type="button"
@@ -764,52 +775,36 @@ export function AccountDashboard() {
                   <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
                     <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Profile status</span>
                     <span className="mt-1 block text-ink dark:text-white">
-                      {[
-                        profileForm.name,
-                        profileForm.companyName,
-                        profileForm.phone,
-                        profileForm.addressLine1,
-                        profileForm.addressLine2,
-                        profileForm.city,
-                        profileForm.region,
-                        profileForm.postalCode,
-                        profileForm.country,
-                        profileForm.website,
-                        profileForm.preferredLanguage,
-                        profileForm.preferredCurrency,
-                        profileForm.profileNotes,
-                      ].every((value) => String(value ?? "").trim()) ? "Complete" : "Needs review"}
+                      {isProfileReady ? "Ready" : `Missing ${profileMissingFields.join(", ")}`}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 lg:grid-cols-2">
+              {!isProfileReady ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
+                  Complete these basics before analysis: {profileMissingFields.join(", ")}.
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 md:grid-cols-3">
                 {[
                   {
-                    title: "Personal",
+                    title: "Identity",
                     items: [
                       ["Display name", profileForm.name || "Not provided"],
                       ["Email", account.email || displayAccountEmail(account) || "Email not available"],
-                      ["Phone", profileForm.phone || "Not provided"],
+                      ["Account type", effectiveRoleLabel(account)],
+                      ["Plan", displayPlanBadge(account, activePlan)],
                     ],
                   },
                   {
-                    title: "Business / Store",
+                    title: account.role === "seller" || isSellerPlan(activePlan) ? "Seller basics" : "Shopper basics",
                     items: [
-                      ["Company / store", profileForm.companyName || "Not provided"],
-                      ["Website / product store", profileForm.website || "Not provided"],
-                    ],
-                  },
-                  {
-                    title: "Location",
-                    items: [
-                      ["Address line 1", profileForm.addressLine1 || "Not provided"],
-                      ["Address line 2", profileForm.addressLine2 || "Not provided"],
-                      ["City", profileForm.city || "Not provided"],
-                      ["State / Province", profileForm.region || "Not provided"],
-                      ["Postal code", profileForm.postalCode || "Not provided"],
+                      ["Company / store", profileForm.companyName || (account.role === "seller" || isSellerPlan(activePlan) ? "Required" : "Optional")],
                       ["Country", profileForm.country || "Not provided"],
+                      ["Website / product store", profileForm.website || "Optional"],
+                      ["Phone", profileForm.phone || "Optional"],
                     ],
                   },
                   {
@@ -818,16 +813,7 @@ export function AccountDashboard() {
                       ["Language", profileForm.preferredLanguage || "Not provided"],
                       ["Preferred currency", profileForm.preferredCurrency || "Not provided"],
                       ["Marketing email consent", profileForm.marketingConsent ? "Yes" : "No"],
-                      ["Notes / preferences", profileForm.profileNotes || "Not provided"],
-                    ],
-                  },
-                  {
-                    title: "Account System Info",
-                    items: [
-                      ["Account type", effectiveRoleLabel(account)],
-                      ["Plan", displayPlanBadge(account, activePlan)],
                       ["Daily usage", hasUnlimitedUsage(account.role, activePlan) ? "Unlimited product analyses" : quota ? quotaText(quota) : `${FREE_DAILY_REVIEW_LIMIT} free shopper analyses today`],
-                      ["Profile ID", profileForm.profileId || "Not available"],
                     ],
                   },
                 ].map((group) => (
@@ -852,8 +838,8 @@ export function AccountDashboard() {
                 ))}
               </div>
 
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-                Review these details carefully. If something is blank or wrong, click Edit profile and correct it before using the account.
+              <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold leading-5 text-sky-900 dark:border-sky-300/20 dark:bg-sky-300/10 dark:text-sky-100">
+                Required basics stay short. Address, phone, website, and notes are optional unless you need them for support or seller records.
               </div>
             </div>
           ) : null}
@@ -865,18 +851,27 @@ export function AccountDashboard() {
                 : "pointer-events-none max-h-0 overflow-hidden opacity-0 transition-all duration-300"
             }
           >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Required basics</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
+              {account.role === "seller" || isSellerPlan(activePlan)
+                ? "Sellers need a display name, company/store, and country before using seller tools."
+                : "Shoppers need a display name and country before analysis."}
+            </p>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
             {[
               ["name", "Display name", "Your name"],
-              ["companyName", "Company / store", "Optional"],
+              ["companyName", "Company / store", account.role === "seller" || isSellerPlan(activePlan) ? "Required for sellers" : "Optional"],
+              ["country", "Country", "Country"],
+              ["website", "Website / product store", "https://..."],
               ["phone", "Phone", "Optional"],
               ["addressLine1", "Address line 1", "Street address"],
               ["addressLine2", "Address line 2", "Apartment, suite, unit"],
               ["city", "City", "City"],
               ["region", "State / Province", "State or province"],
               ["postalCode", "Postal code", "Postal / ZIP"],
-              ["country", "Country", "Country"],
-              ["website", "Website / product store", "https://..."]
             ].map(([key, label, placeholder]) => (
               <label key={key} className="block">
                 <span className="text-sm font-bold text-ink dark:text-white">{label}</span>
@@ -1063,7 +1058,7 @@ export function AccountDashboard() {
         ))}
       </section>
 <div className="flex flex-wrap gap-3">
-        {accountProfileReady ? (
+        {accountProfileReady && isProfileReady ? (
           <Link
             href={isSellerDashboardAccount ? "/dashboard/seller" : accountDashboardHref}
             className="rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink"
@@ -1073,10 +1068,13 @@ export function AccountDashboard() {
         ) : (
           <button
             type="button"
-            disabled
-            className="rounded-xl bg-slate-300 px-5 py-3 text-sm font-black text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+            onClick={() => {
+              setProfileNotice("Complete the required basics before continuing to analysis.");
+              setIsEditingProfile(true);
+            }}
+            className="rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink"
           >
-            Loading account…
+            Complete profile
           </button>
         )}
         <Link href="/compare" className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:bg-white/5 dark:text-white">

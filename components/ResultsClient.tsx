@@ -312,6 +312,30 @@ const resultCopy: Record<
   }
 };
 
+const resultFallbackTextTranslations: Record<ReviewIntelLocale, Record<string, string>> = {
+  en: {},
+  fr: {
+    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.":
+      "ReviewIntel a recherché sur le web et trouvé l’identité/la fiche du produit, mais n’a pas pu accéder à assez d’avis lisibles pour juger ce produit.",
+  },
+  es: {
+    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.":
+      "ReviewIntel buscó en la web y encontró la identidad/listado del producto, pero no pudo acceder a suficientes reseñas legibles para juzgarlo.",
+  },
+  zh: {
+    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.":
+      "ReviewIntel 已在网上找到产品身份/商品页面，但无法访问足够可读的评论证据来判断该产品。",
+  },
+  de: {
+    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.":
+      "ReviewIntel hat im Web die Produktidentität bzw. den Eintrag gefunden, konnte aber nicht genug lesbare Bewertungsbelege abrufen, um dieses Produkt zu beurteilen.",
+  },
+  hi: {
+    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.":
+      "ReviewIntel ने वेब पर उत्पाद की पहचान/लिस्टिंग ढूंढी, लेकिन इस उत्पाद का निर्णय करने के लिए पर्याप्त पढ़ने योग्य समीक्षा प्रमाण नहीं मिल सके।",
+  },
+};
+
 type CompareTitleLabels = {
   productA: string;
   productB: string;
@@ -441,6 +465,12 @@ function clampScore(value: unknown, fallback = 0) {
   return Math.max(0, Math.min(100, Math.round(number)));
 }
 
+function formatBuyScore(value: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "Not scored";
+  const score = value > 10 ? Math.round(value / 10) : Math.round(value);
+  return `${Math.max(1, Math.min(10, score))}/10`;
+}
+
 function verdictFromBuyer(value: unknown): ShopperVerdict {
   const verdict = String(value || "").toUpperCase();
   if (verdict === "BUY") return "BUY";
@@ -469,11 +499,127 @@ function localizedRiskLabel(locale: ReviewIntelLocale, value: string) {
 }
 
 function translateResultText(locale: ReviewIntelLocale, value: string) {
-  return getUiTextTranslation(locale, value) || value;
+  return resultFallbackTextTranslations[locale]?.[value] || getUiTextTranslation(locale, value) || value;
 }
 
 function translateResultArray(locale: ReviewIntelLocale, values: string[]) {
   return values.map((value) => translateResultText(locale, value));
+}
+
+const RESULT_BUYER_INSIGHT_STOP_WORDS = new Set([
+  "about",
+  "after",
+  "also",
+  "and",
+  "are",
+  "based",
+  "buyer",
+  "buyers",
+  "comment",
+  "comments",
+  "customer",
+  "customers",
+  "evidence",
+  "experience",
+  "experiences",
+  "for",
+  "from",
+  "highlights",
+  "issue",
+  "issues",
+  "item",
+  "listing",
+  "marketplace",
+  "overall",
+  "product",
+  "review",
+  "reviews",
+  "signal",
+  "signals",
+  "that",
+  "the",
+  "their",
+  "this",
+  "theme",
+  "themes",
+  "with",
+]);
+
+function normalizeBuyerInsightText(value: unknown) {
+  let text = String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-*•\d.)]+/u, "")
+    .trim();
+
+  if (!text) return "";
+
+  text = text
+    .replace(/\b([A-Za-z][A-Za-z-]{2,})(?:\s+\1\b)+/gi, "$1")
+    .replace(/\b([A-Za-z][A-Za-z-]*(?:\s+[A-Za-z][A-Za-z-]*){1,5})(?:\s+\1\b)+/gi, "$1")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .trim();
+
+  if (text.length > 150) {
+    const preview = text.slice(0, 151);
+    const cutAt = Math.max(
+      preview.lastIndexOf("."),
+      preview.lastIndexOf(";"),
+      preview.lastIndexOf(","),
+      preview.lastIndexOf(" and "),
+      preview.lastIndexOf(" but "),
+    );
+    text = (cutAt >= 80 ? preview.slice(0, cutAt) : preview.slice(0, 147)).trim();
+  }
+
+  return text.replace(/[.;,\s]+$/g, "").trim();
+}
+
+function buyerInsightTokens(text: string) {
+  return Array.from(
+    new Set(
+      text
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/)
+        .filter((token) => token.length > 2 && !RESULT_BUYER_INSIGHT_STOP_WORDS.has(token))
+    )
+  ).slice(0, 16);
+}
+
+function buyerInsightsAreSimilar(left: string, right: string) {
+  const leftTokens = buyerInsightTokens(left);
+  const rightTokens = buyerInsightTokens(right);
+
+  if (!leftTokens.length || !rightTokens.length) {
+    return left.trim().toLowerCase() === right.trim().toLowerCase();
+  }
+
+  const leftKey = leftTokens.join(" ");
+  const rightKey = rightTokens.join(" ");
+  if (leftKey === rightKey) return true;
+  if (Math.min(leftKey.length, rightKey.length) > 18 && (leftKey.includes(rightKey) || rightKey.includes(leftKey))) {
+    return true;
+  }
+
+  const rightSet = new Set(rightTokens);
+  const overlap = leftTokens.filter((token) => rightSet.has(token)).length;
+  return overlap / Math.min(leftTokens.length, rightTokens.length) >= 0.62;
+}
+
+function cleanBuyerInsightArray(values: string[], limit: number) {
+  const clean: string[] = [];
+
+  for (const value of values) {
+    const text = normalizeBuyerInsightText(value);
+    if (!text || text.length < 4) continue;
+    if (/^(none|unknown|n\/a|not available|no clear .* found)$/i.test(text)) continue;
+    if (clean.some((existing) => buyerInsightsAreSimilar(existing, text))) continue;
+    clean.push(text);
+    if (clean.length >= limit) break;
+  }
+
+  return clean;
 }
 
 function normalizeResearchQuality(value: unknown) {
@@ -557,7 +703,25 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
   };
 
   const analysis = source.analysis;
-  const product = source.product || {};
+  const productSource = source.product || {};
+  const product = {
+    ...productSource,
+    name:
+      productSource.name ||
+      String((source as Record<string, unknown>).productName || "") ||
+      String((source as Record<string, unknown>).name || "") ||
+      String((source as Record<string, unknown>).title || ""),
+    title:
+      productSource.title ||
+      String((source as Record<string, unknown>).title || "") ||
+      String((source as Record<string, unknown>).productName || "") ||
+      String((source as Record<string, unknown>).name || ""),
+    brand: productSource.brand || String((source as Record<string, unknown>).brand || ""),
+    store: productSource.store || String((source as Record<string, unknown>).store || ""),
+    price: productSource.price || String((source as Record<string, unknown>).price || ""),
+    rating: productSource.rating || String((source as Record<string, unknown>).rating || ""),
+    reviewCount: productSource.reviewCount || String((source as Record<string, unknown>).reviewCount || ""),
+  };
   const authenticity = source.reviewAuthenticity;
   const rawVerdict =
     optionalVerdictFromBuyer((source as Record<string, unknown>).stableVerdict) ||
@@ -567,13 +731,36 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
     optionalVerdictFromBuyer((analysis as Record<string, unknown> | undefined)?.finalVerdict) ||
     optionalVerdictFromBuyer((analysis as Record<string, unknown> | undefined)?.verdict) ||
     verdictFromBuyer(analysis?.buyer_recommendation?.verdict || analysis?.customer_recommendation?.verdict);
-  const productScore = clampScore(source.productScore ?? analysis?.product_score ?? (analysis as Record<string, unknown> | undefined)?.score, 0);
-  const buyingConfidence = clampScore(source.buyingConfidence ?? analysis?.confidence_score ?? analysis?.product_score ?? (analysis as Record<string, unknown> | undefined)?.score, productScore);
+  const productScore = clampScore(
+    source.productScore ??
+      (source as Record<string, unknown>).buyScore ??
+      analysis?.product_score ??
+      (analysis as Record<string, unknown> | undefined)?.score,
+    0
+  );
+  const buyingConfidence = clampScore(
+    source.buyingConfidence ??
+      (source as Record<string, unknown>).buyerConfidence ??
+      (source as Record<string, unknown>).verdictConfidence ??
+      analysis?.confidence_score ??
+      analysis?.product_score ??
+      (analysis as Record<string, unknown> | undefined)?.score,
+    productScore
+  );
   const valueForMoney = String(source.valueForMoney || analysis?.value_for_money_opinion || "Fair");
-  const strengths = asTextArray(source.topStrengths?.length ? source.topStrengths : analysis?.positive_points?.length ? analysis.positive_points : analysis?.praised_features, 5);
-  const complaints = asTextArray(source.topComplaints?.length ? source.topComplaints : analysis?.common_complaints?.length ? analysis.common_complaints : analysis?.negative_points, 6);
-  const bestFor = asTextArray(source.bestFor, 4);
-  const notIdealFor = asTextArray(source.notIdealFor?.length ? source.notIdealFor : analysis?.quality_concerns, 4);
+  const strengths = cleanBuyerInsightArray(
+    asTextArray(source.topStrengths?.length ? source.topStrengths : analysis?.positive_points?.length ? analysis.positive_points : analysis?.praised_features, 12),
+    5
+  );
+  const complaints = cleanBuyerInsightArray(
+    asTextArray(source.topComplaints?.length ? source.topComplaints : analysis?.common_complaints?.length ? analysis.common_complaints : analysis?.negative_points, 14),
+    6
+  );
+  const bestFor = cleanBuyerInsightArray(asTextArray(source.bestFor, 8), 4);
+  const notIdealFor = cleanBuyerInsightArray(
+    asTextArray(source.notIdealFor?.length ? source.notIdealFor : analysis?.quality_concerns, 8),
+    4
+  );
   const sourceRecord = source as Record<string, unknown>;
   const analysisRecord = (analysis || {}) as Record<string, unknown>;
 
@@ -800,10 +987,15 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
   const rawResultForVerdict = result as Record<string, unknown>;
 
+  const verdictConfidenceRaw =
+    rawResultForVerdict.verdictConfidence ??
+    rawResultForVerdict.buyerConfidence ??
+    rawResultForVerdict.buyingConfidence ??
+    shopper.buyingConfidence;
   const verdictConfidence =
-    typeof rawResultForVerdict.verdictConfidence === "number"
-      ? Number(rawResultForVerdict.verdictConfidence)
-      : 0;
+    typeof verdictConfidenceRaw === "number" && Number.isFinite(verdictConfidenceRaw)
+      ? Math.round(verdictConfidenceRaw)
+      : clampScore(verdictConfidenceRaw, 0);
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -849,7 +1041,9 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       ? rawResultForScore.buyScore
       : typeof rawResultForScore.productScore === "number"
         ? rawResultForScore.productScore
-        : null;
+        : typeof rawResultForScore.score === "number"
+          ? rawResultForScore.score
+          : null;
 
   const visibleValueForMoney =
     hasUsefulReviewEvidence && String(shopper.valueForMoney || "").toLowerCase() === "poor"
@@ -890,7 +1084,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           <div className="ri-mobile-metric-grid mt-4 grid grid-cols-2 gap-2 border-t border-black/10 pt-3 text-left">
             <MiniMetric
               label={copy.buyScore}
-              value={typeof visibleProductScore === "number" ? typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored" : "Not scored"}
+              value={formatBuyScore(visibleProductScore)}
             />
             <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
             <MiniMetric
@@ -963,6 +1157,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             {shopper.bottomLine}
           </p>
         </section>
+
+        <BetterPicksPanel result={result} compact />
 
         <section className="grid grid-cols-2 gap-2">
           <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 2)} empty={copy.bestForEmpty} />
@@ -1048,7 +1244,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 md:grid-cols-4 sm:mt-6 sm:pt-5">
               <MiniMetric
               label={copy.buyScore}
-              value={typeof visibleProductScore === "number" ? typeof visibleProductScore === "number" ? `${Math.round(visibleProductScore / 10)}/10` : "Not scored" : "Not scored"}
+              value={formatBuyScore(visibleProductScore)}
             />
               <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
               <MiniMetric
@@ -1111,6 +1307,12 @@ function getToolProofNumber(source: ToolProofRecord | null, key: string): number
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function getToolProofBoolean(source: ToolProofRecord | null, key: string): boolean | null {
+  if (!source) return null;
+  const value = source[key];
+  return typeof value === "boolean" ? value : null;
+}
+
 function getToolProofArray(source: ToolProofRecord | null, key: string): unknown[] {
   if (!source) return [];
   const value = source[key];
@@ -1120,6 +1322,12 @@ function getToolProofArray(source: ToolProofRecord | null, key: string): unknown
 function toolProofValue(value: string | number | null | undefined, empty = "Not found") {
   if (value === null || value === undefined || value === "") return empty;
   return String(value);
+}
+
+function formatCoverageRatio(value: number | null) {
+  if (value === null) return null;
+  if (value <= 1) return `${Math.round(value * 100)}%`;
+  return `${Math.round(value)}%`;
 }
 
 function ToolProofPill({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -1154,6 +1362,11 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     getToolProofRecord(analysis || {}, "productIdentity");
 
   const listingEvidence = reviewEvidence ? getToolProofRecord(reviewEvidence, "listingEvidence") : null;
+  const reviewCollector = reviewEvidence ? getToolProofRecord(reviewEvidence, "reviewCollector") : null;
+  const reviewIntelTrace = getToolProofRecord(raw, "reviewIntelTrace");
+  const verdictConfidenceAudit =
+    getToolProofRecord(raw, "verdictConfidenceAudit") ||
+    getToolProofRecord(reviewIntelTrace || {}, "verdictConfidenceAudit");
   const reviewAuthenticity =
     getToolProofRecord(raw, "reviewAuthenticity") ||
     (reviewEvidence ? getToolProofRecord(reviewEvidence, "reviewAuthenticity") : null) ||
@@ -1167,10 +1380,34 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 
   const sourcesChecked = getToolProofArray(reviewEvidence, "sourcesChecked");
   const commentsAnalyzed = getToolProofNumber(reviewEvidence, "commentsAnalyzed");
-  const reviewsFound = getToolProofNumber(reviewEvidence, "reviewsFound");
+  const marketplaceReviewCount =
+    getToolProofNumber(raw, "marketplaceReviewCount") ??
+    getToolProofNumber(reviewEvidence, "marketplaceReviewCount") ??
+    getToolProofNumber(listingEvidence, "reviewCount");
+  const reviewsCollected =
+    getToolProofNumber(raw, "reviewsCollected") ??
+    getToolProofNumber(reviewEvidence, "reviewsCollected") ??
+    getToolProofNumber(reviewCollector, "reviewsCollected");
+  const reviewCoverageRatio =
+    getToolProofNumber(raw, "reviewCoverageRatio") ??
+    getToolProofNumber(reviewEvidence, "reviewCoverageRatio") ??
+    getToolProofNumber(verdictConfidenceAudit, "reviewCoverageRatio");
+  const collectorHasWrittenReviews =
+    getToolProofBoolean(raw, "collectorHasWrittenReviews") ??
+    getToolProofBoolean(reviewEvidence, "collectorHasWrittenReviews") ??
+    getToolProofBoolean(reviewCollector, "collectorHasWrittenReviews");
+  const reviewIntelligenceMode =
+    getToolProofString(reviewEvidence, "reviewIntelligenceMode") ||
+    (collectorHasWrittenReviews ? "written_reviews" : "");
+  const reviewIntelligenceSignals =
+    getToolProofNumber(reviewEvidence, "reviewIntelligenceSignals") ??
+    commentsAnalyzed;
   const evidenceStrength = getToolProofString(reviewEvidence, "evidenceStrength");
   const aiLikeScore = getToolProofNumber(reviewAuthenticity, "score");
   const exactConfidence = getToolProofString(listingEvidence, "confidence");
+  const buyScore = getToolProofNumber(raw, "buyScore");
+  const verdict = governedVerdictFromSource(raw);
+  const verdictConfidence = getToolProofNumber(raw, "verdictConfidence");
 
   const store =
     getToolProofString(productIdentity, "store") ||
@@ -1232,11 +1469,31 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Price" value={price !== null ? `$${price}` : null} />
         <ToolProofPill label="Stable key" value={stableProductKey ? "Matched" : "New/unknown"} />
         <ToolProofPill label="Rating" value={rating !== null ? `${rating}/5` : null} />
-        <ToolProofPill label="Review count" value={reviewCount} />
+        <ToolProofPill label="Marketplace reviews" value={marketplaceReviewCount ?? reviewCount} />
+        <ToolProofPill label="Reviews collected" value={reviewsCollected ?? 0} />
         <ToolProofPill label="Sources checked" value={sourcesChecked.length} />
-        <ToolProofPill label="Comments analyzed" value={commentsAnalyzed ?? reviewsFound} />
+        <ToolProofPill label="Comments analyzed" value={commentsAnalyzed ?? 0} />
+        <ToolProofPill label="Coverage ratio" value={formatCoverageRatio(reviewCoverageRatio)} />
+        <ToolProofPill
+          label="Evidence mode"
+          value={
+            reviewIntelligenceMode === "written_reviews"
+              ? "Written reviews"
+              : reviewIntelligenceMode === "open_web_intelligence"
+                ? "Open-web intelligence"
+                : reviewIntelligenceMode === "listing_metadata"
+                  ? "Listing metadata"
+                  : collectorHasWrittenReviews
+                    ? "Written reviews"
+                    : "Open-web check"
+          }
+        />
+        <ToolProofPill label="Evidence signals" value={reviewIntelligenceSignals ?? 0} />
         <ToolProofPill label="Evidence strength" value={evidenceStrength || "Not enough"} />
         <ToolProofPill label="Exact listing" value={exactConfidence || "Not confirmed"} />
+        <ToolProofPill label="Verdict" value={verdict || "Not scored"} />
+        <ToolProofPill label="Buy score" value={buyScore !== null ? `${buyScore}/10` : "Not scored"} />
+        <ToolProofPill label="Verdict confidence" value={verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"} />
         <ToolProofPill label="AI-like risk" value={aiLikeScore !== null ? `${aiLikeScore}%` : "Not scored"} />
         <ToolProofPill label="Memory" value={stableProductKey ? "Saved/merged" : "Not saved"} />
       </div>
@@ -1323,19 +1580,14 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
 function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>(value: T): T {
   const state = reviewEvidenceDecisionState(value);
 
-  if (state !== "not_enough" && state !== "limited") {
+  if (state !== "not_enough") {
     return value;
   }
 
-  const verdict =
-    state === "not_enough"
-      ? "REVIEW EVIDENCE NOT ENOUGH"
-      : "LIMITED REVIEW EVIDENCE";
+  const verdict = "REVIEW EVIDENCE NOT ENOUGH";
 
   const bottomLine =
-    state === "not_enough"
-      ? "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product."
-      : "ReviewIntel searched the web and found only weak or limited review evidence. This is not enough to make a confident Buy, Consider, or Avoid judgment.";
+    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
 
   return {
     ...value,
@@ -1343,7 +1595,7 @@ function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>
     recommendation: verdict,
     finalVerdict: verdict,
     stableVerdict: verdict,
-    decisionStatus: state === "not_enough" ? "not_enough_evidence" : "limited_review_evidence",
+    decisionStatus: "not_enough_evidence",
 
     buyerConfidence: null,
     confidence: null,
@@ -1384,7 +1636,7 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
 
   const existing = source.analysis || {};
   const reviewEvidenceState = reviewEvidenceDecisionState(source);
-  const strengths = reviewEvidenceState === "not_enough" || reviewEvidenceState === "limited"
+  const strengths = reviewEvidenceState === "not_enough"
     ? []
     :
     (existing.strengths as string[] | undefined) ||
@@ -1395,7 +1647,7 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
     source.topStrengths ||
     [];
 
-  const complaints = reviewEvidenceState === "not_enough" || reviewEvidenceState === "limited"
+  const complaints = reviewEvidenceState === "not_enough"
     ? []
     :
     (existing.complaints as string[] | undefined) ||
@@ -1407,7 +1659,7 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
     source.topComplaints ||
     [];
 
-  const bestFor = reviewEvidenceState === "not_enough" || reviewEvidenceState === "limited"
+  const bestFor = reviewEvidenceState === "not_enough"
     ? []
     :
     (existing.bestFor as string[] | undefined) ||
@@ -1656,6 +1908,10 @@ export function ResultsClient() {
       };
 
       const sourceRecord = source && typeof source === "object" ? (source as Record<string, unknown>) : {};
+      const sourceMetaRecord =
+        source.meta && typeof source.meta === "object"
+          ? (source.meta as Record<string, unknown>)
+          : {};
       const sourceTypeText = String(sourceRecord.type ?? "").toLowerCase();
       const sourceModeText = String(sourceRecord.mode ?? "").toLowerCase();
       const sourceCompareIdText = String(sourceRecord.compareId ?? "");
@@ -1679,12 +1935,18 @@ export function ResultsClient() {
         source.meta && source.analysis
           ? source
           : ({
+              ...sourceRecord,
               meta: {
+                ...sourceMetaRecord,
                 audience: "buyer",
-                locale: readStoredLocale(),
-                generatedAt: new Date().toISOString()
+                locale: typeof sourceMetaRecord.locale === "string" ? sourceMetaRecord.locale : readStoredLocale(),
+                generatedAt:
+                  typeof sourceMetaRecord.generatedAt === "string"
+                    ? sourceMetaRecord.generatedAt
+                    : new Date().toISOString()
               },
               product: {
+                ...(source.product || {}),
                 title: source.product?.name || "Analyzed product",
                 name: source.product?.name || "Analyzed product",
                 brand: source.product?.brand || "",
@@ -1699,8 +1961,27 @@ export function ResultsClient() {
                   (source as Record<string, unknown>).finalVerdict ||
                   source.verdict ||
                   "CONSIDER",
-              productScore: source.productScore ?? null,
-              buyingConfidence: source.buyingConfidence ?? null,
+              productScore: source.productScore ?? sourceRecord.buyScore ?? sourceRecord.score ?? null,
+              buyScore: sourceRecord.buyScore ?? source.productScore ?? sourceRecord.score ?? null,
+              score: sourceRecord.score ?? sourceRecord.buyScore ?? source.productScore ?? null,
+              buyingConfidence:
+                source.buyingConfidence ??
+                sourceRecord.buyerConfidence ??
+                sourceRecord.verdictConfidence ??
+                sourceRecord.confidence ??
+                null,
+              buyerConfidence:
+                sourceRecord.buyerConfidence ??
+                source.buyingConfidence ??
+                sourceRecord.verdictConfidence ??
+                sourceRecord.confidence ??
+                null,
+              verdictConfidence:
+                sourceRecord.verdictConfidence ??
+                sourceRecord.buyerConfidence ??
+                source.buyingConfidence ??
+                sourceRecord.confidence ??
+                null,
               valueForMoney: source.valueForMoney || "Fair",
               reviewAuthenticity: source.reviewAuthenticity,
               topStrengths: source.topStrengths || [],

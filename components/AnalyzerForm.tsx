@@ -4,9 +4,19 @@ import { readStoredLocale } from "@/lib/i18n";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { isAccountProfileComplete, profileCompletionMissingFields } from "@/lib/account";
 import { accountHeaders, getClientAccount, saveQuota } from "@/lib/clientAccount";
 import { saveLatestPreview, saveLatestResult } from "@/lib/resultStorage";
 import { incrementStoredScanTally } from "@/lib/clientAccount";
+
+const SCAN_PROGRESS_STEPS = [
+  "Reading the screenshot",
+  "Finding the exact product",
+  "Checking Amazon and public review sources",
+  "Collecting review evidence",
+  "Comparing with fresh product memory",
+  "Building the final verdict",
+];
 
 
 function analyzerFormCopy(locale: string) {
@@ -105,6 +115,7 @@ export default function AnalyzerForm() {
   const [previewDataUrl, setPreviewDataUrl] = useState("");
   const [productLink, setProductLink] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
   const [error, setError] = useState("");
 
   const canAnalyze = Boolean(image) && !isLoading;
@@ -161,6 +172,23 @@ export default function AnalyzerForm() {
     };
   }, [refreshServerQuota]);
 
+  useEffect(() => {
+    if (!isLoading) {
+      setScanProgress(0);
+      return;
+    }
+
+    setScanProgress(8);
+    const interval = window.setInterval(() => {
+      setScanProgress((current) => {
+        const lift = current < 42 ? 9 : current < 72 ? 6 : current < 90 ? 3 : 1;
+        return Math.min(96, current + lift);
+      });
+    }, 850);
+
+    return () => window.clearInterval(interval);
+  }, [isLoading]);
+
   function handleImage(file: File | null) {
     setError("");
     setImage(file);
@@ -180,6 +208,15 @@ export default function AnalyzerForm() {
 
   async function analyzeProduct() {
     if (!image) return;
+
+    const currentAccount = getClientAccount();
+    if (currentAccount?.email && currentAccount.email !== "guest" && !isAccountProfileComplete(currentAccount)) {
+      const missing = profileCompletionMissingFields(currentAccount);
+      const next = encodeURIComponent("/analyze");
+      setError(`Complete your profile before scanning: ${missing.join(", ")}.`);
+      router.push(`/account?completeProfile=1&next=${next}`);
+      return;
+    }
 
     setIsLoading(true);
     setError("");
@@ -218,6 +255,7 @@ export default function AnalyzerForm() {
         // Keep scan flow alive even if browser storage is unavailable.
       }
 
+      setScanProgress(100);
       router.push("/results");
     } catch (err) {
       setError(err instanceof Error ? err.message : analyzerFormCopy(readStoredLocale()).analyzeError);
@@ -289,10 +327,41 @@ export default function AnalyzerForm() {
           type="button"
           disabled={!canAnalyze}
           onClick={analyzeProduct}
-          className="mt-6 min-h-16 w-full rounded-3xl bg-ink px-8 py-5 text-xl font-black text-white shadow-glow transition hover:-translate-y-0.5 hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-white dark:text-ink dark:disabled:bg-white/20 dark:disabled:text-white/40"
+          className="relative mt-6 min-h-16 w-full overflow-hidden rounded-3xl bg-ink px-8 py-5 text-xl font-black text-white shadow-glow transition hover:-translate-y-0.5 hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-white dark:text-ink dark:disabled:bg-white/20 dark:disabled:text-white/40"
         >
-          {isLoading ? analyzerFormCopy(readStoredLocale()).analyzing : analyzerFormCopy(readStoredLocale()).analyze}
+          {isLoading ? (
+            <span
+              className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgba(8,183,168,0.45),rgba(35,86,163,0.55),rgba(255,178,56,0.45))] transition-all duration-700"
+              style={{ width: `${scanProgress}%` }}
+              aria-hidden="true"
+            />
+          ) : null}
+          <span className="relative z-10">
+            {isLoading ? `${analyzerFormCopy(readStoredLocale()).analyzing} ${scanProgress}%` : analyzerFormCopy(readStoredLocale()).analyze}
+          </span>
         </button>
+
+        {isLoading ? (
+          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/90 p-4 shadow-soft dark:border-sky-300/20 dark:bg-sky-300/10">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-100">
+                ReviewIntel detective scan
+              </p>
+              <p className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-sky-700 shadow-sm dark:bg-slate-950 dark:text-sky-100">
+                {scanProgress}%
+              </p>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-slate-950">
+              <div
+                className="h-full rounded-full bg-[linear-gradient(90deg,#08b7a8,#2356a3,#ffb238)] transition-all duration-700"
+                style={{ width: `${scanProgress}%` }}
+              />
+            </div>
+            <p className="mt-3 text-xs font-bold leading-5 text-slate-600 dark:text-slate-200">
+              {SCAN_PROGRESS_STEPS[Math.min(SCAN_PROGRESS_STEPS.length - 1, Math.floor((scanProgress / 100) * SCAN_PROGRESS_STEPS.length))]}
+            </p>
+          </div>
+        ) : null}
       </div>
 
 

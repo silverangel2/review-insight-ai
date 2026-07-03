@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { attachAffiliateUrl, getAffiliateDisclosure } from "@/lib/affiliate";
+import { attachAffiliateUrl, getAffiliateDisclosure, isAmazonUrl } from "@/lib/affiliate";
+import { localeLabel, normalizeLocale } from "@/lib/i18n";
 
 function safeJsonParse(text: string) {
   try {
@@ -19,7 +20,83 @@ function getString(value: unknown) {
 }
 
 function getNumber(value: unknown) {
-  return typeof value === "number" ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function getHttpsUrl(value: unknown) {
+  const text = getString(value).trim();
+  if (!text.startsWith("http")) return "";
+
+  try {
+    const url = new URL(text);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function absoluteUrl(value: string, base: string) {
+  try {
+    return new URL(value, base).toString();
+  } catch {
+    return "";
+  }
+}
+
+type RecommendationBase = {
+  title: string;
+  store: string;
+  url: string;
+  imageUrl: string;
+  rating: number | null;
+  reviewCount: number | null;
+  price: string | null;
+  badge: string;
+  whyBetter: string;
+  aiLikeRisk: string;
+};
+
+async function extractOpenGraphImage(url: string) {
+  if (!isAmazonUrl(url)) return "";
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "accept": "text/html,application/xhtml+xml",
+        "user-agent":
+          "Mozilla/5.0 (compatible; ReviewIntelBot/1.0; +https://getreviewintel.com)",
+      },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (!response.ok) return "";
+
+    const html = await response.text();
+    const match =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) ||
+      html.match(/"large":"([^"]+)"/i) ||
+      html.match(/"hiRes":"([^"]+)"/i);
+
+    const raw = match?.[1]?.replace(/\\u002F/g, "/").replace(/\\\//g, "/") || "";
+    const resolved = raw.startsWith("http") ? raw : absoluteUrl(raw, url);
+
+    return resolved.startsWith("http") ? resolved : "";
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -29,6 +106,8 @@ export async function POST(req: NextRequest) {
     const result = asRecord(bodyRecord.result);
     const productIdentity = asRecord(result.productIdentity);
     const productIdentitySnake = asRecord(result.product_identity);
+    const locale = normalizeLocale(bodyRecord.locale);
+    const outputLanguage = localeLabel(locale);
 
     const productName =
       getString(result.productName) ||
@@ -63,21 +142,31 @@ export async function POST(req: NextRequest) {
     const prompt = `
 You are ReviewIntel's shopper-only Better Picks recommendation engine.
 
+Output language:
+- Write badge, whyBetter, and aiLikeRisk in ${outputLanguage}.
+- Keep product titles, brand names, store names, URLs, ratings, prices, and JSON keys unchanged.
+- If ${outputLanguage} is English, use natural concise English.
+
 Scanned product:
 ${JSON.stringify({ productName, brand, verdict, result }, null, 2)}
 
-Find up to 3 better Amazon.ca product alternatives when possible:
-1. Best Overall
-2. Best Budget
-3. Best Reviewed
+Find up to 3 visible Amazon.ca product alternatives when possible:
+1. Primary Pick
+2. Better Value
+3. Stronger Quality
 
 Rules:
 - This is for shopper results only, not seller analytics.
 - Prefer Amazon.ca links.
+- Every recommendation must be an Amazon link.
 - Do not invent exact rating, review count, price, or product URLs.
+- Include imageUrl only if you can see a real Amazon/product image URL. Do not invent image URLs.
 - Do not recommend random unrelated products.
 - Recommendations must be the same category or a very close substitute.
-- Only say a product is better if the public evidence appears stronger.
+- If scanned verdict is BUY: suggest cheaper or better-quality Amazon alternatives, but do not claim the scanned item is bad.
+- If scanned verdict is CONSIDER: suggest cleaner, nicer, or more proven alternatives.
+- If scanned verdict is AVOID: suggest safer replacement products.
+- Only say a product is better if public evidence appears stronger.
 - If evidence is weak, explain that briefly.
 - Return strict JSON only.
 
@@ -89,10 +178,11 @@ JSON format:
       "title": "product title",
       "store": "Amazon.ca",
       "url": "https://www.amazon.ca/...",
+      "imageUrl": "https://...",
       "rating": 4.5,
       "reviewCount": 1200,
       "price": "$99.99",
-      "badge": "Best Overall",
+      "badge": "Primary Pick",
       "whyBetter": "short reason",
       "aiLikeRisk": "Low/Medium/Unknown"
     }
@@ -136,19 +226,20 @@ JSON format:
       ? parsed.recommendations
       : [];
 
-    const recommendations = rawRecommendations
+    const baseRecommendations: RecommendationBase[] = rawRecommendations
       .filter((item: unknown) => {
         const record = asRecord(item);
-        return getString(record.title) && getString(record.url).startsWith("http");
+        return getString(record.title) && isAmazonUrl(getString(record.url));
       })
       .slice(0, 3)
       .map((item: unknown) => {
         const record = asRecord(item);
 
-        return attachAffiliateUrl({
+        return {
           title: getString(record.title),
           store: getString(record.store) || "Amazon.ca",
           url: getString(record.url),
+          imageUrl: getHttpsUrl(record.imageUrl) || getHttpsUrl(record.image),
           rating: getNumber(record.rating),
           reviewCount: getNumber(record.reviewCount),
           price: getString(record.price) || null,
@@ -157,12 +248,25 @@ JSON format:
             getString(record.whyBetter) ||
             "Potentially stronger alternative based on available public evidence.",
           aiLikeRisk: getString(record.aiLikeRisk) || "Unknown",
-        });
+        };
       });
+
+    const recommendations = await Promise.all(
+      baseRecommendations.map(async (item) => {
+        const imageUrl = item.imageUrl || (await extractOpenGraphImage(item.url));
+
+        return attachAffiliateUrl({
+          ...item,
+          imageUrl: imageUrl || null,
+        });
+      })
+    );
 
     return NextResponse.json({
       ok: true,
       shopperOnly: true,
+      locale,
+      outputLanguage,
       affiliateReady: Boolean(process.env.AMAZON_ASSOCIATE_TAG),
       disclosure: getAffiliateDisclosure(),
       recommendations,

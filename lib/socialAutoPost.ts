@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import path from "path";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
 import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
@@ -148,7 +148,8 @@ const topicBriefs: Record<string, { title: string; angle: string; cta: string }>
   },
 };
 
-const builtInSocialImageCount = 100;
+const codexSocialLibraryDir = "uploads/social";
+const codexSocialImagePattern = /^reviewintel-premium-day-\d{2}-.+\.(?:png|jpg|jpeg|webp)$/i;
 const builtInSocialTopics = Object.keys(topicBriefs);
 
 type ConnectorCheck = {
@@ -633,41 +634,85 @@ type SocialQueueState = {
   recycleCount: number;
 };
 
-function normalSocialDay(day: number) {
+let codexSocialLibraryCache: string[] | null = null;
+
+function codexSocialLibraryPaths() {
+  if (codexSocialLibraryCache) return codexSocialLibraryCache;
+
+  try {
+    const dir = path.join(process.cwd(), "public", codexSocialLibraryDir);
+    codexSocialLibraryCache = readdirSync(dir)
+      .filter((file) => codexSocialImagePattern.test(file))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .map((file) => `/${codexSocialLibraryDir}/${file}`);
+  } catch {
+    codexSocialLibraryCache = [];
+  }
+
+  return codexSocialLibraryCache;
+}
+
+function normalSocialDay(day: number, librarySize = Math.max(1, codexSocialLibraryPaths().length)) {
   const numericDay = Math.max(1, Math.floor(Number(day) || 1));
-  return ((numericDay - 1) % builtInSocialImageCount) + 1;
+  return ((numericDay - 1) % librarySize) + 1;
 }
 
-function builtInSocialImagePath(day: number) {
-  return `/social/house/reviewintel-house-${String(normalSocialDay(day)).padStart(3, "0")}.png`;
+function codexSocialImagePath(day: number) {
+  const paths = codexSocialLibraryPaths();
+  if (!paths.length) return "";
+  return paths[normalSocialDay(day, paths.length) - 1] || "";
 }
 
-function builtInSocialMedia(topic: string, queue: SocialQueueState): SocialMediaItem {
-  const queueDay = normalSocialDay(queue.queueDay);
-  const fileUrl = builtInSocialImagePath(queueDay);
+function codexLibrarySocialMedia(topic: string, queue: SocialQueueState): SocialMediaItem {
+  const paths = codexSocialLibraryPaths();
+  const queueDay = normalSocialDay(queue.queueDay, Math.max(1, paths.length));
+  const fileUrl = codexSocialImagePath(queueDay);
   const topicKey = topic || builtInSocialTopics[(queueDay - 1) % builtInSocialTopics.length] || "shopper_tips";
 
   return {
-    id: `builtin-reviewintel-house-${String(queueDay).padStart(3, "0")}`,
-    media_type: "image",
+    id: fileUrl
+      ? `codex-reviewintel-premium-${String(queueDay).padStart(3, "0")}`
+      : "reviewintel-text-only-fallback",
+    media_type: fileUrl ? "image" : "text",
     file_url: fileUrl,
     thumbnail_url: fileUrl,
-    title: `ReviewIntel house social creative ${String(queueDay).padStart(3, "0")}`,
+    title: fileUrl
+      ? `ReviewIntel Codex premium social creative ${String(queueDay).padStart(3, "0")}`
+      : "ReviewIntel text-only social fallback",
     topic: topicKey,
-    tags: ["ReviewIntel", "AIReviewIntelligence", "SmartShopping", topicKey],
+    tags: ["ReviewIntel", "AIReviewIntelligence", "SmartShopping", "CodexLibrary", topicKey],
     used_count: 0,
     last_used_at: null,
     metadata: {
-      builtin: true,
+      codex_library: Boolean(fileUrl),
+      text_only_fallback: !fileUrl,
       queue_day: queueDay,
       cycle_number: queue.cycleNumber,
-      note: "Built-in ReviewIntel image used because no active uploaded media matched the queue.",
+      note: fileUrl
+        ? "Codex-made ReviewIntel premium image used because no active uploaded media matched the queue."
+        : "No active uploaded media or Codex image was available, so ReviewIntel created a text-only post.",
     },
   };
 }
 
-function isBuiltInSocialMedia(media: SocialMediaItem | null) {
-  return Boolean(media?.metadata?.builtin || media?.id?.startsWith("builtin-reviewintel-house-"));
+function isSystemSocialMedia(media: SocialMediaItem | null) {
+  return Boolean(
+    media?.metadata?.codex_library ||
+      media?.metadata?.text_only_fallback ||
+      media?.id?.startsWith("codex-reviewintel-premium-") ||
+      media?.id === "reviewintel-text-only-fallback"
+  );
+}
+
+function isOldHouseSocialMedia(media: SocialMediaItem | null) {
+  const fileUrl = String(media?.file_url || "");
+  const title = String(media?.title || "");
+
+  return (
+    fileUrl.includes("/social/house/") ||
+    /reviewintel-house-\d+/i.test(fileUrl) ||
+    /reviewintel house/i.test(title)
+  );
 }
 
 function absoluteMediaUrl(media?: SocialMediaItem | null) {
@@ -680,13 +725,19 @@ function compactSocialText(value: string, limit: number) {
   return clean.length <= limit ? clean : `${clean.slice(0, Math.max(0, limit - 1)).trim()}…`;
 }
 
-async function hasSuccessfulPostToday(now = new Date()) {
+async function postedPlatformsToday(platforms: string[], now = new Date()) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
   const rows = await supabaseFetch(
-    `admin_social_posts?select=id&status=eq.posted&posted_at=gte.${encodeURIComponent(start)}&limit=1`
+    `admin_social_posts?select=platform&status=eq.posted&posted_at=gte.${encodeURIComponent(start)}&limit=100`
   ).catch(() => []);
 
-  return Array.isArray(rows) && rows.length > 0;
+  if (!Array.isArray(rows)) return new Set<string>();
+
+  return new Set(
+    rows
+      .map((row) => String((row as Record<string, unknown>)?.platform || ""))
+      .filter(Boolean)
+  );
 }
 
 function makeContentFingerprint(input: {
@@ -738,7 +789,8 @@ async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<
             Boolean(row.file_url) &&
             (mediaType === "image" || mediaType === "video") &&
             String(row.topic || "") !== HOMEPAGE_VIDEO_TOPIC &&
-            !Boolean(row.metadata?.homepage_video)
+            !Boolean(row.metadata?.homepage_video) &&
+            !isOldHouseSocialMedia(row)
           );
         })
       : [];
@@ -758,14 +810,14 @@ async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<
         ).catch(() => [])
       );
 
-  if (!fallbackRows.length) return builtInSocialMedia(topic, queue);
+  if (!fallbackRows.length) return codexLibrarySocialMedia(topic, queue);
 
-  return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || builtInSocialMedia(topic, queue);
+  return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || codexLibrarySocialMedia(topic, queue);
 }
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
   if (!media?.id) return;
-  if (isBuiltInSocialMedia(media)) return;
+  if (isSystemSocialMedia(media)) return;
 
   await supabaseFetch(`admin_social_media?id=eq.${encodeURIComponent(media.id)}`, {
     method: "PATCH",
@@ -888,6 +940,36 @@ export async function listSocialPosts() {
   return supabaseFetch("admin_social_posts?select=*&order=created_at.desc&limit=30");
 }
 
+export async function deleteSocialPost(id: string) {
+  const cleanId = String(id || "").trim();
+  if (!cleanId) throw new Error("Social post id is required.");
+
+  await supabaseFetch(`admin_social_posts?id=eq.${encodeURIComponent(cleanId)}`, {
+    method: "DELETE",
+  });
+
+  return true;
+}
+
+export async function clearSocialPostHistory() {
+  await supabaseFetch("admin_social_posts?id=not.is.null", {
+    method: "DELETE",
+  });
+
+  return true;
+}
+
+export async function pruneSocialPostHistory(days = 30) {
+  const safeDays = Math.max(1, Math.min(365, Math.round(Number(days) || 30)));
+  const cutoff = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString();
+
+  await supabaseFetch(`admin_social_posts?created_at=lt.${encodeURIComponent(cutoff)}`, {
+    method: "DELETE",
+  });
+
+  return true;
+}
+
 export async function createSocialPost(post: SocialPost) {
   const rows = await supabaseFetch("admin_social_posts", {
     method: "POST",
@@ -1003,7 +1085,8 @@ export async function checkFacebookConnector() {
   const facebookCredentials = await resolveFacebookPostingCredentials();
   const pageId = facebookCredentials.pageId;
   const pageToken = facebookCredentials.pageToken;
-  const sampleMediaUrl = `${publicSiteUrl()}${builtInSocialImagePath(1)}`;
+  const sampleMediaPath = codexSocialImagePath(1);
+  const sampleMediaUrl = sampleMediaPath ? `${publicSiteUrl()}${sampleMediaPath}` : "";
   const checks: ConnectorCheck[] = [
     connectorCheck(
       "Facebook credentials",
@@ -1055,19 +1138,19 @@ export async function checkFacebookConnector() {
       const response = await fetch(sampleMediaUrl, { method: "HEAD", cache: "no-store" });
       checks.push(
         connectorCheck(
-          "Built-in image library",
+          "Codex premium media library",
           response.ok ? "passed" : "warning",
           response.ok
-            ? "The built-in ReviewIntel image library is reachable from the public site URL."
-            : `The built-in image URL returned HTTP ${response.status}; posting may still work after deployment if the file exists there.`
+            ? "The Codex-made ReviewIntel media library is reachable from the public site URL."
+            : `The Codex media URL returned HTTP ${response.status}; posting may still work after deployment if the file exists there.`
         )
       );
     } catch {
       checks.push(
         connectorCheck(
-          "Built-in image library",
+          "Codex premium media library",
           "warning",
-          "Could not verify the public image URL from this environment. The built-in files are present locally and deploy with the app."
+          "Could not verify the public Codex media URL from this environment. The local Codex library files deploy with the app."
         )
       );
     }
@@ -1243,7 +1326,8 @@ export async function checkTikTokConnector() {
   const credential = await getTikTokAccessTokenForPosting();
   const accessToken = credential.accessToken;
   const oauthHealth = getTikTokOAuthHealth();
-  const sampleMediaUrl = `${publicSiteUrl()}${builtInSocialImagePath(2)}`;
+  const sampleMediaPath = codexSocialImagePath(2);
+  const sampleMediaUrl = sampleMediaPath ? `${publicSiteUrl()}${sampleMediaPath}` : "";
   const checks: ConnectorCheck[] = [
     connectorCheck(
       "TikTok OAuth app",
@@ -1301,7 +1385,7 @@ export async function checkTikTokConnector() {
       connectorCheck(
         "Public media URL",
         "passed",
-        "Built-in ReviewIntel images resolve to a public URL for TikTok to fetch."
+        "Codex-made ReviewIntel media resolves to a public URL for TikTok to fetch."
       )
     );
   }
@@ -1384,12 +1468,16 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
     return { ok: true, skipped: true, reason: "Full auto-post is disabled." };
   }
 
-  if (!options.force && (await hasSuccessfulPostToday())) {
-    return { ok: true, skipped: true, reason: "A social post was already published today." };
-  }
-
   const topics = settings.topics?.length ? settings.topics : ["shopper_tips"];
   const platforms = settings.platforms?.length ? settings.platforms : ["facebook"];
+  const postedToday = await postedPlatformsToday(platforms);
+  const remainingPlatforms = platforms.filter((platform) => !postedToday.has(platform));
+
+  if (!options.force && remainingPlatforms.length === 0) {
+    return { ok: true, skipped: true, reason: "Every selected platform already published today." };
+  }
+
+  const platformsToPost = options.force ? platforms : remainingPlatforms;
   const cycleLength = Math.max(1, Number(settings.cycle_length || 100));
   const batchCount = Math.max(1, Math.min(12, Number(settings.posts_per_day || 1)));
   let queue = await getLatestQueueState(cycleLength);
@@ -1403,7 +1491,7 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
     const media = await pickSocialMedia(topic, queue);
     mediaUsed.push(media);
 
-    for (const platform of platforms) {
+    for (const platform of platformsToPost) {
       const content = await generateAiReviewIntelContentPack(platform, topic, queue, media);
       const caption = finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
       const fingerprint = makeContentFingerprint({
@@ -1425,7 +1513,7 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
         queue_day: queue.queueDay,
         cycle_number: queue.cycleNumber,
         recycle_count: queue.recycleCount,
-        media_id: isBuiltInSocialMedia(media) ? null : media?.id ?? null,
+        media_id: isSystemSocialMedia(media) ? null : media?.id ?? null,
         content_fingerprint: fingerprint,
         metadata: {
           content,
@@ -1439,7 +1527,8 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
                 title: media.title ?? null,
                 topic: media.topic ?? null,
                 tags: media.tags ?? [],
-                builtin: isBuiltInSocialMedia(media),
+                codex_library: Boolean(media?.metadata?.codex_library),
+                text_only_fallback: Boolean(media?.metadata?.text_only_fallback),
               }
             : null,
           recycle_note:

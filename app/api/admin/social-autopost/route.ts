@@ -3,8 +3,11 @@ import { adminSessionFromRequest } from "@/lib/adminAccess";
 import {
   checkFacebookConnector,
   checkTikTokConnector,
+  clearSocialPostHistory,
+  deleteSocialPost,
   getSocialSettings,
   listSocialPosts,
+  pruneSocialPostHistory,
   runSocialAutoPost,
   updateSocialSettings,
 } from "@/lib/socialAutoPost";
@@ -71,6 +74,30 @@ export async function POST(request: NextRequest) {
       const tiktok = await checkTikTokConnector();
 
       return NextResponse.json({ ok: tiktok.ok, tiktok }, { status: tiktok.ok ? 200 : 409 });
+    }
+
+    if (body.action === "delete-post") {
+      await deleteSocialPost(String(body.id || ""));
+      const settings = await getSocialSettings();
+      const posts = await listSocialPosts();
+
+      return NextResponse.json({ ok: true, settings, posts });
+    }
+
+    if (body.action === "clear-history") {
+      await clearSocialPostHistory();
+      const settings = await getSocialSettings();
+      const posts = await listSocialPosts();
+
+      return NextResponse.json({ ok: true, settings, posts });
+    }
+
+    if (body.action === "prune-history") {
+      await pruneSocialPostHistory(Number(body.days || 30));
+      const settings = await getSocialSettings();
+      const posts = await listSocialPosts();
+
+      return NextResponse.json({ ok: true, settings, posts });
     }
 
     const settings = await updateSocialSettings({

@@ -71,6 +71,12 @@ function acceptedExactDomainForStore(store: unknown): string | null {
   if (value.includes("bestbuy.com")) return "bestbuy.com";
   if (value.includes("costco.ca") || value.includes("costco canada")) return "costco.ca";
   if (value.includes("costco.com")) return "costco.com";
+  if (value.includes("sephora.ca") || value.includes("sephora canada")) return "sephora.ca";
+  if (value.includes("sephora.com")) return "sephora.com";
+  if (value.includes("temu.com") || value === "temu") return "temu.com";
+  if (value.includes("target.com") || value === "target") return "target.com";
+  if (value.includes("homedepot.ca") || value.includes("home depot canada")) return "homedepot.ca";
+  if (value.includes("homedepot.com")) return "homedepot.com";
 
   return null;
 }
@@ -92,6 +98,37 @@ function parseConfidence(value: unknown): ExactProductSearchResult["confidence"]
     return value;
   }
   return "none";
+}
+
+function readSourceLinks(value: unknown): Array<{ label: string; url: string; domain?: string }> {
+  if (!Array.isArray(value)) return [];
+
+  const links: Array<{ label: string; url: string; domain?: string }> = [];
+
+  for (const item of value) {
+      if (!item || typeof item !== "object") continue;
+      const record = item as Record<string, unknown>;
+      const url = typeof record.url === "string" ? record.url.trim() : "";
+      if (!url) continue;
+      links.push({
+        label: typeof record.label === "string" ? record.label.trim() : "",
+        url,
+        domain: typeof record.domain === "string" ? record.domain.trim() : undefined,
+      });
+  }
+
+  return links;
+}
+
+function firstAcceptedSourceLink(
+  links: Array<{ label: string; url: string; domain?: string }>,
+  acceptedDomain: string | null
+) {
+  return links.find((link) => {
+    if (!urlHostMatchesAcceptedDomain(link.url, acceptedDomain)) return false;
+    if (/\/search|\/browse|\/category|\/brand(\/|$)|\/c\//i.test(link.url)) return false;
+    return true;
+  }) || links.find((link) => urlHostMatchesAcceptedDomain(link.url, acceptedDomain)) || null;
 }
 
 export async function findExactProductListing(
@@ -140,7 +177,7 @@ Known screenshot/listing clues:
 Use these clues as identity signals. Prefer listings where title, store, price, rating, and review count match. Do not invent missing rating or review count.
 
 Priority:
-1. Exact store listing if store is known, especially Walmart, Amazon, Best Buy, Costco, Target.
+1. Exact store listing if store is known, especially Amazon, Walmart, Best Buy, Costco, Sephora, Temu, Target.
 2. Match brand, title, product type, price, rating, and review count.
 3. Avoid broad category pages.
 4. Avoid unrelated products.
@@ -214,12 +251,14 @@ Rules:
 
     const parsed = JSON.parse(cleanJsonText(outputText)) as Record<string, unknown>;
 
+    const acceptedDomain = acceptedExactDomainForStore(input.store);
+    const sourceLinks = readSourceLinks(parsed.sourceLinks);
+    const acceptedSourceLink = firstAcceptedSourceLink(sourceLinks, acceptedDomain);
+
     const exactListingUrl =
       typeof parsed.exactListingUrl === "string" && parsed.exactListingUrl.trim()
         ? parsed.exactListingUrl.trim()
-        : null;
-
-    const acceptedDomain = acceptedExactDomainForStore(input.store);
+        : acceptedSourceLink?.url || null;
 
     if (!urlHostMatchesAcceptedDomain(exactListingUrl, acceptedDomain)) {
       return {
@@ -248,12 +287,14 @@ Rules:
       };
     }
 
+    const confidence = parseConfidence(parsed.confidence);
+
     return {
       exactListingUrl,
       exactListingTitle:
         typeof parsed.exactListingTitle === "string" && parsed.exactListingTitle.trim()
           ? parsed.exactListingTitle.trim()
-          : null,
+          : acceptedSourceLink?.label || null,
       store:
         typeof parsed.store === "string" && parsed.store.trim()
           ? parsed.store.trim()
@@ -261,7 +302,7 @@ Rules:
       price: parsePositiveNumber(parsed.price),
       rating: clampRating(parsed.rating),
       reviewCount: parsePositiveInteger(parsed.reviewCount),
-      confidence: parseConfidence(parsed.confidence),
+      confidence: confidence === "none" && exactListingUrl ? "medium" : confidence,
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? parsed.sourcesChecked.map(String).slice(0, 12)
         : [],

@@ -91,6 +91,29 @@ export function isSellerPlan(plan: unknown) {
   return value === "seller_premium" || value === "seller_beta" || value === "seller_pro";
 }
 
+export function isReviewIntelTestEmail(email: unknown) {
+  return String(email || "").trim().toLowerCase().endsWith("@reviewintel.test");
+}
+
+export function profileCompletionMissingFields(account: Partial<ClientAccount> | null | undefined) {
+  if (!account || isReviewIntelTestEmail(account.email)) return [];
+
+  const missing: string[] = [];
+  const role = normalizeRole(account.role);
+  const plan = normalizePlan(account.plan);
+  const isSeller = role === "seller" || isSellerPlan(plan);
+
+  if (!String(account.name || "").trim()) missing.push("Display name");
+  if (isSeller && !String(account.companyName || "").trim()) missing.push("Company or store");
+  if (!String(account.country || "").trim()) missing.push("Country");
+
+  return missing;
+}
+
+export function isAccountProfileComplete(account: Partial<ClientAccount> | null | undefined) {
+  return profileCompletionMissingFields(account).length === 0;
+}
+
 export function roleForPlan(plan: SubscriptionPlan): UserRole {
   if (isSellerPlan(plan)) return "seller";
   return "buyer";

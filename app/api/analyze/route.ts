@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
@@ -74,6 +75,122 @@ function uniqueTextArray(values: string[], limit: number) {
     const key = text.toLowerCase();
     if (!text || /^turn\d+(search|view|fetch|source)\d*$/i.test(text) || seen.has(key)) continue;
     seen.add(key);
+    clean.push(text);
+    if (clean.length >= limit) break;
+  }
+
+  return clean;
+}
+
+const BUYER_INSIGHT_STOP_WORDS = new Set([
+  "about",
+  "after",
+  "also",
+  "and",
+  "are",
+  "based",
+  "buyer",
+  "buyers",
+  "comment",
+  "comments",
+  "customer",
+  "customers",
+  "evidence",
+  "experience",
+  "experiences",
+  "for",
+  "from",
+  "highlights",
+  "issue",
+  "issues",
+  "item",
+  "listing",
+  "marketplace",
+  "overall",
+  "product",
+  "review",
+  "reviews",
+  "signal",
+  "signals",
+  "that",
+  "the",
+  "their",
+  "this",
+  "theme",
+  "themes",
+  "with",
+]);
+
+function cleanBuyerInsightText(value: unknown) {
+  let text = String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-*•\d.)]+/u, "")
+    .trim();
+
+  if (!text) return "";
+
+  text = text
+    .replace(/\b([A-Za-z][A-Za-z-]{2,})(?:\s+\1\b)+/gi, "$1")
+    .replace(/\b([A-Za-z][A-Za-z-]*(?:\s+[A-Za-z][A-Za-z-]*){1,5})(?:\s+\1\b)+/gi, "$1")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .trim();
+
+  if (text.length > 150) {
+    const preview = text.slice(0, 151);
+    const cutAt = Math.max(
+      preview.lastIndexOf("."),
+      preview.lastIndexOf(";"),
+      preview.lastIndexOf(","),
+      preview.lastIndexOf(" and "),
+      preview.lastIndexOf(" but "),
+    );
+    text = (cutAt >= 80 ? preview.slice(0, cutAt) : preview.slice(0, 147)).trim();
+  }
+
+  return text.replace(/[.;,\s]+$/g, "").trim();
+}
+
+function buyerInsightTokens(text: string) {
+  return Array.from(
+    new Set(
+      text
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/)
+        .filter((token) => token.length > 2 && !BUYER_INSIGHT_STOP_WORDS.has(token))
+    )
+  ).slice(0, 16);
+}
+
+function buyerInsightsAreSimilar(left: string, right: string) {
+  const leftTokens = buyerInsightTokens(left);
+  const rightTokens = buyerInsightTokens(right);
+
+  if (!leftTokens.length || !rightTokens.length) {
+    return left.trim().toLowerCase() === right.trim().toLowerCase();
+  }
+
+  const leftKey = leftTokens.join(" ");
+  const rightKey = rightTokens.join(" ");
+  if (leftKey === rightKey) return true;
+  if (Math.min(leftKey.length, rightKey.length) > 18 && (leftKey.includes(rightKey) || rightKey.includes(leftKey))) {
+    return true;
+  }
+
+  const rightSet = new Set(rightTokens);
+  const overlap = leftTokens.filter((token) => rightSet.has(token)).length;
+  return overlap / Math.min(leftTokens.length, rightTokens.length) >= 0.62;
+}
+
+function cleanBuyerInsightArray(values: unknown[], limit: number) {
+  const clean: string[] = [];
+
+  for (const value of values) {
+    const text = cleanBuyerInsightText(value);
+    if (!text || text.length < 4) continue;
+    if (/^(none|unknown|n\/a|not available|no clear .* found)$/i.test(text)) continue;
+    if (clean.some((existing) => buyerInsightsAreSimilar(existing, text))) continue;
     clean.push(text);
     if (clean.length >= limit) break;
   }
@@ -384,7 +501,7 @@ function applyProductMemory(
   }
 
   if (normalizedLocaleCode(locale) === "en" && memorySummary.repeatedComplaints.length) {
-    topComplaints = Array.from(new Set([...memorySummary.repeatedComplaints, ...topComplaints])).slice(0, 6);
+    topComplaints = cleanBuyerInsightArray([...memorySummary.repeatedComplaints, ...topComplaints], 6);
   }
 
   if (normalizedLocaleCode(locale) === "en") {
@@ -495,10 +612,10 @@ function normalizeResult(rawValue: unknown, vision: VisionFacts, locale = "en") 
       suspiciousReviewRisk,
       reasons: asTextArray(reviewAuthenticity.reasons, 5)
     },
-    topStrengths: asTextArray(raw.topStrengths, 5),
-    topComplaints: asTextArray(raw.topComplaints, 6),
-    bestFor: asTextArray(raw.bestFor, 4),
-    notIdealFor: asTextArray(raw.notIdealFor, 4),
+    topStrengths: cleanBuyerInsightArray(asTextArray(raw.topStrengths, 12), 5),
+    topComplaints: cleanBuyerInsightArray(asTextArray(raw.topComplaints, 14), 6),
+    bestFor: cleanBuyerInsightArray(asTextArray(raw.bestFor, 8), 4),
+    notIdealFor: cleanBuyerInsightArray(asTextArray(raw.notIdealFor, 8), 4),
     bottomLine: String(raw.bottomLine || fallbackCopy.needMoreEvidence),
     sourcesUsed: normalizeSources(raw),
     researchQuality: normalizeResearchQuality(raw),
@@ -1169,76 +1286,6 @@ const visionSchema = {
   ]
 };
 
-const resultSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    product: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        name: { type: "string" },
-        brand: { type: "string" },
-        category: { type: "string" },
-        store: { type: "string" },
-        price: { type: "string" },
-        rating: { type: "string" },
-        reviewCount: { type: "string" },
-        imageConfidence: { type: "number" }
-      },
-      required: ["name", "brand", "category", "store", "price", "rating", "reviewCount", "imageConfidence"]
-    },
-    verdict: { type: "string", enum: ["BUY", "CONSIDER", "AVOID"] },
-    productScore: { type: "number" },
-    buyingConfidence: { type: "number" },
-    valueForMoney: { type: "string", enum: ["Excellent", "Good", "Fair", "Poor"] },
-    reviewAuthenticity: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        label: { type: "string", enum: ["High Trust", "Medium Trust", "Low Trust"] },
-        score: { type: "number" },
-        suspiciousReviewRisk: { type: "string", enum: ["Low", "Medium", "High"] },
-        reasons: { type: "array", items: { type: "string" } }
-      },
-      required: ["label", "score", "suspiciousReviewRisk", "reasons"]
-    },
-    topStrengths: { type: "array", items: { type: "string" } },
-    topComplaints: { type: "array", items: { type: "string" } },
-    bestFor: { type: "array", items: { type: "string" } },
-    notIdealFor: { type: "array", items: { type: "string" } },
-    bottomLine: { type: "string" },
-    sourcesUsed: { type: "array", items: { type: "string" } },
-    researchQuality: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        evidenceLevel: { type: "string", enum: ["verified", "limited", "screenshot_only", "product_mismatch"] },
-        exactProductMatch: { type: "boolean" },
-        sourceCount: { type: "number" },
-        citationCount: { type: "number" },
-        notes: { type: "array", items: { type: "string" } }
-      },
-      required: ["evidenceLevel", "exactProductMatch", "sourceCount", "citationCount", "notes"]
-    }
-  },
-  required: [
-    "product",
-    "verdict",
-    "productScore",
-    "buyingConfidence",
-    "valueForMoney",
-    "reviewAuthenticity",
-    "topStrengths",
-    "topComplaints",
-    "bestFor",
-    "notIdealFor",
-    "bottomLine",
-    "sourcesUsed",
-    "researchQuality"
-  ]
-};
-
 function collectWebCitations(value: unknown, citations = new Map<string, string>()) {
   if (Array.isArray(value)) {
     for (const item of value) collectWebCitations(item, citations);
@@ -1374,8 +1421,10 @@ Important:
 - Copy visible price exactly.
 - Copy visible rating exactly.
 - Copy visible review count exactly.
+- Copy the visible product title as literally as possible. Do not paraphrase, rename, or swap nearby words such as "tote bag" and "backpack".
+- If a title word is unclear, keep the rest of the visible title and add an identityWarnings entry instead of guessing the unclear word.
+- Build normalizedSearchQuery from the exact visible brand + exact visible product title + exact visible model/category. Do not shorten it to a generic category when title details are visible.
 - Add identityWarnings for ambiguous/mismatched visible facts, for example: "Visible price appears to belong to a sponsored product."
-- Build normalizedSearchQuery from visible brand + product title + model/category.
 `.trim()
           },
           { type: "input_image", image_url: imageDataUrl }
@@ -1389,141 +1438,32 @@ Important:
         schema: visionSchema,
         strict: true
       }
-    }
+    },
+    temperature: 0
   });
 
   return normalizeVision(raw);
 }
 
 async function researchAndVerdict(vision: VisionFacts, productLink: string, outputLanguage = "English", locale = "en") {
-  const searchQuery =
-    productLink ||
-    vision.normalizedSearchQuery ||
-    [vision.brand, vision.name, vision.category].filter(Boolean).join(" ");
+  // The shopper verdict is now owned by reviewEvidence-v2 only. Keeping the old
+  // broad web verdict here made scans slower and could leak stale screenshot-only
+  // research state into the final UI.
+  const raw: JsonRecord = {};
 
-  const raw = await openAIResponse({
-    model: process.env.OPENAI_MODEL || "gpt-4.1",
-    tools: [{ type: "web_search_preview" }],
-    input: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: `
-You are ReviewIntel, a serious product research assistant.
-
-The screenshot reader extracted these visible facts:
-${JSON.stringify(vision, null, 2)}
-
-User product link, if provided:
-${productLink || "None"}
-
-Research query:
-${searchQuery}
-
-Language rule:
-Write all user-facing result text in ${outputLanguage}.
-Keep JSON keys in English.
-Keep verdict values exactly BUY, CONSIDER, or AVOID.
-Keep enum values exactly as required by the schema: valueForMoney must be Excellent, Good, Fair, or Poor; reviewAuthenticity.label must be High Trust, Medium Trust, or Low Trust; suspiciousReviewRisk must be Low, Medium, or High.
-Use ${outputLanguage} for every free-text customer-facing field: product category if translated naturally, bottomLine, topStrengths, topComplaints, bestFor, notIdealFor, reviewAuthenticity reasons, and source summaries.
-If ${outputLanguage} is not English, do not mix English into those free-text fields except for product names, brand names, marketplace names, source names, model numbers, and the required JSON enum values.
-
-Your job:
-Go online and research the product using public sources. Consolidate real review signals and give a buying verdict.
-
-Use the screenshot facts only as the product identity seed. You must search the internet for trusted public product and review evidence before scoring. Search the exact visible product title, brand, model, store, and the user-provided link when available.
-
-Important matching rules:
-- Prefer sources that match the visible screenshot product name and brand.
-- If the screenshot says Amazon.ca, do not switch the product to Walmart, Ubuy, or another marketplace unless you are using that only as an extra comparison source.
-- Do not overwrite visible screenshot price, rating, review count, or store when the screenshot reader marked that fact as belonging to the main product.
-- If the screenshot reader left price, rating, or reviewCount blank because it may belong to a sponsored/nearby product, you may fill it only from clearly matching public web evidence.
-- If the screenshot reader reports identityWarnings, treat those warnings seriously and lower confidence unless web research resolves them.
-- If web results refer to a different product, ignore them.
-- If trusted public review evidence is limited, do not invent certainty and do not create fake-looking scores.
-- Do not score from the screenshot alone. The screenshot identifies the product; the final verdict must come from trusted public product/review evidence plus visible screenshot facts.
-- Use trusted sources such as major retailers, manufacturer pages, marketplace review sections, consumer forums, Reddit discussions, review sites, and support/complaint signals when available.
-- Prefer exact product matches. Do not switch to a different model, bundle, size, color, or marketplace listing unless clearly marked as comparison evidence.
-- If you cannot find enough trusted review evidence for the exact product, return a limited-evidence result with lower confidence and tell the shopper what to upload next.
-
-Use sources such as:
-- official product page
-- visible marketplace listing if available
-- third-party reviews
-- Reddit/forum discussions
-- blogs/video review summaries when available
-
-Rules:
-1. Do not fabricate sources.
-2. Do not claim exact review scraping unless reviews were actually retrieved.
-3. Do not call reviews fake or AI-generated as a proven fact. Say "AI-generated review signs" only when actual review wording patterns support it.
-4. For reviewAuthenticity, analyze only AI-generated review signs. This means wording patterns in actual review comments, not product quality problems.
-
-reviewAuthenticity.score must mean:
-0 = no AI-generated review signs found
-25 = weak signs
-50 = some signs
-75 = many signs
-100 = very strong signs
-
-reviewAuthenticity.reasons must only mention review-writing signals, such as:
-- repeated phrases
-- generic praise
-- little product-specific detail
-- many short 5-star comments
-- similar wording across reviews
-- unusual timing pattern if visible from sources
-
-Do not put product complaints like durability, zipper issues, shipping, packaging, or quality reports inside reviewAuthenticity.reasons.
-
-Do not fake reviewAuthenticity. Review authenticity must be based on real review/comment evidence supplied by ReviewIntel's reviewEvidence scan. If no real review/comment evidence is supplied, do not invent fake-review findings. Say the review evidence was not verified instead of pretending the risk is Low or Medium.
-
-Do not say AI-generated reviews are confirmed unless a source proves it.
-5. Screenshot facts remain locked for store, price, visible rating, and visible review count.
-6. Web research may add complaints, strengths, durability issues, support issues, value signals, and authenticity concerns.
-7. If you cannot find enough reliable public evidence, say so in bottomLine and lower buyingConfidence.
-8. If the visible screenshot rating is weak, review count is low, or web evidence is limited, do not return a confident BUY.
-9. Never manufacture review counts, complaints, pros, cons, or fake-review risk. If evidence is not found, say it is not found.
-10. The final shopper score must reflect evidence quality. Limited evidence should reduce confidence and should show a cautious verdict.
-9. If the visible product and web results do not clearly match, return CONSIDER or AVOID and explain that identification is uncertain.
-10. sourcesUsed must contain real source names or URLs actually used.
-11. researchQuality must be honest:
-   - evidenceLevel "verified" only when you found at least two matching public sources or one exact product page plus enough review evidence.
-   - evidenceLevel "limited" when sources are sparse, review text is unavailable, or only one useful source matches.
-   - evidenceLevel "screenshot_only" when you could not verify the product online.
-   - evidenceLevel "product_mismatch" when public results appear to be a different product, brand, size, bundle, or model.
-   - exactProductMatch must be false if there is any unresolved mismatch between screenshot and web evidence.
-   - notes must briefly explain what was verified and what was not verified.
-
-Verdict rules:
-BUY = strong evidence across sources, good value, low serious complaints, low suspicious review risk.
-CONSIDER = mixed evidence, limited reviews, unclear product match, decent product but meaningful complaints.
-AVOID = repeated serious complaints, durability/safety issues, poor value, low trust, insufficient reliable evidence, or product mismatch.
-
-Return only the required JSON.
-`.trim()
-          }
-        ]
-      }
-    ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: "reviewintel_product_verdict",
-        schema: resultSchema,
-        strict: true
-      }
-    }
-  });
-
-  const productForReviewEvidence =
-    vision.normalizedSearchQuery ||
-    [vision.brand, vision.category]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
+  const productForReviewEvidence = uniqueTextArray(
+    [
+      vision.normalizedSearchQuery,
+      vision.brand,
+      vision.name,
+      vision.category,
+      ...vision.visibleFeatures,
+    ].filter(Boolean),
+    12
+  )
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   console.log("[ReviewIntel DEBUG vision]", {
     name: vision.name,
@@ -1532,6 +1472,8 @@ Return only the required JSON.
     price: vision.price,
     rating: vision.rating,
     reviewCount: vision.reviewCount,
+    normalizedSearchQuery: vision.normalizedSearchQuery,
+    reviewEvidenceQuery: productForReviewEvidence,
     ratingBelongsToProduct: vision.ratingBelongsToProduct,
     reviewCountBelongsToProduct: vision.reviewCountBelongsToProduct,
   });
@@ -1556,7 +1498,9 @@ Return only the required JSON.
       : undefined,
     rating: screenshotRating,
     reviewCount: screenshotReviewCount,
-    forceRefresh: true,
+    locale,
+    outputLanguage,
+    forceRefresh: false,
   });
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
@@ -1713,7 +1657,8 @@ function computeVerdictConfidenceAudit(input: {
         ? Math.min(1, commentsAnalyzed / 50)
         : 0;
 
-  const reviewCoverageScore = Math.round(25 * reviewCoverageRatio);
+  const evidenceSampleRatio = Math.min(1, commentsAnalyzed / 30);
+  const reviewCoverageScore = Math.round(25 * evidenceSampleRatio);
 
   // Gate 4: Did RI separate pros and cons?
   const prosCount = Number(input.productProsCount || 0);
@@ -1729,8 +1674,8 @@ function computeVerdictConfidenceAudit(input: {
   // It gets credit if it calculated a Buy Score from real review evidence,
   // OR if it correctly withheld the Buy Score because review evidence was not enough.
   const hasEnoughReviewCoverage =
-    commentsAnalyzed >= 15 &&
-    reviewCoverageRatio >= 0.05;
+    commentsAnalyzed >= 15 ||
+    (marketplaceReviewCount > 0 && commentsAnalyzed >= Math.min(30, Math.ceil(marketplaceReviewCount * 0.08)));
 
   const scoreCalculationScore =
     typeof input.buyScore === "number" && hasEnoughReviewCoverage
@@ -1773,8 +1718,12 @@ function computeVerdictConfidenceAudit(input: {
   // Hard caps: if RI did not actually read written reviews, confidence must stay low.
   if (commentsAnalyzed <= 0) {
     verdictConfidence = Math.min(verdictConfidence, 40);
-  } else if (reviewCoverageRatio < 0.05) {
+  } else if (commentsAnalyzed < 8) {
     verdictConfidence = Math.min(verdictConfidence, 55);
+  } else if (commentsAnalyzed < 15) {
+    verdictConfidence = Math.min(verdictConfidence, 70);
+  } else if (commentsAnalyzed < 25) {
+    verdictConfidence = Math.min(verdictConfidence, 82);
   }
 
   return {
@@ -1823,6 +1772,13 @@ function buildReviewEvidenceShopperResult(input: {
   const brand = String(vision.brand || listingEvidence?.brand || "").trim();
   const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
   const price = String(vision.price || listingEvidence?.price || "").trim();
+  const exactListingUrl = String(listingEvidence?.exactListingUrl || listingEvidence?.url || "").trim();
+  const stableProductKey = createProductKey([
+    exactListingUrl,
+    store,
+    brand,
+    productName,
+  ]);
 
   const reviewSnippets = Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
   const repeatedPraises = Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
@@ -1839,12 +1795,23 @@ function buildReviewEvidenceShopperResult(input: {
 
   const rawCommentsAnalyzed = Number(evidence.commentsAnalyzed || 0);
 
+  const reviewCollector =
+    evidence.reviewCollector && typeof evidence.reviewCollector === "object"
+      ? (evidence.reviewCollector as Record<string, unknown>)
+      : null;
+
   const collectorReviewsCollected =
-    evidence.reviewCollector &&
-    typeof evidence.reviewCollector === "object" &&
-    typeof (evidence.reviewCollector as Record<string, unknown>).reviewsCollected === "number"
-      ? Number((evidence.reviewCollector as Record<string, unknown>).reviewsCollected)
-      : 0;
+    typeof reviewCollector?.reviewsCollected === "number"
+      ? Number(reviewCollector.reviewsCollected)
+      : typeof evidence.reviewsCollected === "number"
+        ? Number(evidence.reviewsCollected)
+        : 0;
+  const collectorHasWrittenReviews =
+    typeof reviewCollector?.collectorHasWrittenReviews === "boolean"
+      ? reviewCollector.collectorHasWrittenReviews
+      : typeof evidence.collectorHasWrittenReviews === "boolean"
+        ? evidence.collectorHasWrittenReviews
+        : collectorReviewsCollected > 0;
 
   // commentsAnalyzed must be grounded in actual written review text.
   // Never allow the AI to copy marketplaceReviewCount/reviewsFound and pretend all reviews were analyzed.
@@ -1877,17 +1844,37 @@ function buildReviewEvidenceShopperResult(input: {
         ? commentsAnalyzed / 50
         : 0;
 
-  // RI is only allowed to give BUY / CONSIDER / AVOID when it actually analyzed
-  // a meaningful amount of written buyer review text.
+  // RI can give BUY / CONSIDER / AVOID from exact-product review intelligence.
+  // Direct written review bodies are best; OpenAI web-search review intelligence is allowed
+  // when marketplaces block review bodies, with lower confidence shown in the audit.
   const hasUsableReviewEvidence =
     hasReadableReviewEvidence &&
-    commentsAnalyzed >= 15 &&
-    reviewSnippets.length >= 5 &&
-    reviewCoverageRatio >= 0.05 &&
-    !["none", "weak"].includes(evidenceStrength);
+    commentsAnalyzed >= 3 &&
+    reviewSnippets.length >= 3 &&
+    evidenceStrength !== "none";
 
-  // If RI found the product/review count but did not reach enough written reviews,
-  // it must be honest: LIMITED REVIEW EVIDENCE, not a scored verdict.
+  const listingRatingForMetadataScore = (() => {
+    const value = evidence.rating ?? listingEvidence?.rating ?? vision.rating;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  })();
+
+  const hasVerifiedListingMetadata =
+    Boolean(exactListingUrl) &&
+    typeof listingRatingForMetadataScore === "number" &&
+    listingRatingForMetadataScore > 0 &&
+    marketplaceReviewCount > 0;
+  const hasRecognizedProductEvidence =
+    Boolean(exactListingUrl) ||
+    marketplaceReviewCount > 0 ||
+    reviewsFound > 0 ||
+    Boolean(String(productName || "").trim() && !/^unknown product$/i.test(String(productName || "").trim())) ||
+    Boolean(store) ||
+    Boolean(price);
+
+  // If RI found the product/review count but only reached thin review intelligence,
+  // it must stay cautious and transparent, but it should still provide a useful score.
   const hasLimitedReviewEvidence =
     marketplaceReviewCount > 0 ||
     reviewsFound > 0 ||
@@ -1912,6 +1899,15 @@ function buildReviewEvidenceShopperResult(input: {
     )
     .filter(Boolean)
     .slice(0, 4);
+
+  const strengthHighlights = cleanBuyerInsightArray(
+    productPros.length ? [...productPros, ...praiseThemes] : praiseThemes,
+    5
+  );
+  const complaintHighlights = cleanBuyerInsightArray(
+    productCons.length ? [...productCons, ...complaintThemes] : complaintThemes,
+    6
+  );
 
   let verdict = "REVIEW EVIDENCE NOT ENOUGH";
   let decisionStatus = "not_enough_evidence";
@@ -1944,16 +1940,51 @@ function buildReviewEvidenceShopperResult(input: {
       bottomLine =
         "ReviewIntel found usable review evidence, but the signals are mixed or not strong enough for a confident Buy.";
     }
+  } else if (hasVerifiedListingMetadata) {
+    finalDecisionSource = "verifiedListingMetadata";
+    decisionStatus = "verified_listing_metadata";
+
+    const reviewVolumeBoost =
+      marketplaceReviewCount >= 1000
+        ? 1
+        : marketplaceReviewCount >= 250
+          ? 0.75
+          : marketplaceReviewCount >= 75
+            ? 0.5
+            : 0.25;
+    buyScore = Math.max(
+      1,
+      Math.min(8, Math.round((listingRatingForMetadataScore / 5) * 7 + reviewVolumeBoost))
+    );
+    verdict =
+      listingRatingForMetadataScore >= 4.2 && marketplaceReviewCount >= 75
+        ? "CONSIDER"
+        : listingRatingForMetadataScore < 3.7
+          ? "AVOID"
+          : "CONSIDER";
+    valueForMoney = buyScore >= 7 ? "Fair" : buyScore <= 4 ? "Risky" : "Unknown";
+    bottomLine =
+      "ReviewIntel confirmed the online listing rating and public review volume. Direct written review bodies were limited, so this is a cautious score with lower confidence.";
   } else if (hasLimitedReviewEvidence) {
-    verdict = "LIMITED REVIEW EVIDENCE";
+    verdict = "CONSIDER";
     decisionStatus = "limited_review_evidence";
     finalDecisionSource = "limitedReviewEvidence";
+    buyScore = marketplaceReviewCount >= 75 ? 5 : 4;
+    valueForMoney = price ? "Unknown" : "Unknown";
     bottomLine =
-      "ReviewIntel found the public marketplace review count, but could only access a limited number of written review signals. It cannot judge the product until it analyzes enough of the buyer experiences inside those reviews.";
+      "ReviewIntel found limited exact-product review intelligence. Treat this as a cautious score and check the latest low-star reviews before buying.";
+  } else if (hasRecognizedProductEvidence) {
+    verdict = "CONSIDER";
+    decisionStatus = "identity_only_provisional";
+    finalDecisionSource = "identityOnlyProvisional";
+    buyScore = 4;
+    valueForMoney = "Unknown";
+    bottomLine =
+      "ReviewIntel identified the product from the screenshot, but could not verify enough online review evidence. This is a cautious provisional score, not a full review-based verdict.";
   }
 
   const verdictConfidenceAudit = computeVerdictConfidenceAudit({
-    exactListingUrl: listingEvidence?.exactListingUrl || listingEvidence?.url || null,
+    exactListingUrl: exactListingUrl || null,
     exactListingConfirmed: evidence.exactListingConfirmed,
     screenshotTitle: vision.name || vision.title || vision.category,
     listingTitle: productName,
@@ -1974,6 +2005,37 @@ function buildReviewEvidenceShopperResult(input: {
   });
 
   const verdictConfidence = verdictConfidenceAudit.verdictConfidence;
+  const sourceLinksForResult = Array.isArray(evidence.sourceLinks)
+    ? evidence.sourceLinks.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>
+    : [];
+  const sourcesUsed = uniqueTextArray(
+    [
+      ...sourceLinksForResult.map((item) =>
+        String(item.domain || item.label || item.url || "").trim()
+      ),
+      ...(Array.isArray(evidence.sourcesChecked) ? evidence.sourcesChecked.map(String) : []),
+      exactListingUrl ? new URL(exactListingUrl).hostname.replace(/^www\./, "") : "",
+    ],
+    8
+  );
+  const researchQuality = {
+    evidenceLevel: hasUsableReviewEvidence
+      ? "verified"
+      : hasLimitedReviewEvidence || exactListingUrl || hasRecognizedProductEvidence
+        ? "limited"
+        : "screenshot_only",
+    exactProductMatch: Boolean(exactListingUrl || hasRecognizedProductEvidence),
+    sourceCount: Math.max(sourcesUsed.length, exactListingUrl ? 1 : 0),
+    citationCount: sourceLinksForResult.length,
+    notes: [
+      exactListingUrl
+        ? "ReviewIntel matched an online listing or review source for this product."
+        : "ReviewIntel did not confirm an exact online listing for this scan.",
+      commentsAnalyzed > 0
+        ? `ReviewIntel analyzed ${commentsAnalyzed} exact-product review-intelligence signals.`
+        : "ReviewIntel did not access usable review-intelligence signals for this scan.",
+    ],
+  };
 
   console.log("[ReviewIntel DEBUG verdictAudit]", {
     verdict,
@@ -2011,6 +2073,26 @@ function buildReviewEvidenceShopperResult(input: {
     brand,
     store,
     price,
+    product: {
+      name: productName,
+      title: productName,
+      brand,
+      category: String(vision.category || "").trim(),
+      store,
+      price,
+      rating:
+        typeof (evidence.rating ?? listingEvidence?.rating) === "number"
+          ? `${evidence.rating ?? listingEvidence?.rating}/5`
+          : String(vision.rating || ""),
+      reviewCount:
+        marketplaceReviewCount > 0
+          ? String(marketplaceReviewCount)
+          : String(vision.reviewCount || ""),
+      imageConfidence:
+        typeof vision.imageConfidence === "number" && Number.isFinite(vision.imageConfidence)
+          ? vision.imageConfidence
+          : 0,
+    },
 
     productIdentity: {
       title: productName,
@@ -2019,11 +2101,15 @@ function buildReviewEvidenceShopperResult(input: {
       price,
       rating: evidence.rating ?? null,
       reviewCount: (evidence.reviewCount ?? marketplaceReviewCount) || null,
-      exactListingUrl: listingEvidence?.exactListingUrl || listingEvidence?.url || null,
+      exactListingUrl: exactListingUrl || null,
     },
 
     reviewEvidence: evidence,
     reviewAuthenticity: input.reviewAuthenticity,
+    stableProductKey,
+    productKey: stableProductKey,
+    researchQuality,
+    sourcesUsed,
 
     reviewIntelTrace: {
       screenshotIdentity: {
@@ -2034,9 +2120,13 @@ function buildReviewEvidenceShopperResult(input: {
       },
       exactListingEvidence: listingEvidence,
       reviewEvidence: {
+        exactListingUrl: exactListingUrl || null,
         marketplaceReviewCount,
         reviewsFound,
+        reviewsCollected: collectorReviewsCollected,
         commentsAnalyzed,
+        reviewCoverageRatio,
+        collectorHasWrittenReviews,
         evidenceStrength,
         reviewSnippets: reviewSnippets.length,
         repeatedPraises: repeatedPraises.length,
@@ -2053,6 +2143,7 @@ function buildReviewEvidenceShopperResult(input: {
     decisionStatus,
 
     buyerConfidence: verdictConfidence,
+    buyingConfidence: verdictConfidence,
     confidence: verdictConfidence,
     verdictConfidence,
     verdictConfidenceAudit: verdictConfidenceAudit.audit,
@@ -2067,12 +2158,16 @@ function buildReviewEvidenceShopperResult(input: {
     reviewCount: (evidence.reviewCount ?? marketplaceReviewCount) || null,
     reviewsFound,
     marketplaceReviewCount,
+    reviewsCollected: collectorReviewsCollected,
     commentsAnalyzed,
+    reviewCoverageRatio,
+    collectorHasWrittenReviews,
+    exactListingUrl: exactListingUrl || null,
 
-    topStrengths: hasUsableReviewEvidence ? (productPros.length ? productPros : praiseThemes) : [],
-    topComplaints: hasUsableReviewEvidence ? (productCons.length ? productCons : complaintThemes) : [],
-    strengths: hasUsableReviewEvidence ? (productPros.length ? productPros : praiseThemes) : [],
-    complaints: hasUsableReviewEvidence ? (productCons.length ? productCons : complaintThemes) : [],
+    topStrengths: hasReadableReviewEvidence ? strengthHighlights : [],
+    topComplaints: hasReadableReviewEvidence ? complaintHighlights : [],
+    strengths: hasReadableReviewEvidence ? strengthHighlights : [],
+    complaints: hasReadableReviewEvidence ? complaintHighlights : [],
     aiPatternSignals,
     buyerExperienceSignals,
     overallImpact,

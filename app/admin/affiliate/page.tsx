@@ -17,6 +17,7 @@ type AffiliateDiagnostics = {
     tagPreview?: string | null;
     envName?: string;
     sampleAffiliateUrl?: string;
+    sampleOriginalUrl?: string;
     linkBuilderWorking?: boolean;
   };
   disclosure?: {
@@ -95,6 +96,30 @@ export default async function AffiliateAdminPage() {
               <p>Tag preview: <span className="font-black text-slate-950 dark:text-white">{diagnostics.amazon?.tagPreview || "—"}</span></p>
               <p>Link builder: <span className="font-black text-slate-950 dark:text-white">{diagnostics.amazon?.linkBuilderWorking ? "Working" : "Waiting"}</span></p>
             </div>
+
+            {diagnostics.amazon?.sampleAffiliateUrl ? (
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Click test
+                </p>
+                <p className="mt-2 break-all text-xs font-bold text-slate-500 dark:text-slate-300">
+                  {diagnostics.amazon.sampleAffiliateUrl}
+                </p>
+                <a
+                  href={diagnostics.amazon.sampleAffiliateUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950"
+                >
+                  Open Amazon test link
+                </a>
+                {!tagConnected ? (
+                  <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 dark:bg-amber-400/10 dark:text-amber-100">
+                    This opens Amazon, but commission tracking will not work until AMAZON_ASSOCIATE_TAG is added in Vercel.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
 {`AMAZON_ASSOCIATE_TAG=your-tag-here`}

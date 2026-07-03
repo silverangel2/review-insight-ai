@@ -8,9 +8,9 @@ export async function SiteFooter() {
   const tr = (text: string) => getUiTextTranslation(locale, text) || text;
 
   return (
-    <footer className="border-t border-cyan-100/70 bg-white/85 px-6 py-10 text-ink shadow-[0_-20px_70px_rgba(8,183,168,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 dark:text-white">
-      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_1.6fr]">
-        <section className="relative overflow-hidden rounded-[2rem] border border-line bg-[linear-gradient(135deg,#172033,#2356a3_52%,#08b7a8)] p-6 text-white shadow-glow dark:border-white/10">
+    <footer className="border-t border-cyan-100/70 bg-white/85 px-4 py-10 text-ink shadow-[0_-20px_70px_rgba(8,183,168,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 dark:text-white sm:px-6">
+      <div className="mx-auto grid max-w-7xl min-w-0 gap-8 lg:grid-cols-[1.05fr_1.6fr]">
+        <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-line bg-[linear-gradient(135deg,#172033,#2356a3_52%,#08b7a8)] p-5 text-white shadow-glow dark:border-white/10 sm:p-6">
           <div className="ri-scan-grid absolute inset-0 opacity-20" />
           <div className="relative">
             <div className="flex items-center gap-3">
@@ -42,13 +42,13 @@ export async function SiteFooter() {
           </div>
         </section>
 
-        <nav className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-label="Footer links">
+        <nav className="grid min-w-0 gap-5 sm:grid-cols-2 lg:grid-cols-4" aria-label="Footer links">
           {footerLinkGroups.map((group) => (
-            <section key={group.title} className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
+            <section key={group.title} className="min-w-0 rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-white/[0.04]">
               <h2 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">{tr(group.title)}</h2>
               <div className="mt-4 grid gap-3">
                 {group.links.map((link) => (
-                  <Link key={`${link.label}-${link.href}`} href={link.href} className="text-sm font-bold text-slate-600 transition hover:text-ocean dark:text-slate-300 dark:hover:text-cyan-200">
+                  <Link key={`${link.label}-${link.href}`} href={link.href} className="min-w-0 break-words text-sm font-bold text-slate-600 transition hover:text-ocean dark:text-slate-300 dark:hover:text-cyan-200">
                     {tr(link.label)}
                   </Link>
                 ))}

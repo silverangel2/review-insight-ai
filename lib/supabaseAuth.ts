@@ -110,6 +110,31 @@ export async function resetPasswordWithSupabase(email: string) {
   });
 }
 
+export async function updatePasswordWithSupabase(accessToken: string, password: string) {
+  if (!hasSupabaseEnv()) {
+    return { mode: "local-development", message: "Supabase Auth is not configured; local development password update accepted." };
+  }
+
+  const baseUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
+  const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const response = await fetch(`${baseUrl}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error_description || data.msg || data.error || "Password update failed.");
+  }
+
+  return data;
+}
+
 export async function accountFromOAuthAccessToken(accessToken: string) {
   if (!hasSupabaseEnv()) return null;
 

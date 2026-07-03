@@ -78,7 +78,7 @@ export default function TikTokApprovalPage() {
             Open Social Auto-Post
           </Link>
           <a
-            href="/social/house/reviewintel-house-001.png"
+            href="/uploads/social/reviewintel-premium-day-01-965127d4-66b9-40af-bb73-15c7bbf54e64.png"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center justify-center rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink shadow-soft transition hover:border-ocean dark:border-white/10 dark:bg-slate-900 dark:text-white"

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { canAccessSellerAnalytics, type ClientAccount } from "@/lib/account";
+import { canAccessSellerAnalytics, isAccountProfileComplete, type ClientAccount } from "@/lib/account";
 import { getClientAccount, saveActiveMode, saveClientAccount } from "@/lib/clientAccount";
 import { clearLatestResult } from "@/lib/resultStorage";
 import type { UserRole } from "@/lib/types";
@@ -29,18 +29,6 @@ function profileCompletionPath(nextPath = "/analyze") {
   return `/account?completeProfile=1&next=${encodeURIComponent(nextPath)}`;
 }
 
-function isProfileComplete(account: Partial<ClientAccount> | null | undefined) {
-  if (!account) return false;
-
-  // First-login profile completion should only require the essentials.
-  // Website and notes are optional and must never force the profile screen again.
-  return Boolean(
-    String(account.name || "").trim() &&
-      String(account.role || "").trim() &&
-      String(account.plan || "").trim()
-  );
-}
-
 export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
@@ -59,7 +47,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
     if (account?.role && account?.plan) {
       const nextPath = nextPathForAccount(account.role as SignupRole, account.plan);
 
-      if (!isProfileComplete(account)) {
+      if (!isAccountProfileComplete(account)) {
         window.location.replace(profileCompletionPath(nextPath));
         return;
       }
@@ -150,6 +138,8 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
         postalCode: serverProfile?.postalCode,
         country: serverProfile?.country,
         website: serverProfile?.website,
+        preferredLanguage: serverProfile?.preferredLanguage,
+        preferredCurrency: serverProfile?.preferredCurrency,
         profileNotes: serverProfile?.profileNotes,
         marketingConsent: serverProfile?.marketingConsent ?? marketingConsent
       };
@@ -165,7 +155,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
 
       const nextPath = nextPathForAccount(nextRole, nextPlan);
 
-      if (!isProfileComplete(loggedInAccount)) {
+      if (!isAccountProfileComplete(loggedInAccount)) {
         window.location.replace(profileCompletionPath(nextPath));
         return;
       }

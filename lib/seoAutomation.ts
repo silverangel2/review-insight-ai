@@ -231,8 +231,16 @@ function canonicalUrl(baseUrl: string, routePath: string) {
 }
 
 function ogImageForIndex(index: number) {
-  const imageNumber = ((index % 100) + 1).toString().padStart(3, "0");
-  return `/social/house/reviewintel-house-${imageNumber}.png`;
+  const codexOgImages = [
+    "/uploads/social/reviewintel-premium-day-01-965127d4-66b9-40af-bb73-15c7bbf54e64.png",
+    "/uploads/social/reviewintel-premium-day-02-a2e9993b-7cf8-4acc-9ca3-a817a6642fc7.png",
+    "/uploads/social/reviewintel-premium-day-03-ce6ce483-8df4-4dcb-9bfe-7b8607242317.png",
+    "/uploads/social/reviewintel-premium-day-04-4ccd0bda-d175-4d79-a7e4-e186006005b0.png",
+    "/uploads/social/reviewintel-premium-day-05-eeb3999d-1c3d-4995-99c0-ef213795819f.png",
+    "/uploads/social/reviewintel-premium-day-06-12940ce9-d4bb-4cd1-982c-fbdf56b361df.png",
+  ];
+
+  return codexOgImages[index % codexOgImages.length] || codexOgImages[0];
 }
 
 export function defaultSeoDraftForPath(routePath: string, baseUrl = seoBaseUrl()): SeoDraft {

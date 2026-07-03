@@ -261,6 +261,60 @@ function priorityTone(priority: string) {
   return "text-coral";
 }
 
+function sellerTrendSeries(scans: unknown[]) {
+  return scans
+    .filter((scan) => !isCompareScan(scan))
+    .map((scan) => {
+      const score = scanNumber(
+        scan,
+        ["productScore", "product_score", "healthScore", "score", "buyingConfidence", "confidenceScore", "confidence_score", "rating"],
+        0
+      );
+      const rawDate = scanText(scan, ["savedAt", "createdAt", "analyzedAt", "date"], "");
+      const date = rawDate ? new Date(rawDate) : new Date();
+
+      return {
+        score,
+        date,
+        label: Number.isFinite(date.getTime())
+          ? date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+          : "Scan",
+      };
+    })
+    .filter((point) => point.score > 0 && Number.isFinite(point.date.getTime()))
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(-10);
+}
+
+function trendPolyline(points: ReturnType<typeof sellerTrendSeries>) {
+  if (!points.length) return "";
+
+  if (points.length === 1) {
+    const y = 100 - Math.max(0, Math.min(100, points[0].score));
+    return `0,${y} 100,${y}`;
+  }
+
+  return points
+    .map((point, index) => {
+      const x = Math.round((index / Math.max(1, points.length - 1)) * 100);
+      const y = Math.round(100 - Math.max(0, Math.min(100, point.score)));
+      return `${x},${y}`;
+    })
+    .join(" ");
+}
+
+function sellerTrendLabel(points: ReturnType<typeof sellerTrendSeries>) {
+  if (points.length < 2) return "Need one more scan to show movement.";
+
+  const first = points[0].score;
+  const last = points[points.length - 1].score;
+  const delta = last - first;
+
+  if (delta >= 8) return `Improving by ${delta} points across recent scans. Keep proving what buyers like.`;
+  if (delta <= -8) return `Down ${Math.abs(delta)} points across recent scans. Fix the repeated complaint before adding more traffic.`;
+  return `Stable across recent scans. Use the next scan to confirm if your last improvement changed buyer signals.`;
+}
+
 function dashboardAdvisor(rows: ReturnType<typeof productHealthRows>, concerns: string[]) {
   const weakest = rows[0];
   const strongest = [...rows].sort((a, b) => b.avgScore - a.avgScore)[0];
@@ -434,6 +488,10 @@ export default function SellerDashboardPage() {
     const satisfaction = average(latestScans.map((scan) => scanNumber(scan, ["sentimentScore", "sentiment_score", "satisfactionScore", "customer_satisfaction_score", "buyerSatisfaction", "sentiment"], 0)));
     const productScore = average(latestScans.map((scan) => scanNumber(scan, ["productScore", "product_score", "healthScore", "score", "buyingConfidence", "confidenceScore", "confidence_score", "rating"], 0)));
     const reviewCount = latestScans.reduce<number>((sum, scan) => sum + scanNumber(scan, ["reviewCount", "reviewsAnalyzed", "review_count", "validReviewCount"], 0), 0);
+    const trendSeries = sellerTrendSeries(productImprovementScans);
+    const trendDelta = trendSeries.length > 1
+      ? trendSeries[trendSeries.length - 1].score - trendSeries[0].score
+      : 0;
 
     const productRows = productHealthRows(latestScans);
     const weakestProduct = productRows[0] ?? null;
@@ -457,6 +515,10 @@ export default function SellerDashboardPage() {
       productRows,
       weakestProduct,
       strongestProduct,
+      trendSeries,
+      trendPoints: trendPolyline(trendSeries),
+      trendLabel: sellerTrendLabel(trendSeries),
+      trendDelta,
       advisorNote: dashboardAdvisor(productRows, painPoints)
     };
   }, [products, journalScans, accountAnalyses]);
@@ -593,6 +655,95 @@ export default function SellerDashboardPage() {
             tone={dashboard.weakestProduct && dashboard.weakestProduct.latestScore < 70 ? "bad" : "warn"}
           />
         </section>
+
+        {isSellerPro && dashboard.trendSeries.length ? (
+          <section className="seller-improvement-trend mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Improvement graph</p>
+                <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">Is your product health moving up or down?</h2>
+                <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+                  {dashboard.trendLabel}
+                </p>
+              </div>
+              <Link href="/seller/analyze" className="w-fit rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
+                Run next seller scan
+              </Link>
+            </div>
+
+            <div className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+              <div className="rounded-[1.5rem] border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                <svg viewBox="0 0 100 100" className="h-52 w-full overflow-visible" role="img" aria-label="Seller product score trend">
+                  {[20, 40, 60, 80].map((line) => (
+                    <line key={line} x1="0" x2="100" y1={line} y2={line} stroke="currentColor" strokeOpacity="0.12" strokeWidth="1" />
+                  ))}
+                  <polyline
+                    points={dashboard.trendPoints}
+                    fill="none"
+                    stroke="url(#sellerTrendGradient)"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  {dashboard.trendSeries.map((point, index) => {
+                    const x = dashboard.trendSeries.length === 1
+                      ? 50
+                      : Math.round((index / Math.max(1, dashboard.trendSeries.length - 1)) * 100);
+                    const y = Math.round(100 - Math.max(0, Math.min(100, point.score)));
+
+                    return (
+                      <circle
+                        key={`${point.label}-${index}`}
+                        cx={x}
+                        cy={y}
+                        r="3"
+                        fill="white"
+                        stroke="#10c6a3"
+                        strokeWidth="2"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    );
+                  })}
+                  <defs>
+                    <linearGradient id="sellerTrendGradient" x1="0%" x2="100%" y1="0%" y2="0%">
+                      <stop offset="0%" stopColor="#df5f63" />
+                      <stop offset="48%" stopColor="#ffb238" />
+                      <stop offset="100%" stopColor="#10c6a3" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs font-black text-slate-500 dark:text-slate-300">
+                  <span>{dashboard.trendSeries[0]?.label}</span>
+                  <span>{dashboard.trendSeries[dashboard.trendSeries.length - 1]?.label}</span>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Latest score</p>
+                  <p className="mt-2 text-3xl font-black text-ink dark:text-white">
+                    {dashboard.trendSeries[dashboard.trendSeries.length - 1]?.score ?? 0}%
+                  </p>
+                </article>
+                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Movement</p>
+                  <p className={`mt-2 text-3xl font-black ${dashboard.trendDelta >= 0 ? "text-teal" : "text-coral"}`}>
+                    {dashboard.trendDelta > 0 ? "+" : ""}{dashboard.trendDelta} pts
+                  </p>
+                </article>
+                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-900">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next focus</p>
+                  <p className="mt-2 text-sm font-black leading-6 text-ink dark:text-white">
+                    {dashboard.weakestProduct
+                      ? sellerShortName(dashboard.weakestProduct.mainConcern, 90)
+                      : "Run another scan to build a clearer improvement target."}
+                  </p>
+                </article>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {dashboard.productRows.length ? (
           <section className="seller-growth-pulse mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
