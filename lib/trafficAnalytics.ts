@@ -12,7 +12,7 @@ type TrafficEventBody = {
   title?: string;
   referrer?: string;
   visitorId?: string;
-  visitor_id?: string;
+  visitor_key?: string;
   consentChoice?: string;
   consent_choice?: string;
   metadata?: Record<string, unknown>;
@@ -198,7 +198,7 @@ export async function recordTrafficEvent(request: Request, rawBody: TrafficEvent
   const { country, region, city } = geoFromHeaders(request);
   const { deviceType, platform, browser } = parseUserAgent(userAgent);
   const session = readAccountSession(request);
-  const visitorId = cleanText(rawBody.visitorId || rawBody.visitor_id, 160);
+  const visitorId = cleanText(rawBody.visitorId || rawBody.visitor_key, 160);
   const visitorKey = hashVisitor(
     visitorId
       ? `visitor:${visitorId}`
