@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   attachAffiliateUrl,
   getAffiliateDisclosure,
-  getWalmartPublisherId,
+  getAmazonAssociateTag,
   isSupportedAffiliateUrl,
-  isWalmartUrl,
 } from "@/lib/affiliate";
 import { localeLabel, normalizeLocale } from "@/lib/i18n";
 
@@ -67,6 +66,17 @@ type RecommendationBase = {
   whyBetter: string;
   aiLikeRisk: string;
 };
+
+function amazonStoreForUrl(url: string) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("amazon.com") && !host.includes("amazon.ca")) return "Amazon.com";
+  } catch {
+    // Keep the Canadian store label as the shopper default when parsing fails.
+  }
+
+  return "Amazon.ca";
+}
 
 async function extractOpenGraphImage(url: string) {
   if (!isSupportedAffiliateUrl(url)) return "";
@@ -156,18 +166,16 @@ Output language:
 Scanned product:
 ${JSON.stringify({ productName, brand, verdict, result }, null, 2)}
 
-Find up to 3 visible Amazon.ca or Walmart.ca/Walmart.com product alternatives when possible:
+Find up to 3 visible Amazon product alternatives when possible:
 1. Primary Pick
 2. Better Value
 3. Stronger Quality
 
 Rules:
 - This is for shopper results only, not seller analytics.
-- Prefer the same store family as the scanned product when it is a strong match.
-- Prefer Amazon.ca and Walmart.ca for Canadian shoppers.
-- Walmart is useful when the scanned item came from Walmart, when Walmart has clearer pricing, or when Walmart has a better same-category substitute.
-- Amazon is useful when it has stronger review depth, better product images, or more comparable alternatives.
-- Every recommendation must be an Amazon or Walmart link.
+- Prefer Amazon.ca for Canadian shoppers. Use Amazon.com only when a Canadian listing is not visible.
+- If the scanned product came from Walmart or another store, still recommend close Amazon substitutes only.
+- Every recommendation must be an Amazon link.
 - Do not invent exact rating, review count, price, or product URLs.
 - Include imageUrl only if you can see a real Amazon/product image URL. Do not invent image URLs.
 - Do not recommend random unrelated products.
@@ -185,8 +193,8 @@ JSON format:
       "recommendations": [
     {
       "title": "product title",
-      "store": "Amazon.ca or Walmart.ca",
-      "url": "https://www.amazon.ca/... or https://www.walmart.ca/...",
+      "store": "Amazon.ca",
+      "url": "https://www.amazon.ca/...",
       "imageUrl": "https://...",
       "rating": 4.5,
       "reviewCount": 1200,
@@ -246,7 +254,7 @@ JSON format:
 
         return {
           title: getString(record.title),
-          store: getString(record.store) || (isWalmartUrl(getString(record.url)) ? "Walmart" : "Amazon.ca"),
+          store: amazonStoreForUrl(getString(record.url)),
           url: getString(record.url),
           imageUrl: getHttpsUrl(record.imageUrl) || getHttpsUrl(record.image),
           rating: getNumber(record.rating),
@@ -276,10 +284,9 @@ JSON format:
       shopperOnly: true,
       locale,
       outputLanguage,
-      affiliateReady: Boolean(process.env.AMAZON_ASSOCIATE_TAG || getWalmartPublisherId()),
+      affiliateReady: Boolean(getAmazonAssociateTag()),
       affiliateProviders: {
-        amazonReady: Boolean(process.env.AMAZON_ASSOCIATE_TAG),
-        walmartReady: Boolean(getWalmartPublisherId()),
+        amazonReady: Boolean(getAmazonAssociateTag()),
       },
       disclosure: getAffiliateDisclosure(),
       recommendations,

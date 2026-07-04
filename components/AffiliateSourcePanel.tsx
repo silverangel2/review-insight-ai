@@ -5,7 +5,7 @@ import { trackTrafficEvent } from "@/lib/clientTraffic";
 import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 
 type AffiliateLink = {
-  provider: "amazon" | "walmart";
+  provider: "amazon";
   label: string;
   sourceUrl: string;
   affiliateUrl: string;
@@ -23,38 +23,38 @@ type PanelCopy = {
 const copyByLocale: Record<ReviewIntelLocale, PanelCopy> = {
   en: {
     eyebrow: "Affiliate-ready evidence",
-    title: "Shop checked Amazon/Walmart sources",
-    detail: "These links come from source URLs found during the scan. Affiliate links never change the verdict.",
+    title: "Shop checked Amazon sources",
+    detail: "These Amazon links come from source URLs found during the scan. Affiliate links never change the verdict.",
     open: "Open qualifying link",
   },
   fr: {
     eyebrow: "Sources affiliées",
-    title: "Voir les sources Amazon/Walmart vérifiées",
-    detail: "Ces liens viennent des sources trouvées pendant l’analyse. Les liens affiliés ne changent jamais le verdict.",
+    title: "Voir les sources Amazon vérifiées",
+    detail: "Ces liens Amazon viennent des sources trouvées pendant l’analyse. Les liens affiliés ne changent jamais le verdict.",
     open: "Ouvrir le lien",
   },
   es: {
     eyebrow: "Fuentes afiliadas",
-    title: "Abrir fuentes Amazon/Walmart revisadas",
-    detail: "Estos enlaces vienen de las fuentes encontradas durante el escaneo. Los enlaces afiliados nunca cambian el veredicto.",
+    title: "Abrir fuentes Amazon revisadas",
+    detail: "Estos enlaces de Amazon vienen de las fuentes encontradas durante el escaneo. Los enlaces afiliados nunca cambian el veredicto.",
     open: "Abrir enlace",
   },
   zh: {
     eyebrow: "联盟来源",
-    title: "打开已检查的 Amazon/Walmart 来源",
-    detail: "这些链接来自扫描时找到的来源。联盟链接绝不会改变结论。",
+    title: "打开已检查的 Amazon 来源",
+    detail: "这些 Amazon 链接来自扫描时找到的来源。联盟链接绝不会改变结论。",
     open: "打开链接",
   },
   de: {
     eyebrow: "Affiliate-Quellen",
-    title: "Geprüfte Amazon/Walmart-Quellen öffnen",
-    detail: "Diese Links stammen aus den beim Scan gefundenen Quellen. Affiliate-Links ändern niemals das Urteil.",
+    title: "Geprüfte Amazon-Quellen öffnen",
+    detail: "Diese Amazon-Links stammen aus den beim Scan gefundenen Quellen. Affiliate-Links ändern niemals das Urteil.",
     open: "Link öffnen",
   },
   hi: {
     eyebrow: "Affiliate-ready sources",
-    title: "Checked Amazon/Walmart sources खोलें",
-    detail: "ये links scan में मिले source URLs से आते हैं। Affiliate links verdict को कभी नहीं बदलते।",
+    title: "Checked Amazon sources खोलें",
+    detail: "ये Amazon links scan में मिले source URLs से आते हैं। Affiliate links verdict को कभी नहीं बदलते।",
     open: "Qualifying link खोलें",
   },
 };
@@ -184,7 +184,7 @@ export function AffiliateSourcePanel({
               className={`${compact ? "min-w-[210px] p-3" : "p-4"} rounded-2xl border border-white/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-white/10 dark:bg-slate-950/80`}
             >
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-600 dark:text-sky-200">
-                {link.provider === "amazon" ? "Amazon" : "Walmart"} source
+                Amazon source
               </p>
               <p className={`${compact ? "mt-1 text-sm" : "mt-2 text-base"} line-clamp-2 font-black text-slate-950 dark:text-white`}>
                 {link.label}

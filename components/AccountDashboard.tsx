@@ -613,7 +613,7 @@ export function AccountDashboard() {
   return (
     <section className="space-y-8">
       {!account ? (
-        <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article data-account-profile className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
           <Badge tone="warn">Account required</Badge>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">Log in to open your workspace</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -759,7 +759,7 @@ export function AccountDashboard() {
                   </div>
                 ) : null}
 
-                <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-3">
+                <div data-account-profile-summary className="mt-4 grid gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-3">
                   <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
                     <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Plan</span>
                     <span className="mt-1 block text-ink dark:text-white">{displayPlanBadge(account, activePlan)}</span>
@@ -787,7 +787,7 @@ export function AccountDashboard() {
                 </div>
               ) : null}
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <div data-account-profile-cards className="grid gap-3 md:grid-cols-3">
                 {[
                   {
                     title: "Identity",
@@ -817,18 +817,18 @@ export function AccountDashboard() {
                     ],
                   },
                 ].map((group) => (
-                  <div key={group.title} data-profile-group={group.title} className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
+                  <div key={group.title} data-profile-group={group.title} data-account-profile-card className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
                       {group.title}
                     </p>
 
                     <div className="mt-3 divide-y divide-line dark:divide-white/10">
                       {group.items.map(([label, value]) => (
-                        <div key={label} className="py-1">
-                          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        <div key={label} data-account-profile-row className="py-1">
+                          <p data-account-profile-label className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                             {label}
                           </p>
-                          <p className="break-words text-sm font-bold text-ink dark:text-white">
+                          <p data-account-profile-value className="break-words text-sm font-bold text-ink dark:text-white">
                             {String(value)}
                           </p>
                         </div>
@@ -845,6 +845,7 @@ export function AccountDashboard() {
           ) : null}
 
           <div
+            data-account-profile-form
             className={
               isEditingProfile
                 ? "mt-5 overflow-hidden opacity-100 transition-all duration-300"

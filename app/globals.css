@@ -10804,3 +10804,144 @@ html[data-layout-mode="mobile"] .seller-result-page .seller-money-kpi-section .s
     line-height: 1.35 !important;
   }
 }
+
+/* Account profile mobile polish. Scoped to /account so dashboard/result pages stay untouched. */
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile] {
+  padding: 0.9rem !important;
+  border-radius: 1.2rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile] h2 {
+  font-size: 1.25rem !important;
+  line-height: 1.15 !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile] > div:first-child {
+  gap: 0.75rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-summary] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0.45rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-summary] > div {
+  padding: 0.7rem 0.75rem !important;
+  border-radius: 0.9rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-cards] {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0.65rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-card],
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-profile-group="Preferences"] {
+  display: block !important;
+  padding: 0.8rem !important;
+  border-radius: 1rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-row] {
+  display: grid !important;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr) !important;
+  align-items: start !important;
+  gap: 0.55rem !important;
+  padding: 0.48rem 0 !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-label] {
+  font-size: 0.62rem !important;
+  line-height: 1rem !important;
+  letter-spacing: 0.09em !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-value] {
+  font-size: 0.8rem !important;
+  line-height: 1.15rem !important;
+  text-align: right !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-form] {
+  border-radius: 1rem !important;
+}
+
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-form] input,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-form] select,
+html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-account-profile-form] textarea {
+  min-height: 2.7rem !important;
+  border-radius: 0.85rem !important;
+  font-size: 0.9rem !important;
+  line-height: 1.25rem !important;
+}
+
+@media (max-width: 640px) {
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile] {
+    padding: 0.9rem !important;
+    border-radius: 1.2rem !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile] h2 {
+    font-size: 1.25rem !important;
+    line-height: 1.15 !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile] > div:first-child {
+    gap: 0.75rem !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-summary] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.45rem !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-summary] > div {
+    padding: 0.7rem 0.75rem !important;
+    border-radius: 0.9rem !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-cards] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.65rem !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-card],
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-profile-group="Preferences"] {
+    display: block !important;
+    padding: 0.8rem !important;
+    border-radius: 1rem !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-row] {
+    display: grid !important;
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr) !important;
+    align-items: start !important;
+    gap: 0.55rem !important;
+    padding: 0.48rem 0 !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-label] {
+    font-size: 0.62rem !important;
+    line-height: 1rem !important;
+    letter-spacing: 0.09em !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-value] {
+    font-size: 0.8rem !important;
+    line-height: 1.15rem !important;
+    text-align: right !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-form] {
+    border-radius: 1rem !important;
+  }
+
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-form] input,
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-form] select,
+  html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile-form] textarea {
+    min-height: 2.7rem !important;
+    border-radius: 0.85rem !important;
+    font-size: 0.9rem !important;
+    line-height: 1.25rem !important;
+  }
+}

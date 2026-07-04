@@ -4,7 +4,6 @@ import {
   buildAffiliateUrl,
   getAffiliateDisclosure,
   getAmazonAssociateTag,
-  getWalmartPublisherId,
   isSupportedAffiliateUrl,
 } from "@/lib/affiliate";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
@@ -376,7 +375,7 @@ function envEnabled(...names: string[]) {
 }
 
 function hasAffiliateProgramConfigured() {
-  return Boolean(getAmazonAssociateTag() || getWalmartPublisherId());
+  return Boolean(getAmazonAssociateTag());
 }
 
 function socialAffiliateAttachment(platform: string, topic: string) {
@@ -1588,7 +1587,7 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
                 mode: affiliateAttachment.mode,
                 note:
                   affiliateAttachment.mode === "direct-product-affiliate"
-                    ? "Direct Amazon/Walmart qualifying link appended only for Facebook because social affiliate posting was explicitly enabled."
+                    ? "Direct Amazon qualifying link appended only for Facebook because social affiliate posting was explicitly enabled."
                     : "ReviewIntel affiliate hub link appended because affiliate posting is enabled and no exact product URL was configured.",
               }
             : null,

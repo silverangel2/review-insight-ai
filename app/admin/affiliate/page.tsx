@@ -94,11 +94,11 @@ export default async function AffiliateAdminPage() {
           </p>
           <h1 className="mt-2 text-3xl font-black">Affiliate Settings</h1>
           <p className="mt-2 text-sm font-bold text-slate-600 dark:text-slate-300">
-            Amazon and Walmart affiliate readiness, Better Picks status, and disclosure diagnostics.
+            Amazon Associates readiness, Better Picks status, and disclosure diagnostics. Walmart stays paused until you deliberately re-enable it.
           </p>
 
           <div className="mt-4 inline-flex rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-            {tagConnected || walmartConnected ? "Affiliate active" : "Ready, not connected"}
+            {tagConnected ? "Amazon affiliate active" : "Ready, not connected"}
           </div>
         </section>
 
@@ -149,10 +149,10 @@ export default async function AffiliateAdminPage() {
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
               Walmart Affiliate
             </p>
-            <h2 className="mt-2 text-xl font-black">Walmart SID</h2>
+            <h2 className="mt-2 text-xl font-black">Walmart SID paused</h2>
 
             <div className="mt-4 space-y-3 text-sm font-bold text-slate-600 dark:text-slate-300">
-              <p>Status: <span className="font-black text-slate-950 dark:text-white">{walmartConnected ? "Connected" : "Not connected yet"}</span></p>
+              <p>Status: <span className="font-black text-slate-950 dark:text-white">{walmartConnected ? "Connected but not used publicly" : "Paused"}</span></p>
               <p>SID / publisher env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.publisher || "WALMART_PUBLISHER_ID"}</code></p>
               <p>Affiliate ID env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.affiliateId || "WALMART_AFFILIATE_ID"}</code></p>
               <p>Network env: <code className="rounded bg-slate-100 px-2 py-1 text-xs dark:bg-white/10">{diagnostics.walmart?.envNames?.network || "WALMART_AFFILIATE_NETWORK"}</code></p>
@@ -181,7 +181,7 @@ export default async function AffiliateAdminPage() {
                 </a>
                 {!diagnostics.walmart.impactTemplateConfigured ? (
                   <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 dark:bg-amber-400/10 dark:text-amber-100">
-                    Walmart can give a specific Impact template. Add it later with WALMART_IMPACT_TRACKING_URL_TEMPLATE if needed.
+                    Walmart is paused for public recommendations. Keep this only as a diagnostic until you decide to re-enable Walmart links.
                   </p>
                 ) : null}
               </div>
@@ -208,7 +208,7 @@ WALMART_IMPACT_TRACKING_URL_TEMPLATE=https://goto.walmart.com/c/{publisherId}/..
             </p>
 
             <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
-{`NEXT_PUBLIC_AFFILIATE_DISCLOSURE=ReviewIntel may earn from qualifying purchases through Amazon Associates and Walmart affiliate links. Affiliate compensation does not affect ReviewIntel verdicts or review analysis.`}
+{`NEXT_PUBLIC_AFFILIATE_DISCLOSURE=ReviewIntel may earn from qualifying purchases through Amazon Associates links. Affiliate compensation does not affect ReviewIntel verdicts or review analysis.`}
             </pre>
           </div>
 
@@ -219,15 +219,14 @@ WALMART_IMPACT_TRACKING_URL_TEMPLATE=https://goto.walmart.com/c/{publisherId}/..
             <h2 className="mt-2 text-xl font-black">Optional Qualifying Link</h2>
             <p className="mt-4 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
               Turn this on when you want daily Facebook auto-posts to mention ReviewIntel affiliate-ready picks.
-              If you add one exact Amazon/Walmart product URL, Facebook posts will append that qualifying source.
-              If you leave the URL empty, Facebook posts will link to ReviewIntel instead, where shopper result pages show affiliate-ready Amazon/Walmart picks.
+              If you add one exact Amazon product URL, Facebook posts will append that qualifying source.
+              If you leave the URL empty, Facebook posts will link to ReviewIntel instead, where shopper result pages show affiliate-ready Amazon picks.
             </p>
 
             <pre className="mt-5 overflow-x-auto rounded-2xl bg-slate-50 p-4 text-xs font-bold dark:bg-white/5">
 {`SOCIAL_AFFILIATE_POSTS_ENABLED=true
 # Optional direct product link:
 # SOCIAL_AFFILIATE_URL=https://www.amazon.ca/dp/...
-# SOCIAL_AFFILIATE_URL=https://www.walmart.ca/en/ip/...
 SOCIAL_AFFILIATE_DISCLOSURE=Affiliate link. ReviewIntel may earn from qualifying purchases.`}
             </pre>
           </div>

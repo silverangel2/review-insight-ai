@@ -123,7 +123,7 @@ export const trustPages: Record<string, TrustPageContent> = {
           "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.",
         items: [
           "As an Amazon Associate I earn from qualifying purchases.",
-          "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.",
+          "Amazon affiliate links may appear in Better Picks or recommended product sections.",
           "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear."
         ]
       },

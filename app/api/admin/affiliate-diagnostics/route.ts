@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    status: tag || walmartPublisherId ? "active" : "affiliate_ready_not_connected",
+    status: tag ? "amazon_active" : "affiliate_ready_not_connected",
     amazon: {
       tagConnected: Boolean(tag),
       tagPreview: tag ? `${tag.slice(0, 4)}••••${tag.slice(-3)}` : null,
@@ -107,20 +107,20 @@ export async function GET(req: NextRequest) {
         note: tag ? "Amazon Associate tag is connected." : "Register later, then add AMAZON_ASSOCIATE_TAG in Vercel.",
       },
       {
-        label: "Walmart affiliate SID",
+        label: "Walmart diagnostic only",
         done: Boolean(walmartPublisherId),
         note: walmartPublisherId
-          ? "Walmart SID / publisher ID is connected for Walmart Better Picks."
-          : "Add WALMART_PUBLISHER_ID or WALMART_SID in Vercel.",
+          ? "Walmart SID / publisher ID is present, but public Better Picks are Amazon-only."
+          : "Walmart is paused. Add WALMART_PUBLISHER_ID or WALMART_SID only if you decide to re-enable it later.",
       },
       {
-        label: "Walmart official Impact template",
+        label: "Walmart official template diagnostic",
         done: Boolean(walmartTemplate),
         note: walmartTemplate
-          ? "Official Walmart affiliate template is configured."
+          ? "Official Walmart affiliate template is configured, but Walmart links are paused publicly."
           : walmartNetwork.toLowerCase() === "rakuten"
-            ? "Walmart network is marked Rakuten. Add WALMART_IMPACT_TRACKING_URL_TEMPLATE or WALMART_AFFILIATE_LINK_TEMPLATE if Rakuten gives you an exact deep-link template."
-            : "Using ReviewIntel's default Walmart Impact path. Add WALMART_IMPACT_TRACKING_URL_TEMPLATE if Walmart gives you a specific template.",
+            ? "Walmart network is marked Rakuten. Keep paused unless Rakuten gives you an exact deep-link template and you decide to enable it later."
+            : "Walmart links are paused publicly. Add a template only if you decide to re-enable Walmart later.",
       },
       {
         label: "Affiliate disclosure",

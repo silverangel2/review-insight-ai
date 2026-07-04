@@ -2001,7 +2001,7 @@ const siteWidePhraseTranslations = {
     "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
       "ReviewIntel peut afficher des emplacements sponsorisés payants, des publicités ReviewIntel, des emplacements Google AdSense lorsqu’ils sont activés et des recommandations de produits affiliées. La rémunération publicitaire ou d’affiliation ne contrôle pas les verdicts, scores d’achat, analyses d’avis ou avertissements produit.",
     "As an Amazon Associate I earn from qualifying purchases.": "En tant qu’associé Amazon, ReviewIntel gagne une commission sur les achats admissibles.",
-    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Des liens d’affiliation Amazon et Walmart peuvent apparaître dans Better Picks ou les sections de produits recommandés.",
+    "Amazon affiliate links may appear in Better Picks or recommended product sections.": "Des liens d’affiliation Amazon peuvent apparaître dans Better Picks ou les sections de produits recommandés.",
     "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Les emplacements sponsorisés sont des publicités, et les campagnes payantes doivent être approuvées avant leur affichage.",
     "Prohibited use": "Utilisation interdite",
     "You may not use ReviewIntel to upload unlawful content, personal data you are not allowed to process, malware, spam, deceptive material, or content intended to abuse marketplaces or reviewers.":
@@ -2229,7 +2229,7 @@ const siteWidePhraseTranslations = {
     "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
       "ReviewIntel puede mostrar espacios patrocinados pagados, anuncios propios de ReviewIntel, espacios de Google AdSense cuando estén activados y recomendaciones de productos con afiliados. La compensación publicitaria o de afiliados no controla los veredictos, Buy Scores, análisis de reseñas ni advertencias de producto.",
     "As an Amazon Associate I earn from qualifying purchases.": "Como asociado de Amazon, ReviewIntel gana por compras calificadas.",
-    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Los enlaces de afiliado de Amazon y Walmart pueden aparecer en Better Picks o en secciones de productos recomendados.",
+    "Amazon affiliate links may appear in Better Picks or recommended product sections.": "Los enlaces de afiliado de Amazon pueden aparecer en Better Picks o en secciones de productos recomendados.",
     "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Los espacios patrocinados son anuncios, y las campañas pagadas deben aprobarse antes de aparecer.",
     "Prohibited use": "Uso prohibido",
     Availability: "Disponibilidad",
@@ -2332,7 +2332,7 @@ const siteWidePhraseTranslations = {
     "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
       "ReviewIntel kann bezahlte Sponsorplatzierungen, eigene ReviewIntel-Anzeigen, aktivierte Google-AdSense-Platzierungen und Affiliate-Produktempfehlungen anzeigen. Affiliate- oder Werbevergütung steuert keine ReviewIntel-Urteile, Buy Scores, Bewertungsanalysen oder Produktwarnungen.",
     "As an Amazon Associate I earn from qualifying purchases.": "Als Amazon-Partner verdient ReviewIntel an qualifizierten Käufen.",
-    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Amazon- und Walmart-Affiliate-Links können in Better Picks oder empfohlenen Produktbereichen erscheinen.",
+    "Amazon affiliate links may appear in Better Picks or recommended product sections.": "Amazon-Affiliate-Links können in Better Picks oder empfohlenen Produktbereichen erscheinen.",
     "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Gesponserte Platzierungen sind Anzeigen; bezahlte Sponsor-Kampagnen müssen vor der Anzeige genehmigt werden.",
     "Prohibited use": "Verbotene Nutzung",
     Availability: "Verfügbarkeit",
@@ -2433,7 +2433,7 @@ const siteWidePhraseTranslations = {
     "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
       "ReviewIntel 可能展示付费赞助位、ReviewIntel 自有广告、启用时的 Google AdSense 广告位，以及联盟产品推荐。联盟或广告收入不会控制 ReviewIntel 的结论、购买评分、评价分析或产品警告。",
     "As an Amazon Associate I earn from qualifying purchases.": "作为 Amazon 联盟成员，ReviewIntel 会从符合条件的购买中获得收入。",
-    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Amazon 和 Walmart 联盟链接可能出现在 Better Picks 或推荐产品区域。",
+    "Amazon affiliate links may appear in Better Picks or recommended product sections.": "Amazon 联盟链接可能出现在 Better Picks 或推荐产品区域。",
     "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "赞助位属于广告，付费赞助活动必须获得批准后才会显示。",
     "Prohibited use": "禁止使用",
     Availability: "可用性",
@@ -2534,7 +2534,7 @@ const siteWidePhraseTranslations = {
     "ReviewIntel may show paid sponsor placements, ReviewIntel house ads, Google AdSense placements where enabled, and affiliate product recommendations. Affiliate or advertising compensation does not control ReviewIntel verdicts, Buy Scores, review analysis, or product warnings.":
       "ReviewIntel paid sponsor placements, ReviewIntel house ads, enabled Google AdSense placements और affiliate product recommendations दिखा सकता है। Affiliate या advertising compensation ReviewIntel verdicts, Buy Scores, review analysis या product warnings को control नहीं करता।",
     "As an Amazon Associate I earn from qualifying purchases.": "Amazon Associate के रूप में, ReviewIntel qualifying purchases से कमाई करता है।",
-    "Amazon and Walmart affiliate links may appear in Better Picks or recommended product sections.": "Amazon और Walmart affiliate links Better Picks या recommended product sections में दिख सकते हैं।",
+    "Amazon affiliate links may appear in Better Picks or recommended product sections.": "Amazon affiliate links Better Picks या recommended product sections में दिख सकते हैं।",
     "Sponsored placements are ads, and paid sponsor campaigns must be approved before they appear.": "Sponsored placements विज्ञापन हैं, और paid sponsor campaigns दिखने से पहले approve होने चाहिए।",
     "Prohibited use": "निषिद्ध उपयोग",
     Availability: "उपलब्धता",
@@ -7825,7 +7825,7 @@ const workflowPhraseTranslations = workflowPhraseTranslationEntries.reduce<
 const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record<string, string>>> = {
   fr: {
     "Choose the ReviewIntel brain that matches how you buy or sell.": "Choisissez le cerveau ReviewIntel qui correspond à votre façon d’acheter ou de vendre.",
-    "Shopper plans focus on faster buying decisions, product comparison, and Amazon/Walmart Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Les forfaits acheteur accélèrent les décisions d’achat, la comparaison de produits et les meilleurs choix Amazon/Walmart. Les forfaits vendeur se concentrent sur les plaintes, le suivi d’amélioration, les écarts concurrents et les décisions de croissance.",
+    "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Les forfaits acheteur accélèrent les décisions d’achat, la comparaison de produits et les meilleurs choix Amazon. Les forfaits vendeur se concentrent sur les plaintes, le suivi d’amélioration, les écarts concurrents et les décisions de croissance.",
     "Secure Stripe checkout for paid plans.": "Paiement Stripe sécurisé pour les forfaits payants.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free garde 3 analyses par jour.",
     "Seller signups require paid access unless beta/admin-approved.": "Les inscriptions vendeur exigent un accès payant sauf bêta ou approbation admin.",
@@ -7844,7 +7844,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Unlimited shopper scans": "Analyses acheteur illimitées",
     "Saved scan history": "Historique d’analyses sauvegardé",
     "Product A vs B compare": "Comparaison produit A vs B",
-    "Amazon/Walmart Better Picks": "Meilleurs choix Amazon/Walmart",
+    "Amazon Better Picks": "Meilleurs choix Amazon",
     "Affiliate-ready source links": "Liens sources prêts pour affiliation",
     "For sellers who need to understand what buyers keep praising or complaining about.": "Pour les vendeurs qui doivent comprendre ce que les acheteurs louent ou critiquent souvent.",
     "Finding product issues, review patterns, and listing fixes.": "Trouver problèmes produit, tendances d’avis et corrections de fiche.",
@@ -7864,7 +7864,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
   },
   es: {
     "Choose the ReviewIntel brain that matches how you buy or sell.": "Elige el cerebro de ReviewIntel que se adapta a cómo compras o vendes.",
-    "Shopper plans focus on faster buying decisions, product comparison, and Amazon/Walmart Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Los planes de comprador ayudan a decidir más rápido, comparar productos y ver mejores opciones de Amazon/Walmart. Los planes de vendedor se enfocan en quejas, mejoras, brechas competitivas y decisiones de crecimiento.",
+    "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Los planes de comprador ayudan a decidir más rápido, comparar productos y ver mejores opciones de Amazon. Los planes de vendedor se enfocan en quejas, mejoras, brechas competitivas y decisiones de crecimiento.",
     "Secure Stripe checkout for paid plans.": "Pago seguro con Stripe para planes pagos.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free mantiene 3 escaneos al día.",
     "Seller signups require paid access unless beta/admin-approved.": "Las cuentas de vendedor requieren pago salvo beta o aprobación admin.",
@@ -7883,7 +7883,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Unlimited shopper scans": "Escaneos ilimitados",
     "Saved scan history": "Historial guardado",
     "Product A vs B compare": "Comparación producto A vs B",
-    "Amazon/Walmart Better Picks": "Mejores opciones Amazon/Walmart",
+    "Amazon Better Picks": "Mejores opciones Amazon",
     "Affiliate-ready source links": "Enlaces fuente listos para afiliados",
     "For sellers who need to understand what buyers keep praising or complaining about.": "Para vendedores que necesitan entender elogios y quejas repetidas.",
     "Finding product issues, review patterns, and listing fixes.": "Encontrar problemas, patrones de reseñas y mejoras de ficha.",
@@ -7903,7 +7903,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
   },
   de: {
     "Choose the ReviewIntel brain that matches how you buy or sell.": "Wähle die ReviewIntel-Intelligenz, die zu deinem Kaufen oder Verkaufen passt.",
-    "Shopper plans focus on faster buying decisions, product comparison, and Amazon/Walmart Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Shopper-Pläne helfen bei schnelleren Kaufentscheidungen, Vergleichen und Amazon/Walmart-Auswahl. Seller-Pläne fokussieren Beschwerden, Verbesserungen, Wettbewerbschancen und Wachstum.",
+    "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Shopper-Pläne helfen bei schnelleren Kaufentscheidungen, Vergleichen und Amazon-Auswahl. Seller-Pläne fokussieren Beschwerden, Verbesserungen, Wettbewerbschancen und Wachstum.",
     "Secure Stripe checkout for paid plans.": "Sicherer Stripe-Checkout für bezahlte Pläne.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free bleibt bei 3 Scans pro Tag.",
     "Seller signups require paid access unless beta/admin-approved.": "Seller-Zugänge benötigen Zahlung, außer Beta/Admin ist genehmigt.",
@@ -7922,7 +7922,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Unlimited shopper scans": "Unbegrenzte Shopper-Scans",
     "Saved scan history": "Gespeicherte Historie",
     "Product A vs B compare": "Produkt A vs B Vergleich",
-    "Amazon/Walmart Better Picks": "Bessere Amazon/Walmart-Auswahl",
+    "Amazon Better Picks": "Bessere Amazon-Auswahl",
     "Affiliate-ready source links": "Affiliate-fähige Quellenlinks",
     "For sellers who need to understand what buyers keep praising or complaining about.": "Für Verkäufer, die wiederkehrendes Lob und Beschwerden verstehen müssen.",
     "Finding product issues, review patterns, and listing fixes.": "Produktprobleme, Muster und Listing-Fixes finden.",
@@ -7942,7 +7942,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
   },
   zh: {
     "Choose the ReviewIntel brain that matches how you buy or sell.": "选择适合你购买或销售方式的 ReviewIntel 智能方案。",
-    "Shopper plans focus on faster buying decisions, product comparison, and Amazon/Walmart Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "买家方案帮助更快决策、比较产品并查看 Amazon/Walmart 更好选择。卖家方案关注投诉洞察、产品改进、竞争差距和增长决策。",
+    "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "买家方案帮助更快决策、比较产品并查看 Amazon 更好选择。卖家方案关注投诉洞察、产品改进、竞争差距和增长决策。",
     "Secure Stripe checkout for paid plans.": "付费方案使用安全 Stripe 结账。",
     "Shopper Free keeps 3 scans per day.": "Shopper Free 每天保留 3 次扫描。",
     "Seller signups require paid access unless beta/admin-approved.": "卖家注册需要付费访问，除非获得 Beta 或管理员批准。",
@@ -7961,7 +7961,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Unlimited shopper scans": "无限买家扫描",
     "Saved scan history": "保存扫描历史",
     "Product A vs B compare": "产品 A vs B 比较",
-    "Amazon/Walmart Better Picks": "Amazon/Walmart 更好选择",
+    "Amazon Better Picks": "Amazon 更好选择",
     "Affiliate-ready source links": "可用于联盟的来源链接",
     "For sellers who need to understand what buyers keep praising or complaining about.": "适合需要了解买家反复称赞或抱怨内容的卖家。",
     "Finding product issues, review patterns, and listing fixes.": "发现产品问题、评论模式和页面改进点。",
@@ -7981,7 +7981,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
   },
   hi: {
     "Choose the ReviewIntel brain that matches how you buy or sell.": "वह ReviewIntel brain चुनें जो आपके खरीदने या बेचने के तरीके से मेल खाता है.",
-    "Shopper plans focus on faster buying decisions, product comparison, and Amazon/Walmart Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Shopper plans तेज buying decisions, product comparison और Amazon/Walmart Better Picks पर focus करते हैं. Seller plans complaints, product improvement tracking, competitor gaps और growth decisions पर focus करते हैं.",
+    "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Shopper plans तेज buying decisions, product comparison और Amazon Better Picks पर focus करते हैं. Seller plans complaints, product improvement tracking, competitor gaps और growth decisions पर focus करते हैं.",
     "Secure Stripe checkout for paid plans.": "Paid plans के लिए secure Stripe checkout.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free में हर दिन 3 scans रहते हैं.",
     "Seller signups require paid access unless beta/admin-approved.": "Seller signup के लिए paid access चाहिए, जब तक beta/admin-approved न हो.",
@@ -8000,7 +8000,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Unlimited shopper scans": "Unlimited shopper scans",
     "Saved scan history": "Saved scan history",
     "Product A vs B compare": "Product A vs B compare",
-    "Amazon/Walmart Better Picks": "Amazon/Walmart Better Picks",
+    "Amazon Better Picks": "Amazon Better Picks",
     "Affiliate-ready source links": "Affiliate-ready source links",
     "For sellers who need to understand what buyers keep praising or complaining about.": "उन sellers के लिए जिन्हें समझना है कि buyers बार-बार क्या praise या complain करते हैं.",
     "Finding product issues, review patterns, and listing fixes.": "Product issues, review patterns और listing fixes ढूँढना.",

@@ -44,7 +44,7 @@ const tiers: Array<{
       "Unlimited shopper scans",
       "Saved scan history",
       "Product A vs B compare",
-      "Amazon/Walmart Better Picks",
+      "Amazon Better Picks",
       "Affiliate-ready source links"
     ]
   },

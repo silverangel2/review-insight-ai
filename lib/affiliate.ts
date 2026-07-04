@@ -74,10 +74,16 @@ function getWalmartCampaignId() {
 }
 
 export function getAffiliateDisclosure() {
-  return (
-    process.env.NEXT_PUBLIC_AFFILIATE_DISCLOSURE?.trim() ||
-    "ReviewIntel may earn from qualifying purchases through Amazon Associates and Walmart affiliate links. Affiliate compensation does not affect ReviewIntel verdicts or review analysis."
-  );
+  const configured = process.env.NEXT_PUBLIC_AFFILIATE_DISCLOSURE?.trim();
+
+  if (configured) {
+    return configured
+      .replace(/through Amazon Associates and Walmart affiliate links/gi, "through Amazon Associates links")
+      .replace(/Amazon and Walmart affiliate links/gi, "Amazon affiliate links")
+      .replace(/Amazon\/Walmart/gi, "Amazon");
+  }
+
+  return "ReviewIntel may earn from qualifying purchases through Amazon Associates links. Affiliate compensation does not affect ReviewIntel verdicts or review analysis.";
 }
 
 function isAmazonHost(hostname: string) {
@@ -117,7 +123,7 @@ export function isWalmartUrl(url: string) {
 }
 
 export function isSupportedAffiliateUrl(url: string) {
-  return isAmazonUrl(url) || isWalmartUrl(url);
+  return isAmazonUrl(url);
 }
 
 export function buildAmazonAffiliateUrl(url: string) {
@@ -182,7 +188,6 @@ export function buildWalmartAffiliateUrl(url: string) {
 
 export function buildAffiliateUrl(url: string) {
   if (isAmazonUrl(url)) return buildAmazonAffiliateUrl(url);
-  if (isWalmartUrl(url)) return buildWalmartAffiliateUrl(url);
   return url;
 }
 
