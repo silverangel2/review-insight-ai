@@ -208,7 +208,39 @@ export function AdminAdvertisingManager() {
             </p>
             <h2 className="mt-2 text-2xl font-black">Add your own banner or video</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Use this for ReviewIntel promos or your own approved creative. It is saved as a paid owner campaign, rotates by placement, and can be paused below.
+              Use this for ReviewIntel promos or your own approved creative. Choose the exact placement, add the creative, and it enters that placement&apos;s rotation queue.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-slate-950/50">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-200">
+              Best banner size
+            </p>
+            <p className="mt-2 font-bold text-ink dark:text-white">1600 x 500 PNG/JPG/WebP</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              Keep text inside the center area so mobile crops still look clean.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-slate-950/50">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-200">
+              Queue rule
+            </p>
+            <p className="mt-2 font-bold text-ink dark:text-white">Each spot rotates separately</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              Multiple active ads in the same placement rotate automatically by time and daily cap.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-slate-950/50">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-200">
+              Display priority
+            </p>
+            <p className="mt-2 font-bold text-ink dark:text-white">Sponsor/owner first</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
+              Paid owner or sponsor ads show before AdSense. Affiliate recommendation cards are separate and do not override this queue.
             </p>
           </div>
         </div>
@@ -281,7 +313,7 @@ export function AdminAdvertisingManager() {
                 className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-slate-600 outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-ocean file:px-4 file:py-2 file:text-sm file:font-black file:text-white focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
               />
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                Optional. Images up to 8 MB; video up to 60 MB.
+                Optional. Images up to 8 MB; video up to 60 MB. Starter banner URL: /uploads/ads/reviewintel-ad-banner-1600x500.png
               </span>
             </label>
 
