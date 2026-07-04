@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { trackTrafficEvent } from "@/lib/clientTraffic";
 import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 
 type AffiliateLink = {
@@ -168,6 +169,18 @@ export function AffiliateSourcePanel({
               href={link.affiliateUrl || link.sourceUrl}
               target="_blank"
               rel="sponsored noopener noreferrer"
+              onClick={() =>
+                trackTrafficEvent({
+                  eventType: "affiliate_click",
+                  metadata: {
+                    source: "scan_evidence_source",
+                    provider: link.provider,
+                    label: link.label,
+                    host: link.host,
+                    qualifying: link.qualifying,
+                  },
+                })
+              }
               className={`${compact ? "min-w-[210px] p-3" : "p-4"} rounded-2xl border border-white/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-white/10 dark:bg-slate-950/80`}
             >
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-600 dark:text-sky-200">

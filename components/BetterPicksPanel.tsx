@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { trackTrafficEvent } from "@/lib/clientTraffic";
 import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 
 type ResultRecord = Record<string, unknown>;
@@ -415,6 +416,18 @@ export function BetterPicksPanel({
                 href={pick.affiliateUrl || pick.url}
                 target="_blank"
                 rel="sponsored noopener noreferrer"
+                onClick={() =>
+                  trackTrafficEvent({
+                    eventType: "affiliate_click",
+                    metadata: {
+                      source: "better_picks",
+                      provider: pick.store,
+                      productName,
+                      recommendedProduct: pick.title,
+                      verdict,
+                    },
+                  })
+                }
                 className={`${compact ? "px-3 py-2 text-[10px]" : "px-4 py-2 text-xs"} mt-4 inline-flex rounded-full bg-slate-950 font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 dark:bg-white dark:text-slate-950`}
               >
                 {panelCopy.view}

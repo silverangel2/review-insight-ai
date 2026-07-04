@@ -377,7 +377,7 @@ export const trustPages: Record<string, TrustPageContent> = {
     title: "Cookie Policy",
     eyebrow: "Cookies and local storage",
     summary:
-      "ReviewIntel uses essential cookies and browser storage for login state, account role, plan mode, quotas, preferences, and product operation. Optional ad cookies are only used after consent.",
+      "ReviewIntel uses essential cookies and browser storage for login state, account role, plan mode, quotas, preferences, product operation, and privacy-friendly traffic counts. Optional ad cookies are only used after consent.",
     updated: "June 27, 2026",
     tone: "trust",
     sections: [
@@ -389,7 +389,7 @@ export const trustPages: Record<string, TrustPageContent> = {
       {
         title: "Analytics and marketing",
         body:
-          "ReviewIntel may show first-party sponsor placements as part of the site. Optional Google AdSense cookies and scripts are only loaded after you accept optional cookies."
+          "ReviewIntel may count public page views, approximate location, platform, referrer, campaign tags, pricing clicks, and affiliate clicks without storing raw IP addresses. Optional Google AdSense cookies and scripts are only loaded after you accept optional cookies."
       },
       {
         title: "Managing storage",

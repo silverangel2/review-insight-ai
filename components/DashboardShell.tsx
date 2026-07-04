@@ -18,6 +18,7 @@ const navItems: Record<DashboardExperience, Array<[string, string]>> = {
   admin: [
     ["/admin", "Control Center"],
     ["/admin/customers", "Customers"],
+    ["/admin/traffic", "Traffic"],
     ["/admin/email", "Email"],
     ["/admin/security", "Security"],
     ["/admin/seo", "SEO Manager"],

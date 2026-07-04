@@ -31,6 +31,12 @@ export default async function AdminPage() {
       action: "Manage accounts"
     },
     {
+      title: "Traffic",
+      detail: "Page views, visitors, locations, platforms, referrers, UTM campaigns, pricing clicks, and affiliate clicks.",
+      href: "/admin/traffic",
+      action: "Track growth"
+    },
+    {
       title: "Security",
       detail: "Threat events, rate limits, suspicious access, and IP blocking.",
       href: "/admin/security",

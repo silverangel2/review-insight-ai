@@ -18,7 +18,7 @@ const copy: Record<ConsentLanguage, {
   en: {
     eyebrow: "Cookie choice",
     title: "ReviewIntel uses essential cookies.",
-    body: "Login, security, language, and account mode need essential cookies or browser storage. Optional Google ad cookies load only if you accept.",
+    body: "Login, security, language, account mode, and privacy-friendly traffic counts use essential storage. Optional Google ad cookies load only if you accept.",
     accept: "Accept optional cookies",
     essential: "Essential only",
     policy: "Cookie Policy"
@@ -26,7 +26,7 @@ const copy: Record<ConsentLanguage, {
   fr: {
     eyebrow: "Choix des cookies",
     title: "ReviewIntel utilise des cookies essentiels.",
-    body: "La connexion, la sécurité, la langue et le mode de compte utilisent des cookies ou le stockage essentiel. Les cookies publicitaires Google ne se chargent que si vous acceptez.",
+    body: "Connexion, sécurité, langue, mode de compte et comptage de trafic respectueux de la vie privée utilisent le stockage essentiel. Les cookies publicitaires Google ne se chargent que si vous acceptez.",
     accept: "Accepter les cookies optionnels",
     essential: "Essentiels seulement",
     policy: "Politique cookies"
@@ -34,7 +34,7 @@ const copy: Record<ConsentLanguage, {
   es: {
     eyebrow: "Preferencia de cookies",
     title: "ReviewIntel usa cookies esenciales.",
-    body: "El inicio de sesión, la seguridad, el idioma y el modo de cuenta necesitan cookies o almacenamiento esencial. Las cookies opcionales de anuncios de Google solo cargan si aceptas.",
+    body: "Inicio de sesión, seguridad, idioma, modo de cuenta y conteos de tráfico respetuosos con la privacidad usan almacenamiento esencial. Las cookies opcionales de Google solo cargan si aceptas.",
     accept: "Aceptar cookies opcionales",
     essential: "Solo esenciales",
     policy: "Política de cookies"
@@ -42,7 +42,7 @@ const copy: Record<ConsentLanguage, {
   zh: {
     eyebrow: "Cookie 选择",
     title: "ReviewIntel 使用必要 Cookie。",
-    body: "登录、安全、语言和账户模式需要必要 Cookie 或浏览器存储。只有在你接受后，Google 广告 Cookie 才会加载。",
+    body: "登录、安全、语言、账户模式和隐私友好的流量统计使用必要存储。只有接受后，Google 广告 Cookie 才会加载。",
     accept: "接受可选 Cookie",
     essential: "仅必要",
     policy: "Cookie 政策"
@@ -50,7 +50,7 @@ const copy: Record<ConsentLanguage, {
   de: {
     eyebrow: "Cookie-Auswahl",
     title: "ReviewIntel nutzt notwendige Cookies.",
-    body: "Login, Sicherheit, Sprache und Kontomodus benötigen notwendige Cookies oder Browserspeicher. Optionale Google-Werbe-Cookies laden nur nach Zustimmung.",
+    body: "Login, Sicherheit, Sprache, Kontomodus und datenschutzfreundliche Traffic-Zählung nutzen notwendigen Speicher. Optionale Google-Werbe-Cookies laden nur nach Zustimmung.",
     accept: "Optionale Cookies akzeptieren",
     essential: "Nur notwendige",
     policy: "Cookie-Richtlinie"
@@ -58,7 +58,7 @@ const copy: Record<ConsentLanguage, {
   hi: {
     eyebrow: "Cookie choice",
     title: "ReviewIntel essential cookies use करता है.",
-    body: "Login, security, language और account mode के लिए essential cookies या browser storage चाहिए. Optional Google ad cookies सिर्फ accept करने पर load होंगे.",
+    body: "Login, security, language, account mode और privacy-friendly traffic counts essential storage use करते हैं. Optional Google ad cookies सिर्फ accept करने पर load होंगे.",
     accept: "Optional cookies accept करें",
     essential: "Essential only",
     policy: "Cookie Policy"

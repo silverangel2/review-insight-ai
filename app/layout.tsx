@@ -15,6 +15,7 @@ import { SellerResultHistoryCorner } from "@/components/SellerResultHistoryCorne
 import MobileTinyNav from "@/components/mobile/MobileTinyNav";
 import MobileUtilityMenu from "@/components/mobile/MobileUtilityMenu";
 import SessionIdleLogout from "@/components/SessionIdleLogout";
+import { TrafficTracker } from "@/components/TrafficTracker";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
@@ -57,6 +58,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <NextIntlClientProvider locale={locale} messages={messages}>
         <LocaleSync initialLocale={locale} />
         <ClientTextLocalizer />
+        <TrafficTracker />
         <IdleLogoutGuard />
         <script
           type="application/ld+json"
