@@ -1517,7 +1517,7 @@ async function postToPlatform(platform: string, caption: string, media?: SocialM
   };
 }
 
-export async function runSocialAutoPost(options: { force?: boolean } = {}) {
+async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
   const settings = await getSocialSettings();
 
   if (settings.emergency_pause) {
@@ -1681,3 +1681,182 @@ export async function runSocialAutoPost(options: { force?: boolean } = {}) {
     results,
   };
 }
+
+type __ReviewIntelSocialMediaSourceMode = "codex_library" | "uploaded" | "mixed";
+
+function __riSocialMediaSourceMode(): __ReviewIntelSocialMediaSourceMode {
+  const value = (process.env.SOCIAL_AUTOPOST_MEDIA_SOURCE || "codex_library")
+    .trim()
+    .toLowerCase();
+
+  if (value === "uploaded" || value === "mixed" || value === "codex_library") {
+    return value;
+  }
+
+  return "codex_library";
+}
+
+function __riUploadedSocialFallbackEnabled(): boolean {
+  const value = (process.env.SOCIAL_AUTOPOST_ALLOW_UPLOADED_FALLBACK || "false")
+    .trim()
+    .toLowerCase();
+
+  return value === "1" || value === "true" || value === "yes" || value === "on";
+}
+
+function __riShouldForceCodexMediaTable(tableName: string): boolean {
+  const table = tableName.toLowerCase();
+
+  if (
+    table === "social_media_assets" ||
+    table === "social_assets" ||
+    table === "social_media_library" ||
+    table === "social_library" ||
+    table === "media_assets"
+  ) {
+    return true;
+  }
+
+  return table.includes("social") && (
+    table.includes("media") ||
+    table.includes("asset") ||
+    table.includes("library")
+  );
+}
+
+function installCodexMediaFetchGuard(): () => void {
+  const mode = __riSocialMediaSourceMode();
+  const allowUploadedFallback = __riUploadedSocialFallbackEnabled();
+
+  if (mode !== "codex_library") {
+    return () => {};
+  }
+
+  const originalFetch = globalThis.fetch;
+
+  if (typeof originalFetch !== "function") {
+    return () => {};
+  }
+
+  const guardedFetch: typeof fetch = async (input, init) => {
+    try {
+      const isRequest =
+        typeof Request !== "undefined" && input instanceof Request;
+
+      const rawUrl =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : isRequest
+              ? input.url
+              : "";
+
+      if (!rawUrl) {
+        return originalFetch(input, init);
+      }
+
+      const url = new URL(rawUrl);
+      const method = (init?.method || (isRequest ? input.method : "GET") || "GET")
+        .toUpperCase();
+
+      const lowerPathname = url.pathname.toLowerCase();
+
+      if (
+        lowerPathname.includes("/uploads/social/") &&
+        !allowUploadedFallback
+      ) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: "UPLOADED_SOCIAL_MEDIA_FALLBACK_BLOCKED",
+            message:
+              "Social auto-post is configured for Codex library media only. Uploaded /uploads/social assets are blocked.",
+          }),
+          {
+            status: 409,
+            headers: {
+              "content-type": "application/json",
+            },
+          }
+        );
+      }
+
+      const restPrefix = "/rest/v1/";
+      const restIndex = lowerPathname.indexOf(restPrefix);
+
+      if (restIndex >= 0 && (method === "GET" || method === "HEAD")) {
+        const tableName = decodeURIComponent(
+          lowerPathname
+            .slice(restIndex + restPrefix.length)
+            .split("/")
+            .filter(Boolean)[0] || ""
+        );
+
+        if (__riShouldForceCodexMediaTable(tableName)) {
+          url.searchParams.set("codex_library", "eq.true");
+
+          const existingOrder = url.searchParams.get("order") || "";
+          if (!existingOrder.includes("codex_library")) {
+            url.searchParams.set("order", "codex_library.desc,created_at.asc");
+          }
+
+          const forwardedInit: RequestInit | undefined = isRequest
+            ? {
+                method: input.method,
+                headers: input.headers,
+                signal: input.signal,
+                ...init,
+              }
+            : init;
+
+          return originalFetch(url.toString(), forwardedInit);
+        }
+      }
+    } catch {
+      // Fall through to the original request.
+    }
+
+    return originalFetch(input, init);
+  };
+
+  globalThis.fetch = guardedFetch;
+
+  return () => {
+    globalThis.fetch = originalFetch;
+  };
+}
+
+export async function runSocialAutoPost(
+  ...args: Parameters<typeof runSocialAutoPostInternal>
+) {
+  const restoreFetch = installCodexMediaFetchGuard();
+
+  try {
+    const result = await runSocialAutoPostInternal(...args);
+
+    const mediaItems = Array.isArray(result?.results)
+      ? result.results
+          .map((item) => item?.metadata?.media)
+          .filter(Boolean)
+      : [];
+
+    const usedUploadedFallback = mediaItems.some((media) => {
+      const fileUrl = String(media?.file_url || media?.thumbnail_url || "");
+      return media?.codex_library !== true || fileUrl.includes("/uploads/social/");
+    });
+
+    if (__riSocialMediaSourceMode() === "codex_library" && usedUploadedFallback) {
+      return {
+        ...result,
+        media_source_warning:
+          "A non-Codex uploaded media asset was selected. Check that Codex library records have codex_library=true.",
+      };
+    }
+
+    return result;
+  } finally {
+    restoreFetch();
+  }
+}
+
