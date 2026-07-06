@@ -1726,7 +1726,6 @@ function __riShouldForceCodexMediaTable(tableName: string): boolean {
 
 function installCodexMediaFetchGuard(): () => void {
   const mode = __riSocialMediaSourceMode();
-  const allowUploadedFallback = __riUploadedSocialFallbackEnabled();
 
   if (mode !== "codex_library") {
     return () => {};
@@ -1821,18 +1820,21 @@ export async function runSocialAutoPost(
           .filter(Boolean)
       : [];
 
-    const hasCodexMarker = (media: any): boolean => {
-      const id = String(media?.id || "").toLowerCase();
-      const title = String(media?.title || "").toLowerCase();
-      const source = String(media?.source || media?.media_source || "").toLowerCase();
-      const tags = Array.isArray(media?.tags)
+    const hasCodexMarker = (media: Record<string, unknown>): boolean => {
+      const id = String(media.id || "").toLowerCase();
+      const title = String(media.title || "").toLowerCase();
+      const source = String(media.source || media.media_source || "").toLowerCase();
+      const tags = Array.isArray(media.tags)
         ? media.tags.map((tag: unknown) => String(tag).toLowerCase())
         : [];
-      const metadata = media?.metadata || {};
+      const metadata =
+        media.metadata && typeof media.metadata === "object"
+          ? (media.metadata as Record<string, unknown>)
+          : {};
 
       return (
-        media?.codex_library === true ||
-        metadata?.codex_library === true ||
+        media.codex_library === true ||
+        metadata.codex_library === true ||
         id.startsWith("codex-") ||
         id.includes("codex") ||
         title.includes("codex") ||
