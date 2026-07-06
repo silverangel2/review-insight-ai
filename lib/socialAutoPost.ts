@@ -1696,14 +1696,6 @@ function __riSocialMediaSourceMode(): __ReviewIntelSocialMediaSourceMode {
   return "codex_library";
 }
 
-function __riUploadedSocialFallbackEnabled(): boolean {
-  const value = (process.env.SOCIAL_AUTOPOST_ALLOW_UPLOADED_FALLBACK || "false")
-    .trim()
-    .toLowerCase();
-
-  return value === "1" || value === "true" || value === "yes" || value === "on";
-}
-
 function __riShouldForceCodexMediaTable(tableName: string): boolean {
   const table = tableName.toLowerCase();
 
