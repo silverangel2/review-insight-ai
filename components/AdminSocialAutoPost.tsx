@@ -101,6 +101,7 @@ export default function AdminSocialAutoPost() {
   const [tiktokCheck, setTikTokCheck] = useState<ConnectorHealth | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [generatingVideos, setGeneratingVideos] = useState(false);
 
   async function load() {
     try {
@@ -456,6 +457,36 @@ export default function AdminSocialAutoPost() {
       setStatus("Could not add media.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function generateVideoAssets() {
+    setGeneratingVideos(true);
+    setStatus("Generating Codex vertical video assets. Image posting will keep working if this fails...");
+
+    try {
+      const response = await fetch("/api/admin/social-media/generate-videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 24 }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      const result = data.result || {};
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Codex video generation failed. Existing image posting is unchanged.");
+        return;
+      }
+
+      await load();
+      setStatus(
+        `Codex video generation finished: ${result.generated_count || 0} new video asset${result.generated_count === 1 ? "" : "s"}, ${result.skipped_count || 0} already ready, ${result.failed_count || 0} failed.`
+      );
+    } catch {
+      setStatus("Codex video generation failed. Existing image posting is unchanged.");
+    } finally {
+      setGeneratingVideos(false);
     }
   }
 
@@ -964,15 +995,27 @@ export default function AdminSocialAutoPost() {
 
         <div className="mt-5 rounded-2xl border border-dashed border-ocean/30 bg-cyan-50/60 p-4 dark:border-cyan-300/20 dark:bg-cyan-300/10">
           <div className="mb-4 rounded-2xl border border-white/70 bg-white/80 p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
-              Codex premium library
-            </p>
-            <p className="mt-1 text-sm font-black text-ink dark:text-white">
-              ReviewIntel uses the Codex-made premium images from the uploaded social library.
-            </p>
-            <p className="mt-1 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
-              Active uploaded media rotates first. Homepage instructional videos are kept separate. If no active upload matches, ReviewIntel uses the Codex premium library instead of the old house image pack.
-            </p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
+                  Codex premium library
+                </p>
+                <p className="mt-1 text-sm font-black text-ink dark:text-white">
+                  ReviewIntel uses Codex-made images and generated vertical reels for the 100-day queue.
+                </p>
+                <p className="mt-1 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
+                  Active uploaded media rotates first. Homepage instructional videos stay separate. If Facebook format is auto, video reels are preferred when available and images remain the fallback.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={generateVideoAssets}
+                disabled={saving || uploadingMedia || generatingVideos}
+                className="rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cyan-300 dark:text-ink dark:hover:bg-white"
+              >
+                {generatingVideos ? "Generating reels..." : "Generate video assets"}
+              </button>
+            </div>
           </div>
           <label className="block cursor-pointer rounded-2xl bg-white px-4 py-4 text-sm font-black text-ink shadow-soft dark:bg-slate-900 dark:text-white">
             <span>{uploadingMedia ? "Uploading..." : "Upload photos/videos"}</span>

@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
+    "generate:social-videos": "node scripts/generate-social-videos.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@supabase/supabase-js": "^2.110.0",
     "next": "^15.3.4",
     "next-intl": "^4.13.0",

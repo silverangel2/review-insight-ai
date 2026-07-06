@@ -678,6 +678,7 @@ Rules:
 type SocialMediaItem = {
   id: string;
   media_type: "image" | "video" | string;
+  mime_type?: string | null;
   file_url: string;
   thumbnail_url?: string | null;
   title?: string | null;
@@ -692,6 +693,12 @@ type SocialQueueState = {
   queueDay: number;
   cycleNumber: number;
   recycleCount: number;
+};
+
+type SocialMediaPickOptions = {
+  preferMediaType?: "image" | "video";
+  requireMediaType?: "image" | "video";
+  allowCodexFallback?: boolean;
 };
 
 let codexSocialLibraryCache: string[] | null = null;
@@ -780,6 +787,17 @@ function absoluteMediaUrl(media?: SocialMediaItem | null) {
   return media.file_url.startsWith("/") ? `${publicSiteUrl()}${media.file_url}` : media.file_url;
 }
 
+function facebookAutoPostFormat() {
+  const value = envFirst("SOCIAL_AUTOPOST_FACEBOOK_FORMAT", "FACEBOOK_AUTOPOST_FORMAT")
+    .trim()
+    .toLowerCase();
+
+  if (value === "auto") return "auto";
+  if (value === "reel" || value === "reels" || value === "video") return "reel";
+  if (value === "image" || value === "photo") return "image";
+  return "default";
+}
+
 function compactSocialText(value: string, limit: number) {
   const clean = String(value || "").replace(/\s+/g, " ").trim();
   return clean.length <= limit ? clean : `${clean.slice(0, Math.max(0, limit - 1)).trim()}…`;
@@ -840,7 +858,19 @@ function advanceQueueState(queue: SocialQueueState, cycleLength: number): Social
   return { queueDay, cycleNumber, recycleCount };
 }
 
-async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<SocialMediaItem> {
+function sortPickedMedia(rows: SocialMediaItem[], options: SocialMediaPickOptions) {
+  const preferredType = options.preferMediaType;
+  if (!preferredType) return rows;
+
+  const preferredRows = rows.filter((row) => String(row.media_type || "") === preferredType);
+  return preferredRows.length ? preferredRows : rows;
+}
+
+async function pickSocialMedia(
+  topic: string,
+  queue: SocialQueueState,
+  options: SocialMediaPickOptions = {}
+): Promise<SocialMediaItem | null> {
   const usable = (rows: unknown): SocialMediaItem[] =>
     Array.isArray(rows)
       ? (rows as SocialMediaItem[]).filter((row) => {
@@ -848,6 +878,7 @@ async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<
           return (
             Boolean(row.file_url) &&
             (mediaType === "image" || mediaType === "video") &&
+            (!options.requireMediaType || mediaType === options.requireMediaType) &&
             String(row.topic || "") !== HOMEPAGE_VIDEO_TOPIC &&
             !Boolean(row.metadata?.homepage_video) &&
             !isOldHouseSocialMedia(row)
@@ -856,21 +887,24 @@ async function pickSocialMedia(topic: string, queue: SocialQueueState): Promise<
       : [];
 
   const topicQuery = encodeURIComponent(topic);
-  const topicRows = usable(
+  const topicRows = sortPickedMedia(usable(
     await supabaseFetch(
       `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=20`
     ).catch(() => [])
-  );
+  ), options);
 
   const fallbackRows = topicRows.length
     ? topicRows
-    : usable(
+    : sortPickedMedia(usable(
         await supabaseFetch(
           "admin_social_media?select=*&is_active=eq.true&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=40"
         ).catch(() => [])
-      );
+      ), options);
 
-  if (!fallbackRows.length) return codexLibrarySocialMedia(topic, queue);
+  if (!fallbackRows.length) {
+    if (options.requireMediaType || options.allowCodexFallback === false) return null;
+    return codexLibrarySocialMedia(topic, queue);
+  }
 
   return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || codexLibrarySocialMedia(topic, queue);
 }
@@ -1544,14 +1578,41 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
   let lastQueue = queue;
   const now = new Date().toISOString();
   const results = [];
-  const mediaUsed: SocialMediaItem[] = [];
+  const mediaUsed: Array<SocialMediaItem | null> = [];
 
   for (let batchIndex = 0; batchIndex < batchCount; batchIndex += 1) {
     const topic = topics[(new Date().getUTCDate() + batchIndex) % topics.length];
-    const media = await pickSocialMedia(topic, queue);
-    mediaUsed.push(media);
+    const defaultMedia = (await pickSocialMedia(topic, queue)) || codexLibrarySocialMedia(topic, queue);
 
     for (const platform of platformsToPost) {
+      const facebookFormat = platform === "facebook" ? facebookAutoPostFormat() : "default";
+      const media =
+        facebookFormat === "auto"
+          ? (await pickSocialMedia(topic, queue, { preferMediaType: "video" })) || defaultMedia
+          : facebookFormat === "reel"
+            ? await pickSocialMedia(topic, queue, {
+                preferMediaType: "video",
+                requireMediaType: "video",
+                allowCodexFallback: false,
+              })
+            : defaultMedia;
+
+      if (facebookFormat === "reel" && (!media || media.media_type !== "video")) {
+        results.push({
+          platform,
+          status: "skipped",
+          topic,
+          error: "SOCIAL_AUTOPOST_FACEBOOK_FORMAT=reel requires active video media, but no generated or uploaded video was available.",
+          metadata: {
+            queue,
+            facebookFormat,
+            fix: "Generate Codex video assets in Admin Social or upload an active MP4 video to the social media library.",
+          },
+        });
+        continue;
+      }
+
+      mediaUsed.push(media);
       const content = await generateAiReviewIntelContentPack(platform, topic, queue, media);
       const affiliateAttachment = socialAffiliateAttachment(platform, topic);
       const baseCaption = finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
@@ -1596,6 +1657,7 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
             ? {
                 id: media.id,
                 type: media.media_type,
+                mime_type: media.mime_type || media.metadata?.mime_type || null,
                 file_url: media.file_url,
                 thumbnail_url: media.thumbnail_url ?? null,
                 title: media.title ?? null,
@@ -1656,7 +1718,15 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
   const hasCompletedResults = completedResults.length > 0;
 
   if (hasCompletedResults) {
-    for (const media of mediaUsed) {
+    const uniqueMediaUsed = Array.from(
+      new Map(
+        mediaUsed
+          .filter((media): media is SocialMediaItem => Boolean(media?.id))
+          .map((media) => [media.id, media])
+      ).values()
+    );
+
+    for (const media of uniqueMediaUsed) {
       await markSocialMediaUsed(media, now);
     }
 
@@ -1677,7 +1747,9 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
     cycle_number: lastQueue.cycleNumber,
     recycle_count: lastQueue.recycleCount,
     batches: batchCount,
-    media_ids: mediaUsed.map((media) => media.id),
+    media_ids: mediaUsed
+      .filter((media): media is SocialMediaItem => Boolean(media?.id))
+      .map((media) => media.id),
     results,
   };
 }
@@ -1853,4 +1925,3 @@ export async function runSocialAutoPost(
     restoreFetch();
   }
 }
-
