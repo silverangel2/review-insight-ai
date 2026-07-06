@@ -1762,26 +1762,6 @@ function installCodexMediaFetchGuard(): () => void {
 
       const lowerPathname = url.pathname.toLowerCase();
 
-      if (
-        lowerPathname.includes("/uploads/social/") &&
-        !allowUploadedFallback
-      ) {
-        return new Response(
-          JSON.stringify({
-            ok: false,
-            error: "UPLOADED_SOCIAL_MEDIA_FALLBACK_BLOCKED",
-            message:
-              "Social auto-post is configured for Codex library media only. Uploaded /uploads/social assets are blocked.",
-          }),
-          {
-            status: 409,
-            headers: {
-              "content-type": "application/json",
-            },
-          }
-        );
-      }
-
       const restPrefix = "/rest/v1/";
       const restIndex = lowerPathname.indexOf(restPrefix);
 
@@ -1841,16 +1821,36 @@ export async function runSocialAutoPost(
           .filter(Boolean)
       : [];
 
-    const usedUploadedFallback = mediaItems.some((media) => {
-      const fileUrl = String(media?.file_url || media?.thumbnail_url || "");
-      return media?.codex_library !== true || fileUrl.includes("/uploads/social/");
-    });
+    const hasCodexMarker = (media: any): boolean => {
+      const id = String(media?.id || "").toLowerCase();
+      const title = String(media?.title || "").toLowerCase();
+      const source = String(media?.source || media?.media_source || "").toLowerCase();
+      const tags = Array.isArray(media?.tags)
+        ? media.tags.map((tag: unknown) => String(tag).toLowerCase())
+        : [];
+      const metadata = media?.metadata || {};
 
-    if (__riSocialMediaSourceMode() === "codex_library" && usedUploadedFallback) {
+      return (
+        media?.codex_library === true ||
+        metadata?.codex_library === true ||
+        id.startsWith("codex-") ||
+        id.includes("codex") ||
+        title.includes("codex") ||
+        source === "codex" ||
+        source === "codex_library" ||
+        tags.includes("codexlibrary") ||
+        tags.includes("codex_library") ||
+        tags.includes("codex")
+      );
+    };
+
+    const usedNonCodexMedia = mediaItems.some((media) => !hasCodexMarker(media));
+
+    if (__riSocialMediaSourceMode() === "codex_library" && usedNonCodexMedia) {
       return {
         ...result,
         media_source_warning:
-          "A non-Codex uploaded media asset was selected. Check that Codex library records have codex_library=true.",
+          "A non-Codex social media asset was selected while Codex library mode is enabled.",
       };
     }
 
