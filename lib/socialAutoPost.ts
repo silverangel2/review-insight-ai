@@ -771,6 +771,28 @@ function isSystemSocialMedia(media: SocialMediaItem | null) {
   );
 }
 
+function isCodexLibraryMedia(media: SocialMediaItem | null) {
+  if (!media) return false;
+
+  const id = String(media.id || "").toLowerCase();
+  const title = String(media.title || "").toLowerCase();
+  const tags = Array.isArray(media.tags) ? media.tags.map((tag) => String(tag).toLowerCase()) : [];
+  const metadata = media.metadata && typeof media.metadata === "object" ? media.metadata : {};
+  const source = String(metadata.source || metadata.media_source || "").toLowerCase();
+
+  return (
+    metadata.codex_library === true ||
+    id.startsWith("codex-") ||
+    id.includes("codex") ||
+    title.includes("codex") ||
+    source === "codex" ||
+    source === "codex_library" ||
+    tags.includes("codexlibrary") ||
+    tags.includes("codex_library") ||
+    tags.includes("codex")
+  );
+}
+
 function isOldHouseSocialMedia(media: SocialMediaItem | null) {
   const fileUrl = String(media?.file_url || "");
   const title = String(media?.title || "");
@@ -788,7 +810,7 @@ function absoluteMediaUrl(media?: SocialMediaItem | null) {
 }
 
 function facebookAutoPostFormat() {
-  const value = envFirst("SOCIAL_AUTOPOST_FACEBOOK_FORMAT", "FACEBOOK_AUTOPOST_FORMAT")
+  const value = (envFirst("SOCIAL_AUTOPOST_FACEBOOK_FORMAT", "FACEBOOK_AUTOPOST_FORMAT") || "auto")
     .trim()
     .toLowerCase();
 
@@ -796,6 +818,16 @@ function facebookAutoPostFormat() {
   if (value === "reel" || value === "reels" || value === "video") return "reel";
   if (value === "image" || value === "photo") return "image";
   return "default";
+}
+
+function codexMediaJsonFilter() {
+  return __riSocialMediaSourceMode() === "codex_library"
+    ? "&metadata->>codex_library=eq.true"
+    : "";
+}
+
+function mediaTypeFilter(mediaType?: "image" | "video") {
+  return mediaType ? `&media_type=eq.${mediaType}` : "";
 }
 
 function compactSocialText(value: string, limit: number) {
@@ -871,6 +903,7 @@ async function pickSocialMedia(
   queue: SocialQueueState,
   options: SocialMediaPickOptions = {}
 ): Promise<SocialMediaItem | null> {
+  const sourceMode = __riSocialMediaSourceMode();
   const usable = (rows: unknown): SocialMediaItem[] =>
     Array.isArray(rows)
       ? (rows as SocialMediaItem[]).filter((row) => {
@@ -881,25 +914,36 @@ async function pickSocialMedia(
             (!options.requireMediaType || mediaType === options.requireMediaType) &&
             String(row.topic || "") !== HOMEPAGE_VIDEO_TOPIC &&
             !Boolean(row.metadata?.homepage_video) &&
-            !isOldHouseSocialMedia(row)
+            !isOldHouseSocialMedia(row) &&
+            (sourceMode !== "codex_library" || isCodexLibraryMedia(row))
           );
         })
       : [];
 
   const topicQuery = encodeURIComponent(topic);
+  const codexFilter = codexMediaJsonFilter();
+  const preferredType = options.preferMediaType || options.requireMediaType;
   const topicRows = sortPickedMedia(usable(
     await supabaseFetch(
-      `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=20`
+      `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}${codexFilter}${mediaTypeFilter(preferredType)}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=50`
     ).catch(() => [])
   ), options);
 
-  const fallbackRows = topicRows.length
+  let fallbackRows = topicRows.length
     ? topicRows
     : sortPickedMedia(usable(
         await supabaseFetch(
-          "admin_social_media?select=*&is_active=eq.true&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=40"
+          `admin_social_media?select=*&is_active=eq.true${codexFilter}${mediaTypeFilter(preferredType)}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=100`
         ).catch(() => [])
       ), options);
+
+  if (!fallbackRows.length && options.preferMediaType && !options.requireMediaType) {
+    fallbackRows = sortPickedMedia(usable(
+      await supabaseFetch(
+        `admin_social_media?select=*&is_active=eq.true${codexFilter}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=100`
+      ).catch(() => [])
+    ), options);
+  }
 
   if (!fallbackRows.length) {
     if (options.requireMediaType || options.allowCodexFallback === false) return null;
@@ -1087,6 +1131,103 @@ export async function updateSocialPost(id: string, payload: Partial<SocialPost>)
   return rows?.[0];
 }
 
+async function postToFacebookReel(input: {
+  graphVersion: string;
+  pageId: string;
+  pageToken: string;
+  caption: string;
+  mediaUrl: string;
+}): Promise<PublishResult> {
+  const endpoint = `https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(input.pageId)}/video_reels`;
+  const startResponse = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      upload_phase: "start",
+      access_token: input.pageToken,
+    }),
+  });
+  const startData = await startResponse.json().catch(() => ({}));
+  const videoId = String(startData?.video_id || "");
+  const uploadUrl = String(
+    startData?.upload_url ||
+      (videoId ? `https://rupload.facebook.com/video-upload/${input.graphVersion}/${encodeURIComponent(videoId)}` : "")
+  );
+
+  if (!startResponse.ok || !videoId || !uploadUrl) {
+    return {
+      ok: false,
+      error: startData?.error?.message || "Facebook Reel upload could not start.",
+      metadata: { facebookReel: { phase: "start", response: startData } },
+    };
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `OAuth ${input.pageToken}`,
+      file_url: input.mediaUrl,
+    },
+  });
+  const uploadData = await uploadResponse.json().catch(() => ({}));
+
+  if (!uploadResponse.ok || uploadData?.success === false) {
+    return {
+      ok: false,
+      error: uploadData?.error?.message || "Facebook Reel video upload failed.",
+      metadata: {
+        facebookReel: {
+          phase: "upload",
+          video_id: videoId,
+          upload_url_available: Boolean(uploadUrl),
+          response: uploadData,
+        },
+      },
+    };
+  }
+
+  const finishResponse = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      upload_phase: "finish",
+      video_id: videoId,
+      video_state: "PUBLISHED",
+      description: input.caption,
+      title: "ReviewIntel",
+      access_token: input.pageToken,
+    }),
+  });
+  const finishData = await finishResponse.json().catch(() => ({}));
+
+  if (!finishResponse.ok || finishData?.success === false) {
+    return {
+      ok: false,
+      error: finishData?.error?.message || "Facebook Reel publish failed.",
+      metadata: {
+        facebookReel: {
+          phase: "finish",
+          video_id: videoId,
+          response: finishData,
+        },
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    externalPostId: finishData?.post_id || finishData?.id || videoId,
+    metadata: {
+      facebookReel: {
+        posted_as: "reel",
+        video_id: videoId,
+        upload_success: uploadData?.success ?? true,
+        publish_response: finishData,
+      },
+    },
+  };
+}
+
 async function postToFacebookPage(caption: string, media?: SocialMediaItem | null): Promise<PublishResult> {
   const { graphVersion } = facebookConfig();
   const facebookCredentials = await resolveFacebookPostingCredentials();
@@ -1107,6 +1248,8 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
   }
 
   const mediaUrl = absoluteMediaUrl(media);
+  const facebookFormat = facebookAutoPostFormat();
+  let reelAttempt: PublishResult | null = null;
 
   if (
     media?.file_url &&
@@ -1123,6 +1266,25 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
         media_url_public: Boolean(mediaUrl && !isPrivateOrLocalUrl(mediaUrl)),
       },
     };
+  }
+
+  if (
+    media?.media_type === "video" &&
+    media.file_url &&
+    mediaUrl &&
+    (facebookFormat === "auto" || facebookFormat === "reel")
+  ) {
+    reelAttempt = await postToFacebookReel({
+      graphVersion,
+      pageId,
+      pageToken,
+      caption,
+      mediaUrl,
+    });
+
+    if (reelAttempt.ok || facebookFormat === "reel") {
+      return reelAttempt;
+    }
   }
 
   const endpoint =
@@ -1163,14 +1325,14 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
     return {
       ok: false,
       error: data?.error?.message || "Facebook post failed.",
-      metadata: data,
+      metadata: { ...data, facebookReelFallback: reelAttempt?.metadata || null },
     };
   }
 
   return {
     ok: true,
     externalPostId: data?.post_id || data?.id || null,
-    metadata: data,
+    metadata: { ...data, facebookReelFallback: reelAttempt?.metadata || null },
   };
 }
 
@@ -1837,11 +1999,11 @@ function installCodexMediaFetchGuard(): () => void {
         );
 
         if (__riShouldForceCodexMediaTable(tableName)) {
-          url.searchParams.set("codex_library", "eq.true");
+          url.searchParams.set("metadata->>codex_library", "eq.true");
 
           const existingOrder = url.searchParams.get("order") || "";
-          if (!existingOrder.includes("codex_library")) {
-            url.searchParams.set("order", "codex_library.desc,created_at.asc");
+          if (!existingOrder.includes("created_at")) {
+            url.searchParams.set("order", "created_at.asc");
           }
 
           const forwardedInit: RequestInit | undefined = isRequest

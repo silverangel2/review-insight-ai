@@ -616,7 +616,12 @@ async function main() {
   const images = listCodexImages();
   const existingSourceIds = await fetchExistingVideoSourceIds();
   const socialPosts = await fetchSocialPosts();
-  const sources = (socialPosts.length ? socialPosts : fallbackSources(images)).slice(0, limit);
+  const postSourceIds = new Set(socialPosts.map((source) => String(source.source_post_id || source.id || "")));
+  const imageFallbackSources = fallbackSources(images).filter((source) => {
+    const sourceId = String(source.source_post_id || source.id || "");
+    return sourceId && !postSourceIds.has(sourceId);
+  });
+  const sources = [...socialPosts, ...imageFallbackSources].slice(0, limit);
   const generated = [];
   const skipped = [];
   const failed = [];
