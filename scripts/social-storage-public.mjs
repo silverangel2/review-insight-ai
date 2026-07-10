@@ -2,6 +2,53 @@ function cleanSupabaseUrl(value) {
   return String(value || "").replace(/\/$/, "");
 }
 
+export const DEFAULT_PUBLIC_SOCIAL_MEDIA_BUCKET = "reviewintel-social-public";
+
+const unsafePublicSocialBuckets = new Set([
+  "reviewintel-media",
+  "review-screenshots",
+]);
+
+function envFlagEnabled(env, name) {
+  return ["1", "true", "yes", "on"].includes(String(env?.[name] || "").trim().toLowerCase());
+}
+
+function cleanBucketName(value) {
+  return String(value || "").trim();
+}
+
+export function publicSocialMediaStorageBucket(env = process.env) {
+  const explicitPublicBucket = cleanBucketName(env.SUPABASE_PUBLIC_SOCIAL_MEDIA_BUCKET);
+  const legacySocialBucket = cleanBucketName(env.SUPABASE_SOCIAL_MEDIA_BUCKET);
+  const storageBucket = explicitPublicBucket || legacySocialBucket || DEFAULT_PUBLIC_SOCIAL_MEDIA_BUCKET;
+  const source = explicitPublicBucket
+    ? "SUPABASE_PUBLIC_SOCIAL_MEDIA_BUCKET"
+    : legacySocialBucket
+      ? "SUPABASE_SOCIAL_MEDIA_BUCKET"
+      : "default";
+
+  return { storageBucket, source };
+}
+
+export function assertSafePublicSocialMediaBucket({ storageBucket, env = process.env }) {
+  const cleanBucket = cleanBucketName(storageBucket);
+
+  if (!cleanBucket) {
+    throw new Error("A public social media bucket is required.");
+  }
+
+  if (
+    unsafePublicSocialBuckets.has(cleanBucket) &&
+    !envFlagEnabled(env, "ALLOW_SHARED_PUBLIC_SOCIAL_BUCKET")
+  ) {
+    throw new Error(
+      `${cleanBucket} is reserved for private/shared media. Set SUPABASE_PUBLIC_SOCIAL_MEDIA_BUCKET to a dedicated public bucket for Facebook-fetchable social assets.`
+    );
+  }
+
+  return cleanBucket;
+}
+
 function isPrivateOrLocalUrl(url) {
   try {
     const parsed = new URL(url);
@@ -128,6 +175,65 @@ export async function ensurePublicSupabaseStorageBucket({
 
 export function supabasePublicObjectUrl({ supabaseUrl, storageBucket, objectPath }) {
   return `${cleanSupabaseUrl(supabaseUrl)}/storage/v1/object/public/${encodeURIComponent(storageBucket)}/${objectPath}`;
+}
+
+export async function uploadPublicSupabaseObject({
+  supabaseUrl,
+  serviceKey,
+  storageBucket,
+  objectPath,
+  body,
+  contentType,
+  allowedMimeTypes,
+  fileSizeLimit,
+  cacheControl = "31536000",
+  upsert = true,
+  fetcher = fetch,
+  probeTimeoutMs,
+}) {
+  assertSafePublicSocialMediaBucket({ storageBucket });
+
+  await ensurePublicSupabaseStorageBucket({
+    supabaseUrl,
+    serviceKey,
+    storageBucket,
+    allowedMimeTypes,
+    fileSizeLimit,
+    fetcher,
+  });
+
+  const cleanUrl = cleanSupabaseUrl(supabaseUrl);
+  const response = await fetcher(
+    `${cleanUrl}/storage/v1/object/${encodeURIComponent(storageBucket)}/${objectPath}`,
+    {
+      method: "POST",
+      headers: storageHeaders(serviceKey, {
+        "Content-Type": contentType,
+        "Cache-Control": cacheControl,
+        "x-upsert": upsert === false ? "false" : "true",
+      }),
+      body,
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error((await responseDetail(response)) || "Supabase Storage upload failed.");
+  }
+
+  const publicUrl = supabasePublicObjectUrl({
+    supabaseUrl: cleanUrl,
+    storageBucket,
+    objectPath,
+  });
+
+  await assertFacebookAccessibleUrl({
+    url: publicUrl,
+    fetcher,
+    timeoutMs: probeTimeoutMs,
+  });
+
+  return publicUrl;
 }
 
 async function fetchWithTimeout(fetcher, input, init, timeoutMs) {

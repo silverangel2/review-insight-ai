@@ -13,14 +13,80 @@ type EnsurePublicBucketInput = {
   fetcher?: typeof fetch;
 };
 
+type EnvLike = Record<string, string | undefined>;
+
+type PublicStorageUploadInput = EnsurePublicBucketInput & {
+  objectPath: string;
+  body: BodyInit;
+  contentType: string;
+  cacheControl?: string;
+  upsert?: boolean;
+  probeTimeoutMs?: number;
+};
+
 export type PublicUrlProbeResult = {
   ok: boolean;
   status?: number;
   error?: string;
 };
 
+export const DEFAULT_PUBLIC_SOCIAL_MEDIA_BUCKET = "reviewintel-social-public";
+
+const unsafePublicSocialBuckets = new Set([
+  "reviewintel-media",
+  "review-screenshots",
+]);
+
 function cleanSupabaseUrl(value: string) {
   return value.replace(/\/$/, "");
+}
+
+function defaultEnv(): EnvLike {
+  return ((globalThis as { process?: { env?: EnvLike } }).process?.env || {}) as EnvLike;
+}
+
+function envFlagEnabled(env: EnvLike, name: string) {
+  return ["1", "true", "yes", "on"].includes(String(env[name] || "").trim().toLowerCase());
+}
+
+function cleanBucketName(value?: string | null) {
+  return String(value || "").trim();
+}
+
+export function publicSocialMediaStorageBucket(env: EnvLike = defaultEnv()) {
+  const explicitPublicBucket = cleanBucketName(env.SUPABASE_PUBLIC_SOCIAL_MEDIA_BUCKET);
+  const legacySocialBucket = cleanBucketName(env.SUPABASE_SOCIAL_MEDIA_BUCKET);
+  const storageBucket = explicitPublicBucket || legacySocialBucket || DEFAULT_PUBLIC_SOCIAL_MEDIA_BUCKET;
+  const source = explicitPublicBucket
+    ? "SUPABASE_PUBLIC_SOCIAL_MEDIA_BUCKET"
+    : legacySocialBucket
+      ? "SUPABASE_SOCIAL_MEDIA_BUCKET"
+      : "default";
+
+  return { storageBucket, source };
+}
+
+export function assertSafePublicSocialMediaBucket(input: {
+  storageBucket: string;
+  env?: EnvLike;
+}) {
+  const storageBucket = cleanBucketName(input.storageBucket);
+  const env = input.env || defaultEnv();
+
+  if (!storageBucket) {
+    throw new Error("A public social media bucket is required.");
+  }
+
+  if (
+    unsafePublicSocialBuckets.has(storageBucket) &&
+    !envFlagEnabled(env, "ALLOW_SHARED_PUBLIC_SOCIAL_BUCKET")
+  ) {
+    throw new Error(
+      `${storageBucket} is reserved for private/shared media. Set SUPABASE_PUBLIC_SOCIAL_MEDIA_BUCKET to a dedicated public bucket for Facebook-fetchable social assets.`
+    );
+  }
+
+  return storageBucket;
 }
 
 function isPrivateOrLocalUrl(url: string) {
@@ -147,6 +213,56 @@ export function supabasePublicObjectUrl(input: {
   objectPath: string;
 }) {
   return `${cleanSupabaseUrl(input.supabaseUrl)}/storage/v1/object/public/${encodeURIComponent(input.storageBucket)}/${input.objectPath}`;
+}
+
+export async function uploadPublicSupabaseObject(input: PublicStorageUploadInput) {
+  const fetcher = input.fetcher || fetch;
+
+  assertSafePublicSocialMediaBucket({
+    storageBucket: input.storageBucket,
+  });
+
+  await ensurePublicSupabaseStorageBucket({
+    supabaseUrl: input.supabaseUrl,
+    serviceKey: input.serviceKey,
+    storageBucket: input.storageBucket,
+    allowedMimeTypes: input.allowedMimeTypes,
+    fileSizeLimit: input.fileSizeLimit,
+    fetcher,
+  });
+
+  const supabaseUrl = cleanSupabaseUrl(input.supabaseUrl);
+  const response = await fetcher(
+    `${supabaseUrl}/storage/v1/object/${encodeURIComponent(input.storageBucket)}/${input.objectPath}`,
+    {
+      method: "POST",
+      headers: storageHeaders(input.serviceKey, {
+        "Content-Type": input.contentType,
+        "Cache-Control": input.cacheControl || "31536000",
+        "x-upsert": input.upsert === false ? "false" : "true",
+      }),
+      body: input.body,
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error((await responseDetail(response)) || "Supabase Storage upload failed.");
+  }
+
+  const publicUrl = supabasePublicObjectUrl({
+    supabaseUrl,
+    storageBucket: input.storageBucket,
+    objectPath: input.objectPath,
+  });
+
+  await assertFacebookAccessibleUrl({
+    url: publicUrl,
+    fetcher,
+    timeoutMs: input.probeTimeoutMs,
+  });
+
+  return publicUrl;
 }
 
 async function fetchWithTimeout(

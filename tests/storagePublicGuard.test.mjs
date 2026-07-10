@@ -7,9 +7,12 @@ import vm from "node:vm";
 import ts from "typescript";
 import {
   assertFacebookAccessibleUrl as assertScriptAccessibleUrl,
+  assertSafePublicSocialMediaBucket as assertScriptSafePublicBucket,
   ensurePublicSupabaseStorageBucket as ensureScriptBucket,
   probeFacebookAccessibleUrl as probeScriptAccessibleUrl,
+  publicSocialMediaStorageBucket as scriptPublicSocialMediaStorageBucket,
   supabasePublicObjectUrl as scriptPublicObjectUrl,
+  uploadPublicSupabaseObject as uploadScriptPublicObject,
 } from "../scripts/social-storage-public.mjs";
 
 const require = createRequire(import.meta.url);
@@ -116,8 +119,11 @@ for (const [label, helper] of [
     {
       ensurePublicSupabaseStorageBucket: routeStorage.ensurePublicSupabaseStorageBucket,
       assertFacebookAccessibleUrl: routeStorage.assertFacebookAccessibleUrl,
+      assertSafePublicSocialMediaBucket: routeStorage.assertSafePublicSocialMediaBucket,
       probeFacebookAccessibleUrl: routeStorage.probeFacebookAccessibleUrl,
+      publicSocialMediaStorageBucket: routeStorage.publicSocialMediaStorageBucket,
       supabasePublicObjectUrl: routeStorage.supabasePublicObjectUrl,
+      uploadPublicSupabaseObject: routeStorage.uploadPublicSupabaseObject,
     },
   ],
   [
@@ -125,8 +131,11 @@ for (const [label, helper] of [
     {
       ensurePublicSupabaseStorageBucket: ensureScriptBucket,
       assertFacebookAccessibleUrl: assertScriptAccessibleUrl,
+      assertSafePublicSocialMediaBucket: assertScriptSafePublicBucket,
       probeFacebookAccessibleUrl: probeScriptAccessibleUrl,
+      publicSocialMediaStorageBucket: scriptPublicSocialMediaStorageBucket,
       supabasePublicObjectUrl: scriptPublicObjectUrl,
+      uploadPublicSupabaseObject: uploadScriptPublicObject,
     },
   ],
 ]) {
@@ -152,10 +161,34 @@ for (const [label, helper] of [
     assert.deepEqual(calls, ["GET", "PUT", "GET"]);
   });
 
-  test(`${label} confirms a returned public object URL is Facebook-accessible`, async () => {
+  test(`${label} defaults social media to a dedicated public bucket`, () => {
+    const defaultBucket = helper.publicSocialMediaStorageBucket({});
+    assert.equal(defaultBucket.storageBucket, "reviewintel-social-public");
+    assert.equal(defaultBucket.source, "default");
+    assert.equal(
+      helper.publicSocialMediaStorageBucket({ SUPABASE_MEDIA_BUCKET: "reviewintel-media" }).storageBucket,
+      "reviewintel-social-public",
+    );
+    assert.equal(
+      helper.publicSocialMediaStorageBucket({ SUPABASE_PUBLIC_SOCIAL_MEDIA_BUCKET: "reviewintel-reels-public" }).storageBucket,
+      "reviewintel-reels-public",
+    );
+  });
+
+  test(`${label} rejects known private/shared buckets for public social media`, () => {
+    assert.throws(
+      () => helper.assertSafePublicSocialMediaBucket({
+        storageBucket: "reviewintel-media",
+        env: {},
+      }),
+      /reserved for private\/shared media/,
+    );
+  });
+
+  test(`${label} confirms a public MP4 object URL returns 200 for Facebook fetch`, async () => {
     const publicUrl = helper.supabasePublicObjectUrl({
       supabaseUrl: "https://supabase.test/",
-      storageBucket: "reviewintel-media",
+      storageBucket: "reviewintel-social-public",
       objectPath: "social/reel.mp4",
     });
     const calls = [];
@@ -170,6 +203,93 @@ for (const [label, helper] of [
     assert.equal(result.ok, true);
     assert.equal(result.status, 200);
     assert.deepEqual(calls, [{ url: publicUrl, method: "HEAD" }]);
+  });
+
+  test(`${label} rejects private or unreachable MP4 URLs`, async () => {
+    const result = await helper.probeFacebookAccessibleUrl({
+      url: "https://supabase.test/storage/v1/object/public/reviewintel-media/social/private-reel.mp4",
+      fetcher: async () => new Response("", { status: 400 }),
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 400);
+    assert.match(result.error, /HEAD returned HTTP 400/);
+  });
+
+  test(`${label} upload helper returns only Facebook-fetchable URLs`, async () => {
+    const calls = [];
+    const publicUrl = await helper.uploadPublicSupabaseObject({
+      supabaseUrl: "https://supabase.test/",
+      serviceKey: "service-role-test-key",
+      storageBucket: "reviewintel-social-public",
+      objectPath: "social/reel.mp4",
+      body: "mp4-bytes",
+      contentType: "video/mp4",
+      allowedMimeTypes: ["video/mp4"],
+      fileSizeLimit: 100,
+      fetcher: async (input, init = {}) => {
+        const url = String(input);
+        const method = init.method || "GET";
+        calls.push({ url, method });
+
+        if (url.endsWith("/storage/v1/bucket/reviewintel-social-public") && method === "GET") {
+          return jsonResponse({ id: "reviewintel-social-public", public: true });
+        }
+
+        if (url.endsWith("/storage/v1/object/reviewintel-social-public/social/reel.mp4") && method === "POST") {
+          return jsonResponse({ Key: "social/reel.mp4" });
+        }
+
+        if (url.endsWith("/storage/v1/object/public/reviewintel-social-public/social/reel.mp4") && method === "HEAD") {
+          return new Response("", { status: 200 });
+        }
+
+        throw new Error(`Unexpected ${method} ${url}`);
+      },
+    });
+
+    assert.equal(
+      publicUrl,
+      "https://supabase.test/storage/v1/object/public/reviewintel-social-public/social/reel.mp4",
+    );
+    assert.deepEqual(
+      calls.map((call) => call.method),
+      ["GET", "POST", "HEAD"],
+    );
+  });
+
+  test(`${label} upload helper rejects uploaded objects that are not Facebook-fetchable`, async () => {
+    await assert.rejects(
+      helper.uploadPublicSupabaseObject({
+        supabaseUrl: "https://supabase.test/",
+        serviceKey: "service-role-test-key",
+        storageBucket: "reviewintel-social-public",
+        objectPath: "social/private-reel.mp4",
+        body: "mp4-bytes",
+        contentType: "video/mp4",
+        allowedMimeTypes: ["video/mp4"],
+        fileSizeLimit: 100,
+        fetcher: async (input, init = {}) => {
+          const url = String(input);
+          const method = init.method || "GET";
+
+          if (url.endsWith("/storage/v1/bucket/reviewintel-social-public") && method === "GET") {
+            return jsonResponse({ id: "reviewintel-social-public", public: true });
+          }
+
+          if (url.endsWith("/storage/v1/object/reviewintel-social-public/social/private-reel.mp4") && method === "POST") {
+            return jsonResponse({ Key: "social/private-reel.mp4" });
+          }
+
+          if (url.endsWith("/storage/v1/object/public/reviewintel-social-public/social/private-reel.mp4") && method === "HEAD") {
+            return new Response("", { status: 400 });
+          }
+
+          throw new Error(`Unexpected ${method} ${url}`);
+        },
+      }),
+      /Media HEAD returned HTTP 400/,
+    );
   });
 
   test(`${label} reports network failures while checking public media URLs`, async () => {
@@ -204,17 +324,17 @@ test("public object URL builder uses the verified public storage path", () => {
   assert.equal(
     routeStorage.supabasePublicObjectUrl({
       supabaseUrl: "https://supabase.test/",
-      storageBucket: "reviewintel-media",
+      storageBucket: "reviewintel-social-public",
       objectPath: "social/reel.mp4",
     }),
-    "https://supabase.test/storage/v1/object/public/reviewintel-media/social/reel.mp4",
+    "https://supabase.test/storage/v1/object/public/reviewintel-social-public/social/reel.mp4",
   );
   assert.equal(
     scriptPublicObjectUrl({
       supabaseUrl: "https://supabase.test/",
-      storageBucket: "reviewintel-media",
+      storageBucket: "reviewintel-social-public",
       objectPath: "social/reel.mp4",
     }),
-    "https://supabase.test/storage/v1/object/public/reviewintel-media/social/reel.mp4",
+    "https://supabase.test/storage/v1/object/public/reviewintel-social-public/social/reel.mp4",
   );
 });

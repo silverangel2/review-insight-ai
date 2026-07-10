@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "generate:social-videos": "node scripts/generate-social-videos.mjs",
+    "repair:social-video-urls": "node scripts/repair-social-video-public-urls.mjs",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },

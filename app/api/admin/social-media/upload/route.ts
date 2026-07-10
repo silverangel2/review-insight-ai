@@ -4,9 +4,8 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import {
-  assertFacebookAccessibleUrl,
-  ensurePublicSupabaseStorageBucket,
-  supabasePublicObjectUrl,
+  publicSocialMediaStorageBucket,
+  uploadPublicSupabaseObject,
 } from "@/lib/supabasePublicStorage";
 
 export const runtime = "nodejs";
@@ -16,17 +15,15 @@ const allowedTypes: Record<string, { ext: string; mediaType: "image" | "video"; 
   "image/png": { ext: "png", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
   "image/webp": { ext: "webp", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
   "image/gif": { ext: "gif", mediaType: "image", maxBytes: 10 * 1024 * 1024 },
-  "video/mp4": { ext: "mp4", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
-  "video/webm": { ext: "webm", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
-  "video/quicktime": { ext: "mov", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
+  "video/mp4": { ext: "mp4", mediaType: "video", maxBytes: 50 * 1024 * 1024 },
+  "video/webm": { ext: "webm", mediaType: "video", maxBytes: 50 * 1024 * 1024 },
+  "video/quicktime": { ext: "mov", mediaType: "video", maxBytes: 50 * 1024 * 1024 },
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const storageBucket =
-  process.env.SUPABASE_SOCIAL_MEDIA_BUCKET ||
-  process.env.SUPABASE_MEDIA_BUCKET ||
-  "reviewintel-media";
+const publicSocialBucket = publicSocialMediaStorageBucket();
+const storageBucket = publicSocialBucket.storageBucket;
 
 function isProductionRuntime() {
   return Boolean(process.env.VERCEL || process.env.NODE_ENV === "production");
@@ -36,63 +33,21 @@ function hasSupabaseStorage() {
   return Boolean(supabaseUrl && supabaseServiceKey && storageBucket);
 }
 
-function storageHeaders(extra?: Record<string, string>) {
-  return {
-    apikey: supabaseServiceKey || "",
-    Authorization: `Bearer ${supabaseServiceKey || ""}`,
-    ...extra,
-  };
-}
-
-async function ensureStorageBucket() {
-  if (!hasSupabaseStorage()) return;
-
-  await ensurePublicSupabaseStorageBucket({
-    supabaseUrl: supabaseUrl || "",
-    serviceKey: supabaseServiceKey || "",
-    storageBucket,
-    allowedMimeTypes: Object.keys(allowedTypes),
-    fileSizeLimit: 60 * 1024 * 1024,
-  });
-}
-
 async function uploadToSupabaseStorage(filename: string, buffer: Buffer, contentType: string) {
   if (!hasSupabaseStorage()) return "";
 
-  await ensureStorageBucket();
-
   const objectPath = `social/${filename}`;
-  const response = await fetch(
-    `${supabaseUrl}/storage/v1/object/${encodeURIComponent(storageBucket)}/${objectPath}`,
-    {
-      method: "POST",
-      headers: storageHeaders({
-        "Content-Type": contentType,
-        "Cache-Control": "31536000",
-        "x-upsert": "true",
-      }),
-      body: new Blob([new Uint8Array(buffer)], { type: contentType }),
-      cache: "no-store",
-    }
-  );
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(
-      detail ||
-        "Supabase Storage upload failed. Check the media bucket and service-role storage permissions."
-    );
-  }
-
-  const publicUrl = supabasePublicObjectUrl({
+  return uploadPublicSupabaseObject({
     supabaseUrl: supabaseUrl || "",
+    serviceKey: supabaseServiceKey || "",
     storageBucket,
     objectPath,
+    body: new Blob([new Uint8Array(buffer)], { type: contentType }),
+    contentType,
+    allowedMimeTypes: Object.keys(allowedTypes),
+    fileSizeLimit: 50 * 1024 * 1024,
   });
-
-  await assertFacebookAccessibleUrl({ url: publicUrl });
-
-  return publicUrl;
 }
 
 async function requireAdmin(request: NextRequest) {
@@ -132,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     if (file.size > config.maxBytes) {
       return NextResponse.json(
-        { ok: false, error: config.mediaType === "image" ? "Images must be 8 MB or smaller." : "Videos must be 60 MB or smaller. For best results, upload a vertical MP4/H.264 file." },
+        { ok: false, error: config.mediaType === "image" ? "Images must be 8 MB or smaller." : "Videos must be 50 MB or smaller. For best results, upload a vertical MP4/H.264 file." },
         { status: 400 }
       );
     }

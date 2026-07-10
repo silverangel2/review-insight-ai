@@ -1,7 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
-import { ensurePublicSupabaseStorageBucket, supabasePublicObjectUrl } from "@/lib/supabasePublicStorage";
+import {
+  assertSafePublicSocialMediaBucket,
+  ensurePublicSupabaseStorageBucket,
+  publicSocialMediaStorageBucket,
+  supabasePublicObjectUrl,
+} from "@/lib/supabasePublicStorage";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +21,17 @@ const serviceKey =
   process.env.SUPABASE_SERVICE_KEY ||
   "";
 
-const storageBucket =
-  process.env.SUPABASE_SOCIAL_MEDIA_BUCKET ||
-  process.env.SUPABASE_MEDIA_BUCKET ||
-  process.env.SUPABASE_STORAGE_BUCKET ||
-  "reviewintel-media";
+const publicSocialBucket = publicSocialMediaStorageBucket();
+const storageBucket = publicSocialBucket.storageBucket;
 
 const allowedTypes: Record<string, { ext: string; mediaType: "image" | "video"; maxBytes: number }> = {
   "image/jpeg": { ext: "jpg", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
   "image/png": { ext: "png", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
   "image/webp": { ext: "webp", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
   "image/gif": { ext: "gif", mediaType: "image", maxBytes: 8 * 1024 * 1024 },
-  "video/mp4": { ext: "mp4", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
-  "video/webm": { ext: "webm", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
-  "video/quicktime": { ext: "mov", mediaType: "video", maxBytes: 60 * 1024 * 1024 },
+  "video/mp4": { ext: "mp4", mediaType: "video", maxBytes: 50 * 1024 * 1024 },
+  "video/webm": { ext: "webm", mediaType: "video", maxBytes: 50 * 1024 * 1024 },
+  "video/quicktime": { ext: "mov", mediaType: "video", maxBytes: 50 * 1024 * 1024 },
 };
 
 function storageHeaders(extra?: HeadersInit) {
@@ -46,12 +48,14 @@ async function ensureStorageBucket() {
     throw new Error("Missing Supabase Storage credentials.");
   }
 
+  assertSafePublicSocialMediaBucket({ storageBucket });
+
   await ensurePublicSupabaseStorageBucket({
     supabaseUrl,
     serviceKey,
     storageBucket,
     allowedMimeTypes: Object.keys(allowedTypes),
-    fileSizeLimit: 100 * 1024 * 1024,
+    fileSizeLimit: 50 * 1024 * 1024,
   });
 }
 
@@ -91,7 +95,7 @@ export async function POST(request: NextRequest) {
           error:
             config.mediaType === "image"
               ? "Images must be 8 MB or smaller."
-              : "Videos must be 60 MB or smaller.",
+              : "Videos must be 50 MB or smaller.",
         },
         { status: 400 }
       );

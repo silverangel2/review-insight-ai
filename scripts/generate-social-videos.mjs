@@ -8,9 +8,8 @@ import { spawn } from "node:child_process";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import sharp from "sharp";
 import {
-  assertFacebookAccessibleUrl,
-  ensurePublicSupabaseStorageBucket,
-  supabasePublicObjectUrl,
+  publicSocialMediaStorageBucket,
+  uploadPublicSupabaseObject,
 } from "./social-storage-public.mjs";
 
 const cwd = process.cwd();
@@ -18,6 +17,7 @@ const width = 1080;
 const height = 1920;
 const sceneSeconds = 3;
 const totalSeconds = sceneSeconds * 3;
+const publicSocialMaxBytes = 50 * 1024 * 1024;
 const codexImagePattern = /^reviewintel-premium-day-\d{2}-.+\.(?:png|jpg|jpeg|webp)$/i;
 const defaultTopics = [
   "shopper_tips",
@@ -111,11 +111,8 @@ const serviceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SERVICE_KEY ||
   "";
-const storageBucket =
-  process.env.SUPABASE_SOCIAL_MEDIA_BUCKET ||
-  process.env.SUPABASE_MEDIA_BUCKET ||
-  process.env.SUPABASE_STORAGE_BUCKET ||
-  "reviewintel-media";
+const publicSocialBucket = publicSocialMediaStorageBucket();
+const storageBucket = publicSocialBucket.storageBucket;
 
 const jsonMode = hasArg("--json");
 const localOnly = hasArg("--local-only");
@@ -128,14 +125,6 @@ function isProductionRuntime() {
 
 function log(message) {
   if (!jsonMode) console.log(message);
-}
-
-function storageHeaders(extra = {}) {
-  return {
-    apikey: serviceKey,
-    Authorization: `Bearer ${serviceKey}`,
-    ...extra,
-  };
 }
 
 function hasSupabase() {
@@ -166,55 +155,22 @@ async function restFetch(resource, init = {}) {
   return data;
 }
 
-async function ensureStorageBucket() {
-  if (!hasSupabase() || localOnly) return false;
-
-  await ensurePublicSupabaseStorageBucket({
-    supabaseUrl,
-    serviceKey,
-    storageBucket,
-    allowedMimeTypes: ["video/mp4", "image/png", "image/jpeg", "image/webp"],
-    fileSizeLimit: 100 * 1024 * 1024,
-  });
-
-  return true;
-}
-
 async function uploadVideoToStorage(filePath, filename) {
   if (!hasSupabase() || localOnly) return "";
 
-  await ensureStorageBucket();
-
   const buffer = await readFile(filePath);
   const objectPath = `social/videos/${filename}`;
-  const response = await fetch(
-    `${supabaseUrl}/storage/v1/object/${encodeURIComponent(storageBucket)}/${objectPath}`,
-    {
-      method: "POST",
-      headers: storageHeaders({
-        "Content-Type": "video/mp4",
-        "Cache-Control": "31536000",
-        "x-upsert": "true",
-      }),
-      body: buffer,
-      cache: "no-store",
-    }
-  );
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(detail || "Supabase Storage upload failed.");
-  }
-
-  const publicUrl = supabasePublicObjectUrl({
+  return uploadPublicSupabaseObject({
     supabaseUrl,
+    serviceKey,
     storageBucket,
     objectPath,
+    body: buffer,
+    contentType: "video/mp4",
+    allowedMimeTypes: ["video/mp4", "image/png", "image/jpeg", "image/webp"],
+    fileSizeLimit: publicSocialMaxBytes,
   });
-
-  await assertFacebookAccessibleUrl({ url: publicUrl });
-
-  return publicUrl;
 }
 
 function localSocialDir() {
@@ -667,6 +623,8 @@ async function main() {
           source_image: sourceImage?.publicUrl || null,
           file_size_bytes: size,
           storage,
+          storage_bucket: storage === "supabase" ? storageBucket : null,
+          storage_bucket_source: storage === "supabase" ? publicSocialBucket.source : null,
         },
         created_at: now,
         updated_at: now,
