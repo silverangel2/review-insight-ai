@@ -3,6 +3,11 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
+import {
+  assertFacebookAccessibleUrl,
+  ensurePublicSupabaseStorageBucket,
+  supabasePublicObjectUrl,
+} from "@/lib/supabasePublicStorage";
 
 export const runtime = "nodejs";
 
@@ -39,58 +44,16 @@ function storageHeaders(extra?: Record<string, string>) {
   };
 }
 
-async function makeBucketPublic() {
-  const response = await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
-    method: "PUT",
-    headers: storageHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      public: true,
-      file_size_limit: 60 * 1024 * 1024,
-      allowed_mime_types: Object.keys(allowedTypes),
-    }),
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(detail || "Supabase Storage bucket exists but could not be made public.");
-  }
-}
-
 async function ensureStorageBucket() {
   if (!hasSupabaseStorage()) return;
 
-  const check = await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
-    headers: storageHeaders(),
-    cache: "no-store",
+  await ensurePublicSupabaseStorageBucket({
+    supabaseUrl: supabaseUrl || "",
+    serviceKey: supabaseServiceKey || "",
+    storageBucket,
+    allowedMimeTypes: Object.keys(allowedTypes),
+    fileSizeLimit: 60 * 1024 * 1024,
   });
-
-  if (check.ok) {
-    const bucket = await check.json().catch(() => null);
-    if (bucket && bucket.public !== true) {
-      await makeBucketPublic();
-    }
-    return;
-  }
-  if (check.status !== 404) return;
-
-  const created = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-    method: "POST",
-    headers: storageHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      id: storageBucket,
-      name: storageBucket,
-      public: true,
-      file_size_limit: 60 * 1024 * 1024,
-      allowed_mime_types: Object.keys(allowedTypes),
-    }),
-    cache: "no-store",
-  });
-
-  if (!created.ok && created.status !== 409) {
-    const detail = await created.text().catch(() => "");
-    throw new Error(detail || "Supabase Storage media bucket could not be created.");
-  }
 }
 
 async function uploadToSupabaseStorage(filename: string, buffer: Buffer, contentType: string) {
@@ -121,7 +84,15 @@ async function uploadToSupabaseStorage(filename: string, buffer: Buffer, content
     );
   }
 
-  return `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(storageBucket)}/${objectPath}`;
+  const publicUrl = supabasePublicObjectUrl({
+    supabaseUrl: supabaseUrl || "",
+    storageBucket,
+    objectPath,
+  });
+
+  await assertFacebookAccessibleUrl({ url: publicUrl });
+
+  return publicUrl;
 }
 
 async function requireAdmin(request: NextRequest) {

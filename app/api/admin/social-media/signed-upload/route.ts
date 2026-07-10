@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
+import { ensurePublicSupabaseStorageBucket, supabasePublicObjectUrl } from "@/lib/supabasePublicStorage";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ const serviceKey =
   "";
 
 const storageBucket =
+  process.env.SUPABASE_SOCIAL_MEDIA_BUCKET ||
   process.env.SUPABASE_MEDIA_BUCKET ||
   process.env.SUPABASE_STORAGE_BUCKET ||
   "reviewintel-media";
@@ -44,43 +46,13 @@ async function ensureStorageBucket() {
     throw new Error("Missing Supabase Storage credentials.");
   }
 
-  const lookup = await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
-    headers: storageHeaders(),
-    cache: "no-store",
+  await ensurePublicSupabaseStorageBucket({
+    supabaseUrl,
+    serviceKey,
+    storageBucket,
+    allowedMimeTypes: Object.keys(allowedTypes),
+    fileSizeLimit: 100 * 1024 * 1024,
   });
-
-  if (lookup.ok) {
-    await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
-      method: "PUT",
-      headers: storageHeaders(),
-      body: JSON.stringify({
-        public: true,
-        file_size_limit: 100 * 1024 * 1024,
-        allowed_mime_types: Object.keys(allowedTypes),
-      }),
-      cache: "no-store",
-    }).catch(() => null);
-
-    return;
-  }
-
-  const created = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-    method: "POST",
-    headers: storageHeaders(),
-    body: JSON.stringify({
-      id: storageBucket,
-      name: storageBucket,
-      public: true,
-      file_size_limit: 100 * 1024 * 1024,
-      allowed_mime_types: Object.keys(allowedTypes),
-    }),
-    cache: "no-store",
-  });
-
-  if (!created.ok && created.status !== 409) {
-    const detail = await created.text().catch(() => "");
-    throw new Error(detail || "Supabase Storage media bucket could not be created.");
-  }
 }
 
 function cleanBaseName(name: string) {
@@ -157,7 +129,11 @@ export async function POST(request: NextRequest) {
       ? String(signedData.signedURL)
       : `${supabaseUrl}/storage/v1${signedData.signedURL}`;
 
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(storageBucket)}/${objectPath}`;
+    const publicUrl = supabasePublicObjectUrl({
+      supabaseUrl,
+      storageBucket,
+      objectPath,
+    });
 
     return NextResponse.json({
       ok: true,

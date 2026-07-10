@@ -7,6 +7,11 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import sharp from "sharp";
+import {
+  assertFacebookAccessibleUrl,
+  ensurePublicSupabaseStorageBucket,
+  supabasePublicObjectUrl,
+} from "./social-storage-public.mjs";
 
 const cwd = process.cwd();
 const width = 1080;
@@ -164,42 +169,13 @@ async function restFetch(resource, init = {}) {
 async function ensureStorageBucket() {
   if (!hasSupabase() || localOnly) return false;
 
-  const lookup = await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
-    headers: storageHeaders(),
-    cache: "no-store",
+  await ensurePublicSupabaseStorageBucket({
+    supabaseUrl,
+    serviceKey,
+    storageBucket,
+    allowedMimeTypes: ["video/mp4", "image/png", "image/jpeg", "image/webp"],
+    fileSizeLimit: 100 * 1024 * 1024,
   });
-
-  if (lookup.ok) {
-    await fetch(`${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(storageBucket)}`, {
-      method: "PUT",
-      headers: storageHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        public: true,
-        file_size_limit: 100 * 1024 * 1024,
-        allowed_mime_types: ["video/mp4", "image/png", "image/jpeg", "image/webp"],
-      }),
-      cache: "no-store",
-    }).catch(() => null);
-    return true;
-  }
-
-  const created = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-    method: "POST",
-    headers: storageHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      id: storageBucket,
-      name: storageBucket,
-      public: true,
-      file_size_limit: 100 * 1024 * 1024,
-      allowed_mime_types: ["video/mp4", "image/png", "image/jpeg", "image/webp"],
-    }),
-    cache: "no-store",
-  });
-
-  if (!created.ok && created.status !== 409) {
-    const detail = await created.text().catch(() => "");
-    throw new Error(detail || "Supabase Storage media bucket could not be created.");
-  }
 
   return true;
 }
@@ -230,7 +206,15 @@ async function uploadVideoToStorage(filePath, filename) {
     throw new Error(detail || "Supabase Storage upload failed.");
   }
 
-  return `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(storageBucket)}/${objectPath}`;
+  const publicUrl = supabasePublicObjectUrl({
+    supabaseUrl,
+    storageBucket,
+    objectPath,
+  });
+
+  await assertFacebookAccessibleUrl({ url: publicUrl });
+
+  return publicUrl;
 }
 
 function localSocialDir() {

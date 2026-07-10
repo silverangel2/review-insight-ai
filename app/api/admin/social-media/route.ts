@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { supabaseFetch, supabaseInsert, supabaseUpdate } from "@/lib/supabaseServer";
+import { assertFacebookAccessibleUrl } from "@/lib/supabasePublicStorage";
 
 const allowedMediaTypes = new Set(["image", "video"]);
 
@@ -76,6 +77,24 @@ export async function POST(request: NextRequest) {
     }
 
     const mediaType = allowedMediaTypes.has(String(body.media_type)) ? String(body.media_type) : "image";
+
+    if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
+      try {
+        await assertFacebookAccessibleUrl({ url: fileUrl });
+      } catch (error) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              error && typeof error === "object" && "message" in error
+                ? String((error as { message?: unknown }).message || "Media URL is not publicly fetchable.")
+                : "Media URL is not publicly fetchable.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const now = new Date().toISOString();
 
     const media = await supabaseInsert("admin_social_media", {

@@ -8,6 +8,7 @@ import {
 } from "@/lib/affiliate";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
 import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
+import { probeFacebookAccessibleUrl, type PublicUrlProbeResult } from "@/lib/supabasePublicStorage";
 import { getTikTokAccessTokenForPosting, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -701,6 +702,11 @@ type SocialMediaPickOptions = {
   allowCodexFallback?: boolean;
 };
 
+type FacebookMediaResolution = {
+  media: SocialMediaItem | null;
+  metadata?: Record<string, unknown> | null;
+};
+
 let codexSocialLibraryCache: string[] | null = null;
 
 function codexSocialLibraryPaths() {
@@ -807,6 +813,12 @@ function isOldHouseSocialMedia(media: SocialMediaItem | null) {
 function absoluteMediaUrl(media?: SocialMediaItem | null) {
   if (!media?.file_url) return "";
   return media.file_url.startsWith("/") ? `${publicSiteUrl()}${media.file_url}` : media.file_url;
+}
+
+async function probePublicMediaUrl(media?: SocialMediaItem | null): Promise<PublicUrlProbeResult> {
+  const mediaUrl = absoluteMediaUrl(media);
+
+  return probeFacebookAccessibleUrl({ url: mediaUrl });
 }
 
 function facebookAutoPostFormat() {
@@ -951,6 +963,82 @@ async function pickSocialMedia(
   }
 
   return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || codexLibrarySocialMedia(topic, queue);
+}
+
+async function pickFacebookImageFallback(topic: string, queue: SocialQueueState) {
+  return (
+    (await pickSocialMedia(topic, queue, {
+      preferMediaType: "image",
+      requireMediaType: "image",
+    })) || codexLibrarySocialMedia(topic, queue)
+  );
+}
+
+async function resolveFacebookMediaForFormat(
+  topic: string,
+  queue: SocialQueueState,
+  facebookFormat: string,
+  defaultMedia: SocialMediaItem | null
+): Promise<FacebookMediaResolution> {
+  if (facebookFormat === "image") {
+    return { media: await pickFacebookImageFallback(topic, queue) };
+  }
+
+  if (facebookFormat === "reel") {
+    const media = await pickSocialMedia(topic, queue, {
+      preferMediaType: "video",
+      requireMediaType: "video",
+      allowCodexFallback: false,
+    });
+
+    if (!media) return { media: null };
+
+    const probe = await probePublicMediaUrl(media);
+    return probe.ok
+      ? { media }
+      : {
+          media: null,
+          metadata: {
+            facebookVideoPublicProbe: probe,
+            skippedFacebookVideo: {
+              id: media.id,
+              title: media.title || null,
+              file_url: media.file_url,
+              fallback: "none",
+            },
+          },
+        };
+  }
+
+  if (facebookFormat !== "auto") {
+    return { media: defaultMedia };
+  }
+
+  const video = await pickSocialMedia(topic, queue, {
+    preferMediaType: "video",
+    requireMediaType: "video",
+    allowCodexFallback: false,
+  });
+
+  if (video) {
+    const probe = await probePublicMediaUrl(video);
+    if (probe.ok) return { media: video };
+
+    return {
+      media: await pickFacebookImageFallback(topic, queue),
+      metadata: {
+        skippedFacebookVideo: {
+          id: video.id,
+          title: video.title || null,
+          file_url: video.file_url,
+          probe,
+          fallback: "image",
+        },
+      },
+    };
+  }
+
+  return { media: defaultMedia || (await pickFacebookImageFallback(topic, queue)) };
 }
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
@@ -1748,16 +1836,11 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
 
     for (const platform of platformsToPost) {
       const facebookFormat = platform === "facebook" ? facebookAutoPostFormat() : "default";
-      const media =
-        facebookFormat === "auto"
-          ? (await pickSocialMedia(topic, queue, { preferMediaType: "video" })) || defaultMedia
-          : facebookFormat === "reel"
-            ? await pickSocialMedia(topic, queue, {
-                preferMediaType: "video",
-                requireMediaType: "video",
-                allowCodexFallback: false,
-              })
-            : defaultMedia;
+      const facebookMedia =
+        platform === "facebook"
+          ? await resolveFacebookMediaForFormat(topic, queue, facebookFormat, defaultMedia)
+          : { media: defaultMedia, metadata: null };
+      const media = facebookMedia.media;
 
       if (facebookFormat === "reel" && (!media || media.media_type !== "video")) {
         results.push({
@@ -1768,6 +1851,7 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
           metadata: {
             queue,
             facebookFormat,
+            ...(facebookMedia.metadata || {}),
             fix: "Generate Codex video assets in Admin Social or upload an active MP4 video to the social media library.",
           },
         });
@@ -1815,6 +1899,7 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
               }
             : null,
           queue,
+          ...(facebookMedia.metadata || {}),
           media: media
             ? {
                 id: media.id,
@@ -2087,3 +2172,8 @@ export async function runSocialAutoPost(
     restoreFetch();
   }
 }
+
+export const __socialAutoPostTest = {
+  probePublicMediaUrl,
+  resolveFacebookMediaForFormat,
+};
