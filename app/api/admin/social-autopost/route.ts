@@ -7,6 +7,7 @@ import {
   deleteSocialPost,
   getSocialSettings,
   listSocialPosts,
+  previewFreshFacebookReel,
   pruneSocialPostHistory,
   runSocialAutoPost,
   updateSocialSettings,
@@ -68,6 +69,14 @@ export async function POST(request: NextRequest) {
       const facebook = await checkFacebookConnector();
 
       return NextResponse.json({ ok: facebook.ok, facebook }, { status: facebook.ok ? 200 : 409 });
+    }
+
+    if (body.action === "preview-facebook-reel") {
+      const preview = await previewFreshFacebookReel(
+        typeof body.topic === "string" && allowedTopics.has(body.topic) ? { topic: body.topic } : {}
+      );
+
+      return NextResponse.json({ ok: preview.ok, preview }, { status: preview.ok ? 200 : 409 });
     }
 
     if (body.action === "tiktok-check") {

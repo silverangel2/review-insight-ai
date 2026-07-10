@@ -7,6 +7,26 @@ import {
   isSupportedAffiliateUrl,
 } from "@/lib/affiliate";
 import { getFacebookPageAccessTokenForPosting } from "@/lib/facebookConnector";
+import {
+  generateFreshSocialReelVideo,
+  selectApprovedAudioTrack,
+  type ReelCaptionPlan,
+  type ReelSourceImageInput,
+} from "@/lib/socialReelGenerator";
+import {
+  buildMinimalReelContentPlan,
+  formatMinimalReelCaption,
+  parseHashtagsFromCaption,
+  validateMinimalReelContentPlan,
+  type MinimalReelContentPlan,
+} from "@/lib/socialReelContent";
+import {
+  resolveAmazonAffiliateDestination,
+  resolveReviewIntelStartDestination,
+  shortAffiliateUrl,
+  shortReviewIntelUrl,
+  type SocialRedirectEnv,
+} from "@/lib/socialRedirects";
 import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
 import { probeFacebookAccessibleUrl, type PublicUrlProbeResult } from "@/lib/supabasePublicStorage";
 import { getTikTokAccessTokenForPosting, getTikTokOAuthHealth } from "@/lib/tiktokConnector";
@@ -101,6 +121,13 @@ type SocialContentPack = {
   shortVideoScript: string;
   altText: string;
   link: string;
+};
+
+type SocialAffiliateAttachment = {
+  url: string;
+  disclosure: string;
+  label: string;
+  mode: string;
 };
 
 type PublishResult = {
@@ -360,6 +387,15 @@ function connectorCheck(label: string, status: ConnectorCheck["status"], detail:
   return { label, status, detail };
 }
 
+function errorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = String((error as { message?: unknown }).message || "").trim();
+    if (message) return message;
+  }
+  return fallback;
+}
+
 function platformUrl(platform: string, topic: string) {
   const params = new URLSearchParams({
     utm_source: platform,
@@ -379,7 +415,7 @@ function hasAffiliateProgramConfigured() {
   return Boolean(getAmazonAssociateTag());
 }
 
-function socialAffiliateAttachment(platform: string, topic: string) {
+function socialAffiliateAttachment(platform: string, topic: string): SocialAffiliateAttachment | null {
   if (platform !== "facebook") return null;
   if (!envEnabled("SOCIAL_AFFILIATE_POSTS_ENABLED", "FACEBOOK_AFFILIATE_POSTS_ENABLED")) return null;
 
@@ -682,11 +718,14 @@ type SocialMediaItem = {
   mime_type?: string | null;
   file_url: string;
   thumbnail_url?: string | null;
+  alt_text?: string | null;
   title?: string | null;
   topic?: string | null;
   tags?: string[] | null;
   used_count?: number | null;
   last_used_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   metadata?: Record<string, unknown> | null;
 };
 
@@ -705,6 +744,14 @@ type SocialMediaPickOptions = {
 type FacebookMediaResolution = {
   media: SocialMediaItem | null;
   metadata?: Record<string, unknown> | null;
+  contentOverride?: SocialContentPack | null;
+  finalCaptionOverride?: string | null;
+  affiliateAttachmentOverride?: SocialAffiliateAttachment | null;
+  freshReel?: {
+    sourceImage: SocialMediaItem;
+    generatedMedia: SocialMediaItem;
+    captionPlan: ReelCaptionPlan;
+  } | null;
 };
 
 let codexSocialLibraryCache: string[] | null = null;
@@ -847,6 +894,556 @@ function compactSocialText(value: string, limit: number) {
   return clean.length <= limit ? clean : `${clean.slice(0, Math.max(0, limit - 1)).trim()}…`;
 }
 
+function positiveIntegerEnv(names: string[], fallback: number, min: number, max: number) {
+  const raw = envFirst(...names);
+  const parsed = Number(raw || fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(parsed)));
+}
+
+function reelImageCooldownDays() {
+  return positiveIntegerEnv(["SOCIAL_REEL_IMAGE_COOLDOWN_DAYS", "FACEBOOK_REEL_IMAGE_COOLDOWN_DAYS"], 30, 1, 365);
+}
+
+function validPublicHttpUrl(value: string) {
+  if (!value || isPrivateOrLocalUrl(value)) return false;
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function freshReelRedirectEnv(): SocialRedirectEnv {
+  const names = [
+    "REVIEWINTEL_START_URL",
+    "REVIEWINTEL_DESTINATION_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "APP_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+    "VERCEL_URL",
+    "SOCIAL_AFFILIATE_URL",
+    "FACEBOOK_AFFILIATE_URL",
+    "SOCIAL_QUALIFYING_LINK_URL",
+    "FACEBOOK_QUALIFYING_LINK_URL",
+  ];
+
+  return Object.fromEntries(
+    names
+      .map((name) => [name, envFirst(name)] as const)
+      .filter(([, value]) => Boolean(value))
+  );
+}
+
+function requiredFreshReelLinks(platform: string) {
+  const redirectEnv = freshReelRedirectEnv();
+  const websiteUrl = resolveReviewIntelStartDestination(redirectEnv);
+  const websiteShortUrl = shortReviewIntelUrl(redirectEnv);
+  if (!validPublicHttpUrl(websiteUrl)) {
+    throw new Error("Facebook Reel generation requires a public ReviewIntel website URL.");
+  }
+
+  const affiliateUrl = resolveAmazonAffiliateDestination(redirectEnv);
+  if (!affiliateUrl || !validPublicHttpUrl(affiliateUrl)) {
+    throw new Error("Facebook Reel generation requires a configured public Amazon affiliate URL.");
+  }
+
+  const affiliateShort = shortAffiliateUrl(redirectEnv);
+  if (!validPublicHttpUrl(affiliateShort)) {
+    throw new Error("Facebook Reel generation requires a public ReviewIntel affiliate redirect URL.");
+  }
+
+  const disclosure =
+    envFirst("SOCIAL_AFFILIATE_DISCLOSURE", "FACEBOOK_AFFILIATE_DISCLOSURE") ||
+    getAffiliateDisclosure();
+
+  return {
+    websiteUrl,
+    websiteShortUrl,
+    affiliateUrl,
+    affiliateShortUrl: affiliateShort,
+    affiliateAttachment:
+      platform === "facebook"
+        ? {
+            url: affiliateShort,
+            disclosure,
+            label: "Helpful review tools",
+            mode: "short-affiliate-redirect",
+          }
+        : null,
+  };
+}
+
+function buildFreshReelCaptionPlan(input: {
+  platform: string;
+  topic: string;
+  queue: SocialQueueState;
+  sourceImage: SocialMediaItem;
+  websiteUrl: string;
+  websiteShortUrl: string;
+  affiliateUrl: string;
+  affiliateShortUrl: string;
+  recentHashtagSets: string[][];
+  attempt?: number;
+}): MinimalReelContentPlan {
+  return buildMinimalReelContentPlan({
+    socialTopic: input.topic,
+    queueDay: input.queue.queueDay,
+    cycleNumber: input.queue.cycleNumber,
+    sourceImageId: input.sourceImage.id,
+    websiteUrl: input.websiteUrl,
+    websiteShortUrl: input.websiteShortUrl,
+    affiliateUrl: input.affiliateUrl,
+    affiliateShortUrl: input.affiliateShortUrl,
+    recentHashtagSets: input.recentHashtagSets,
+    attempt: input.attempt,
+  });
+}
+
+async function recentFacebookCaptions() {
+  const rows = await supabaseFetch(
+    "admin_social_posts?select=caption,hashtags&platform=eq.facebook&order=created_at.desc&limit=200"
+  ).catch(() => []);
+
+  if (!Array.isArray(rows)) return new Set<string>();
+
+  return new Set(
+    rows
+      .map((row) => String((row as Record<string, unknown>)?.caption || "").trim())
+      .filter(Boolean)
+  );
+}
+
+async function recentFacebookHashtagSets() {
+  const rows = await supabaseFetch(
+    "admin_social_posts?select=caption,hashtags&platform=eq.facebook&order=created_at.desc&limit=50"
+  ).catch(() => []);
+
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .map((row) => {
+      const record = row as Record<string, unknown>;
+      const storedHashtags = Array.isArray(record.hashtags)
+        ? record.hashtags.map((item) => String(item || "").replace(/^#/, "").trim()).filter(Boolean)
+        : [];
+      const captionHashtags = parseHashtagsFromCaption(String(record.caption || ""));
+      return Array.from(new Set([...storedHashtags, ...captionHashtags].map((tag) => tag.replace(/^#/, "")))).filter(Boolean);
+    })
+    .filter((set) => set.length > 0);
+}
+
+async function uniqueFreshReelCaptionPlan(input: {
+  platform: string;
+  topic: string;
+  queue: SocialQueueState;
+  sourceImage: SocialMediaItem;
+  websiteUrl: string;
+  websiteShortUrl: string;
+  affiliateUrl: string;
+  affiliateShortUrl: string;
+}) {
+  const recentCaptions = await recentFacebookCaptions();
+  const recentHashtagSets = await recentFacebookHashtagSets();
+
+  for (let attempt = 0; attempt < 36; attempt += 1) {
+    const plan = buildFreshReelCaptionPlan({ ...input, recentHashtagSets, attempt });
+    const finalCaption = formatMinimalReelCaption(plan);
+    if (!recentCaptions.has(finalCaption)) return { plan, finalCaption };
+  }
+
+  throw new Error("Facebook Reel generation could not create a non-duplicate caption.");
+}
+
+function isCurrentUploadImage(media: SocialMediaItem) {
+  const metadata = media.metadata || {};
+  const storageBucket = String(metadata.storage_bucket || "");
+
+  return (
+    metadata.uploaded_via === "admin_social_media_upload" ||
+    storageBucket === "reviewintel-social-public" ||
+    String(media.file_url || "").includes("/storage/v1/object/public/reviewintel-social-public/")
+  );
+}
+
+function imageUrlForGeneration(media: SocialMediaItem) {
+  return absoluteMediaUrl(media);
+}
+
+async function recentlyUsedFreshReelSourceImageIds(cutoffIso: string) {
+  const rows = await supabaseFetch(
+    "admin_social_media?select=id,created_at,metadata&media_type=eq.video&order=created_at.desc&limit=1000"
+  ).catch(() => []);
+
+  if (!Array.isArray(rows)) return new Set<string>();
+
+  return new Set(
+    rows
+      .filter((row) => {
+        const record = row as Record<string, unknown>;
+        const metadata = (record.metadata && typeof record.metadata === "object"
+          ? record.metadata
+          : {}) as Record<string, unknown>;
+        const generatedAt = String(metadata.generated_at || record.created_at || "");
+        return (
+          String(metadata.generated_by || "") === "scheduled_fresh_reel_generator" &&
+          generatedAt >= cutoffIso &&
+          Boolean(metadata.source_image_id)
+        );
+      })
+      .map((row) => {
+        const metadata = ((row as Record<string, unknown>).metadata || {}) as Record<string, unknown>;
+        return String(metadata.source_image_id || "");
+      })
+      .filter(Boolean)
+  );
+}
+
+function sortFreshReelImages(rows: SocialMediaItem[], topic: string) {
+  return [...rows].sort((a, b) => {
+    const currentUploadScore = Number(!isCurrentUploadImage(a)) - Number(!isCurrentUploadImage(b));
+    if (currentUploadScore !== 0) return currentUploadScore;
+
+    const topicScore = Number(String(a.topic || "") !== topic) - Number(String(b.topic || "") !== topic);
+    if (topicScore !== 0) return topicScore;
+
+    const usedScore = Number(a.used_count || 0) - Number(b.used_count || 0);
+    if (usedScore !== 0) return usedScore;
+
+    const aUsed = a.last_used_at ? Date.parse(a.last_used_at) : 0;
+    const bUsed = b.last_used_at ? Date.parse(b.last_used_at) : 0;
+    if (aUsed !== bUsed) return aUsed - bUsed;
+
+    return Date.parse(String(b.created_at || "")) - Date.parse(String(a.created_at || ""));
+  });
+}
+
+async function pickFreshReelSourceImage(topic: string): Promise<SocialMediaItem | null> {
+  const cooldownDays = reelImageCooldownDays();
+  const cutoff = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000).toISOString();
+  const recentSourceIds = await recentlyUsedFreshReelSourceImageIds(cutoff);
+  const rows = await supabaseFetch(
+    "admin_social_media?select=*&is_active=eq.true&media_type=eq.image&order=created_at.desc&limit=250"
+  ).catch(() => []);
+
+  if (!Array.isArray(rows)) return null;
+
+  const eligible = (rows as SocialMediaItem[]).filter((row) => {
+    const url = imageUrlForGeneration(row);
+    const lastUsedAt = row.last_used_at ? new Date(row.last_used_at).toISOString() : "";
+
+    return (
+      Boolean(row.id && row.file_url) &&
+      String(row.topic || "") !== HOMEPAGE_VIDEO_TOPIC &&
+      !Boolean(row.metadata?.homepage_video) &&
+      !isOldHouseSocialMedia(row) &&
+      validPublicHttpUrl(url) &&
+      !recentSourceIds.has(row.id) &&
+      (!lastUsedAt || lastUsedAt < cutoff)
+    );
+  });
+
+  return sortFreshReelImages(eligible, topic)[0] || null;
+}
+
+async function insertGeneratedFreshReelMedia(input: {
+  topic: string;
+  sourceImage: SocialMediaItem;
+  captionPlan: ReelCaptionPlan;
+  video: Awaited<ReturnType<typeof generateFreshSocialReelVideo>>;
+  generatedAt: string;
+}) {
+  const row = {
+    title: `ReviewIntel fresh Reel - ${input.topic.replace(/_/g, " ")}`,
+    media_type: "video",
+    mime_type: "video/mp4",
+    file_url: input.video.publicUrl,
+    thumbnail_url: input.sourceImage.thumbnail_url || input.sourceImage.file_url || null,
+    alt_text: "ReviewIntel vertical Reel generated from a recent media-library image.",
+    topic: input.topic,
+    tags: ["ReviewIntel", "FreshReel", "SocialVideo", input.topic, ...input.captionPlan.hashtags],
+    is_active: true,
+    used_count: 0,
+    metadata: {
+      codex_library: true,
+      media_type: "video",
+      mime_type: "video/mp4",
+      format: "vertical_reel",
+      generated_by: "scheduled_fresh_reel_generator",
+      generated_at: input.generatedAt,
+      source_image_id: input.sourceImage.id,
+      source_image_url: input.sourceImage.file_url,
+      source_image_title: input.sourceImage.title || null,
+      generated_caption: input.captionPlan.caption,
+      hashtags: input.captionPlan.hashtags,
+      website_url: input.captionPlan.websiteUrl,
+      website_short_url: input.captionPlan.websiteShortUrl || null,
+      affiliate_url: input.captionPlan.affiliateUrl,
+      affiliate_short_url: input.captionPlan.affiliateShortUrl || null,
+      affiliate_relevant: Boolean(input.captionPlan.affiliateRelevant),
+      overlay: {
+        hook: input.captionPlan.overlayHook || null,
+        support: input.captionPlan.overlaySupport || null,
+        cta: input.captionPlan.overlayCta || input.captionPlan.cta,
+      },
+      discovery_topic: input.captionPlan.discoveryTopic || null,
+      hashtag_score: input.captionPlan.hashtagScore || null,
+      music_audio_track: {
+        id: input.video.audioTrack.id,
+        name: input.video.audioTrack.name,
+        license: input.video.audioTrack.license,
+        type: "original_generated_background_audio",
+      },
+      video_duration_seconds: input.video.durationSeconds,
+      file_size_bytes: input.video.size,
+      storage: "supabase",
+      storage_bucket: "reviewintel-social-public",
+      object_path: input.video.objectPath,
+    },
+    created_at: input.generatedAt,
+    updated_at: input.generatedAt,
+  };
+
+  const rows = await supabaseFetch("admin_social_media", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(row),
+  });
+  const inserted = Array.isArray(rows) ? rows[0] as SocialMediaItem : rows as SocialMediaItem;
+
+  if (inserted?.id) {
+    const metadata = {
+      ...(inserted.metadata || row.metadata),
+      generated_mp4_id: inserted.id,
+    };
+
+    const updatedRows = await supabaseFetch(`admin_social_media?id=eq.${encodeURIComponent(inserted.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ metadata, updated_at: input.generatedAt }),
+    }).catch(() => null);
+
+    return (Array.isArray(updatedRows) ? updatedRows[0] : updatedRows) || { ...inserted, metadata };
+  }
+
+  return inserted;
+}
+
+async function createFreshFacebookReelMedia(
+  topic: string,
+  queue: SocialQueueState,
+  platform = "facebook"
+): Promise<FacebookMediaResolution> {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Fresh Facebook Reel generation requires Supabase service configuration.");
+  }
+
+  const {
+    websiteUrl,
+    websiteShortUrl,
+    affiliateUrl,
+    affiliateShortUrl,
+    affiliateAttachment,
+  } = requiredFreshReelLinks(platform);
+  const sourceImage = await pickFreshReelSourceImage(topic);
+
+  if (!sourceImage) {
+    throw new Error(`No eligible source image is available outside the ${reelImageCooldownDays()} day Reel cooldown.`);
+  }
+
+  const { plan, finalCaption } = await uniqueFreshReelCaptionPlan({
+    platform,
+    topic,
+    queue,
+    sourceImage,
+    websiteUrl,
+    websiteShortUrl,
+    affiliateUrl,
+    affiliateShortUrl,
+  });
+  const generatedAt = new Date().toISOString();
+  const audioSeed = `${topic}:${queue.queueDay}:${sourceImage.id}:${generatedAt}`;
+  const video = await generateFreshSocialReelVideo({
+    sourceImage: sourceImage as ReelSourceImageInput,
+    captionPlan: plan,
+    publicSiteUrl: websiteUrl,
+    supabaseUrl,
+    serviceKey: supabaseServiceKey,
+    audioSeed,
+  });
+  const probe = await probeFacebookAccessibleUrl({ url: video.publicUrl });
+
+  if (!probe.ok) {
+    throw new Error(probe.error || "Generated Facebook Reel MP4 is not publicly reachable.");
+  }
+
+  const generatedMedia = await insertGeneratedFreshReelMedia({
+    topic,
+    sourceImage,
+    captionPlan: plan,
+    video,
+    generatedAt,
+  });
+
+  return {
+    media: generatedMedia,
+    contentOverride: {
+      caption: plan.caption,
+      hashtags: plan.hashtags,
+      shortVideoScript: [
+        `Hook: ${plan.overlayHook || plan.theme}`,
+        plan.overlaySupport ? `Support: ${plan.overlaySupport}` : "",
+        `CTA: ${plan.overlayCta || plan.cta}`,
+      ].filter(Boolean).join("\n"),
+      altText: generatedMedia.alt_text || "ReviewIntel generated social Reel.",
+      link: plan.websiteShortUrl || websiteShortUrl,
+    },
+    finalCaptionOverride: finalCaption,
+    affiliateAttachmentOverride: affiliateAttachment,
+    freshReel: {
+      sourceImage,
+      generatedMedia,
+      captionPlan: plan,
+    },
+    metadata: {
+      freshFacebookReel: {
+        generated_at: generatedAt,
+        source_image_id: sourceImage.id,
+        generated_mp4_id: generatedMedia.id,
+        public_url: generatedMedia.file_url,
+        public_probe: probe,
+        website_url: websiteUrl,
+        website_short_url: plan.websiteShortUrl,
+        affiliate_url: plan.affiliateUrl,
+        affiliate_short_url: plan.affiliateShortUrl,
+        affiliate_relevant: Boolean(plan.affiliateRelevant),
+        overlay: {
+          hook: plan.overlayHook,
+          support: plan.overlaySupport,
+          cta: plan.overlayCta,
+        },
+        caption: plan.caption,
+        hashtags: plan.hashtags,
+        hashtag_score: plan.hashtagScore,
+        discovery_topic: plan.discoveryTopic,
+        music_audio_track: {
+          id: video.audioTrack.id,
+          name: video.audioTrack.name,
+          license: video.audioTrack.license,
+        },
+      },
+    },
+  };
+}
+
+export async function previewFreshFacebookReel(options: { topic?: string } = {}) {
+  const settings = await getSocialSettings();
+  const cycleLength = Math.max(1, Number(settings.cycle_length || 100));
+  const queue = await getLatestQueueState(cycleLength);
+  const topic = options.topic || settings.topics?.[0] || "shopper_tips";
+  const {
+    websiteUrl,
+    websiteShortUrl,
+    affiliateUrl,
+    affiliateShortUrl,
+  } = requiredFreshReelLinks("facebook");
+  const sourceImage = await pickFreshReelSourceImage(topic);
+
+  if (!sourceImage) {
+    throw new Error(`No eligible source image is available outside the ${reelImageCooldownDays()} day Reel cooldown.`);
+  }
+
+  const { plan, finalCaption } = await uniqueFreshReelCaptionPlan({
+    platform: "facebook",
+    topic,
+    queue,
+    sourceImage,
+    websiteUrl,
+    websiteShortUrl,
+    affiliateUrl,
+    affiliateShortUrl,
+  });
+  const validation = validateMinimalReelContentPlan(plan);
+  const audioTrack = selectApprovedAudioTrack(`${topic}:${queue.queueDay}:${sourceImage.id}:preview`);
+
+  return {
+    ok: validation.ok,
+    topic,
+    queue,
+    sourceImage: {
+      id: sourceImage.id,
+      title: sourceImage.title || null,
+      fileUrl: imageUrlForGeneration(sourceImage),
+      topic: sourceImage.topic || null,
+      lastUsedAt: sourceImage.last_used_at || null,
+      usedCount: sourceImage.used_count || 0,
+    },
+    overlay: {
+      hook: plan.overlayHook,
+      support: plan.overlaySupport,
+      cta: plan.overlayCta,
+      brand: "ReviewIntel",
+    },
+    caption: plan.caption,
+    finalCaption,
+    hashtags: plan.hashtags,
+    hashtagScore: plan.hashtagScore,
+    website: {
+      shortUrl: plan.websiteShortUrl,
+      destinationUrl: plan.websiteUrl,
+    },
+    affiliate: {
+      shortUrl: plan.affiliateShortUrl,
+      destinationUrl: plan.affiliateUrl,
+      includedInCaption: Boolean(plan.affiliateRelevant),
+    },
+    music: {
+      id: audioTrack.id,
+      name: audioTrack.name,
+      license: audioTrack.license,
+      type: "original_generated_background_audio",
+    },
+    clutterCheck: {
+      ok: validation.ok,
+      errors: validation.errors,
+    },
+    organicCtaButtonSupport: {
+      facebookReels: false,
+      instagramReels: false,
+      note: "The current organic publishing integration uses caption text and short links. It does not create paid ads or attach a custom CTA button.",
+    },
+  };
+}
+
+async function updateFreshReelPublishMetadata(input: {
+  freshReel: NonNullable<FacebookMediaResolution["freshReel"]>;
+  published: PublishResult;
+  postedAt: string;
+}) {
+  const media = input.freshReel.generatedMedia;
+  if (!media?.id) return;
+
+  const metadata = {
+    ...(media.metadata || {}),
+    facebook_reel_id:
+      (input.published.metadata?.facebookReel as Record<string, unknown> | undefined)?.video_id || null,
+    facebook_external_post_id: input.published.externalPostId || null,
+    published_at: input.postedAt,
+    publish_status: input.published.ok ? "posted" : "failed",
+  };
+
+  await supabaseFetch(`admin_social_media?id=eq.${encodeURIComponent(media.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      metadata,
+      updated_at: input.postedAt,
+    }),
+  }).catch(() => null);
+}
+
 async function postedPlatformsToday(platforms: string[], now = new Date()) {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
   const rows = await supabaseFetch(
@@ -876,6 +1473,16 @@ function makeContentFingerprint(input: {
     `cycle-${input.cycleNumber}`,
     `recycle-${input.recycleCount}`,
   ].join(":");
+}
+
+async function existingCompletedPostFingerprints(fingerprint: string) {
+  if (!fingerprint) return [];
+
+  const rows = await supabaseFetch(
+    `admin_social_posts?select=id,status,external_post_id,content_fingerprint&content_fingerprint=eq.${encodeURIComponent(fingerprint)}&status=in.(posted,draft_ready)&limit=10`
+  ).catch(() => []);
+
+  return Array.isArray(rows) ? rows : [];
 }
 
 async function getLatestQueueState(cycleLength: number): Promise<SocialQueueState> {
@@ -985,60 +1592,40 @@ async function resolveFacebookMediaForFormat(
   }
 
   if (facebookFormat === "reel") {
-    const media = await pickSocialMedia(topic, queue, {
-      preferMediaType: "video",
-      requireMediaType: "video",
-      allowCodexFallback: false,
-    });
-
-    if (!media) return { media: null };
-
-    const probe = await probePublicMediaUrl(media);
-    return probe.ok
-      ? { media }
-      : {
-          media: null,
-          metadata: {
-            facebookVideoPublicProbe: probe,
-            skippedFacebookVideo: {
-              id: media.id,
-              title: media.title || null,
-              file_url: media.file_url,
-              fallback: "none",
-            },
+    try {
+      return await createFreshFacebookReelMedia(topic, queue);
+    } catch (error) {
+      return {
+        media: null,
+        metadata: {
+          freshFacebookReel: {
+            ok: false,
+            fallback: "none",
+            error: errorMessage(error, "Fresh Facebook Reel generation failed."),
           },
-        };
+        },
+      };
+    }
   }
 
   if (facebookFormat !== "auto") {
     return { media: defaultMedia };
   }
 
-  const video = await pickSocialMedia(topic, queue, {
-    preferMediaType: "video",
-    requireMediaType: "video",
-    allowCodexFallback: false,
-  });
-
-  if (video) {
-    const probe = await probePublicMediaUrl(video);
-    if (probe.ok) return { media: video };
-
+  try {
+    return await createFreshFacebookReelMedia(topic, queue);
+  } catch (error) {
     return {
       media: await pickFacebookImageFallback(topic, queue),
       metadata: {
-        skippedFacebookVideo: {
-          id: video.id,
-          title: video.title || null,
-          file_url: video.file_url,
-          probe,
+        freshFacebookReel: {
+          ok: false,
           fallback: "image",
+          error: errorMessage(error, "Fresh Facebook Reel generation failed."),
         },
       },
     };
   }
-
-  return { media: defaultMedia || (await pickFacebookImageFallback(topic, queue)) };
 }
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
@@ -1847,22 +2434,35 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
           platform,
           status: "skipped",
           topic,
-          error: "SOCIAL_AUTOPOST_FACEBOOK_FORMAT=reel requires active video media, but no generated or uploaded video was available.",
+          error: "SOCIAL_AUTOPOST_FACEBOOK_FORMAT=reel requires a freshly generated public MP4, but generation was not available.",
           metadata: {
             queue,
             facebookFormat,
             ...(facebookMedia.metadata || {}),
-            fix: "Generate Codex video assets in Admin Social or upload an active MP4 video to the social media library.",
+            fix: "Upload active source images, configure public website and affiliate URLs, and keep source images outside the Reel cooldown window.",
           },
         });
         continue;
       }
 
       mediaUsed.push(media);
-      const content = await generateAiReviewIntelContentPack(platform, topic, queue, media);
-      const affiliateAttachment = socialAffiliateAttachment(platform, topic);
-      const baseCaption = finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
-      const caption = appendSocialAffiliateLink(baseCaption, affiliateAttachment);
+      if (facebookMedia.freshReel?.sourceImage) {
+        mediaUsed.push(facebookMedia.freshReel.sourceImage);
+      }
+
+      const content =
+        facebookMedia.contentOverride ||
+        (await generateAiReviewIntelContentPack(platform, topic, queue, media));
+      const affiliateAttachment =
+        facebookMedia.affiliateAttachmentOverride === undefined
+          ? socialAffiliateAttachment(platform, topic)
+          : facebookMedia.affiliateAttachmentOverride;
+      const baseCaption = facebookMedia.finalCaptionOverride
+        ? facebookMedia.finalCaptionOverride
+        : finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
+      const caption = facebookMedia.finalCaptionOverride
+        ? facebookMedia.finalCaptionOverride
+        : appendSocialAffiliateLink(baseCaption, affiliateAttachment);
       const fingerprint = makeContentFingerprint({
         platform,
         topic,
@@ -1870,6 +2470,22 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
         cycleNumber: queue.cycleNumber,
         recycleCount: queue.recycleCount,
       });
+      const duplicateFingerprintRows = await existingCompletedPostFingerprints(fingerprint);
+
+      if (duplicateFingerprintRows.length) {
+        results.push({
+          platform,
+          status: "skipped",
+          topic,
+          error: "A completed queue item already exists for this platform/topic/day cycle.",
+          metadata: {
+            queue,
+            content_fingerprint: fingerprint,
+            duplicate_rows: duplicateFingerprintRows,
+          },
+        });
+        continue;
+      }
 
       const draft = await createSocialPost({
         platform,
@@ -1893,13 +2509,35 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
                 disclosure: affiliateAttachment.disclosure,
                 mode: affiliateAttachment.mode,
                 note:
-                  affiliateAttachment.mode === "direct-product-affiliate"
+                  affiliateAttachment.mode === "short-affiliate-redirect"
+                    ? "Short ReviewIntel affiliate redirect is used in fresh Reel captions while the full destination is stored in metadata."
+                    : affiliateAttachment.mode === "direct-product-affiliate"
                     ? "Direct Amazon qualifying link appended only for Facebook because social affiliate posting was explicitly enabled."
                     : "ReviewIntel affiliate hub link appended because affiliate posting is enabled and no exact product URL was configured.",
               }
             : null,
           queue,
           ...(facebookMedia.metadata || {}),
+          fresh_reel_generation: facebookMedia.freshReel
+            ? {
+                source_image_id: facebookMedia.freshReel.sourceImage.id,
+                generated_mp4_id: facebookMedia.freshReel.generatedMedia.id,
+                caption: facebookMedia.freshReel.captionPlan.caption,
+                hashtags: facebookMedia.freshReel.captionPlan.hashtags,
+                website_url: facebookMedia.freshReel.captionPlan.websiteUrl,
+                website_short_url: facebookMedia.freshReel.captionPlan.websiteShortUrl || null,
+                affiliate_url: facebookMedia.freshReel.captionPlan.affiliateUrl,
+                affiliate_short_url: facebookMedia.freshReel.captionPlan.affiliateShortUrl || null,
+                affiliate_relevant: Boolean(facebookMedia.freshReel.captionPlan.affiliateRelevant),
+                overlay: {
+                  hook: facebookMedia.freshReel.captionPlan.overlayHook || null,
+                  support: facebookMedia.freshReel.captionPlan.overlaySupport || null,
+                  cta: facebookMedia.freshReel.captionPlan.overlayCta || facebookMedia.freshReel.captionPlan.cta,
+                },
+                discovery_topic: facebookMedia.freshReel.captionPlan.discoveryTopic || null,
+                hashtag_score: facebookMedia.freshReel.captionPlan.hashtagScore || null,
+              }
+            : null,
           media: media
             ? {
                 id: media.id,
@@ -1924,6 +2562,14 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
       const published = await postToPlatform(platform, caption, media);
 
       if (published.ok) {
+        if (facebookMedia.freshReel && !published.draftOnly) {
+          await updateFreshReelPublishMetadata({
+            freshReel: facebookMedia.freshReel,
+            published,
+            postedAt: now,
+          });
+        }
+
         const updated = await updateSocialPost(draft.id, {
           status: published.draftOnly ? "draft_ready" : "posted",
           external_post_id: published.externalPostId,

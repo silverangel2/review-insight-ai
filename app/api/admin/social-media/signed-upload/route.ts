@@ -148,6 +148,17 @@ export async function POST(request: NextRequest) {
       mediaType: config.mediaType,
       contentType,
       objectPath,
+      storage: "supabase",
+      storageBucket,
+      storageBucketSource: publicSocialBucket.source,
+      metadata: {
+        uploaded_via: "admin_social_media_upload",
+        storage: "supabase",
+        storage_bucket: storageBucket,
+        storage_bucket_source: publicSocialBucket.source,
+        object_path: objectPath,
+        original_filename: filenameInput,
+      },
     });
   } catch (error) {
     return NextResponse.json(

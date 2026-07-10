@@ -4,6 +4,14 @@ import { supabaseFetch, supabaseInsert, supabaseUpdate } from "@/lib/supabaseSer
 import { assertFacebookAccessibleUrl } from "@/lib/supabasePublicStorage";
 
 const allowedMediaTypes = new Set(["image", "video"]);
+const allowedMetadataKeys = new Set([
+  "uploaded_via",
+  "storage",
+  "storage_bucket",
+  "storage_bucket_source",
+  "object_path",
+  "original_filename",
+]);
 
 async function requireAdmin(request: NextRequest) {
   const session = await adminSessionFromRequest(request);
@@ -25,6 +33,19 @@ function cleanUrl(value: unknown) {
   } catch {
     return "";
   }
+}
+
+function cleanMetadata(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const clean: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (!allowedMetadataKeys.has(key)) continue;
+    const text = String(raw || "").trim();
+    if (text) clean[key] = text.slice(0, 500);
+  }
+
+  return clean;
 }
 
 export async function GET(request: NextRequest) {
@@ -112,7 +133,7 @@ export async function POST(request: NextRequest) {
             .filter(Boolean),
       is_active: true,
       used_count: 0,
-      metadata: {},
+      metadata: cleanMetadata(body.metadata),
       created_at: now,
       updated_at: now,
     });

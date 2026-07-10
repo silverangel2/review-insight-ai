@@ -69,6 +69,57 @@ type ConnectorHealth = {
   }>;
 };
 
+type SocialReelPreview = {
+  ok: boolean;
+  topic: string;
+  sourceImage?: {
+    id: string;
+    title?: string | null;
+    fileUrl?: string;
+    usedCount?: number;
+    lastUsedAt?: string | null;
+  };
+  overlay: {
+    hook?: string;
+    support?: string;
+    cta?: string;
+    brand?: string;
+  };
+  caption: string;
+  finalCaption: string;
+  hashtags: string[];
+  hashtagScore?: {
+    topicalRelevance?: number;
+    audienceFit?: number;
+    repetitionRisk?: number;
+    spamRisk?: number;
+    total?: number;
+  };
+  website: {
+    shortUrl: string;
+    destinationUrl: string;
+  };
+  affiliate: {
+    shortUrl: string;
+    destinationUrl: string;
+    includedInCaption: boolean;
+  };
+  music: {
+    id: string;
+    name: string;
+    license: string;
+  };
+  clutterCheck: {
+    ok: boolean;
+    errors?: string[];
+  };
+  organicCtaButtonSupport?: {
+    facebookReels?: boolean;
+    instagramReels?: boolean;
+    note?: string;
+  };
+};
+
 const platformOptions = ["facebook", "instagram", "tiktok", "linkedin", "x", "youtube_shorts", "pinterest", "reddit"];
 const topicOptions = ["shopper_tips", "seller_tips", "fake_review_warning", "buyer_mistakes", "competitor_watch", "trust_signals"];
 
@@ -102,6 +153,7 @@ export default function AdminSocialAutoPost() {
   const [saving, setSaving] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [generatingVideos, setGeneratingVideos] = useState(false);
+  const [reelPreview, setReelPreview] = useState<SocialReelPreview | null>(null);
 
   async function load() {
     try {
@@ -245,6 +297,38 @@ export default function AdminSocialAutoPost() {
     }
   }
 
+  async function previewFacebookReel() {
+    setSaving(true);
+    setStatus("Preparing Facebook Reel preview...");
+
+    try {
+      const response = await fetch("/api/admin/social-autopost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "preview-facebook-reel",
+          topic: settings.topics?.[0] || "shopper_tips",
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (data.preview) {
+        setReelPreview(data.preview as SocialReelPreview);
+      }
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || data.preview?.clutterCheck?.errors?.join(" ") || "Facebook Reel preview needs attention.");
+        return;
+      }
+
+      setStatus("Facebook Reel preview is ready.");
+    } catch {
+      setStatus("Could not prepare Facebook Reel preview.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function checkTikTok() {
     setSaving(true);
     setStatus("Checking TikTok connector...");
@@ -312,6 +396,7 @@ export default function AdminSocialAutoPost() {
           url?: string;
           thumbnailUrl?: string;
           uploadUrl?: string;
+          metadata?: Record<string, string>;
           error?: string;
         } = {};
 
@@ -387,6 +472,7 @@ export default function AdminSocialAutoPost() {
             alt_text: uploadData.title || file.name,
             topic: options?.topic ?? mediaForm.topic,
             tags: options?.tags ?? mediaForm.tags,
+            metadata: uploadData.metadata || {},
           }),
         });
 
@@ -858,6 +944,14 @@ export default function AdminSocialAutoPost() {
               >
                 Post one test now
               </button>
+              <button
+                type="button"
+                onClick={previewFacebookReel}
+                disabled={saving}
+                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-slate-950 dark:text-cyan-200"
+              >
+                Preview next Reel
+              </button>
             </div>
           </div>
 
@@ -935,6 +1029,60 @@ export default function AdminSocialAutoPost() {
         <p className="mt-4 rounded-2xl bg-mist p-4 text-sm font-black text-slate-700 dark:bg-slate-900 dark:text-slate-200">
           {status}
         </p>
+
+        {reelPreview ? (
+          <div className="mt-4 rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
+                  Next Reel preview
+                </p>
+                <h3 className="mt-1 text-lg font-black text-ink dark:text-white">
+                  {reelPreview.overlay.hook || "ReviewIntel Reel"}
+                </h3>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-black ${
+                reelPreview.clutterCheck.ok
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-300/10 dark:text-emerald-200"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-300/10 dark:text-rose-200"
+              }`}>
+                {reelPreview.clutterCheck.ok ? "Clutter check passed" : "Needs cleanup"}
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl bg-mist p-4 dark:bg-slate-950">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Video overlay</p>
+                <p className="mt-3 text-2xl font-black leading-tight text-ink dark:text-white">{reelPreview.overlay.hook}</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">{reelPreview.overlay.support}</p>
+                <p className="mt-4 inline-flex rounded-full bg-ocean/10 px-4 py-2 text-sm font-black text-ocean dark:bg-cyan-300/10 dark:text-cyan-200">
+                  {reelPreview.overlay.cta}
+                </p>
+                <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-slate-400">{reelPreview.overlay.brand}</p>
+              </div>
+
+              <div className="rounded-2xl bg-mist p-4 dark:bg-slate-950">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Caption</p>
+                <pre className="mt-3 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
+                  {reelPreview.finalCaption}
+                </pre>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 text-xs font-bold text-slate-600 dark:text-slate-300 md:grid-cols-2">
+              <p className="truncate">Website: <span className="font-black text-ink dark:text-white">{reelPreview.website.shortUrl}</span> to {reelPreview.website.destinationUrl}</p>
+              <p className="truncate">Affiliate: <span className="font-black text-ink dark:text-white">{reelPreview.affiliate.shortUrl}</span> to {reelPreview.affiliate.destinationUrl}</p>
+              <p>Music: <span className="font-black text-ink dark:text-white">{reelPreview.music.name}</span></p>
+              <p>
+                Hashtag score: <span className="font-black text-ink dark:text-white">{Math.round((reelPreview.hashtagScore?.total || 0) * 100)}%</span>
+              </p>
+              <p className="md:col-span-2">{reelPreview.organicCtaButtonSupport?.note}</p>
+              {reelPreview.clutterCheck.errors?.length ? (
+                <p className="md:col-span-2 text-rose-600 dark:text-rose-200">{reelPreview.clutterCheck.errors.join(" ")}</p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         {connectorCard("Facebook", facebookCheck)}
         {connectorCard("TikTok", tiktokCheck)}

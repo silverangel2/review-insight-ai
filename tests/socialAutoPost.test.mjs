@@ -31,11 +31,13 @@ function withEnv(env) {
   };
 }
 
-function loadSocialAutoPost(fetchMock, env = {}) {
+function loadSocialAutoPost(fetchMock, env = {}, reelGenerator = {}) {
   const restoreEnv = withEnv({
     NEXT_PUBLIC_SUPABASE_URL: "https://supabase.test",
     SUPABASE_SERVICE_ROLE_KEY: "service-role-test-key",
     NEXT_PUBLIC_SITE_URL: "https://getreviewintel.com",
+    SOCIAL_AFFILIATE_POSTS_ENABLED: "true",
+    SOCIAL_AFFILIATE_URL: "https://www.amazon.com/dp/test-product",
     SOCIAL_AUTOPOST_MEDIA_SOURCE: "codex_library",
     ...env,
   });
@@ -67,10 +69,10 @@ function loadSocialAutoPost(fetchMock, env = {}) {
       if (id === "fs" || id === "path") return require(id);
       if (id === "@/lib/affiliate") {
         return {
-          buildAffiliateUrl: (value) => value,
+          buildAffiliateUrl: (value) => `${value}?tag=reviewintel-test`,
           getAffiliateDisclosure: () => "Disclosure",
-          getAmazonAssociateTag: () => "",
-          isSupportedAffiliateUrl: () => false,
+          getAmazonAssociateTag: () => "reviewintel-test",
+          isSupportedAffiliateUrl: (value) => String(value).includes("amazon."),
         };
       }
       if (id === "@/lib/facebookConnector") {
@@ -83,6 +85,63 @@ function loadSocialAutoPost(fetchMock, env = {}) {
         };
       }
       if (id === "@/lib/socialMediaTopics") return { HOMEPAGE_VIDEO_TOPIC: "homepage_video" };
+      if (id === "@/lib/socialReelGenerator") {
+        return {
+          selectApprovedAudioTrack: (seed) => ({
+            id: `track-${String(seed || "default").slice(0, 8)}`,
+            name: "Test original audio",
+            license: "Test original audio license",
+          }),
+          generateFreshSocialReelVideo:
+            reelGenerator.generateFreshSocialReelVideo ||
+            (async () => {
+              throw new Error("fresh reel generator unavailable");
+            }),
+        };
+      }
+      if (id === "@/lib/socialReelContent") {
+        return {
+          buildMinimalReelContentPlan: (input) => ({
+            caption: [
+              "The rating is only the surface. The repeated review pattern is where the useful signal starts.",
+              "",
+              `See how it works: ${input.websiteShortUrl}`,
+              `Helpful review tools: ${input.affiliateShortUrl}`,
+            ].join("\n"),
+            hashtags: ["CustomerReviews", "ReviewAnalysis", "CustomerFeedback", "EcommerceSellers", "ReviewIntel"],
+            websiteUrl: input.websiteUrl,
+            websiteShortUrl: input.websiteShortUrl,
+            affiliateUrl: input.affiliateUrl,
+            affiliateShortUrl: input.affiliateShortUrl,
+            affiliateRelevant: true,
+            cta: "See how it works",
+            theme: "The rating is only the surface.",
+            overlayHook: "Reviews reveal the real story.",
+            overlaySupport: "ReviewIntel turns repeated buyer signals into a clearer decision.",
+            overlayCta: "See how it works",
+            discoveryTopic: "customer_reviews",
+            hashtagScore: {
+              topicalRelevance: 1,
+              audienceFit: 1,
+              repetitionRisk: 0,
+              spamRisk: 0,
+              total: 1,
+            },
+          }),
+          formatMinimalReelCaption: (plan) => `${plan.caption}\n\n#${plan.hashtags.join(" #")}`,
+          parseHashtagsFromCaption: (caption) =>
+            Array.from(String(caption || "").matchAll(/#([a-zA-Z0-9]+)/g)).map((match) => match[1]),
+          validateMinimalReelContentPlan: () => ({ ok: true, errors: [] }),
+        };
+      }
+      if (id === "@/lib/socialRedirects") {
+        return {
+          resolveAmazonAffiliateDestination: () => "https://www.amazon.com/dp/test-product?tag=reviewintel-test",
+          resolveReviewIntelStartDestination: () => "https://getreviewintel.com",
+          shortAffiliateUrl: () => "https://getreviewintel.com/recommends",
+          shortReviewIntelUrl: () => "https://getreviewintel.com/start",
+        };
+      }
       if (id === "@/lib/supabasePublicStorage") {
         return {
           probeFacebookAccessibleUrl: async ({ url }) => {
@@ -173,31 +232,68 @@ test("media probe rejects URLs that fail HEAD", async () => {
   }
 });
 
-test("Facebook media selection keeps a reachable generated video for auto and explicit Reel publishing", async () => {
-  const video = {
-    id: "codex-video-2",
-    media_type: "video",
-    file_url: "https://cdn.example.test/public-video.mp4",
-    title: "Reachable generated reel",
+test("Facebook media selection generates a fresh public video for auto and explicit Reel publishing", async () => {
+  const sourceImage = {
+    id: "uploaded-image-1",
+    media_type: "image",
+    file_url: "https://cdn.example.test/source-image.jpg",
+    title: "Recent uploaded source",
     topic: "shopper_tips",
-    tags: ["CodexLibrary"],
-    metadata: { codex_library: true },
+    tags: ["Uploaded"],
+    metadata: {
+      uploaded_via: "admin_social_media_upload",
+      storage_bucket: "reviewintel-social-public",
+    },
+  };
+  const generatedVideo = {
+    id: "fresh-video-1",
+    media_type: "video",
+    mime_type: "video/mp4",
+    file_url: "https://cdn.example.test/fresh-reel.mp4",
+    title: "Fresh generated reel",
+    topic: "shopper_tips",
+    tags: ["FreshReel"],
+    metadata: {
+      generated_by: "scheduled_fresh_reel_generator",
+      source_image_id: sourceImage.id,
+    },
   };
   const { api, cleanup } = loadSocialAutoPost(async (input, init = {}) => {
     const url = String(input);
+    const method = init.method || "GET";
 
     if (url.includes("/rest/v1/admin_social_media")) {
       const parsed = new URL(url);
       const mediaType = parsed.searchParams.get("media_type");
-      if (mediaType === "eq.video") return jsonResponse([video]);
+      if (method === "POST") return jsonResponse([generatedVideo]);
+      if (method === "PATCH") return jsonResponse([{ ...generatedVideo, metadata: { ...generatedVideo.metadata, generated_mp4_id: generatedVideo.id } }]);
+      if (mediaType === "eq.video") return jsonResponse([]);
+      if (mediaType === "eq.image") return jsonResponse([sourceImage]);
       return jsonResponse([]);
     }
 
-    if (url === video.file_url && init.method === "HEAD") {
+    if (url.includes("/rest/v1/admin_social_posts")) {
+      return jsonResponse([]);
+    }
+
+    if (url === generatedVideo.file_url && init.method === "HEAD") {
       return new Response("", { status: 200 });
     }
 
     throw new Error(`Unexpected fetch: ${url}`);
+  }, {}, {
+    generateFreshSocialReelVideo: async () => ({
+      filename: "fresh-reel.mp4",
+      objectPath: "social/videos/fresh-reel.mp4",
+      publicUrl: generatedVideo.file_url,
+      size: 12345,
+      durationSeconds: 9,
+      audioTrack: {
+        id: "track-test",
+        name: "Test original audio",
+        license: "Test original audio license",
+      },
+    }),
   });
 
   try {
@@ -214,27 +310,27 @@ test("Facebook media selection keeps a reachable generated video for auto and ex
       null,
     );
 
-    assert.equal(autoResult.media.id, video.id);
+    assert.equal(autoResult.media.id, generatedVideo.id, JSON.stringify(autoResult.metadata));
     assert.equal(autoResult.media.media_type, "video");
-    assert.equal(autoResult.metadata, undefined);
-    assert.equal(reelResult.media.id, video.id);
+    assert.equal(autoResult.freshReel.sourceImage.id, sourceImage.id);
+    assert.equal(autoResult.contentOverride.hashtags.length > 0, true);
+    assert.equal(autoResult.finalCaptionOverride.includes("https://getreviewintel.com/start"), true);
+    assert.equal(autoResult.finalCaptionOverride.includes("https://getreviewintel.com/recommends"), true);
+    assert.equal(autoResult.finalCaptionOverride.includes("https://www.amazon.com/dp/test-product"), false);
+    assert.equal(autoResult.freshReel.captionPlan.overlayHook, "Reviews reveal the real story.");
+    assert.equal(autoResult.freshReel.captionPlan.hashtags.length, 5);
+    assert.equal(autoResult.metadata.freshFacebookReel.public_probe.status, 200);
+    assert.equal(autoResult.metadata.freshFacebookReel.affiliate_url, "https://www.amazon.com/dp/test-product?tag=reviewintel-test");
+    assert.equal(autoResult.metadata.freshFacebookReel.affiliate_short_url, "https://getreviewintel.com/recommends");
+    assert.equal(reelResult.media.id, generatedVideo.id);
     assert.equal(reelResult.media.media_type, "video");
-    assert.equal(reelResult.metadata, undefined);
+    assert.equal(reelResult.freshReel.sourceImage.id, sourceImage.id);
   } finally {
     cleanup();
   }
 });
 
-test("Facebook auto media selection falls back to an image when video probing has a network failure", async () => {
-  const video = {
-    id: "codex-video-network",
-    media_type: "video",
-    file_url: "https://cdn.example.test/network-failure.mp4",
-    title: "Network failure reel",
-    topic: "shopper_tips",
-    tags: ["CodexLibrary"],
-    metadata: { codex_library: true },
-  };
+test("Facebook auto media selection falls back to an image when fresh Reel generation has a network failure", async () => {
   const image = {
     id: "codex-image-network",
     media_type: "image",
@@ -244,22 +340,26 @@ test("Facebook auto media selection falls back to an image when video probing ha
     tags: ["CodexLibrary"],
     metadata: { codex_library: true },
   };
-  const { api, cleanup } = loadSocialAutoPost(async (input, init = {}) => {
+  const { api, cleanup } = loadSocialAutoPost(async (input) => {
     const url = String(input);
 
     if (url.includes("/rest/v1/admin_social_media")) {
       const parsed = new URL(url);
       const mediaType = parsed.searchParams.get("media_type");
-      if (mediaType === "eq.video") return jsonResponse([video]);
+      if (mediaType === "eq.video") return jsonResponse([]);
       if (mediaType === "eq.image") return jsonResponse([image]);
       return jsonResponse([]);
     }
 
-    if (url === video.file_url && init.method === "HEAD") {
-      throw new Error("network down");
+    if (url.includes("/rest/v1/admin_social_posts")) {
+      return jsonResponse([]);
     }
 
     throw new Error(`Unexpected fetch: ${url}`);
+  }, {}, {
+    generateFreshSocialReelVideo: async () => {
+      throw new Error("network down");
+    },
   });
 
   try {
@@ -271,7 +371,8 @@ test("Facebook auto media selection falls back to an image when video probing ha
     );
 
     assert.equal(result.media.id, image.id);
-    assert.equal(result.metadata.skippedFacebookVideo.probe.error, "network down");
+    assert.equal(result.metadata.freshFacebookReel.error, "network down");
+    assert.equal(result.metadata.freshFacebookReel.fallback, "image");
   } finally {
     cleanup();
   }
@@ -303,38 +404,41 @@ test("media probe falls back to a range GET when HEAD is unsupported", async () 
   }
 });
 
-test("Facebook auto media selection falls back to an image when the preferred video is unfetchable", async () => {
-  const video = {
-    id: "codex-video-1",
-    media_type: "video",
-    file_url: "https://cdn.example.test/private-video.mp4",
-    title: "Broken generated reel",
-    topic: "shopper_tips",
-    tags: ["CodexLibrary"],
-    metadata: { codex_library: true },
-  };
+test("Facebook explicit Reel skips safely when the selected source image is inside cooldown", async () => {
   const image = {
-    id: "codex-image-1",
+    id: "recent-source-image",
     media_type: "image",
-    file_url: "/uploads/social/reviewintel-premium-day-01-test.png",
-    title: "Fallback image",
+    file_url: "https://cdn.example.test/recent-source.jpg",
+    title: "Recent source",
     topic: "shopper_tips",
-    tags: ["CodexLibrary"],
-    metadata: { codex_library: true },
+    metadata: { uploaded_via: "admin_social_media_upload" },
   };
-  const { api, cleanup } = loadSocialAutoPost(async (input, init = {}) => {
+  const { api, cleanup } = loadSocialAutoPost(async (input) => {
     const url = String(input);
 
     if (url.includes("/rest/v1/admin_social_media")) {
       const parsed = new URL(url);
       const mediaType = parsed.searchParams.get("media_type");
-      if (mediaType === "eq.video") return jsonResponse([video]);
+      if (mediaType === "eq.video") {
+        return jsonResponse([
+          {
+            id: "fresh-video-using-recent-source",
+            media_type: "video",
+            created_at: new Date().toISOString(),
+            metadata: {
+              generated_by: "scheduled_fresh_reel_generator",
+              generated_at: new Date().toISOString(),
+              source_image_id: image.id,
+            },
+          },
+        ]);
+      }
       if (mediaType === "eq.image") return jsonResponse([image]);
       return jsonResponse([]);
     }
 
-    if (url === video.file_url && init.method === "HEAD") {
-      return jsonResponse({ message: "Bucket not found" }, 400);
+    if (url.includes("/rest/v1/admin_social_posts")) {
+      return jsonResponse([]);
     }
 
     throw new Error(`Unexpected fetch: ${url}`);
@@ -344,15 +448,13 @@ test("Facebook auto media selection falls back to an image when the preferred vi
     const result = await api.resolveFacebookMediaForFormat(
       "shopper_tips",
       { queueDay: 1, cycleNumber: 1, recycleCount: 0 },
-      "auto",
+      "reel",
       null,
     );
 
-    assert.equal(result.media.id, image.id);
-    assert.equal(result.media.media_type, "image");
-    assert.equal(result.metadata.skippedFacebookVideo.id, video.id);
-    assert.equal(result.metadata.skippedFacebookVideo.probe.status, 400);
-    assert.equal(result.metadata.skippedFacebookVideo.fallback, "image");
+    assert.equal(result.media, null);
+    assert.equal(result.metadata.freshFacebookReel.fallback, "none");
+    assert.match(result.metadata.freshFacebookReel.error, /cooldown/);
   } finally {
     cleanup();
   }

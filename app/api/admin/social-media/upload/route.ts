@@ -106,6 +106,17 @@ export async function POST(request: NextRequest) {
           thumbnailUrl: config.mediaType === "image" ? storageUrl : "",
           mediaType: config.mediaType,
           storage: "supabase",
+          storageBucket,
+          storageBucketSource: publicSocialBucket.source,
+          objectPath: `social/${filename}`,
+          metadata: {
+            uploaded_via: "admin_social_media_upload",
+            storage: "supabase",
+            storage_bucket: storageBucket,
+            storage_bucket_source: publicSocialBucket.source,
+            object_path: `social/${filename}`,
+            original_filename: file.name,
+          },
           title: file.name.replace(/\.[a-z0-9]+$/i, ""),
         });
       }
@@ -139,6 +150,12 @@ export async function POST(request: NextRequest) {
       url,
       thumbnailUrl: config.mediaType === "image" ? url : "",
       mediaType: config.mediaType,
+      metadata: {
+        uploaded_via: "admin_social_media_upload",
+        storage: "local",
+        object_path: `uploads/social/${filename}`,
+        original_filename: file.name,
+      },
       title: file.name.replace(/\.[a-z0-9]+$/i, ""),
     });
   } catch (error) {
