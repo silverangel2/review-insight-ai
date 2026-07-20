@@ -1,3 +1,8 @@
+import {
+  collectLiveReviewsForListing,
+  type ReviewRetrievalDiagnostics,
+} from "@/lib/reviewRetrieval";
+
 export type CollectedReview = {
   source: string;
   sourceUrl?: string;
@@ -19,6 +24,7 @@ export type ReviewCollectorResult = {
   collectorHasWrittenReviews: boolean;
   coverageNote: string;
   fallbackUrlsTried?: string[];
+  liveRetrieval?: ReviewRetrievalDiagnostics;
 };
 
 function cleanText(value: unknown): string {
@@ -654,12 +660,30 @@ async function fetchPublicReviewFallback(input: {
 
 
 export function formatCollectedReviewsForPrompt(result: ReviewCollectorResult): string {
+  const liveSummary = result.liveRetrieval
+    ? [
+        `Live retrieval enabled: ${result.liveRetrieval.enabled ? "yes" : "no"}.`,
+        `Live retrieval provider: ${result.liveRetrieval.provider}.`,
+        `Live retrieval cache hit: ${result.liveRetrieval.cacheHit ? "yes" : "no"}.`,
+        `Live candidate sources: ${result.liveRetrieval.candidateUrls.length}.`,
+        `Live retrieved sources: ${result.liveRetrieval.retrievedUrls.length}.`,
+        `Live accepted independent sources: ${result.liveRetrieval.acceptedIndependentSourceCount}.`,
+        `Live extracted written reviews: ${result.liveRetrieval.extractedWrittenReviewCount}.`,
+        result.liveRetrieval.rejectedPages.length
+          ? `Live rejected pages: ${result.liveRetrieval.rejectedPages
+              .slice(0, 6)
+              .map((page) => `${page.url} (${page.reason})`)
+              .join("; ")}.`
+          : "Live rejected pages: none.",
+      ].join("\n")
+    : "";
+
   if (!result.reviews.length) {
     return `Review collector attempted: ${result.attempted ? "yes" : "no"}.
 Extractor: ${result.extractor}.
 Written reviews collected: 0.
 Collector has written reviews: no.
-Coverage note: ${result.coverageNote}`;
+Coverage note: ${result.coverageNote}${liveSummary ? `\n${liveSummary}` : ""}`;
   }
 
   return [
@@ -668,6 +692,7 @@ Coverage note: ${result.coverageNote}`;
     `Written reviews collected: ${result.reviewsCollected}.`,
     `Collector has written reviews: ${result.collectorHasWrittenReviews ? "yes" : "no"}.`,
     `Coverage note: ${result.coverageNote}.`,
+    liveSummary,
     "",
     ...result.reviews.map((review, index) => {
       const rating = typeof review.rating === "number" ? ` Rating: ${review.rating}/5.` : "";
@@ -683,6 +708,8 @@ Coverage note: ${result.coverageNote}`;
 export async function collectWrittenReviewsFromListing(input: {
   listingUrl?: string | null;
   productName?: string | null;
+  brand?: string | null;
+  model?: string | null;
   marketplaceReviewCount?: number | null;
   maxReviews?: number;
 }): Promise<ReviewCollectorResult> {
@@ -715,14 +742,27 @@ export async function collectWrittenReviewsFromListing(input: {
     });
 
     if (!response.ok) {
+      const liveResult = await collectLiveReviewsForListing({
+        productName: input.productName || listingUrl,
+        brand: input.brand || null,
+        model: input.model || null,
+        listingUrl,
+        maxReviews,
+        deadlineMs: 25000,
+      });
+      const reviews = dedupeReviews(liveResult.reviews, maxReviews);
+
       return {
         sourceUrl: listingUrl,
         attempted: true,
         extractor,
-        reviews: [],
-        reviewsCollected: 0,
-        collectorHasWrittenReviews: false,
-        coverageNote: `Listing page was reachable but returned HTTP ${response.status}; written review text could not be collected.`,
+        reviews,
+        reviewsCollected: reviews.length,
+        collectorHasWrittenReviews: reviews.length > 0,
+        coverageNote: reviews.length
+          ? `Listing page returned HTTP ${response.status}; live retrieval collected ${reviews.length} written review text(s).`
+          : `Listing page was reachable but returned HTTP ${response.status}; written review text could not be collected from direct listing fetch or live retrieval.`,
+        liveRetrieval: liveResult.diagnostics,
       };
     }
 
@@ -745,6 +785,36 @@ export async function collectWrittenReviewsFromListing(input: {
     );
 
     let reviews = dedupeReviews([...listingReviews, ...discoveredReviews], maxReviews);
+    const liveResult =
+      reviews.length < maxReviews
+        ? await collectLiveReviewsForListing({
+            productName: input.productName || listingUrl,
+            brand: input.brand || null,
+            model: input.model || null,
+            listingUrl,
+            maxReviews: maxReviews - reviews.length,
+            deadlineMs: 25000,
+          })
+        : {
+            reviews: [],
+            diagnostics: {
+              enabled: false,
+              provider: "skipped",
+              cacheHit: false,
+              candidateUrls: [],
+              retrievedUrls: [],
+              acceptedIndependentSourceCount: 0,
+              extractedWrittenReviewCount: 0,
+              rejectedPages: [],
+              sourceStatuses: [],
+              latencyMs: 0,
+              costEstimate: "0 Firecrawl credits; existing collector already reached max reviews.",
+            },
+          };
+
+    if (liveResult.reviews.length) {
+      reviews = dedupeReviews([...reviews, ...liveResult.reviews], maxReviews);
+    }
 
     let publicFallbackReviews: CollectedReview[] = [];
 
@@ -764,19 +834,33 @@ export async function collectWrittenReviewsFromListing(input: {
       discoveredReviewUrls: discoveredReviewUrls.length,
       listingReviews: listingReviews.length,
       discoveredReviews: discoveredReviews.length,
+      liveRetrievalEnabled: liveResult.diagnostics.enabled,
+      liveRetrievalProvider: liveResult.diagnostics.provider,
+      liveCandidateUrls: liveResult.diagnostics.candidateUrls.length,
+      liveRetrievedUrls: liveResult.diagnostics.retrievedUrls.length,
+      liveAcceptedIndependentSources: liveResult.diagnostics.acceptedIndependentSourceCount,
+      liveExtractedWrittenReviews: liveResult.diagnostics.extractedWrittenReviewCount,
+      liveRejectedPages: liveResult.diagnostics.rejectedPages.map((page) => ({
+        url: page.url,
+        reason: page.reason,
+      })),
       publicFallbackReviews: publicFallbackReviews.length,
       reviewsCollected: reviews.length,
     });
 
     const total = input.marketplaceReviewCount || null;
+    const liveCoverage =
+      liveResult.diagnostics.enabled && liveResult.diagnostics.candidateUrls.length
+        ? ` Live retrieval checked ${liveResult.diagnostics.candidateUrls.length} candidate source(s), accepted ${liveResult.diagnostics.acceptedIndependentSourceCount} independent source(s), and extracted ${liveResult.diagnostics.extractedWrittenReviewCount} written review(s).`
+        : "";
     const coverage =
       total && reviews.length
-        ? `${reviews.length} of ${total} public marketplace reviews were accessible as written text.`
+        ? `${reviews.length} of ${total} public marketplace reviews were accessible as written text.${liveCoverage}`
         : reviews.length
-          ? `${reviews.length} written review texts were collected.`
+          ? `${reviews.length} written review texts were collected.${liveCoverage}`
           : total
-            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML, discovered review URLs, or public review search fallback.`
-            : "No written review text was accessible from the listing HTML, discovered review URLs, or public review search fallback.";
+            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML, discovered review URLs, live retrieval, or public review search fallback.${liveCoverage}`
+            : `No written review text was accessible from the listing HTML, discovered review URLs, live retrieval, or public review search fallback.${liveCoverage}`;
 
     return {
       sourceUrl: listingUrl,
@@ -787,18 +871,32 @@ export async function collectWrittenReviewsFromListing(input: {
       collectorHasWrittenReviews: reviews.length > 0,
       coverageNote: coverage,
       fallbackUrlsTried: discoveredReviewUrls.slice(0, 12),
+      liveRetrieval: liveResult.diagnostics,
     };
   } catch (error) {
+    const liveResult = await collectLiveReviewsForListing({
+      productName: input.productName || listingUrl,
+      brand: input.brand || null,
+      model: input.model || null,
+      listingUrl,
+      maxReviews,
+      deadlineMs: 25000,
+    });
+    const reviews = dedupeReviews(liveResult.reviews, maxReviews);
+
     return {
       sourceUrl: listingUrl,
       attempted: true,
       extractor,
-      reviews: [],
-      reviewsCollected: 0,
-      collectorHasWrittenReviews: false,
-      coverageNote: `Written review collection failed: ${
-        error instanceof Error ? error.message : "unknown error"
-      }`,
+      reviews,
+      reviewsCollected: reviews.length,
+      collectorHasWrittenReviews: reviews.length > 0,
+      coverageNote: reviews.length
+        ? `Direct written review collection failed, but live retrieval collected ${reviews.length} written review text(s).`
+        : `Written review collection failed: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+      liveRetrieval: liveResult.diagnostics,
     };
   }
 }

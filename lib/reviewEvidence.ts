@@ -27,6 +27,7 @@ import {
   collectWrittenReviewsFromListing,
   formatCollectedReviewsForPrompt,
 } from "@/lib/reviewCollector";
+import type { ReviewRetrievalDiagnostics } from "@/lib/reviewRetrieval";
 type ReviewEvidenceInput = {
   productName: string;
   brand?: string;
@@ -55,6 +56,7 @@ export type ReviewEvidenceResult = {
     collectorHasWrittenReviews?: boolean;
     coverageNote: string;
     fallbackUrlsTried?: string[];
+    liveRetrieval?: ReviewRetrievalDiagnostics;
   };
   reviewsCollected?: number;
   collectorHasWrittenReviews?: boolean;
@@ -1222,6 +1224,8 @@ export async function collectAndAnalyzeReviewEvidence(
       ? await collectWrittenReviewsFromListing({
         listingUrl: listingUrlForReviewCollector,
         productName: listingEvidenceForCollection?.exactListingTitle || input.productName,
+        brand: input.brand || null,
+        model: input.model || null,
         marketplaceReviewCount: marketplaceReviewCountForCollector,
         maxReviews: 80,
       })
@@ -1234,6 +1238,7 @@ export async function collectAndAnalyzeReviewEvidence(
         reviews: [],
         coverageNote: "No exact listing URL was available for written review collection.",
         fallbackUrlsTried: [],
+        liveRetrieval: undefined,
       };
 
   const collectedWrittenReviewsPrompt = formatCollectedReviewsForPrompt(
@@ -1260,6 +1265,25 @@ export async function collectAndAnalyzeReviewEvidence(
     reviewsCollected: collectedWrittenReviews.reviewsCollected,
     collectorHasWrittenReviews: collectedWrittenReviews.collectorHasWrittenReviews,
     coverageNote: collectedWrittenReviews.coverageNote,
+    liveRetrieval: collectedWrittenReviews.liveRetrieval
+      ? {
+          enabled: collectedWrittenReviews.liveRetrieval.enabled,
+          provider: collectedWrittenReviews.liveRetrieval.provider,
+          cacheHit: collectedWrittenReviews.liveRetrieval.cacheHit,
+          candidateUrls: collectedWrittenReviews.liveRetrieval.candidateUrls.length,
+          retrievedUrls: collectedWrittenReviews.liveRetrieval.retrievedUrls.length,
+          acceptedIndependentSourceCount:
+            collectedWrittenReviews.liveRetrieval.acceptedIndependentSourceCount,
+          extractedWrittenReviewCount:
+            collectedWrittenReviews.liveRetrieval.extractedWrittenReviewCount,
+          rejectedPages: collectedWrittenReviews.liveRetrieval.rejectedPages.map((page) => ({
+            url: page.url,
+            reason: page.reason,
+          })),
+          latencyMs: collectedWrittenReviews.liveRetrieval.latencyMs,
+          costEstimate: collectedWrittenReviews.liveRetrieval.costEstimate,
+        }
+      : null,
   });
 
   const prompt = `
@@ -2038,6 +2062,7 @@ Return ONLY valid JSON with the same shape as the first pass:
         collectorHasWrittenReviews,
         coverageNote: collectedWrittenReviews.coverageNote,
         fallbackUrlsTried: collectedWrittenReviews.fallbackUrlsTried,
+        liveRetrieval: collectedWrittenReviews.liveRetrieval,
       },
       reviewsCollected: Math.max(collectorReviewsCollected, reviewSnippets.length),
       collectorHasWrittenReviews,
