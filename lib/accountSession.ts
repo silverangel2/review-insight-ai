@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 
 export const ACCOUNT_SESSION_COOKIE = "reviewintel_account_session";
+export const ACCOUNT_SESSION_MAX_AGE_SECONDS = 60 * 60;
 
 export type AccountSession = {
   email: string;
@@ -47,7 +48,7 @@ export function createAccountSession(account: {
     plan: String(account.plan ?? "").toLowerCase().trim(),
     name: account.name,
     userId: account.userId,
-    exp: Date.now() + 7 * 24 * 60 * 60 * 1000
+    exp: Date.now() + ACCOUNT_SESSION_MAX_AGE_SECONDS * 1000
   };
 
   if (!session.email) {
@@ -102,7 +103,7 @@ export function setAccountSessionCookie(
     userId?: string;
   }
 ) {
-  const maxAge = 7 * 24 * 60 * 60;
+  const maxAge = ACCOUNT_SESSION_MAX_AGE_SECONDS;
   const role = String(account.role ?? "").toLowerCase().trim();
   const plan = String(account.plan ?? "").toLowerCase().trim();
   const email = String(account.email ?? "").toLowerCase().trim();

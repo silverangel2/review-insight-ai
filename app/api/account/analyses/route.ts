@@ -1,4 +1,4 @@
-import { hasCloudHistoryAccess, normalizePlan, normalizeRole } from "@/lib/account";
+import { forceSellerPremiumTesterAccount, hasCloudHistoryAccess, normalizePlan, normalizeRole } from "@/lib/account";
 import { NextResponse } from "next/server";
 import { readAccountSession } from "@/lib/accountSession";
 import { deleteAnalysisHistory, saveAnalysisRecord, supabaseDelete, supabaseSelect } from "@/lib/supabaseServer";
@@ -242,10 +242,16 @@ async function getAuthenticatedHistoryAccount(request: Request) {
     }
   }
 
-  return {
+  const forced = forceSellerPremiumTesterAccount({
     email,
     plan,
     role: role === "guest" ? (plan.includes("seller") ? "seller" : "buyer") : role
+  });
+
+  return {
+    email,
+    plan: normalizePlan(String(forced?.plan ?? plan)),
+    role: normalizeRole(String(forced?.role ?? role))
   };
 }
 

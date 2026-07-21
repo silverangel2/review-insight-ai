@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
       price: body.price ?? undefined,
       rating: body.rating ?? undefined,
       reviewCount: body.reviewCount ?? undefined,
+      forceRefresh: body.forceRefresh === true,
+      locale: body.locale ? String(body.locale).trim() : undefined,
+      outputLanguage: body.outputLanguage ? String(body.outputLanguage).trim() : undefined,
     });
 
     return NextResponse.json({ ok: true, evidence });

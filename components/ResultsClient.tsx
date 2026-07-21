@@ -16,6 +16,13 @@ import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
+import {
+  INSUFFICIENT_WRITTEN_REVIEW_MESSAGE,
+  isInsufficientWrittenReviewEvidence,
+  normalizeInsufficientEvidenceResult,
+  reviewEvidenceDiagnosticsFromResult,
+  shouldShowAlternativeRecommendations,
+} from "@/lib/insufficientEvidenceContract";
 
 type ProductLike = {
   title?: string;
@@ -976,9 +983,123 @@ function ShopperCompareDetail({ result }: { result: AnalyzeResponse }) {
 }
 
 
+function recordFrom(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function InsufficientEvidenceStatusCard({
+  result,
+  preview,
+  copy,
+}: {
+  result: AnalyzeResponse;
+  preview: string;
+  copy: typeof resultCopy["en"];
+}) {
+  const normalized = normalizeInsufficientEvidenceResult(result as unknown as Record<string, unknown>);
+  const product = recordFrom(normalized.product);
+  const evidence = recordFrom(normalized.reviewEvidence);
+  const listing = recordFrom(evidence.listingEvidence);
+  const diagnostics = reviewEvidenceDiagnosticsFromResult(normalized);
+  const productName = shortProductName(
+    String(
+      normalized.productName ||
+        normalized.name ||
+        product.title ||
+        product.name ||
+        listing.exactListingTitle ||
+        listing.title ||
+        "Identified product"
+    ),
+    "Identified product"
+  );
+  const sourceUrl = String(listing.exactListingUrl || listing.url || normalized.exactListingUrl || "").trim();
+  const sourceLabel = String(listing.domain || listing.store || product.store || normalized.store || "Source/listing found").trim();
+  const rating = listing.rating || evidence.rating || normalized.rating || product.rating;
+  const reviewCount = listing.reviewCount || evidence.reviewCount || evidence.marketplaceReviewCount || normalized.reviewCount || product.reviewCount;
+
+  return (
+    <section className="ri-insufficient-evidence mx-auto max-w-5xl rounded-[2rem] border border-amber-200 bg-gradient-to-br from-white via-amber-50/50 to-cyan-50 p-5 shadow-soft dark:border-amber-300/20 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/40 sm:p-8">
+      <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] lg:items-start">
+        <div className="relative h-[180px] overflow-hidden rounded-[1.5rem] border border-line bg-white/80 shadow-inner dark:border-white/10 dark:bg-white/5">
+          {preview ? (
+            <Image src={preview} alt="Identified product screenshot" fill className="object-contain p-3" unoptimized priority />
+          ) : (
+            <div className="grid h-full place-items-center px-4 text-center text-sm font-bold text-slate-500">
+              {copy.screenshotUnavailable}
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="good">Product identified</Badge>
+            <Badge tone="warn">Insufficient written review evidence</Badge>
+          </div>
+          <h1 className="mt-4 break-words text-3xl font-black leading-tight text-ink dark:text-white sm:text-5xl">
+            {productName}
+          </h1>
+          <p className="mt-4 max-w-3xl text-base font-bold leading-7 text-slate-700 dark:text-slate-200">
+            {INSUFFICIENT_WRITTEN_REVIEW_MESSAGE}
+          </p>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-slate-500">Evidence Status</p>
+              <ul className="mt-3 space-y-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                <li>Product identified</li>
+                <li>Written reviews not retrieved</li>
+                <li>Verdict unavailable</li>
+                <li>Confidence unavailable</li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-slate-500">Marketplace Rating Only</p>
+              <p className="mt-3 text-2xl font-black text-ink dark:text-white">{rating ? String(rating) : "Not shown"}</p>
+              <p className="mt-1 text-sm font-bold text-slate-600 dark:text-slate-300">
+                {reviewCount ? `${String(reviewCount)} reviews shown on listing metadata` : "Review count not shown"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4 text-sm font-bold leading-6 text-slate-700 dark:border-cyan-300/20 dark:bg-cyan-300/10 dark:text-slate-200">
+            <p>
+              <span className="font-black text-ink dark:text-white">Source/listing found: </span>
+              {sourceUrl ? (
+                <a href={sourceUrl} target="_blank" rel="noreferrer" className="text-ocean underline underline-offset-4">
+                  {sourceLabel}
+                </a>
+              ) : (
+                sourceLabel
+              )}
+            </p>
+            <p className="mt-2">
+              Retrieval check: {diagnostics.firecrawlCalled ? "live retrieval attempted" : "live retrieval not available"} · {diagnostics.candidateUrlCount} candidate URL(s) · {diagnostics.extractedWrittenReviewCount} written review(s) extracted · threshold {diagnostics.evidenceThresholdPassed ? "passed" : "not met"}
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/analyze"
+              className="rounded-full bg-ink px-6 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean dark:bg-white dark:text-slate-950"
+            >
+              Retry review retrieval
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; preview: string }) {
   const locale = localeFromResult(result);
   const copy = resultCopy[locale];
+  if (isInsufficientWrittenReviewEvidence(result)) {
+    return <InsufficientEvidenceStatusCard result={result} preview={preview} copy={copy} />;
+  }
   const shopper = shopperProductFromResult(result, locale);
   const verdict = {
     ...shopperVerdictStyle[shopper.verdict],
@@ -995,7 +1116,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const verdictConfidence =
     typeof verdictConfidenceRaw === "number" && Number.isFinite(verdictConfidenceRaw)
       ? Math.round(verdictConfidenceRaw)
-      : clampScore(verdictConfidenceRaw, 0);
+      : null;
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -1070,7 +1191,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {verdictConfidence}% {copy.buyerConfidence}
+            {verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"} {copy.buyerConfidence}
           </div>
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
@@ -1158,7 +1279,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
         </section>
 
-        <BetterPicksPanel result={result} compact />
+        {shouldShowAlternativeRecommendations(result) ? <BetterPicksPanel result={result} compact /> : null}
 
         <section className="grid grid-cols-2 gap-2">
           <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 2)} empty={copy.bestForEmpty} />
@@ -1235,7 +1356,9 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence}%</p>
+                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>
+                    {verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"}
+                  </p>
                   <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
@@ -1272,7 +1395,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
           <ResultIntelligencePanel result={result} />
 
-          <BetterPicksPanel result={result} />
+          {shouldShowAlternativeRecommendations(result) ? <BetterPicksPanel result={result} /> : null}
 
       <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor} empty={copy.bestForEmpty} />
@@ -1534,6 +1657,10 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
     return null;
   }
 
+  if (isInsufficientWrittenReviewEvidence(result)) {
+    return "not_enough";
+  }
+
   const trace =
     result.reviewIntelTrace && typeof result.reviewIntelTrace === "object"
       ? (result.reviewIntelTrace as Record<string, unknown>)
@@ -1584,42 +1711,7 @@ function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>
     return value;
   }
 
-  const verdict = "REVIEW EVIDENCE NOT ENOUGH";
-
-  const bottomLine =
-    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
-
-  return {
-    ...value,
-    verdict,
-    recommendation: verdict,
-    finalVerdict: verdict,
-    stableVerdict: verdict,
-    decisionStatus: "not_enough_evidence",
-
-    buyerConfidence: null,
-    confidence: null,
-    buyScore: null,
-    score: null,
-    productScore: null,
-
-    valueForMoney: "Unknown",
-    value: "Unknown",
-
-    topStrengths: [],
-    topComplaints: [],
-    strengths: [],
-    complaints: [],
-    bestFor: [],
-    notIdealFor: [],
-
-    screenshotOnly: false,
-    screenshotOnlyWarning: false,
-
-    bottomLine,
-    summary: bottomLine,
-    stableVerdictReason: bottomLine,
-  } as T;
+  return normalizeInsufficientEvidenceResult(value);
 }
 
 
@@ -1667,7 +1759,9 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
     source.bestFor ||
     [];
 
-  const notIdealFor =
+  const notIdealFor = reviewEvidenceState === "not_enough"
+    ? []
+    :
     (existing.notIdealFor as string[] | undefined) ||
     (existing.not_ideal_for as string[] | undefined) ||
     source.notIdealFor ||

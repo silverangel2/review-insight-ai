@@ -39,6 +39,21 @@ export type SellerProduct = {
   scans: SellerProductScan[];
 };
 
+export type SellerCsvAnalysisResult = {
+  summary?: string;
+  reviewsAnalyzed?: number;
+  healthScore?: number;
+  buyerSatisfaction?: number;
+  refundRisk?: number;
+  topComplaints?: string[];
+  topPraise?: string[];
+  productFixes?: string[];
+  listingFixes?: string[];
+  nextActions?: string[];
+  analysisId?: string | null;
+  createdAt?: string;
+};
+
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -122,7 +137,7 @@ function toneForScan(score: number, previousScore?: number): SellerProductScanTo
 
 export function productLimitForPlan(plan: SubscriptionPlan | undefined) {
   if (plan === "seller_pro") return 50;
-  if (plan === "seller_premium" || plan === "seller_beta") return 10;
+  if (plan === "seller_premium" || plan === "seller_beta") return 20;
   return 0;
 }
 
@@ -261,6 +276,64 @@ export function saveSellerProductScan(productId: string, result: AnalyzeResponse
     updatedAt: new Date().toISOString(),
     scans: [scan, ...product.scans.filter((item) => item.id !== scan.id)].slice(0, 180)
   };
+  writeSellerProducts(products.map((item) => (item.id === productId ? nextProduct : item)));
+  saveActiveSellerProductId(productId);
+  return nextProduct;
+}
+
+export function productScanFromSellerCsvResult(result: SellerCsvAnalysisResult, fileName?: string): SellerProductScan {
+  const score = clamp(result.healthScore);
+  const satisfaction = clamp(result.buyerSatisfaction);
+  const complaintSeverity = clamp(result.refundRisk);
+  const reviewCount = Number.isFinite(Number(result.reviewsAnalyzed)) ? Math.max(0, Math.round(Number(result.reviewsAnalyzed))) : 0;
+  const topComplaints = safeArray(result.topComplaints, "No dominant complaint yet.");
+  const topPraise = safeArray(result.topPraise, "Positive theme needs more review volume.");
+  const actions = safeArray(
+    [
+      ...(result.nextActions ?? []),
+      ...(result.productFixes ?? []),
+      ...(result.listingFixes ?? [])
+    ],
+    "Run the next seller scan and compare movement."
+  );
+
+  return {
+    id: result.analysisId || uid("seller-csv-scan"),
+    date: todayKey(),
+    productHealthScore: score,
+    customerSatisfactionScore: satisfaction,
+    complaintSeverityScore: complaintSeverity,
+    sentimentScore: satisfaction,
+    reviewCount,
+    topComplaint: topComplaints[0],
+    topPositiveTheme: topPraise[0],
+    aiSummary: result.summary?.trim() || (fileName ? `Seller scan saved from ${fileName}.` : "Seller scan saved."),
+    actionRecommendation: actions[0],
+    strengths: topPraise,
+    complaints: topComplaints,
+    actionPlan: actions,
+    tone: "mixed"
+  };
+}
+
+export function saveSellerProductScanFromSellerCsvResult(productId: string, result: SellerCsvAnalysisResult, fileName?: string) {
+  const scope = currentSellerProductScope();
+  if (!scope.isSeller || !productId) return null;
+
+  const products = readSellerProducts();
+  const product = products.find((item) => item.id === productId);
+  if (!product) return null;
+
+  const scan = productScanFromSellerCsvResult(result, fileName);
+  const previous = product.scans[0];
+  scan.tone = toneForScan(scan.productHealthScore, previous?.productHealthScore);
+
+  const nextProduct: SellerProduct = {
+    ...product,
+    updatedAt: new Date().toISOString(),
+    scans: [scan, ...product.scans.filter((item) => item.id !== scan.id)].slice(0, 180)
+  };
+
   writeSellerProducts(products.map((item) => (item.id === productId ? nextProduct : item)));
   saveActiveSellerProductId(productId);
   return nextProduct;

@@ -116,6 +116,16 @@ async function resolveSellerAccess(
     return { allowed: false, email, plan: "free_buyer", role: "guest" };
   }
 
+  const sellerTestPlan = sellerTestAccountPlan(email);
+  if (sellerTestPlan) {
+    return {
+      allowed: true,
+      email: email.trim().toLowerCase(),
+      plan: sellerTestPlan,
+      role: "seller",
+    };
+  }
+
   if (!isSupabaseConfigured()) {
     return {
       allowed: isSellerPlan(requestedPlan),
@@ -130,18 +140,6 @@ async function resolveSellerAccess(
     `select=role,plan,subscription_status,status,beta_expires_at&email=eq.${encodeURIComponent(email)}&limit=1`,
   );
   const profile = rows[0];
-
-  if (!profile) {
-    const sellerTestPlan = sellerTestAccountPlan(email);
-    if (sellerTestPlan) {
-      return {
-        allowed: true,
-        email: email.trim().toLowerCase(),
-        plan: sellerTestPlan,
-        role: "seller",
-      };
-    }
-  }
 
   const plan = normalizePlan(String(profile?.plan ?? "free_buyer"));
   const role = normalizeRole(String(profile?.role ?? "guest"));

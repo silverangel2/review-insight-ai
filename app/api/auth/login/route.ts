@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { setAccountSessionCookie } from "@/lib/accountSession";
 import { createAdminNotification } from "@/lib/notifications";
-import { normalizePlan, normalizeRole } from "@/lib/account";
+import { forceSellerPremiumTesterAccount, normalizePlan, normalizeRole } from "@/lib/account";
 import { rateLimitRequest } from "@/lib/security";
 import { loginWithSupabase } from "@/lib/supabaseAuth";
 import { supabaseFetch, supabaseUpsert } from "@/lib/supabaseServer";
@@ -66,6 +66,31 @@ const qaAccounts: Array<{
 
 function valueAsString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function forceQaLoginAccount(result: Record<string, unknown>, fallbackAccount: Record<string, unknown>) {
+  const mergedAccount = result.account && typeof result.account === "object"
+    ? (result.account as Record<string, unknown>)
+    : fallbackAccount;
+  const forcedAccount = forceSellerPremiumTesterAccount({
+    ...fallbackAccount,
+    ...mergedAccount,
+    email: fallbackAccount.email,
+    userId: fallbackAccount.userId,
+    authUserId: fallbackAccount.authUserId,
+    profileId: fallbackAccount.profileId,
+    companyName: fallbackAccount.companyName ?? mergedAccount.companyName,
+    addressLine1: fallbackAccount.addressLine1 ?? mergedAccount.addressLine1,
+    city: fallbackAccount.city ?? mergedAccount.city,
+    country: fallbackAccount.country ?? mergedAccount.country,
+    testAccount: true,
+    trusted: true
+  });
+
+  return {
+    ...result,
+    account: forcedAccount
+  };
 }
 
 async function readProfileByEmail(email: string) {
@@ -323,10 +348,11 @@ export async function POST(request: Request) {
         country: qaAccount.country,
         marketingConsent: false
       };
-      const result = await mergeProfileIntoLoginResult({
+      const mergedResult = await mergeProfileIntoLoginResult({
         mode: "qa-customer-account",
         account
       });
+      const result = forceQaLoginAccount(mergedResult, account);
       const finalAccount = result.account && typeof result.account === "object"
         ? (result.account as Record<string, unknown>)
         : account;

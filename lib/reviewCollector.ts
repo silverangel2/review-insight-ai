@@ -32,7 +32,16 @@ function cleanText(value: unknown): string {
     .replace(/\\u0026/g, "&")
     .replace(/\\"/g, '"')
     .replace(/\\n/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
     .replace(/<[^>]*>/g, " ")
+    .replace(/\bbrief content visible,?\s*double tap to read full content\.?/gi, " ")
+    .replace(/\bfull content visible,?\s*double tap to read brief content\.?/gi, " ")
+    .replace(/\b\d+\s+people found this helpful\b/gi, " ")
+    .replace(/\btranslate review to english\b/gi, " ")
+    .replace(/\breviewed in [a-z\s]+ on [a-z]+\s+\d{1,2},?\s+\d{4}\b/gi, " ")
+    .replace(/\bhelpful\s+report\b/gi, " ")
+    .replace(/\bverified purchase\b/gi, " ")
+    .replace(/\breview\s+\d+\s*:\s*\|?/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -65,11 +74,10 @@ function isLikelyWrittenReviewBody(value: string): boolean {
   const lower = text.toLowerCase();
 
   if (text.length < 25 || text.length > 5000) return false;
-  if (
-    /privacy policy|terms of use|add to cart|shipping|pickup|sponsored|advertisement|subscribe|cookie policy|write a review/i.test(
-      lower
-    )
-  ) {
+  if (/privacy policy|terms of use|add to cart|shipping policy|pickup options|sponsored|advertisement|subscribe|cookie policy|write a review/i.test(lower)) {
+    return false;
+  }
+  if (/image unavailable|video player|hls playlist|see all buying options|no featured offers|deliver(?:ing)? to|click to play video|current time|stream type live|chapters descriptions|frequently asked questions|related articles|check lowest prices|order .*lowest price|quality price, reliable delivery option/i.test(lower)) {
     return false;
   }
 
@@ -82,7 +90,11 @@ function isLikelyWrittenReviewBody(value: string): boolean {
       text
     );
 
-  return firstPersonOrUsage || productExperience;
+  const ratingReview =
+    /\b\d(?:\.\d)?\s*out of\s*5|stars?|recommend|disappointed|worked|broke|returned|love|liked\b/i.test(text) &&
+    text.length >= 55;
+
+  return productExperience && (firstPersonOrUsage || ratingReview);
 }
 
 function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedReview[]) {
@@ -188,7 +200,7 @@ function dedupeReviews(reviews: CollectedReview[], maxReviews: number): Collecte
 
   for (const review of reviews) {
     const body = cleanText(review.body);
-    if (body.length < 25) continue;
+    if (!isLikelyWrittenReviewBody(body)) continue;
 
     const key = reviewKey(body);
     if (!key || seen.has(key)) continue;
@@ -712,20 +724,35 @@ export async function collectWrittenReviewsFromListing(input: {
   model?: string | null;
   marketplaceReviewCount?: number | null;
   maxReviews?: number;
+  forceRefresh?: boolean;
 }): Promise<ReviewCollectorResult> {
   const listingUrl = input.listingUrl || null;
   const maxReviews = Math.max(10, Math.min(input.maxReviews || 80, 120));
   const extractor = extractorForUrl(listingUrl);
 
   if (!listingUrl) {
+    const liveResult = await collectLiveReviewsForListing({
+      productName: input.productName || "",
+      brand: input.brand || null,
+      model: input.model || null,
+      listingUrl: null,
+      maxReviews,
+      deadlineMs: 25000,
+      forceRefresh: input.forceRefresh,
+    });
+    const reviews = dedupeReviews(liveResult.reviews, maxReviews);
+
     return {
       sourceUrl: null,
-      attempted: false,
+      attempted: liveResult.diagnostics.enabled,
       extractor: "none",
-      reviews: [],
-      reviewsCollected: 0,
-      collectorHasWrittenReviews: false,
-      coverageNote: "No exact listing URL was available for written-review collection.",
+      reviews,
+      reviewsCollected: reviews.length,
+      collectorHasWrittenReviews: reviews.length > 0,
+      coverageNote: reviews.length
+        ? `No exact listing URL was available; live retrieval collected ${reviews.length} written review text(s) from discovered sources.`
+        : "No exact listing URL was available, and live retrieval did not collect enough written review text.",
+      liveRetrieval: liveResult.diagnostics,
     };
   }
 
@@ -749,6 +776,7 @@ export async function collectWrittenReviewsFromListing(input: {
         listingUrl,
         maxReviews,
         deadlineMs: 25000,
+        forceRefresh: input.forceRefresh,
       });
       const reviews = dedupeReviews(liveResult.reviews, maxReviews);
 
@@ -794,6 +822,7 @@ export async function collectWrittenReviewsFromListing(input: {
             listingUrl,
             maxReviews: maxReviews - reviews.length,
             deadlineMs: 25000,
+            forceRefresh: input.forceRefresh,
           })
         : {
             reviews: [],
@@ -801,10 +830,18 @@ export async function collectWrittenReviewsFromListing(input: {
               enabled: false,
               provider: "skipped",
               cacheHit: false,
+              firecrawlCalled: false,
+              searchQueries: [],
               candidateUrls: [],
+              candidateUrlCount: 0,
               retrievedUrls: [],
+              retrievedPageCount: 0,
+              extractedTextCharacters: 0,
+              acceptedEvidenceCount: 0,
               acceptedIndependentSourceCount: 0,
               extractedWrittenReviewCount: 0,
+              rejectedEvidenceReasons: [],
+              evidenceThresholdPassed: false,
               rejectedPages: [],
               sourceStatuses: [],
               latencyMs: 0,
@@ -881,6 +918,7 @@ export async function collectWrittenReviewsFromListing(input: {
       listingUrl,
       maxReviews,
       deadlineMs: 25000,
+      forceRefresh: input.forceRefresh,
     });
     const reviews = dedupeReviews(liveResult.reviews, maxReviews);
 

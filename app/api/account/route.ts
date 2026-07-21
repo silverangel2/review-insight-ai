@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizePlan, normalizeRole } from "@/lib/account";
+import { forceSellerPremiumTesterAccount, normalizePlan, normalizeRole } from "@/lib/account";
 import { readAccountSession, setAccountSessionCookie } from "@/lib/accountSession";
 import { isSupabaseConfigured, readPersistentQuota, supabaseSelect, supabaseUpsert } from "@/lib/supabaseServer";
 
@@ -9,6 +9,18 @@ export const dynamic = "force-dynamic";
 
 function testAccountOverride(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
+
+  if (normalizedEmail === "shopper.free@reviewintel.test") {
+    return {
+      email: normalizedEmail,
+      name: "Shopper Free Test",
+      role: "buyer",
+      plan: "free_buyer",
+      subscriptionStatus: "free",
+      trusted: true,
+      testAccount: true
+    };
+  }
 
   if (normalizedEmail === "shopper.premium@reviewintel.test") {
     return {
@@ -22,7 +34,7 @@ function testAccountOverride(email: string) {
     };
   }
 
-  if (normalizedEmail === "seller.starter@reviewintel.test") {
+  if (normalizedEmail === "seller.starter@reviewintel.test" || normalizedEmail === "seller.premium@reviewintel.test") {
     return {
       email: normalizedEmail,
       name: "Seller Premium Test",
@@ -237,13 +249,13 @@ export async function GET(request: NextRequest) {
     last_login: new Date().toISOString()
   });
 
-  const account = clientAccountFromProfile(existing, effectiveHeaderAccount);
+  const account = forceSellerPremiumTesterAccount(clientAccountFromProfile(existing, effectiveHeaderAccount));
 
   return jsonWithFreshAccountSession({
     account,
     quota: await readPersistentQuota({
       email: effectiveHeaderAccount.email,
-      plan: normalizePlan(String(existing.plan ?? effectiveHeaderAccount.plan ?? "free_buyer"))
+      plan: normalizePlan(String(account.plan ?? effectiveHeaderAccount.plan ?? "free_buyer"))
     }),
     source: "supabase"
   }, account);
@@ -278,12 +290,16 @@ export async function POST(request: NextRequest) {
   );
   const existing = existingRows[0] as Record<string, unknown> | undefined;
   const requestedRole = normalizeRole(String(postTestOverride?.role ?? headerAccount.role ?? "buyer"));
-  const preservedPlan = existing
-    ? normalizePlan(String(existing.plan ?? "free_buyer"))
-    : normalizePlan(String(postTestOverride?.plan ?? headerAccount.plan ?? "free_buyer"));
-  const preservedRole = existing
-    ? normalizeRole(String(existing.role ?? (preservedPlan === "seller_premium" || preservedPlan === "seller_beta" || preservedPlan === "seller_pro" ? "seller" : "buyer")))
-    : requestedRole === "seller" ? "seller" : "buyer";
+  const preservedPlan = postTestOverride
+    ? normalizePlan(String(postTestOverride.plan))
+    : existing
+      ? normalizePlan(String(existing.plan ?? "free_buyer"))
+      : normalizePlan(String(headerAccount.plan ?? "free_buyer"));
+  const preservedRole = postTestOverride
+    ? normalizeRole(String(postTestOverride.role))
+    : existing
+      ? normalizeRole(String(existing.role ?? (preservedPlan === "seller_premium" || preservedPlan === "seller_beta" || preservedPlan === "seller_pro" ? "seller" : "buyer")))
+      : requestedRole === "seller" ? "seller" : "buyer";
 
   const profile = await supabaseUpsert("profiles", {
     email,
@@ -308,7 +324,7 @@ export async function POST(request: NextRequest) {
   });
 
   const account = profile
-    ? clientAccountFromProfile(profile as Record<string, unknown>, { email })
+    ? forceSellerPremiumTesterAccount(clientAccountFromProfile(profile as Record<string, unknown>, { email }))
     : null;
 
   return jsonWithFreshAccountSession({

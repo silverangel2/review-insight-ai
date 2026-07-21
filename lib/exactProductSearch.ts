@@ -1,4 +1,5 @@
 import { storeSearchTarget } from "@/lib/reviewToolHelpers";
+import { serverEnv } from "./runtimeEnv";
 type ExactProductSearchInput = {
   productName: string;
   brand?: string;
@@ -41,6 +42,16 @@ function cleanJsonText(text: string) {
     .replace(/^```\s*/i, "")
     .replace(/```$/i, "")
     .trim();
+}
+
+function timeoutSignal(timeoutMs: number): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timer),
+  };
 }
 
 function clampRating(value: unknown) {
@@ -134,7 +145,7 @@ function firstAcceptedSourceLink(
 export async function findExactProductListing(
   input: ExactProductSearchInput
 ): Promise<ExactProductSearchResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = serverEnv("OPENAI_API_KEY");
 
   if (!apiKey) {
     return emptyExactResult("OPENAI_API_KEY is missing.");
@@ -210,8 +221,9 @@ Rules:
 - If only search snippets are available, include values only if visible in evidence.
 - If not confident it is the same product, confidence must be low or none.
 - Do not guess rating or review count.
-`;
+  `;
 
+  const timeout = timeoutSignal(Number(process.env.REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS || 15000));
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -225,6 +237,7 @@ Rules:
         input: prompt,
         temperature: 0.1,
       }),
+      signal: timeout.signal,
     });
 
     if (!response.ok) {
@@ -310,7 +323,13 @@ Rules:
     };
   } catch (error: unknown) {
     return emptyExactResult(
-      error instanceof Error ? error.message : "Exact listing search failed."
+      timeout.signal.aborted
+        ? "Exact listing search timed out before a confident listing was found."
+        : error instanceof Error
+          ? error.message
+          : "Exact listing search failed."
     );
+  } finally {
+    timeout.clear();
   }
 }

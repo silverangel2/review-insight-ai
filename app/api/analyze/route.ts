@@ -13,6 +13,12 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
+import { serverEnv } from "@/lib/runtimeEnv";
+import {
+  INSUFFICIENT_WRITTEN_REVIEW_MESSAGE,
+  normalizeInsufficientEvidenceResult,
+  reviewEvidenceDiagnosticsFromResult,
+} from "@/lib/insufficientEvidenceContract";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -1310,7 +1316,7 @@ function collectWebCitations(value: unknown, citations = new Map<string, string>
 }
 
 async function openAIResponse(payload: JsonRecord) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = serverEnv("OPENAI_API_KEY");
 
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is missing.");
@@ -1451,13 +1457,29 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
   // research state into the final UI.
   const raw: JsonRecord = {};
 
+  const exactVisibleProductName =
+    String(vision.name || "")
+      .replace(/\s+/g, " ")
+      .trim() ||
+    String(vision.normalizedSearchQuery || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const brandAlreadyIncluded =
+    Boolean(vision.brand) &&
+    new RegExp(`\\b${String(vision.brand).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(
+      exactVisibleProductName
+    );
+  const fallbackVisibleProductName = uniqueTextArray(
+    [vision.category, ...vision.visibleFeatures].filter(Boolean),
+    8
+  )
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
   const productForReviewEvidence = uniqueTextArray(
     [
-      vision.normalizedSearchQuery,
-      vision.brand,
-      vision.name,
-      vision.category,
-      ...vision.visibleFeatures,
+      brandAlreadyIncluded ? "" : vision.brand,
+      exactVisibleProductName || fallbackVisibleProductName,
     ].filter(Boolean),
     12
   )
@@ -1559,11 +1581,14 @@ function computeVerdictConfidenceAudit(input: {
   repeatedComplaintsCount?: number;
   productProsCount?: number;
   productConsCount?: number;
+  acceptedEvidenceCount?: number;
+  evidenceThresholdPassed?: boolean;
   buyScore?: number | null;
   verdict?: string;
   finalDecisionSource?: string;
 }) {
   const exactListingUrl = String(input.exactListingUrl || "").trim();
+  const exactListingConfirmed = Boolean(input.exactListingConfirmed);
   const screenshotTitle = String(input.screenshotTitle || "").trim();
   const listingTitle = String(input.listingTitle || "").trim();
   const screenshotStore = String(input.screenshotStore || "").trim().toLowerCase();
@@ -1574,8 +1599,12 @@ function computeVerdictConfidenceAudit(input: {
   const rating = Number(input.rating);
   const marketplaceReviewCount = Number(input.marketplaceReviewCount || 0);
   const commentsAnalyzed = Number(input.commentsAnalyzed || 0);
+  const acceptedEvidenceCount = Number(input.acceptedEvidenceCount || 0);
+  const evidenceThresholdPassed = Boolean(input.evidenceThresholdPassed);
 
   const hasExactListing = Boolean(exactListingUrl);
+  const hasVerifiedWrittenEvidence =
+    evidenceThresholdPassed && acceptedEvidenceCount > 0 && commentsAnalyzed >= 3;
   const sameStore =
     Boolean(screenshotStore && listingStore && (listingStore.includes(screenshotStore) || screenshotStore.includes(listingStore))) ||
     Boolean(screenshotStore && exactListingUrl.toLowerCase().includes(screenshotStore.replace(".ca", "").replace(".com", "")));
@@ -1595,18 +1624,20 @@ function computeVerdictConfidenceAudit(input: {
 
   // Gate 1: Did RI reach the right product?
   const productMatchScore =
-    hasExactListing && (titleLooksMatched || priceMatches) && sameStore
+    exactListingConfirmed && hasExactListing && (titleLooksMatched || priceMatches) && sameStore
       ? 25
-      : hasExactListing && sameStore
+      : exactListingConfirmed && hasExactListing && sameStore
         ? 16
-        : hasExactListing
+        : exactListingConfirmed && hasExactListing
           ? 8
-          : 0;
+          : hasVerifiedWrittenEvidence && Boolean(screenshotTitle)
+            ? 18
+            : 0;
 
   // Hard fail: wrong/no product identity means no trust.
   if (productMatchScore < 8) {
     return {
-      verdictConfidence: 0,
+      verdictConfidence: null,
       audit: {
         productMatchScore,
         listingInfoScore: 0,
@@ -1631,9 +1662,9 @@ function computeVerdictConfidenceAudit(input: {
   listingInfoScore = Math.min(20, listingInfoScore);
 
   // Hard fail if website/store is wrong.
-  if (!sameStore) {
+  if (!sameStore && !hasVerifiedWrittenEvidence) {
     return {
-      verdictConfidence: 0,
+      verdictConfidence: null,
       audit: {
         productMatchScore,
         listingInfoScore: 0,
@@ -1812,6 +1843,10 @@ function buildReviewEvidenceShopperResult(input: {
       : typeof evidence.collectorHasWrittenReviews === "boolean"
         ? evidence.collectorHasWrittenReviews
         : collectorReviewsCollected > 0;
+  const extractionDiagnostics = reviewEvidenceDiagnosticsFromResult({
+    analysisVersion: "review-evidence-v2",
+    reviewEvidence: evidence,
+  });
 
   // commentsAnalyzed must be grounded in actual written review text.
   // Never allow the AI to copy marketplaceReviewCount/reviewsFound and pretend all reviews were analyzed.
@@ -1830,6 +1865,15 @@ function buildReviewEvidenceShopperResult(input: {
       ? rawCommentsAnalyzed
       : groundedCommentsAnalyzed;
   const evidenceStrength = String(evidence.evidenceStrength || "none").toLowerCase();
+  const evidenceThresholdPassed = extractionDiagnostics.evidenceThresholdPassed;
+  const acceptedEvidenceCount = extractionDiagnostics.acceptedEvidenceCount;
+  const forcedInsufficientEvidence =
+    String(evidence.status || "") === "insufficient_evidence" ||
+    String(evidence.message || "").toLowerCase().includes("sufficient written reviews could not be retrieved") ||
+    String(evidence.message || "").toLowerCase().includes("could not retrieve enough readable written reviews") ||
+    !collectorHasWrittenReviews ||
+    acceptedEvidenceCount <= 0 ||
+    !evidenceThresholdPassed;
 
   const hasReadableReviewEvidence =
     reviewSnippets.length > 0 ||
@@ -1848,9 +1892,12 @@ function buildReviewEvidenceShopperResult(input: {
   // Direct written review bodies are best; OpenAI web-search review intelligence is allowed
   // when marketplaces block review bodies, with lower confidence shown in the audit.
   const hasUsableReviewEvidence =
+    !forcedInsufficientEvidence &&
     hasReadableReviewEvidence &&
     commentsAnalyzed >= 3 &&
     reviewSnippets.length >= 3 &&
+    acceptedEvidenceCount > 0 &&
+    evidenceThresholdPassed &&
     evidenceStrength !== "none";
 
   const listingRatingForMetadataScore = (() => {
@@ -1914,10 +1961,9 @@ function buildReviewEvidenceShopperResult(input: {
   let finalDecisionSource = "reviewEvidenceNotEnough";
   let buyScore: number | null = null;
   let valueForMoney = "Unknown";
-  let bottomLine =
-    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
+  let bottomLine = INSUFFICIENT_WRITTEN_REVIEW_MESSAGE;
 
-  if (hasUsableReviewEvidence) {
+  if (!forcedInsufficientEvidence && hasUsableReviewEvidence) {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
@@ -1940,47 +1986,6 @@ function buildReviewEvidenceShopperResult(input: {
       bottomLine =
         "ReviewIntel found usable review evidence, but the signals are mixed or not strong enough for a confident Buy.";
     }
-  } else if (hasVerifiedListingMetadata) {
-    finalDecisionSource = "verifiedListingMetadata";
-    decisionStatus = "verified_listing_metadata";
-
-    const reviewVolumeBoost =
-      marketplaceReviewCount >= 1000
-        ? 1
-        : marketplaceReviewCount >= 250
-          ? 0.75
-          : marketplaceReviewCount >= 75
-            ? 0.5
-            : 0.25;
-    buyScore = Math.max(
-      1,
-      Math.min(8, Math.round((listingRatingForMetadataScore / 5) * 7 + reviewVolumeBoost))
-    );
-    verdict =
-      listingRatingForMetadataScore >= 4.2 && marketplaceReviewCount >= 75
-        ? "CONSIDER"
-        : listingRatingForMetadataScore < 3.7
-          ? "AVOID"
-          : "CONSIDER";
-    valueForMoney = buyScore >= 7 ? "Fair" : buyScore <= 4 ? "Risky" : "Unknown";
-    bottomLine =
-      "ReviewIntel confirmed the online listing rating and public review volume. Direct written review bodies were limited, so this is a cautious score with lower confidence.";
-  } else if (hasLimitedReviewEvidence) {
-    verdict = "CONSIDER";
-    decisionStatus = "limited_review_evidence";
-    finalDecisionSource = "limitedReviewEvidence";
-    buyScore = marketplaceReviewCount >= 75 ? 5 : 4;
-    valueForMoney = price ? "Unknown" : "Unknown";
-    bottomLine =
-      "ReviewIntel found limited exact-product review intelligence. Treat this as a cautious score and check the latest low-star reviews before buying.";
-  } else if (hasRecognizedProductEvidence) {
-    verdict = "CONSIDER";
-    decisionStatus = "identity_only_provisional";
-    finalDecisionSource = "identityOnlyProvisional";
-    buyScore = 4;
-    valueForMoney = "Unknown";
-    bottomLine =
-      "ReviewIntel identified the product from the screenshot, but could not verify enough online review evidence. This is a cautious provisional score, not a full review-based verdict.";
   }
 
   const verdictConfidenceAudit = computeVerdictConfidenceAudit({
@@ -1999,12 +2004,14 @@ function buildReviewEvidenceShopperResult(input: {
     repeatedComplaintsCount: repeatedComplaints.length,
     productProsCount: productPros.length,
     productConsCount: productCons.length,
+    acceptedEvidenceCount,
+    evidenceThresholdPassed,
     buyScore,
     verdict,
     finalDecisionSource,
   });
 
-  const verdictConfidence = verdictConfidenceAudit.verdictConfidence;
+  const verdictConfidence = forcedInsufficientEvidence ? null : verdictConfidenceAudit.verdictConfidence;
   const sourceLinksForResult = Array.isArray(evidence.sourceLinks)
     ? evidence.sourceLinks.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>
     : [];
@@ -2040,6 +2047,8 @@ function buildReviewEvidenceShopperResult(input: {
   console.log("[ReviewIntel DEBUG verdictAudit]", {
     verdict,
     finalDecisionSource,
+    forcedInsufficientEvidence,
+    extractionDiagnostics,
     buyScore,
     verdictConfidence,
     productMatchScore: verdictConfidenceAudit.audit.productMatchScore,
@@ -2057,7 +2066,7 @@ function buildReviewEvidenceShopperResult(input: {
     reason: verdictConfidenceAudit.audit.reason,
   });
 
-  return {
+  const result = {
     ...rawRecord,
 
     analysisVersion: "review-evidence-v2",
@@ -2180,6 +2189,8 @@ function buildReviewEvidenceShopperResult(input: {
     summary: bottomLine,
     stableVerdictReason: bottomLine,
   };
+
+  return normalizeInsufficientEvidenceResult(result);
 }
 
 
@@ -2289,6 +2300,13 @@ export async function POST(request: Request) {
       }
 
       const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
+      const scanDecisionStatus = String(scanResult.decisionStatus || "");
+      const scanVerdict = String(scanResult.verdict || scanResult.recommendation || "");
+      const isInsufficientEvidenceScan =
+        scanDecisionStatus === "not_enough_evidence" ||
+        scanVerdict === "REVIEW EVIDENCE NOT ENOUGH" ||
+        scanVerdict === "NOT ENOUGH EVIDENCE" ||
+        String(asRecord(scanResult.reviewEvidence).status || "") === "insufficient_evidence";
       const shouldSaveHistory = role === "admin" || accountPlan !== "free_buyer";
       const analysisRecord = shouldSaveHistory
         ? (await saveAnalysisRecord({
@@ -2307,18 +2325,25 @@ export async function POST(request: Request) {
           }) as { id?: string; created_at?: string } | null)
         : null;
 
-      const usage = await consumePersistentQuota(
-        {
-          email,
-          plan: accountPlan
-        },
-        {
-          analysis_id: analysisRecord?.id ?? null,
-          audience: "buyer",
-          product_name: asRecord(scanResult.product).name ?? null,
-          verdict: scanResult.verdict ?? null
-        }
-      );
+      const usage = isInsufficientEvidenceScan
+        ? {
+            quota: await readPersistentQuota({
+              email,
+              plan: accountPlan
+            })
+          }
+        : await consumePersistentQuota(
+            {
+              email,
+              plan: accountPlan
+            },
+            {
+              analysis_id: analysisRecord?.id ?? null,
+              audience: "buyer",
+              product_name: asRecord(scanResult.product).name ?? null,
+              verdict: scanResult.verdict ?? null
+            }
+          );
 
       return {
         ...scanResult,

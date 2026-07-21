@@ -6,6 +6,7 @@ import Link from "next/link";
 import { readStoredLocale } from "@/lib/i18n";
 import { saveLatestSellerResult } from "@/lib/sellerResultStorage";
 import { incrementSellerScanAudit } from "@/lib/sellerScanAudit";
+import { activeSellerProductId, saveSellerProductScanFromSellerCsvResult } from "@/lib/sellerProducts";
 
 type SellerResult = {
   summary: string;
@@ -58,6 +59,11 @@ export default function SellerDashboardPage() {
         fileName,
         createdAt: new Date().toISOString()
       });
+
+      const productId = activeSellerProductId();
+      if (productId) {
+        saveSellerProductScanFromSellerCsvResult(productId, data as SellerResult, fileName);
+      }
 
       incrementSellerScanAudit();
 
