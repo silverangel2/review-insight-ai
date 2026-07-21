@@ -1071,7 +1071,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {verdictConfidence}% {copy.buyerConfidence}
+            {verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"} {copy.buyerConfidence}
           </div>
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
@@ -1238,7 +1238,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence}%</p>
+                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"}</p>
                   <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
