@@ -367,15 +367,48 @@ function attachLanguageMeta<T extends JsonRecord>(result: T, locale: string, out
   };
 }
 
+function normalizeProductKeyPart(value: string | undefined | null) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/https?:\/\/[^\s]+/g, " ")
+    .replace(/\b(add to cart|rollback|sponsored|best seller|limited time|free shipping|pickup|delivery)\b/g, " ")
+    .replace(/[^a-z0-9.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeProductPriceForKey(value: string | undefined | null) {
+  const match = String(value || "").replace(/,/g, "").match(/\d+(?:\.\d{1,2})?/);
+  if (!match) return "";
+
+  const amount = Number(match[0]);
+  return Number.isFinite(amount) ? amount.toFixed(2) : "";
+}
+
 function createProductKey(parts: Array<string | undefined | null>) {
   return parts
+    .map(normalizeProductKeyPart)
     .filter(Boolean)
     .join(" ")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 220);
+}
+
+function createStableProductKey(vision: VisionFacts, productLink: string) {
+  let linkHost = "";
+
+  try {
+    linkHost = productLink ? new URL(productLink).hostname.replace(/^www\./, "") : "";
+  } catch {
+    linkHost = "";
+  }
+
+  const store = vision.store || linkHost;
+  const title = vision.normalizedSearchQuery || [vision.brand, vision.name, vision.category].filter(Boolean).join(" ");
+  const price = normalizeProductPriceForKey(vision.price);
+
+  return createProductKey([store, vision.brand, title, price]);
 }
 
 async function brainFetch(path: string) {
@@ -726,6 +759,25 @@ function evidenceCoverageWeight(commentsAnalyzed: number) {
   // Written review text must dominate the score.
   // Coverage grows gradually and caps around 50 analyzed reviews.
   return Math.max(0.05, Math.min(1, commentsAnalyzed / 50));
+}
+
+function hasEnoughReviewEvidence(result: ReturnType<typeof normalizeResult>) {
+  const sourcesCount = result.sourcesUsed.length;
+  const reviewCount = parseVisibleReviewCount(result.product.reviewCount);
+  const rating = parseVisibleRating(result.product.rating);
+  const evidenceText = [
+    ...result.topStrengths,
+    ...result.topComplaints,
+    ...result.bestFor,
+    ...result.notIdealFor,
+    result.bottomLine,
+  ].join(" ").toLowerCase();
+
+  const hasWrittenReviewSignals =
+    /\b(review|reviews|buyer|buyers|customer|customers|complain|complaint|praise|praised|reported|mentioned|said|feedback)\b/.test(evidenceText);
+  const hasMarketplaceSignals = rating !== null && reviewCount !== null && reviewCount >= 25;
+
+  return sourcesCount > 0 || hasWrittenReviewSignals || hasMarketplaceSignals;
 }
 
 function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
@@ -1122,6 +1174,38 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
   let bestFor = legalSafeArray(result.bestFor);
   let notIdealFor = legalSafeArray(result.notIdealFor);
   let bottomLine = legalSafeText(result.bottomLine);
+  const enoughReviewEvidence = hasEnoughReviewEvidence(result);
+
+  if (!enoughReviewEvidence) {
+    return applyReviewIntelBrain(
+      {
+        ...result,
+        verdict: "CONSIDER" as Verdict,
+        productScore: Math.min(Math.max(calculated.productScore, 45), 64),
+        buyingConfidence: Math.min(Math.max(calculated.buyingConfidence, 40), 59),
+        valueForMoney: valueForMoney === "Excellent" ? "Good" : valueForMoney === "Poor" ? "Fair" : valueForMoney,
+        reviewAuthenticity: {
+          ...reviewAuthenticity,
+          label: "Medium Trust",
+          score: 0,
+          suspiciousReviewRisk: "Low",
+          reasons:
+            normalizedLocaleCode(locale) === "en"
+              ? ["Not enough full review text was found to judge AI-generated wording."]
+              : legalSafeArray(reviewAuthenticity.reasons),
+        },
+        topStrengths,
+        topComplaints,
+        bestFor: bestFor.length ? bestFor : ["Shoppers who can verify the live listing and return policy first."],
+        notIdealFor: notIdealFor.length ? notIdealFor : ["Shoppers who need a confident verdict from written review evidence."],
+        bottomLine:
+          normalizedLocaleCode(locale) === "en"
+            ? "Review evidence not enough. The screenshot identifies the product, but ReviewIntel could not retrieve enough reliable written review evidence to give a strong buying verdict. Check the live product page, low-star reviews, and return policy before buying."
+            : bottomLine,
+      },
+      locale,
+    );
+  }
 
   if (calculated.verdict === "AVOID") {
     if (canRewriteCopy) {
@@ -1198,6 +1282,21 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
   let verdict = result.verdict;
   let valueForMoney = result.valueForMoney;
   let bottomLine = result.bottomLine;
+  const enoughReviewEvidence = hasEnoughReviewEvidence(result);
+
+  if (!enoughReviewEvidence) {
+    return {
+      ...result,
+      verdict: "CONSIDER" as Verdict,
+      productScore: Math.min(Math.max(productScore, 45), 64),
+      buyingConfidence: Math.min(Math.max(buyingConfidence, 40), 59),
+      valueForMoney: valueForMoney === "Excellent" ? "Good" : valueForMoney === "Poor" ? "Fair" : valueForMoney,
+      bottomLine:
+        normalizedLocaleCode(locale) === "en"
+          ? "Review evidence not enough. The screenshot identifies the product, but the verdict is limited until ReviewIntel can verify written review evidence from the exact listing."
+          : bottomLine,
+    };
+  }
 
   if (verdict === "BUY" && (productScore < 75 || buyingConfidence < 60 || poorValue || negativeEvidence)) {
     verdict = productScore < 45 || poorValue || negativeEvidence ? "AVOID" : "CONSIDER";
@@ -2403,12 +2502,7 @@ export async function POST(request: Request) {
       return NextResponse.json(await recordCompletedScan(attachLanguageMeta(enforceFinalResultConsistency(fallbackResult, locale), locale, outputLanguage)));
     }
 
-    const productKey = createProductKey([
-      vision.brand,
-      vision.name,
-      vision.category,
-      productLink
-    ]);
+    const productKey = createStableProductKey(vision, productLink);
 
     const memory = await getProductMemory(productKey);
     void memory;
