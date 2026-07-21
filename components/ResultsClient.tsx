@@ -137,7 +137,7 @@ const resultCopy: Record<
     bestForEmpty: "Good for shoppers who match the product strengths.",
     notIdealEmpty: "Not enough evidence to say.",
     priceNotShown: "Price not shown",
-    researchLabels: { verified: "Verified web research", limited: "Limited web evidence", screenshot_only: "Screenshot-only warning", product_mismatch: "Product match warning" },
+    researchLabels: { verified: "Open-web research", limited: "Limited web evidence", screenshot_only: "Screenshot-only warning", product_mismatch: "Product match warning" },
     valueLabels: { Excellent: "Excellent", Good: "Good", Fair: "Fair", Poor: "Poor" },
     riskLabels: { Low: "Low", Medium: "Medium", High: "High" }
   },
@@ -1498,7 +1498,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Exact listing" value={exactConfidence || "Not confirmed"} />
         <ToolProofPill label="Verdict" value={verdict || "Not scored"} />
         <ToolProofPill label="Buy score" value={buyScore !== null ? `${buyScore}/10` : "Not scored"} />
-        <ToolProofPill label="Verdict confidence" value={verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"} />
+        <ToolProofPill label="Verdict confidence" value={verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : exactConfidence === "high" ? "Limited" : "Needs exact listing"} />
         <ToolProofPill label="AI-like risk" value={aiLikeScore !== null ? `${aiLikeScore}%` : "Not scored"} />
         <ToolProofPill label="Memory" value={stableProductKey ? "Saved/merged" : "Not saved"} />
       </div>
