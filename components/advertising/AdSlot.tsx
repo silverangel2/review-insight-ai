@@ -256,6 +256,8 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   const [settings, setSettings] = useState<LiveAdSettings | null>(null);
   const [ad, setAd] = useState<SponsorAd | null>(null);
   const [adSource, setAdSource] = useState<AdSource | null>(null);
+  const [rotatingAds, setRotatingAds] = useState<Array<{ ad: SponsorAd; source: AdSource }>>([]);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [googleConsent, setGoogleConsent] = useState(false);
 
   useEffect(() => {
@@ -272,6 +274,8 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         setSettings(liveSettings);
 
         if (!liveSettings.adsEnabled || !liveSettings.placements?.[placement]) {
+          setRotatingAds([]);
+          setCurrentAdIndex(0);
           setAd(null);
           setAdSource(null);
           return;
@@ -280,53 +284,48 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         const sponsorAds = Array.isArray(data.ads) ? (data.ads as SponsorAd[]) : [];
         const directSponsorAds = sponsorAds.filter((item) => item.sponsorType !== "affiliate");
         const affiliateAds = sponsorAds.filter((item) => item.sponsorType === "affiliate");
-        const directSponsorAd =
-          liveSettings.directSponsorAdsEnabled
-            ? pickRotatingAd(directSponsorAds, placement)
-            : null;
+        const eligibleAds: Array<{ ad: SponsorAd; source: AdSource }> = [];
 
-        if (directSponsorAd) {
-          setAd(directSponsorAd);
-          setAdSource("direct");
-          return;
+        if (liveSettings.directSponsorAdsEnabled) {
+          eligibleAds.push(
+            ...directSponsorAds
+              .filter((item) => item.placement === placement && item.active && item.status === "approved" && item.paymentStatus === "paid")
+              .map((item) => ({ ad: item, source: "direct" as const })),
+          );
+
+          eligibleAds.push(
+            ...affiliateAds
+              .filter((item) => item.placement === placement && item.active && item.status === "approved" && item.paymentStatus === "paid")
+              .map((item) => ({ ad: item, source: "affiliate" as const })),
+          );
         }
 
-        const affiliateAd =
-          liveSettings.directSponsorAdsEnabled
-            ? pickRotatingAd(affiliateAds, placement)
-            : null;
-
-        if (affiliateAd) {
-          setAd(affiliateAd);
-          setAdSource("affiliate");
-          return;
-        }
-
-        if (liveSettings.googleAdsEnabled && hasGoogleAdSenseConfig()) {
+        if (!eligibleAds.length && liveSettings.googleAdsEnabled && hasGoogleAdSenseConfig()) {
+          setRotatingAds([]);
+          setCurrentAdIndex(0);
           setAd(null);
           setAdSource(null);
           return;
         }
 
         if (liveSettings.placeholderAdsEnabled) {
-          const placeholder =
-            reviewIntelPlaceholderAds.find(
-              (item) =>
-                item.placement === placement &&
-                item.active &&
-                item.status === "approved",
-            ) ?? null;
-
-          setAd(placeholder);
-          setAdSource(placeholder ? "placeholder" : null);
-          return;
+          eligibleAds.push(
+            ...reviewIntelPlaceholderAds
+              .filter((item) => item.placement === placement && item.active && item.status === "approved")
+              .map((item) => ({ ad: item, source: "placeholder" as const })),
+          );
         }
 
-        setAd(null);
-        setAdSource(null);
+        setRotatingAds(eligibleAds);
+        setCurrentAdIndex(0);
+        const selected = eligibleAds[0] ?? null;
+        setAd(selected?.ad ?? null);
+        setAdSource(selected?.source ?? null);
       } catch {
         if (mounted) {
           setSettings(null);
+          setRotatingAds([]);
+          setCurrentAdIndex(0);
           setAd(null);
           setAdSource(null);
         }
@@ -339,6 +338,23 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       mounted = false;
     };
   }, [placement]);
+
+  useEffect(() => {
+    if (rotatingAds.length <= 1) return;
+
+    const timer = window.setInterval(() => {
+      setCurrentAdIndex((index) => (index + 1) % rotatingAds.length);
+    }, 10000);
+
+    return () => window.clearInterval(timer);
+  }, [rotatingAds.length]);
+
+  useEffect(() => {
+    if (!rotatingAds.length) return;
+    const selected = rotatingAds[currentAdIndex % rotatingAds.length];
+    setAd(selected.ad);
+    setAdSource(selected.source);
+  }, [currentAdIndex, rotatingAds]);
 
   useEffect(() => {
     setGoogleConsent(hasOptionalCookieConsent());
