@@ -1375,6 +1375,11 @@ export async function collectAndAnalyzeReviewEvidence(
     }
   }
 
+  const hasCollectedWrittenReviewEvidence =
+    collectedWrittenReviews.reviews.length > 0 ||
+    collectedWrittenReviews.reviewsCollected > 0 ||
+    collectedWrittenReviews.collectorHasWrittenReviews;
+
   let firecrawlRecoveryNote = "Firecrawl fallback was not needed.";
   const firecrawlLastResortAllowed = Boolean(
     listingUrlForReviewCollector &&
@@ -2313,6 +2318,8 @@ Return ONLY valid JSON with the same shape as the first pass:
       collectorReviewsCollected,
       reviewSnippetsBase.length,
       reviewSnippets.length,
+      collectedWrittenReviews.reviews.length,
+      collectedWrittenReviews.reviewsCollected || 0,
     );
 
     const rawEvidenceStrength =
@@ -2509,8 +2516,8 @@ Return ONLY valid JSON with the same shape as the first pass:
         evidenceStrength: "none" as const,
         reviewIntelligenceMode: "listing_metadata" as const,
         reviewIntelligenceSignals: 0,
-        commentsAnalyzed: 0,
-        reviewsCollected: 0,
+        commentsAnalyzed: hasCollectedWrittenReviewEvidence ? finalEvidence.commentsAnalyzed : 0,
+        reviewsCollected: hasCollectedWrittenReviewEvidence ? finalEvidence.reviewsCollected : 0,
         sourcesChecked: finalEvidence.sourcesChecked.length
           ? finalEvidence.sourcesChecked
           : localAttemptedSources.length
@@ -2521,7 +2528,7 @@ Return ONLY valid JSON with the same shape as the first pass:
         collectorHasWrittenReviews: false,
         overallImpact: "",
         buyAssessment: "",
-        reviewSnippets: [],
+        reviewSnippets: hasCollectedWrittenReviewEvidence ? finalEvidence.reviewSnippets : [],
         repeatedPraises: [],
         repeatedComplaints: [],
         aiPatternSignals: [],
@@ -2529,7 +2536,9 @@ Return ONLY valid JSON with the same shape as the first pass:
         productPros: [],
         productCons: [],
         sourceNotes: [
-          "ReviewIntel could not access enough public review evidence for this product.",
+          hasCollectedWrittenReviewEvidence
+          ? "Exact listing was not verified, so ReviewIntel used matched public review evidence instead."
+          : "ReviewIntel could not access enough public review evidence for this product.",
           "Automatic evidence recovery tried exact-title, marketplace, open-web, and fallback retrieval paths before withholding the verdict.",
           "Product or listing metadata may have been identified, but rating/review count metadata is not written review evidence.",
         ],
