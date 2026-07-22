@@ -8,3 +8,7 @@ node_modules
 *.log
 tsconfig.tsbuildinfo
 .env.production.local
+
+# Local AI patch backups
+*.backup-*
+*.bak
