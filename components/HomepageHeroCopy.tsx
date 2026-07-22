@@ -19,7 +19,7 @@ const heroCopy: Record<
     badge: "AI shopping assistant",
     languageLabel: "Choose language",
     mobileTitle: "Know before you buy.",
-    mobileSubtitle: "Paste a link or screenshot. Get a quick BUY, CONSIDER, or AVOID.",
+    mobileSubtitle: "Paste a link or screenshot. Get a clear verdict.",
     subtitle:
       "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, common complaints, ratings, value, and AI-like review patterns to give you a fast BUY, CONSIDER, or AVOID verdict.",
     slides: [
@@ -137,7 +137,7 @@ export function HomepageHeroCopy({ initialLocale = "en" }: HomepageHeroCopyProps
         <div className="flex flex-wrap items-center gap-3">
           <Badge tone="good">{copy.badge}</Badge>
         </div>
-        <h1 className="mt-5 max-w-[19rem] text-[clamp(3rem,14vw,4.25rem)] font-black leading-[0.94] tracking-normal text-[#06111f]">
+        <h1 className="mt-5 max-w-[17rem] text-[clamp(3.2rem,15vw,4.45rem)] font-black leading-[0.92] tracking-normal text-[#06111f]">
           {copy.mobileTitle}
         </h1>
         <p className="mt-4 max-w-[21rem] text-base font-semibold leading-6 text-slate-700">

@@ -104,9 +104,9 @@ export default async function LandingPage() {
             }
             .reviewintel-home-hero-grid {
               min-height: 100svh !important;
-              align-content: start !important;
-              gap: .9rem !important;
-              padding: 1.65rem 1.25rem 1.25rem !important;
+              align-content: center !important;
+              gap: .75rem !important;
+              padding: 1.35rem 1.25rem 1.25rem !important;
             }
             .reviewintel-home-hero h1 {
               font-size: clamp(3rem, 14vw, 4.25rem) !important;
@@ -119,6 +119,11 @@ export default async function LandingPage() {
             .reviewintel-home-hero .ri-pixie-field,
             .reviewintel-home-hero .ri-hero-spark {
               display: none !important;
+            }
+            header a[href="/login"] {
+              background: #08b7a8 !important;
+              color: #fff !important;
+              box-shadow: 0 14px 32px rgba(8, 183, 168, .18) !important;
             }
             .reviewintel-home-hero .ri-home-crystal {
               right: -5.25rem !important;
@@ -190,7 +195,7 @@ export default async function LandingPage() {
             <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
               <Link
                 href="/analyze"
-                className="rounded-2xl bg-ocean px-7 py-4 text-center text-sm font-black text-white shadow-[0_20px_70px_rgba(8,183,168,0.24)] transition hover:-translate-y-0.5 hover:bg-teal sm:bg-ink sm:shadow-[0_20px_70px_rgba(15,23,42,0.25)] sm:hover:bg-ocean"
+                className="w-full max-w-xs rounded-2xl bg-ocean px-7 py-4 text-center text-sm font-black text-white shadow-[0_20px_70px_rgba(8,183,168,0.24)] transition hover:-translate-y-0.5 hover:bg-teal sm:w-auto sm:max-w-none sm:bg-ink sm:shadow-[0_20px_70px_rgba(15,23,42,0.25)] sm:hover:bg-ocean"
               >
                 {t("scanReviewsNow")}
               </Link>
@@ -202,25 +207,12 @@ export default async function LandingPage() {
               </Link>
             </div>
 
-            <div className="mt-5 flex max-w-full flex-wrap gap-2 text-[11px] font-black uppercase text-slate-600 sm:mt-8 sm:text-xs">
+            <div className="mt-5 flex max-w-[19rem] flex-wrap gap-2 text-[11px] font-black uppercase text-slate-600 sm:mt-8 sm:max-w-full sm:text-xs">
               {["Amazon", "Walmart", "Temu", "TikTok Shop", "Etsy", "Shopify", "eBay"].map((item, index) => (
-                <span key={item} className={`${index > 3 ? "hidden sm:inline-flex" : "inline-flex"} rounded-full border border-white/70 bg-white/60 px-3 py-2 shadow-sm backdrop-blur`}>
+                <span key={item} className={`${index > 2 ? "hidden sm:inline-flex" : "inline-flex"} rounded-full border border-white/70 bg-white/60 px-3 py-2 shadow-sm backdrop-blur`}>
                   {item}
                 </span>
               ))}
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:hidden">
-              <article className="rounded-3xl border border-white/70 bg-white/70 p-4 shadow-soft backdrop-blur">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.identityEyebrow")}</p>
-                <p className="mt-2 text-lg font-black leading-tight text-ink">{t("heroCards.identityTitle")}</p>
-                <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">{t("heroCards.identityLabel")}</p>
-              </article>
-              <article className="rounded-3xl border border-white/70 bg-cyan-50/80 p-4 shadow-soft backdrop-blur">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.evidenceEyebrow")}</p>
-                <p className="mt-2 text-lg font-black leading-tight text-ink">{t("heroCards.evidenceTitle")}</p>
-                <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">{t("buyerWins.complaint")}</p>
-              </article>
             </div>
           </div>
 
@@ -273,9 +265,30 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      <section className="grid min-h-[100svh] content-center bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
+        <div>
+          <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
+          <h2 className="mt-4 max-w-sm text-4xl font-black leading-tight tracking-normal">
+            What the scan checks.
+          </h2>
+          <div className="mt-6 grid gap-4">
+            <article className="rounded-[1.75rem] border border-white/80 bg-white/78 p-5 shadow-soft backdrop-blur">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.identityEyebrow")}</p>
+              <p className="mt-3 text-2xl font-black leading-tight text-ink">{t("heroCards.identityTitle")}</p>
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{t("heroCards.identityLabel")}</p>
+            </article>
+            <article className="rounded-[1.75rem] border border-white/80 bg-cyan-50/80 p-5 shadow-soft backdrop-blur">
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.evidenceEyebrow")}</p>
+              <p className="mt-3 text-2xl font-black leading-tight text-ink">{t("heroCards.evidenceTitle")}</p>
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{t("buyerWins.complaint")}</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <PlatformLogoOrbit initialLocale={locale} />
 
-      <section className="home-premium-payoff bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-14 text-ink sm:px-6 sm:py-12">
+      <section className="home-premium-payoff min-h-[100svh] bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-14 text-ink sm:min-h-0 sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
             <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
@@ -309,7 +322,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-premium-audience bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-6 py-10 text-ink">
+      <section className="home-premium-audience min-h-[100svh] bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-8 text-ink sm:min-h-0 sm:px-6 sm:py-10">
         <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
           <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
             <Badge tone="good">{t("shopperMode")}</Badge>
@@ -343,7 +356,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-premium-mode bg-mist px-6 py-12 text-ink">
+      <section className="home-premium-mode min-h-[100svh] bg-mist px-5 py-8 text-ink sm:min-h-0 sm:px-6 sm:py-12">
         <div className="home-premium-mode-card mx-auto max-w-5xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-8">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 text-3xl font-black tracking-tight text-ink md:text-4xl">{t("modeIntro.title")}</h2>

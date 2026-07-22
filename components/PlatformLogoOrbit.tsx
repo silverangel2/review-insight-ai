@@ -99,7 +99,8 @@ const carouselItems = [...platforms, ...platforms.map((platform) => ({
               : "Bluetooth speaker: strong bass for the size, but app pairing confused several buyers."
 }))];
 
-const mobileMarketplaces = ["Amazon", "Walmart", "Temu", "TikTok Shop", "Etsy", "Shopify", "eBay"];
+const mobileMarketplaces = ["Amazon", "Walmart", "Temu", "TikTok Shop"];
+const mobileSecondaryMarketplaces = ["Etsy", "Shopify", "eBay"];
 
 type PlatformLogoOrbitProps = {
   initialLocale?: ReviewIntelLocale | string;
@@ -292,8 +293,15 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
           </span>
         ))}
       </div>
+      <div className="relative z-20 mt-4 flex flex-wrap justify-center gap-2 sm:hidden">
+        {mobileSecondaryMarketplaces.map((item) => (
+          <span key={item} className="rounded-full border border-white/60 bg-white/45 px-3 py-2 text-[11px] font-black uppercase text-slate-600 shadow-sm backdrop-blur">
+            {item}
+          </span>
+        ))}
+      </div>
       <p className="relative z-20 mx-auto mt-6 max-w-xs text-center text-sm font-semibold leading-6 text-slate-700 sm:hidden">
-        Review signals, complaints, value, and risk in one clean scan.
+        Signals, complaints, value, and risk in one clean scan.
       </p>
 
       <div className="ri-carousel-window relative z-10 mt-12 hidden overflow-hidden py-16 sm:block">
