@@ -18,6 +18,7 @@ export type ExactProductSearchResult = {
   reviewCount: number | null;
   confidence: "none" | "low" | "medium" | "high";
   sourcesChecked: string[];
+  sourceLinks?: Array<{ label: string; url: string; domain?: string }>;
   notes: string[];
 };
 
@@ -31,6 +32,7 @@ function emptyExactResult(reason: string): ExactProductSearchResult {
     reviewCount: null,
     confidence: "none",
     sourcesChecked: [],
+    sourceLinks: [],
     notes: [reason],
   };
 }
@@ -280,6 +282,7 @@ Rules:
           : exactListingUrl
             ? [exactListingUrl]
             : [],
+        sourceLinks,
         notes: [
           `Rejected returned listing because requested store requires ${acceptedDomain}, but the returned URL was ${exactListingUrl || "missing"}.`,
           "ReviewIntel did not use this as exact product evidence.",
@@ -306,6 +309,7 @@ Rules:
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? parsed.sourcesChecked.map(String).slice(0, 12)
         : [],
+      sourceLinks,
       notes: Array.isArray(parsed.notes) ? parsed.notes.map(String).slice(0, 8) : [],
     };
   } catch (error: unknown) {

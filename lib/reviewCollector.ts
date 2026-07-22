@@ -517,6 +517,19 @@ function buildPublicReviewSearchQueries(productName: string, listingUrl: string)
   }
 
   const marketplaceFallbacks = [
+    `${quoted} reviews`,
+    `${quoted} exact reviews`,
+    `${quoted} exact title reviews`,
+    `${quoted} Amazon.ca`,
+    `${quoted} Amazon.com`,
+    `${quoted} Walmart`,
+    `${quoted} Reddit`,
+    `${quoted} YouTube review`,
+    `${quoted} complaints`,
+    `${quoted} worth it`,
+    `${quoted} problems`,
+    `${quoted} Q&A`,
+    `${quoted} review blog`,
     ...listingIdentifiers.flatMap((identifier) => [
       `"${identifier}" reviews`,
       `"${identifier}" customer reviews`,
@@ -552,6 +565,40 @@ function buildPublicReviewSearchQueries(productName: string, listingUrl: string)
   return Array.from(
     new Set(marketplaceFallbacks.map((query) => cleanText(query)).filter(Boolean))
   ).slice(0, 18);
+}
+
+function collectSearchResultSnippets(html: string, source: string): CollectedReview[] {
+  const decoded = htmlDecodeLight(html);
+  const reviews: CollectedReview[] = [];
+  const blocks = decoded.match(/<li[^>]+class=["'][^"']*\bb_algo\b[^"']*["'][\s\S]*?<\/li>/gi) || [];
+
+  for (const block of blocks) {
+    const titleMatch =
+      block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i) ||
+      block.match(/<a[^>]*>([\s\S]*?)<\/a>/i);
+    const snippetMatch =
+      block.match(/<p[^>]+class=["'][^"']*\bb_caption\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/i) ||
+      block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    const urlMatch = block.match(/<a[^>]+href=["']([^"']+)["']/i);
+
+    const title = titleMatch ? cleanText(titleMatch[1]).slice(0, 180) : "";
+    const snippet = snippetMatch ? cleanText(snippetMatch[1]).slice(0, 900) : "";
+    const body = [title, snippet].filter(Boolean).join(" - ");
+
+    if (!isLikelyWrittenReviewBody(body)) continue;
+
+    reviews.push({
+      source: `Search snippet: ${source.slice(0, 80)}`,
+      sourceUrl: urlMatch?.[1] || undefined,
+      rating: null,
+      title: title || undefined,
+      body,
+      date: null,
+      verified: null,
+    });
+  }
+
+  return reviews;
 }
 
 function collectSearchResultLinks(html: string, listingUrl: string): string[] {
@@ -618,6 +665,8 @@ async function fetchPublicReviewFallback(input: {
     const searchHtml = await fetchSearchPage(query);
     if (!searchHtml) continue;
 
+    reviews.push(...collectSearchResultSnippets(searchHtml, query));
+
     const resultLinks = collectSearchResultLinks(searchHtml, input.listingUrl);
 
     for (const url of resultLinks) {
@@ -640,6 +689,7 @@ async function fetchPublicReviewFallback(input: {
         const text = await response.text();
         const decoded = htmlDecodeLight(text);
 
+        reviews.push(...collectSearchResultSnippets(decoded, url));
         reviews.push(...collectJsonLdReviews(decoded, url));
         reviews.push(...collectEmbeddedReviewText(decoded, url));
         reviews.push(...collectEmbeddedJsonReviews(decoded, url));

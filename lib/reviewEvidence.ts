@@ -23,9 +23,11 @@ import { normalizeSourceLinks } from "@/lib/reviewToolHelpers";
 import { createClient } from "@supabase/supabase-js";
 import { localeLabel, normalizeLocale } from "@/lib/i18n";
 import { findExactProductListing, type ExactProductSearchResult } from "@/lib/exactProductSearch";
+import { runFirecrawlFallback } from "@/lib/firecrawlFallback";
 import {
   collectWrittenReviewsFromListing,
   formatCollectedReviewsForPrompt,
+  type ReviewCollectorResult,
 } from "@/lib/reviewCollector";
 type ReviewEvidenceInput = {
   productName: string;
@@ -61,6 +63,8 @@ export type ReviewEvidenceResult = {
   reviewIntelligenceSignals?: number;
   reviewIntelligenceMode?: "written_reviews" | "open_web_intelligence" | "listing_metadata";
   reviewCoverageRatio?: number;
+  decisionStatus?: string;
+  finalDecisionSource?: string;
   commentsAnalyzed: number;
   evidenceStrength: "none" | "weak" | "limited" | "usable" | "strong";
   aiPatternSignals?: string[];
@@ -1079,6 +1083,42 @@ function mergeParsedReviewEvidence(primary: Record<string, unknown>, secondary: 
   };
 }
 
+function reviewEvidenceSignalCount(evidence: ReviewEvidenceResult | null | undefined) {
+  if (!evidence) return 0;
+
+  return Math.max(
+    Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets.length : 0,
+    Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises.length : 0,
+    Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints.length : 0,
+    Array.isArray(evidence.productPros) ? evidence.productPros.length : 0,
+    Array.isArray(evidence.productCons) ? evidence.productCons.length : 0,
+    Array.isArray(evidence.buyerExperienceSignals) ? evidence.buyerExperienceSignals.length : 0,
+    Array.isArray(evidence.aiPatternSignals) ? evidence.aiPatternSignals.length : 0,
+    typeof evidence.reviewIntelligenceSignals === "number" && Number.isFinite(evidence.reviewIntelligenceSignals)
+      ? evidence.reviewIntelligenceSignals
+      : 0
+  );
+}
+
+function reviewEvidenceNeedsAutomaticRecovery(evidence: ReviewEvidenceResult | null | undefined) {
+  if (!evidence) return true;
+
+  const reviewCollector = evidence.reviewCollector;
+  const reviewsCollected =
+    typeof evidence.reviewsCollected === "number" && Number.isFinite(evidence.reviewsCollected)
+      ? evidence.reviewsCollected
+      : typeof reviewCollector?.reviewsCollected === "number" && Number.isFinite(reviewCollector.reviewsCollected)
+        ? reviewCollector.reviewsCollected
+        : 0;
+
+  const commentsAnalyzed =
+    typeof evidence.commentsAnalyzed === "number" && Number.isFinite(evidence.commentsAnalyzed)
+      ? evidence.commentsAnalyzed
+      : 0;
+
+  return reviewsCollected <= 0 && commentsAnalyzed <= 0 && reviewEvidenceSignalCount(evidence) <= 0;
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
@@ -1122,8 +1162,24 @@ export async function collectAndAnalyzeReviewEvidence(
   }
 
   const rememberedEvidence = input.forceRefresh ? null : await loadRecentReviewEvidenceFromMemory(input);
-  if (rememberedEvidence && reviewEvidenceMatchesRequestedStore(rememberedEvidence, input)) {
+  if (
+    rememberedEvidence &&
+    reviewEvidenceMatchesRequestedStore(rememberedEvidence, input) &&
+    !reviewEvidenceNeedsAutomaticRecovery(rememberedEvidence)
+  ) {
     return rememberedEvidence;
+  }
+
+  if (
+    rememberedEvidence &&
+    reviewEvidenceMatchesRequestedStore(rememberedEvidence, input) &&
+    reviewEvidenceNeedsAutomaticRecovery(rememberedEvidence)
+  ) {
+    console.log("[ReviewIntel DEBUG memory rejected]", {
+      inputStore: input.store,
+      rememberedExactListingUrl: rememberedEvidence.listingEvidence?.exactListingUrl,
+      reason: "Remembered evidence had zero review signals, so automatic recovery will run again.",
+    });
   }
 
   if (rememberedEvidence && !reviewEvidenceMatchesRequestedStore(rememberedEvidence, input)) {
@@ -1218,7 +1274,7 @@ export async function collectAndAnalyzeReviewEvidence(
       ? listingEvidenceForCollection.reviewCount
       : null;
 
-  const collectedWrittenReviews = listingUrlForReviewCollector
+  let collectedWrittenReviews: ReviewCollectorResult = listingUrlForReviewCollector
       ? await collectWrittenReviewsFromListing({
         listingUrl: listingUrlForReviewCollector,
         productName: listingEvidenceForCollection?.exactListingTitle || input.productName,
@@ -1235,6 +1291,56 @@ export async function collectAndAnalyzeReviewEvidence(
         coverageNote: "No exact listing URL was available for written review collection.",
         fallbackUrlsTried: [],
       };
+
+  let firecrawlRecoveryNote = "Firecrawl fallback was not needed.";
+
+  if (listingUrlForReviewCollector && collectedWrittenReviews.reviewsCollected <= 0) {
+    const firecrawlFallback = await runFirecrawlFallback({
+      url: listingUrlForReviewCollector,
+      reason: collectedWrittenReviews.coverageNote,
+      timeoutMs: 12000,
+    });
+
+    firecrawlRecoveryNote = firecrawlFallback.reason;
+
+    if (firecrawlFallback.reviewSnippets.length > 0) {
+      const firecrawlReviews = firecrawlFallback.reviewSnippets.map((snippet) => ({
+        source: firecrawlFallback.title || "Firecrawl fallback review snippet",
+        sourceUrl: firecrawlFallback.sourceUrl || listingUrlForReviewCollector,
+        rating: null,
+        body: snippet,
+        date: null,
+        verified: null,
+      }));
+
+      collectedWrittenReviews = {
+        ...collectedWrittenReviews,
+        attempted: true,
+        reviews: firecrawlReviews,
+        reviewsCollected: firecrawlReviews.length,
+        collectorHasWrittenReviews: true,
+        coverageNote: `${collectedWrittenReviews.coverageNote} ${firecrawlFallback.reason}`,
+        fallbackUrlsTried: Array.from(
+          new Set([
+            ...(collectedWrittenReviews.fallbackUrlsTried || []),
+            firecrawlFallback.sourceUrl || listingUrlForReviewCollector,
+          ])
+        ).slice(0, 12),
+      };
+    } else if (firecrawlFallback.used) {
+      collectedWrittenReviews = {
+        ...collectedWrittenReviews,
+        attempted: true,
+        coverageNote: `${collectedWrittenReviews.coverageNote} ${firecrawlFallback.reason}`,
+        fallbackUrlsTried: Array.from(
+          new Set([
+            ...(collectedWrittenReviews.fallbackUrlsTried || []),
+            firecrawlFallback.sourceUrl || listingUrlForReviewCollector,
+          ])
+        ).slice(0, 12),
+      };
+    }
+  }
 
   const collectedWrittenReviewsPrompt = formatCollectedReviewsForPrompt(
     collectedWrittenReviews
@@ -1260,6 +1366,7 @@ export async function collectAndAnalyzeReviewEvidence(
     reviewsCollected: collectedWrittenReviews.reviewsCollected,
     collectorHasWrittenReviews: collectedWrittenReviews.collectorHasWrittenReviews,
     coverageNote: collectedWrittenReviews.coverageNote,
+    firecrawlRecoveryNote,
   });
 
   const prompt = `
@@ -1268,6 +1375,9 @@ ${collectedWrittenReviewsPrompt}
 
 Written review collection coverage:
 ${collectedWrittenReviews.coverageNote}
+
+Firecrawl fallback recovery:
+${firecrawlRecoveryNote}
 
 You are ReviewIntel's review-evidence scanner.
 
@@ -1320,6 +1430,10 @@ Search intent:
 - complaints
 - product review comments
 - Reddit/user discussions
+- YouTube review snippets or transcript snippets
+- public Q&A sections
+- forum complaints
+- product review blogs
 - marketplace review snippets
 - repeated praise/complaint patterns
 - fake-review or AI-like review signals
@@ -1327,6 +1441,7 @@ Search intent:
 Important:
 Do not invent reviews.
 Use OpenAI web search like an analyst: verify the exact product first, then keep searching for review evidence across the public web.
+Zero evidence is not a final result. If reviewsCollected, commentsAnalyzed, sourcesChecked, and review-intelligence signals are all zero, automatically enter evidence recovery instead of returning a normal verdict or score.
 Only analyze buyer statements, public review snippets, complaints, Q&A/user discussions, reputable review-page summaries, or source-visible review intelligence that you can find from search-accessible sources.
 Do not stop at blocked marketplace review bodies. If direct review bodies are blocked, continue with open-web review intelligence for the exact same product and return a cautious score.
 The local ReviewIntel collector above is the authority for written review bodies.
@@ -1343,6 +1458,15 @@ Review acquisition rules:
    Example: if Walmart shows 4.3 stars and 273 reviews, return marketplaceReviewCount: 273.
 3. Then perform a separate review-content drill-down. The goal is to find the written review text inside or about those public reviews.
 4. Search specifically for written buyer review content using:
+   - exact product title
+   - exact product title + reviews
+   - exact product title + Amazon.ca
+   - exact product title + Walmart
+   - exact product title + Reddit
+   - exact product title + YouTube review
+   - exact product title + complaints
+   - exact product title + "worth it"
+   - exact product title + "problems"
    - exact listing URL + reviews
    - exact listing item/product ID + reviews
    - shorter exact title + reviews
@@ -1359,15 +1483,17 @@ Review acquisition rules:
    - brand + exact product title + Temu reviews
    - product title + reddit
    - product title + forum
+   - product title + Q&A
+   - product title + review blog
    - product title + "verified purchase"
-5. Exact listing evidence is identity evidence. Use it to anchor the product match and to support a cautious score when paired with public review intelligence.
+5. Exact listing evidence is identity evidence. Use it to anchor the product match only when paired with public review intelligence.
 6. Public rating/review count is listing metadata, not written review text. It can influence confidence and reliability, but not replace pros/cons evidence.
 7. reviewSnippets must contain exact-product evidence: direct buyer-review/comment evidence when available, or clearly labeled open-web review intelligence when direct review bodies are blocked.
 8. commentsAnalyzed must equal the number of exact-product review/comment/intelligence signals you analyzed. Do not copy marketplaceReviewCount into commentsAnalyzed.
 9. repeatedPraises, repeatedComplaints, aiPatternSignals, buyerExperienceSignals, productPros, and productCons must be built from reviewSnippets and exact-product open-web signals.
 10. If marketplaceReviewCount is high but commentsAnalyzed is low, clearly say coverage is limited.
 11. If you find the first listing but cannot access/read written buyer reviews, search another legitimate same-product review source before returning.
-12. Only return no score if you cannot verify the product identity at all. If the exact product/listing is verified, return a cautious Buy/Consider/Avoid assessment from the best available public review intelligence.
+12. Return no score if you cannot find exact-product written reviews, buyer comments, Q&A, Reddit/forum comments, YouTube review snippets/transcripts, public retailer snippets, review blog evidence, or other public review intelligence. Product identity, rating, and review count alone are not enough.
 13. Do not convert rating or public review count alone into a strong Buy. Use them as reliability context and keep confidence limited unless written/open-web review signals are visible.
 14. The analysis must answer from exact-product evidence:
    - Are there AI-pattern or fake-review signals?
@@ -1490,14 +1616,14 @@ Scoring rules:
 - Do not give a strong Buy from rating or marketplaceReviewCount alone; if exact-product review intelligence is thin, return a cautious Consider/Avoid with low confidence.
 - The final review intelligence must answer: AI-pattern risk, pros, cons, buyer experience, overall impact, and whether this is really a good product to buy.
 - If direct written bodies are blocked, include open-web review intelligence snippets instead of returning an empty result.
-- If commentsAnalyzed is 0 but exact listing identity was verified, still return a cautious low-confidence score from listing reliability and explain that written review coverage was blocked.
+- If commentsAnalyzed is 0 after recovery, return evidenceStrength "none", score null, reviewAuthenticity.score null, and explain that ReviewIntel could not access enough public review evidence. Do not return BUY, CONSIDER, AVOID, or any Buy Score from listing reliability alone.
 - commentsAnalyzed 1-4: evidenceStrength = "weak"
 - commentsAnalyzed 5-14: evidenceStrength = "limited"
 - commentsAnalyzed 15-29: evidenceStrength = "usable"
 - commentsAnalyzed 30+: evidenceStrength = "strong"
 - Do NOT use 50 as a lazy fallback. If evidence is mixed, calculate a cautious score from rating, review volume, visible pros/cons, and complaint severity.
 - Only return suspiciousComments when riskScore is 60 or higher.
-- Return a number score whenever exact product identity is verified and public review intelligence is available; lower confidence when direct written review coverage is blocked.
+- Return a number score only when exact product identity is verified and public review intelligence is available; lower confidence when direct written review coverage is blocked.
 `;
 
   try {
@@ -1568,9 +1694,13 @@ Language rule:
 The current scan is too thin for a high-confidence ReviewIntel verdict.
 Work harder with web_search. This is pass ${deepSearchPass} of ${maxDeepSearchPasses}.
 Target: collect up to ${reliableSignalTarget} distinct exact-product review/comment/Q&A/open-web review-intelligence signals.
+Zero evidence is not a final result. If reviewsCollected, commentsAnalyzed, sourcesChecked, and review-intelligence signals are all zero, search harder before returning.
 
 Already collected written reviews from ReviewIntel's marketplace collector:
 ${collectedWrittenReviewsPrompt}
+
+Firecrawl fallback recovery:
+${firecrawlRecoveryNote}
 
 Use these exact-product search seeds before giving up:
 ${JSON.stringify(
@@ -1610,8 +1740,10 @@ ${JSON.stringify(
 )}
 
 Search harder. Try exact listing URL searches, exact item/product ID searches, exact phrase searches, quoted shorter-title searches, store-specific review searches, low-star review searches, complaints, Q&A, Reddit/forum discussions, manufacturer pages, other marketplaces with the same exact product, syndicated review providers, and public snippets.
+Mandatory query ladder before giving up: exact product title; exact product title + reviews; exact product title + Amazon.ca; exact product title + Walmart; exact product title + Reddit; exact product title + YouTube review; exact product title + complaints; exact product title + "worth it"; exact product title + "problems"; exact product title + Q&A; exact product title + review blog.
 Specifically try Amazon.ca and Amazon.com, but only use Amazon evidence if it is clearly the same exact product/bundle/size/color/model. If Amazon has only a similar product, put that in sourceNotes and do not use it as evidence.
 Also try Walmart, Best Buy, Costco, Target, manufacturer pages, review provider snippets, Reddit/forum discussions, and public Q&A pages for the exact product.
+If Amazon blocks, continue with other public sites instead of returning empty evidence.
 
 Rules:
 - Do not invent review bodies.
@@ -1624,6 +1756,7 @@ Rules:
 - Return as many distinct reviewSnippets as you can safely verify, up to ${reliableSignalTarget}.
 - Analyze the already collected written reviews above. They are real collector evidence and must not be ignored.
 - commentsAnalyzed must count only exact-product snippets/signals you actually used, never the marketplace total.
+- Product identity, rating, and review count alone are not review evidence. If recovery still finds zero exact-product review/comment/open-web review-intelligence signals, return evidenceStrength "none", score null, reviewAuthenticity.score null, and do not return BUY, CONSIDER, AVOID, or a Buy Score.
 - productPros and productCons must be the strongest distinct buyer factors only. Merge duplicates, avoid repeated wording, and keep each bullet short enough for a shopper result card.
 
 Return ONLY valid JSON with the same shape as the first pass:
@@ -1906,8 +2039,7 @@ Return ONLY valid JSON with the same shape as the first pass:
         (marketplaceReviewCount || displayListingEvidence.rating || input.rating || displayListingEvidence.price || input.price)
     );
 
-    const hasReviewIntelligenceEvidence =
-      reviewIntelligenceSignals > 0 || hasListingMetadataSignal;
+    const hasReviewIntelligenceEvidence = reviewIntelligenceSignals > 0;
 
     const synthesizedReviewSnippets =
       reviewSnippetsBase.length >= 3 || !hasReviewIntelligenceEvidence
@@ -1931,16 +2063,6 @@ Return ONLY valid JSON with the same shape as the first pass:
               sentiment: "mixed" as const,
               evidenceType: "open web review intelligence",
             })),
-            ...(hasListingMetadataSignal
-              ? [
-                  {
-                    source: displayListingEvidence?.store || input.store || "Exact product listing",
-                    snippet: `Exact product listing was matched${marketplaceReviewCount ? ` with ${marketplaceReviewCount} public reviews` : ""}${displayListingEvidence?.rating || input.rating ? ` and rating ${displayListingEvidence?.rating ?? input.rating}` : ""}.`,
-                    sentiment: "mixed" as const,
-                    evidenceType: "listing metadata",
-                  },
-                ]
-              : []),
           ]
             .filter((item) => item.snippet.trim().length >= 12)
             .slice(0, Math.max(0, 3 - reviewSnippetsBase.length));
@@ -1953,8 +2075,7 @@ Return ONLY valid JSON with the same shape as the first pass:
       repeatedPraises.length + repeatedComplaints.length,
       productPros.length + productCons.length,
       buyerExperienceSignals.length,
-      aiPatternSignals.length,
-      hasListingMetadataSignal ? 1 : 0
+      aiPatternSignals.length
     );
 
     const actualCommentsAnalyzed = Math.max(
@@ -1985,15 +2106,13 @@ Return ONLY valid JSON with the same shape as the first pass:
             : rawEvidenceStrength;
 
     const score =
-      (actualCommentsAnalyzed > 0 || hasListingMetadataSignal) && parsedScore !== null
+      actualCommentsAnalyzed > 0 && parsedScore !== null
         ? !hasHighRiskComments && (saysNoSuspiciousSignals || positiveCredibilitySignals)
           ? Math.min(parsedScore, 15)
           : !hasHighRiskComments && parsedScore >= 60
             ? 25
             : parsedScore
-        : hasListingMetadataSignal
-          ? 25
-          : null;
+        : null;
 
     const reviewCoverageRatio =
       marketplaceReviewCount && marketplaceReviewCount > 0
@@ -2018,6 +2137,9 @@ Return ONLY valid JSON with the same shape as the first pass:
       exactListingConfirmed,
       sourceLinks: normalizeSourceLinks([
         ...(Array.isArray(parsed.sourceLinks) ? parsed.sourceLinks : []),
+        ...(Array.isArray(normalizedListingEvidence?.sourceLinks)
+          ? normalizedListingEvidence.sourceLinks
+          : []),
         ...(normalizedListingEvidence?.exactListingUrl
           ? [
               {
@@ -2127,6 +2249,58 @@ Return ONLY valid JSON with the same shape as the first pass:
         suspiciousComments,
       },
     });
+
+    const zeroWrittenReviewEvidence =
+      actualCommentsAnalyzed <= 0 &&
+      collectorReviewsCollected <= 0 &&
+      !collectorHasWrittenReviews &&
+      !hasReviewIntelligenceEvidence;
+
+    if (zeroWrittenReviewEvidence) {
+      const insufficientEvidence: ReviewEvidenceResult = {
+        ...finalEvidence,
+        finalDecisionSource: "reviewEvidenceRecoveryFailed",
+        decisionStatus: "review_evidence_not_found",
+        evidenceStrength: "none" as const,
+        reviewIntelligenceMode: "listing_metadata" as const,
+        reviewIntelligenceSignals: 0,
+        commentsAnalyzed: 0,
+        reviewsCollected: 0,
+        sourcesChecked: [],
+        sourceLinks: [],
+        reviewCoverageRatio: 0,
+        collectorHasWrittenReviews: false,
+        overallImpact: "",
+        buyAssessment: "",
+        reviewSnippets: [],
+        repeatedPraises: [],
+        repeatedComplaints: [],
+        aiPatternSignals: [],
+        buyerExperienceSignals: [],
+        productPros: [],
+        productCons: [],
+        sourceNotes: [
+          "ReviewIntel could not access enough public review evidence for this product.",
+          "Automatic evidence recovery tried exact-title, marketplace, open-web, and fallback retrieval paths before withholding the verdict.",
+          "Product or listing metadata may have been identified, but rating/review count metadata is not written review evidence.",
+        ],
+        reviewAuthenticity: {
+          ...(finalEvidence.reviewAuthenticity || {}),
+          score: null,
+          label: "Review evidence not found",
+          suspiciousReviewRisk: "Not scored",
+          reasons: [
+            "No written review bodies were collected or analyzed.",
+            "Marketplace rating/review count from a screenshot or listing is metadata only, not review evidence.",
+          ],
+          suspiciousComments: [],
+        },
+      };
+
+      await saveReviewEvidenceToMemory(input, insufficientEvidence);
+
+      return insufficientEvidence;
+    }
 
     await saveReviewEvidenceToMemory(input, finalEvidence);
 

@@ -1385,6 +1385,9 @@ const visionSchema = {
   ]
 };
 
+const PUBLIC_REVIEW_EVIDENCE_FAILURE =
+  "ReviewIntel could not access enough public review evidence for this product.";
+
 function collectWebCitations(value: unknown, citations = new Map<string, string>()) {
   if (Array.isArray(value)) {
     for (const item of value) collectWebCitations(item, citations);
@@ -1557,8 +1560,9 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       vision.name,
       vision.category,
       ...vision.visibleFeatures,
+      ...vision.visibleBadges,
     ].filter(Boolean),
-    12
+    16
   )
     .join(" ")
     .replace(/\s+/g, " ")
@@ -1587,19 +1591,32 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       ? vision.reviewCount
       : undefined;
 
-  const reviewEvidenceTimeoutMs = Number(process.env.REVIEW_EVIDENCE_TIMEOUT_MS || 18000);
+  const configuredReviewEvidenceTimeoutMs = Number(process.env.REVIEW_EVIDENCE_TIMEOUT_MS || 60000);
+  const reviewEvidenceTimeoutMs = Math.max(
+    1000,
+    Math.min(
+      Number.isFinite(configuredReviewEvidenceTimeoutMs) ? configuredReviewEvidenceTimeoutMs : 60000,
+      60000
+    )
+  );
 
   const fallbackReviewEvidence = (reason: string) =>
     ({
       analysisVersion: "review-evidence-v2",
-      finalDecisionSource: "reviewEvidenceTimedOut",
-      decisionStatus: "limited_review_evidence",
+      finalDecisionSource: "reviewEvidenceRecoveryFailed",
+      decisionStatus: "review_evidence_not_found",
       exactListingConfirmed: false,
       reviewsFound: 0,
-      evidenceStrength: "limited",
+      evidenceStrength: "none",
       reviewIntelligenceMode: "listing_metadata",
+      reviewIntelligenceSignals: 0,
       sourcesChecked: [],
-      sourceNotes: [reason],
+      sourceLinks: [],
+      sourceNotes: [
+        PUBLIC_REVIEW_EVIDENCE_FAILURE,
+        reason,
+        "Automatic evidence recovery did not finish with usable public review evidence.",
+      ],
       commentsAnalyzed: 0,
       reviewsCollected: 0,
       reviewCoverageRatio: 0,
@@ -1622,26 +1639,22 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       },
       reviewAuthenticity: {
         score: null,
-        label: "Review scan not verified",
+        label: "Review evidence not found",
         suspiciousReviewRisk: "Not scored",
         reasons: [
+          PUBLIC_REVIEW_EVIDENCE_FAILURE,
           reason,
-          "ReviewIntel returned a quick scan first and will need deeper evidence refresh for a fully verified review verdict.",
+          "Buy Score and AI-like review risk are not scored when public review evidence recovery returns zero evidence.",
         ],
         suspiciousComments: [],
       },
-      strengths: screenshotRating || screenshotReviewCount
-        ? ["Marketplace rating and review count were visible in the screenshot."]
-        : ["Product identity was detected from the screenshot."],
-      complaints: ["Written review evidence was not retrieved during the quick scan."],
-      topStrengths: screenshotRating || screenshotReviewCount
-        ? ["Marketplace rating and review count were visible in the screenshot."]
-        : ["Product identity was detected from the screenshot."],
-      topComplaints: ["Written review evidence was not retrieved during the quick scan."],
-      bestFor: ["Shoppers who want a quick first-pass buying signal before checking the full reviews."],
-      notIdealFor: ["Shoppers who need a fully verified verdict from written review evidence before buying."],
-      bottomLine:
-        "Quick scan completed. ReviewIntel identified the product and visible marketplace signals from the screenshot. Treat this as a cautious first-pass result until deeper written review evidence is refreshed.",
+      strengths: [],
+      complaints: [],
+      topStrengths: [],
+      topComplaints: [],
+      bestFor: [],
+      notIdealFor: [],
+      bottomLine: PUBLIC_REVIEW_EVIDENCE_FAILURE,
     }) as Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>;
 
   const reviewEvidence = await Promise.race([
@@ -1660,11 +1673,11 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       forceRefresh: false,
     }).catch((error) => {
       console.error("[ReviewIntel reviewEvidence error]", error);
-      return fallbackReviewEvidence("Deep written review collection failed during the initial scan, but visible product facts were still analyzed.");
+      return fallbackReviewEvidence("Automatic public review evidence recovery failed during the scan.");
     }),
     new Promise<Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>>((resolve) => {
       setTimeout(() => {
-        resolve(fallbackReviewEvidence("Quick scan completed before deep written review collection finished."));
+        resolve(fallbackReviewEvidence("Automatic public review evidence recovery reached the 60 second search limit."));
       }, reviewEvidenceTimeoutMs);
     }),
   ]);
@@ -1674,13 +1687,16 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
     reviewEvidence.commentsAnalyzed > 0
       ? reviewEvidence.reviewAuthenticity
       : {
+          ...(reviewEvidence.reviewAuthenticity && typeof reviewEvidence.reviewAuthenticity === "object"
+            ? reviewEvidence.reviewAuthenticity
+            : {}),
           ...(rawRecord.reviewAuthenticity && typeof rawRecord.reviewAuthenticity === "object"
             ? (rawRecord.reviewAuthenticity as JsonRecord)
             : {}),
           score: null,
-          label: "Review scan not verified",
+          label: reviewEvidence.reviewAuthenticity?.label || "Review evidence not found",
           suspiciousReviewRisk: "Not scored",
-          reasons: reviewEvidence.reviewAuthenticity.reasons,
+          reasons: reviewEvidence.reviewAuthenticity?.reasons || [PUBLIC_REVIEW_EVIDENCE_FAILURE],
         };
 
   console.log("[ReviewIntel DEBUG reviewEvidence]", {
@@ -2048,6 +2064,22 @@ function buildReviewEvidenceShopperResult(input: {
     evidenceStrength === "weak" ||
     evidenceStrength === "limited";
 
+  const evidenceReviewSignalCount = Math.max(
+    reviewSnippets.length,
+    repeatedPraises.length + repeatedComplaints.length,
+    productPros.length + productCons.length,
+    buyerExperienceSignals.length,
+    aiPatternSignals.length,
+    typeof evidence.reviewIntelligenceSignals === "number" && Number.isFinite(evidence.reviewIntelligenceSignals)
+      ? Number(evidence.reviewIntelligenceSignals)
+      : 0
+  );
+  const noPublicReviewEvidence =
+    collectorReviewsCollected <= 0 &&
+    commentsAnalyzed <= 0 &&
+    (Array.isArray(evidence.sourcesChecked) ? evidence.sourcesChecked.length : 0) <= 0 &&
+    evidenceReviewSignalCount <= 0;
+
   const praiseThemes = repeatedPraises
     .map((item) =>
       item && typeof item === "object"
@@ -2083,7 +2115,14 @@ function buildReviewEvidenceShopperResult(input: {
   let bottomLine =
     "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
 
-  if (hasUsableReviewEvidence) {
+  if (noPublicReviewEvidence) {
+    finalDecisionSource = "reviewEvidenceRecoveryFailed";
+    decisionStatus = "review_evidence_not_found";
+    verdict = "REVIEW EVIDENCE NOT ENOUGH";
+    buyScore = null;
+    valueForMoney = "Unknown";
+    bottomLine = PUBLIC_REVIEW_EVIDENCE_FAILURE;
+  } else if (hasUsableReviewEvidence) {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
@@ -2174,7 +2213,7 @@ function buildReviewEvidenceShopperResult(input: {
   const sourceLinksForResult = Array.isArray(evidence.sourceLinks)
     ? evidence.sourceLinks.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>
     : [];
-  const sourcesUsed = uniqueTextArray(
+  const sourcesUsed = noPublicReviewEvidence ? [] : uniqueTextArray(
     [
       ...sourceLinksForResult.map((item) =>
         String(item.domain || item.label || item.url || "").trim()
@@ -2185,16 +2224,20 @@ function buildReviewEvidenceShopperResult(input: {
     8
   );
   const researchQuality = {
-    evidenceLevel: hasUsableReviewEvidence
+    evidenceLevel: noPublicReviewEvidence
+      ? "screenshot_only"
+      : hasUsableReviewEvidence
       ? "verified"
       : hasLimitedReviewEvidence || exactListingUrl || hasRecognizedProductEvidence
         ? "limited"
         : "screenshot_only",
     exactProductMatch: Boolean(exactListingUrl || hasRecognizedProductEvidence),
-    sourceCount: Math.max(sourcesUsed.length, exactListingUrl ? 1 : 0),
-    citationCount: sourceLinksForResult.length,
+    sourceCount: noPublicReviewEvidence ? 0 : Math.max(sourcesUsed.length, exactListingUrl ? 1 : 0),
+    citationCount: noPublicReviewEvidence ? 0 : sourceLinksForResult.length,
     notes: [
-      exactListingUrl
+      noPublicReviewEvidence
+        ? PUBLIC_REVIEW_EVIDENCE_FAILURE
+        : exactListingUrl
         ? "ReviewIntel matched an online listing or review source for this product."
         : "ReviewIntel did not confirm an exact online listing for this scan.",
       commentsAnalyzed > 0
@@ -2202,6 +2245,7 @@ function buildReviewEvidenceShopperResult(input: {
         : "ReviewIntel did not access usable review-intelligence signals for this scan.",
     ],
   };
+  const displayedVerdictConfidence = noPublicReviewEvidence ? null : verdictConfidence;
 
   console.log("[ReviewIntel DEBUG verdictAudit]", {
     verdict,
@@ -2308,10 +2352,10 @@ function buildReviewEvidenceShopperResult(input: {
     stableVerdict: verdict,
     decisionStatus,
 
-    buyerConfidence: verdictConfidence,
-    buyingConfidence: verdictConfidence,
-    confidence: verdictConfidence,
-    verdictConfidence,
+    buyerConfidence: displayedVerdictConfidence,
+    buyingConfidence: displayedVerdictConfidence,
+    confidence: displayedVerdictConfidence,
+    verdictConfidence: displayedVerdictConfidence,
     verdictConfidenceAudit: verdictConfidenceAudit.audit,
     buyScore,
     score: buyScore,
@@ -2330,14 +2374,14 @@ function buildReviewEvidenceShopperResult(input: {
     collectorHasWrittenReviews,
     exactListingUrl: exactListingUrl || null,
 
-    topStrengths: hasReadableReviewEvidence ? strengthHighlights : [],
-    topComplaints: hasReadableReviewEvidence ? complaintHighlights : [],
-    strengths: hasReadableReviewEvidence ? strengthHighlights : [],
-    complaints: hasReadableReviewEvidence ? complaintHighlights : [],
-    aiPatternSignals,
-    buyerExperienceSignals,
-    overallImpact,
-    buyAssessment,
+    topStrengths: hasReadableReviewEvidence && !noPublicReviewEvidence ? strengthHighlights : [],
+    topComplaints: hasReadableReviewEvidence && !noPublicReviewEvidence ? complaintHighlights : [],
+    strengths: hasReadableReviewEvidence && !noPublicReviewEvidence ? strengthHighlights : [],
+    complaints: hasReadableReviewEvidence && !noPublicReviewEvidence ? complaintHighlights : [],
+    aiPatternSignals: noPublicReviewEvidence ? [] : aiPatternSignals,
+    buyerExperienceSignals: noPublicReviewEvidence ? [] : buyerExperienceSignals,
+    overallImpact: noPublicReviewEvidence ? "" : overallImpact,
+    buyAssessment: noPublicReviewEvidence ? "" : buyAssessment,
 
     screenshotOnly: false,
     screenshotOnlyWarning: false,
@@ -2530,6 +2574,9 @@ export async function POST(request: Request) {
 
     if (vision.imageConfidence < 45 && !productLink && !hasVisibleProductIdentity) {
       const fallbackResult = {
+        analysisVersion: "review-evidence-v2",
+        finalDecisionSource: "reviewEvidenceRecoveryFailed",
+        decisionStatus: "review_evidence_not_found",
         product: {
           name: vision.name,
           brand: vision.brand,
@@ -2540,33 +2587,62 @@ export async function POST(request: Request) {
           reviewCount: vision.reviewCount,
           imageConfidence: vision.imageConfidence
         },
-        verdict: "CONSIDER" as Verdict,
-        productScore: 40,
-        buyingConfidence: 30,
-        valueForMoney: "Fair",
+        verdict: "REVIEW EVIDENCE NOT ENOUGH",
+        recommendation: "REVIEW EVIDENCE NOT ENOUGH",
+        finalVerdict: "REVIEW EVIDENCE NOT ENOUGH",
+        stableVerdict: "REVIEW EVIDENCE NOT ENOUGH",
+        productScore: null,
+        buyScore: null,
+        score: null,
+        buyingConfidence: null,
+        buyerConfidence: null,
+        verdictConfidence: null,
+        confidence: null,
+        valueForMoney: "Unknown",
         reviewAuthenticity: {
-          label: "Low Trust",
-          score: 35,
-          suspiciousReviewRisk: "High",
-          reasons: [fallbackCopy.unclear]
+          label: "Review evidence not found",
+          score: null,
+          suspiciousReviewRisk: "Not scored",
+          reasons: [PUBLIC_REVIEW_EVIDENCE_FAILURE, fallbackCopy.unclear],
+          suspiciousComments: [],
         },
         topStrengths: [],
         topComplaints: [],
         bestFor: [],
-        notIdealFor: [fallbackCopy.needConfidentDecision],
-        bottomLine: fallbackCopy.needClearerInput,
+        notIdealFor: [],
+        bottomLine: PUBLIC_REVIEW_EVIDENCE_FAILURE,
+        summary: PUBLIC_REVIEW_EVIDENCE_FAILURE,
+        stableVerdictReason: PUBLIC_REVIEW_EVIDENCE_FAILURE,
         sourcesUsed: [],
         researchQuality: {
           evidenceLevel: "screenshot_only" as const,
           exactProductMatch: false,
           sourceCount: 0,
           citationCount: 0,
-          notes: [fallbackCopy.needClearerInput]
+          notes: [PUBLIC_REVIEW_EVIDENCE_FAILURE, fallbackCopy.needClearerInput]
         }
       ,
-        reviewEvidence: null};
+        reviewEvidence: {
+          sourcesChecked: [],
+          reviewsFound: 0,
+          commentsAnalyzed: 0,
+          evidenceStrength: "none",
+          sourceNotes: [PUBLIC_REVIEW_EVIDENCE_FAILURE, fallbackCopy.needClearerInput],
+          sourceLinks: [],
+          reviewsCollected: 0,
+          collectorHasWrittenReviews: false,
+          reviewIntelligenceSignals: 0,
+          reviewCoverageRatio: 0,
+          reviewAuthenticity: {
+            score: null,
+            label: "Review evidence not found",
+            suspiciousReviewRisk: "Not scored",
+            reasons: [PUBLIC_REVIEW_EVIDENCE_FAILURE],
+            suspiciousComments: [],
+          },
+        }};
 
-      return NextResponse.json(await recordCompletedScan(attachLanguageMeta(enforceFinalResultConsistency(fallbackResult, locale), locale, outputLanguage)));
+      return NextResponse.json(await recordCompletedScan(attachLanguageMeta(fallbackResult, locale, outputLanguage)));
     }
 
     const productKey = createStableProductKey(vision, productLink);

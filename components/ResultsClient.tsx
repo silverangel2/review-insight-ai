@@ -29,7 +29,7 @@ type ProductLike = {
   reviewCount?: string;
 };
 
-type ShopperVerdict = "BUY" | "CONSIDER" | "AVOID";
+type ShopperVerdict = "BUY" | "CONSIDER" | "AVOID" | "NOT_ENOUGH";
 type VerdictStyle = { tone: string; soft: string; ring: string };
 type LocalizedVerdictCopy = { answer: string; title: string; message: string };
 
@@ -71,6 +71,11 @@ const shopperVerdictStyle: Record<ShopperVerdict, VerdictStyle> = {
     tone: "text-rose-700",
     soft: "bg-rose-50 border-rose-200",
     ring: "border-rose-500"
+  },
+  NOT_ENOUGH: {
+    tone: "text-slate-700",
+    soft: "bg-slate-50 border-slate-200",
+    ring: "border-slate-400"
   }
 };
 
@@ -111,7 +116,8 @@ const resultCopy: Record<
     verdicts: {
       BUY: { answer: "BUY", title: "This looks worth buying.", message: "The available buying signals are strong enough for a positive decision." },
       CONSIDER: { answer: "CONSIDER", title: "Compare first before buying.", message: "There are mixed signals. Check alternatives, reviews, and return terms first." },
-      AVOID: { answer: "AVOID", title: "Better to skip this one.", message: "The risk or complaint signals are too weak for a confident buy." }
+      AVOID: { answer: "AVOID", title: "Better to skip this one.", message: "The risk or complaint signals are too weak for a confident buy." },
+      NOT_ENOUGH: { answer: "NOT ENOUGH EVIDENCE", title: "Review evidence was not accessible.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
     productIdentified: "Product identified",
     screenshotUnavailable: "Screenshot preview is not available for this saved scan.",
@@ -145,7 +151,8 @@ const resultCopy: Record<
     verdicts: {
       BUY: { answer: "ACHETER", title: "Ce produit semble valoir l’achat.", message: "Les signaux d’achat disponibles sont assez solides pour une décision positive." },
       CONSIDER: { answer: "CONSIDÉRER", title: "Comparez avant d’acheter.", message: "Les signaux sont mixtes. Vérifiez les alternatives, les avis et les conditions de retour." },
-      AVOID: { answer: "ÉVITER", title: "Mieux vaut passer votre tour.", message: "Les signaux de risque ou de plainte sont trop faibles pour recommander un achat confiant." }
+      AVOID: { answer: "ÉVITER", title: "Mieux vaut passer votre tour.", message: "Les signaux de risque ou de plainte sont trop faibles pour recommander un achat confiant." },
+      NOT_ENOUGH: { answer: "PREUVES INSUFFISANTES", title: "Les avis n’étaient pas accessibles.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
     productIdentified: "Produit identifié",
     screenshotUnavailable: "L’aperçu de la capture n’est pas disponible pour cette analyse enregistrée.",
@@ -179,7 +186,8 @@ const resultCopy: Record<
     verdicts: {
       BUY: { answer: "COMPRAR", title: "Parece que vale la pena comprarlo.", message: "Las señales de compra disponibles son suficientemente fuertes para una decisión positiva." },
       CONSIDER: { answer: "CONSIDERAR", title: "Compara antes de comprar.", message: "Las señales son mixtas. Revisa alternativas, reseñas y condiciones de devolución." },
-      AVOID: { answer: "EVITAR", title: "Mejor omitir este producto.", message: "Las señales de riesgo o quejas son demasiado débiles para una compra confiada." }
+      AVOID: { answer: "EVITAR", title: "Mejor omitir este producto.", message: "Las señales de riesgo o quejas son demasiado débiles para una compra confiada." },
+      NOT_ENOUGH: { answer: "EVIDENCIA INSUFICIENTE", title: "No se pudo acceder a las reseñas.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
     productIdentified: "Producto identificado",
     screenshotUnavailable: "La vista previa de la captura no está disponible para este análisis guardado.",
@@ -213,7 +221,8 @@ const resultCopy: Record<
     verdicts: {
       BUY: { answer: "购买", title: "这个产品看起来值得买。", message: "现有购买信号足够强，可以给出正向购买判断。" },
       CONSIDER: { answer: "考虑", title: "购买前先比较。", message: "信号有好有坏。请先查看替代品、评论和退货条款。" },
-      AVOID: { answer: "避免", title: "最好先跳过这个产品。", message: "风险或投诉信号太弱，不足以支持放心购买。" }
+      AVOID: { answer: "避免", title: "最好先跳过这个产品。", message: "风险或投诉信号太弱，不足以支持放心购买。" },
+      NOT_ENOUGH: { answer: "证据不足", title: "无法访问足够评论证据。", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
     productIdentified: "已识别产品",
     screenshotUnavailable: "此已保存分析没有可用的截图预览。",
@@ -247,7 +256,8 @@ const resultCopy: Record<
     verdicts: {
       BUY: { answer: "KAUFEN", title: "Dieses Produkt wirkt kaufenswert.", message: "Die verfügbaren Kaufsignale sind stark genug für eine positive Entscheidung." },
       CONSIDER: { answer: "PRÜFEN", title: "Vor dem Kauf vergleichen.", message: "Die Signale sind gemischt. Prüfe Alternativen, Bewertungen und Rückgabebedingungen zuerst." },
-      AVOID: { answer: "VERMEIDEN", title: "Dieses Produkt besser überspringen.", message: "Die Risiko- oder Beschwerdesignale sind zu schwach für einen sicheren Kauf." }
+      AVOID: { answer: "VERMEIDEN", title: "Dieses Produkt besser überspringen.", message: "Die Risiko- oder Beschwerdesignale sind zu schwach für einen sicheren Kauf." },
+      NOT_ENOUGH: { answer: "NICHT GENUG BELEGE", title: "Bewertungen waren nicht zugänglich.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
     productIdentified: "Produkt erkannt",
     screenshotUnavailable: "Für diesen gespeicherten Scan ist keine Screenshot-Vorschau verfügbar.",
@@ -281,7 +291,8 @@ const resultCopy: Record<
     verdicts: {
       BUY: { answer: "खरीदें", title: "यह खरीदने लायक लगता है।", message: "उपलब्ध खरीद संकेत सकारात्मक निर्णय के लिए पर्याप्त मजबूत हैं।" },
       CONSIDER: { answer: "विचार करें", title: "खरीदने से पहले तुलना करें।", message: "संकेत मिले-जुले हैं। पहले विकल्प, समीक्षाएँ और रिटर्न शर्तें जाँचें।" },
-      AVOID: { answer: "बचें", title: "इसे छोड़ना बेहतर है।", message: "जोखिम या शिकायत संकेत भरोसेमंद खरीद के लिए बहुत कमजोर हैं।" }
+      AVOID: { answer: "बचें", title: "इसे छोड़ना बेहतर है।", message: "जोखिम या शिकायत संकेत भरोसेमंद खरीद के लिए बहुत कमजोर हैं।" },
+      NOT_ENOUGH: { answer: "पर्याप्त प्रमाण नहीं", title: "समीक्षा प्रमाण उपलब्ध नहीं था।", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
     productIdentified: "उत्पाद पहचाना गया",
     screenshotUnavailable: "इस सहेजे गए स्कैन के लिए स्क्रीनशॉट पूर्वावलोकन उपलब्ध नहीं है।",
@@ -476,6 +487,7 @@ function verdictFromBuyer(value: unknown): ShopperVerdict {
   const verdict = String(value || "").toUpperCase();
   if (verdict === "BUY") return "BUY";
   if (verdict === "AVOID") return "AVOID";
+  if (verdict.includes("REVIEW EVIDENCE") || verdict.includes("NOT ENOUGH")) return "NOT_ENOUGH";
   return "CONSIDER";
 }
 
@@ -483,6 +495,7 @@ function optionalVerdictFromBuyer(value: unknown): ShopperVerdict | null {
   const verdict = String(value || "").toUpperCase();
   if (verdict === "BUY" || verdict === "CONSIDER" || verdict === "MAYBE") return verdict === "BUY" ? "BUY" : "CONSIDER";
   if (verdict === "AVOID") return "AVOID";
+  if (verdict.includes("REVIEW EVIDENCE") || verdict.includes("NOT ENOUGH")) return "NOT_ENOUGH";
   return null;
 }
 
@@ -1410,9 +1423,16 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
   const evidenceStrength = getToolProofString(reviewEvidence, "evidenceStrength");
   const aiLikeScore = getToolProofNumber(reviewAuthenticity, "score");
   const exactConfidence = getToolProofString(listingEvidence, "confidence");
-  const buyScore = getToolProofNumber(raw, "buyScore");
-  const verdict = governedVerdictFromSource(raw);
-  const verdictConfidence = getToolProofNumber(raw, "verdictConfidence");
+  const zeroReviewEvidence =
+    (reviewsCollected ?? 0) <= 0 &&
+    (commentsAnalyzed ?? 0) <= 0 &&
+    sourcesChecked.length === 0 &&
+    (reviewIntelligenceSignals ?? 0) <= 0 &&
+    (evidenceStrength === "none" || reviewIntelligenceMode === "listing_metadata");
+
+  const buyScore = zeroReviewEvidence ? null : getToolProofNumber(raw, "buyScore");
+  const verdict = zeroReviewEvidence ? "Review evidence not found" : governedVerdictFromSource(raw);
+  const verdictConfidence = zeroReviewEvidence ? null : getToolProofNumber(raw, "verdictConfidence");
 
   const store =
     getToolProofString(productIdentity, "store") ||
@@ -1453,7 +1473,9 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
             What ReviewIntel checked
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-200">
-            Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available.
+            {zeroReviewEvidence
+              ? "Product or listing metadata was identified, but ReviewIntel did not collect written review evidence. Scores are not shown until real review evidence is collected."
+              : "Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available."}
           </p>
         </div>
         {exactListingUrl ? (
@@ -1494,14 +1516,20 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
           }
         />
         <ToolProofPill label="Evidence signals" value={reviewIntelligenceSignals ?? 0} />
-        <ToolProofPill label="Evidence strength" value={evidenceStrength || "Not enough"} />
+        <ToolProofPill label="Evidence strength" value={zeroReviewEvidence ? "None" : evidenceStrength || "Not enough"} />
         <ToolProofPill label="Exact listing" value={exactConfidence || "Not confirmed"} />
         <ToolProofPill label="Verdict" value={verdict || "Not scored"} />
-        <ToolProofPill label="Buy score" value={buyScore !== null ? `${buyScore}/10` : "Not scored"} />
-        <ToolProofPill label="Verdict confidence" value={verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : exactConfidence === "high" ? "Limited" : "Needs exact listing"} />
-        <ToolProofPill label="AI-like risk" value={aiLikeScore !== null ? `${aiLikeScore}%` : "Not scored"} />
+        <ToolProofPill label="Buy score" value={zeroReviewEvidence ? "Not scored" : buyScore !== null ? `${buyScore}/10` : "Not scored"} />
+        <ToolProofPill label="Verdict confidence" value={zeroReviewEvidence ? "Insufficient evidence" : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : exactConfidence === "high" ? "Limited" : "Needs exact listing"} />
+        <ToolProofPill label="AI-like risk" value={zeroReviewEvidence ? "Not scored" : aiLikeScore !== null ? `${aiLikeScore}%` : "Not scored"} />
         <ToolProofPill label="Memory" value={stableProductKey ? "Saved/merged" : "Not saved"} />
       </div>
+
+      {zeroReviewEvidence ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
+          ReviewIntel could not access enough public review evidence for this product. Buy Score and AI-like review risk are not scored.
+        </div>
+      ) : null}
 
       {exactListingTitle ? (
         <p className="mt-4 rounded-2xl bg-white/70 p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-gradient-to-r from-sky-600 to-teal-500/50 dark:text-slate-300">
@@ -1558,11 +1586,38 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
       result.recommendation ||
       ""
   ).toUpperCase();
+  const reviewEvidence = result.reviewEvidence && typeof result.reviewEvidence === "object"
+    ? (result.reviewEvidence as Record<string, unknown>)
+    : null;
+  const reviewCollector = reviewEvidence?.reviewCollector && typeof reviewEvidence.reviewCollector === "object"
+    ? (reviewEvidence.reviewCollector as Record<string, unknown>)
+    : null;
+  const sourcesChecked = Array.isArray(reviewEvidence?.sourcesChecked)
+    ? reviewEvidence.sourcesChecked.length
+    : 0;
+  const commentsAnalyzed = Number(reviewEvidence?.commentsAnalyzed ?? result.commentsAnalyzed ?? 0);
+  const reviewsCollected = Number(
+    reviewEvidence?.reviewsCollected ??
+      reviewCollector?.reviewsCollected ??
+      result.reviewsCollected ??
+      0
+  );
+  const reviewSignals = Number(reviewEvidence?.reviewIntelligenceSignals ?? result.reviewIntelligenceSignals ?? 0);
+  const zeroEvidence =
+    reviewsCollected <= 0 &&
+    commentsAnalyzed <= 0 &&
+    sourcesChecked <= 0 &&
+    reviewSignals <= 0;
 
   if (
+    zeroEvidence ||
     finalDecisionSource === "reviewEvidenceNotEnough" ||
+    finalDecisionSource === "reviewEvidenceRecoveryFailed" ||
     decisionStatus === "not_enough_evidence" ||
-    verdict === "REVIEW EVIDENCE NOT ENOUGH"
+    verdict === "REVIEW EVIDENCE NOT ENOUGH" ||
+    verdict === "REVIEW EVIDENCE NOT FOUND" ||
+    decisionStatus === "review_evidence_not_found" ||
+    finalDecisionSource === "listing_metadata"
   ) {
     return "not_enough";
   }
@@ -1592,7 +1647,7 @@ function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>
   const verdict = "REVIEW EVIDENCE NOT ENOUGH";
 
   const bottomLine =
-    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
+    "ReviewIntel could not access enough public review evidence for this product.";
 
   return {
     ...value,
@@ -1600,10 +1655,13 @@ function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>
     recommendation: verdict,
     finalVerdict: verdict,
     stableVerdict: verdict,
-    decisionStatus: "not_enough_evidence",
+    decisionStatus: "review_evidence_not_found",
+    finalDecisionSource: "reviewEvidenceRecoveryFailed",
 
     buyerConfidence: null,
+    buyingConfidence: null,
     confidence: null,
+    verdictConfidence: null,
     buyScore: null,
     score: null,
     productScore: null,
@@ -1617,6 +1675,26 @@ function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>
     complaints: [],
     bestFor: [],
     notIdealFor: [],
+    reviewAuthenticity: {
+      ...(
+        value.reviewAuthenticity && typeof value.reviewAuthenticity === "object"
+          ? (value.reviewAuthenticity as Record<string, unknown>)
+          : {}
+      ),
+      score: null,
+      label: "Review evidence not found",
+      suspiciousReviewRisk: "Not scored",
+      reasons: [bottomLine],
+      suspiciousComments: [],
+    },
+    sourcesUsed: [],
+    researchQuality: {
+      evidenceLevel: "screenshot_only",
+      exactProductMatch: Boolean((value as Record<string, unknown>).exactListingUrl),
+      sourceCount: 0,
+      citationCount: 0,
+      notes: [bottomLine],
+    },
 
     screenshotOnly: false,
     screenshotOnlyWarning: false,
@@ -1937,6 +2015,28 @@ export function ResultsClient() {
         return;
       }
 
+      const reviewEvidenceRecord =
+        sourceRecord.reviewEvidence && typeof sourceRecord.reviewEvidence === "object"
+          ? (sourceRecord.reviewEvidence as Record<string, unknown>)
+          : sourceRecord;
+      const zeroWrittenReviewEvidence =
+        Number(reviewEvidenceRecord.reviewsCollected ?? sourceRecord.reviewsCollected ?? 0) <= 0 &&
+        Number(reviewEvidenceRecord.commentsAnalyzed ?? sourceRecord.commentsAnalyzed ?? 0) <= 0 &&
+        Number(reviewEvidenceRecord.reviewIntelligenceSignals ?? sourceRecord.reviewIntelligenceSignals ?? 0) <= 0 &&
+        (
+          !Array.isArray(reviewEvidenceRecord.sourcesChecked) ||
+          reviewEvidenceRecord.sourcesChecked.length === 0
+        ) &&
+        (
+          reviewEvidenceRecord.evidenceStrength === "none" ||
+          reviewEvidenceRecord.reviewIntelligenceMode === "listing_metadata" ||
+          sourceRecord.decisionStatus === "not_enough_evidence" ||
+          sourceRecord.decisionStatus === "review_evidence_not_found" ||
+          sourceRecord.finalDecisionSource === "reviewEvidenceRecoveryFailed"
+        );
+
+      const zeroEvidenceVerdict = "REVIEW EVIDENCE NOT ENOUGH";
+
       const normalized =
         source.meta && source.analysis
           ? source
@@ -1962,70 +2062,97 @@ export function ResultsClient() {
                 rating: source.product?.rating || "",
                 reviewCount: source.product?.reviewCount || ""
               },
-              verdict:
-                  (source as Record<string, unknown>).stableVerdict ||
-                  (source as Record<string, unknown>).finalVerdict ||
-                  source.verdict ||
-                  "CONSIDER",
-              productScore: source.productScore ?? sourceRecord.buyScore ?? sourceRecord.score ?? null,
-              buyScore: sourceRecord.buyScore ?? source.productScore ?? sourceRecord.score ?? null,
-              score: sourceRecord.score ?? sourceRecord.buyScore ?? source.productScore ?? null,
+              verdict: zeroWrittenReviewEvidence
+                ? zeroEvidenceVerdict
+                : (
+                    (source as Record<string, unknown>).stableVerdict ||
+                    (source as Record<string, unknown>).finalVerdict ||
+                    source.verdict ||
+                    "CONSIDER"
+                  ),
+              productScore: zeroWrittenReviewEvidence ? null : source.productScore ?? sourceRecord.buyScore ?? sourceRecord.score ?? null,
+              buyScore: zeroWrittenReviewEvidence ? null : sourceRecord.buyScore ?? source.productScore ?? sourceRecord.score ?? null,
+              score: zeroWrittenReviewEvidence ? null : sourceRecord.score ?? sourceRecord.buyScore ?? source.productScore ?? null,
               buyingConfidence:
-                source.buyingConfidence ??
-                sourceRecord.buyerConfidence ??
-                sourceRecord.verdictConfidence ??
-                sourceRecord.confidence ??
-                null,
+                zeroWrittenReviewEvidence
+                  ? null
+                  : source.buyingConfidence ??
+                    sourceRecord.buyerConfidence ??
+                    sourceRecord.verdictConfidence ??
+                    sourceRecord.confidence ??
+                    null,
               buyerConfidence:
-                sourceRecord.buyerConfidence ??
-                source.buyingConfidence ??
-                sourceRecord.verdictConfidence ??
-                sourceRecord.confidence ??
-                null,
+                zeroWrittenReviewEvidence
+                  ? null
+                  : sourceRecord.buyerConfidence ??
+                    source.buyingConfidence ??
+                    sourceRecord.verdictConfidence ??
+                    sourceRecord.confidence ??
+                    null,
               verdictConfidence:
-                sourceRecord.verdictConfidence ??
-                sourceRecord.buyerConfidence ??
-                source.buyingConfidence ??
-                sourceRecord.confidence ??
-                null,
-              valueForMoney: source.valueForMoney || "Fair",
-              reviewAuthenticity: source.reviewAuthenticity,
-              topStrengths: source.topStrengths || [],
-              topComplaints: source.topComplaints || [],
-              bestFor: source.bestFor || [],
-              notIdealFor: source.notIdealFor || [],
-              bottomLine: source.bottomLine || "Latest scan loaded.",
+                zeroWrittenReviewEvidence
+                  ? null
+                  : sourceRecord.verdictConfidence ??
+                    sourceRecord.buyerConfidence ??
+                    source.buyingConfidence ??
+                    sourceRecord.confidence ??
+                    null,
+              valueForMoney: zeroWrittenReviewEvidence ? "Unknown" : source.valueForMoney || "Fair",
+              reviewAuthenticity: zeroWrittenReviewEvidence
+                ? {
+                    ...(source.reviewAuthenticity || {}),
+                    score: null,
+                    label: "Review evidence not found",
+                    suspiciousReviewRisk: "Not scored",
+                    reasons: ["ReviewIntel could not access enough public review evidence for this product."],
+                    suspiciousComments: [],
+                  }
+                : source.reviewAuthenticity,
+              topStrengths: zeroWrittenReviewEvidence ? [] : source.topStrengths || [],
+              topComplaints: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+              bestFor: zeroWrittenReviewEvidence ? [] : source.bestFor || [],
+              notIdealFor: zeroWrittenReviewEvidence ? [] : source.notIdealFor || [],
+              bottomLine: zeroWrittenReviewEvidence
+                ? "ReviewIntel could not access enough public review evidence for this product."
+                : source.bottomLine || "Latest scan loaded.",
               analysis: {
-                verdict:
-                  (source as Record<string, unknown>).stableVerdict ||
-                  (source as Record<string, unknown>).finalVerdict ||
-                  source.verdict ||
-                  "CONSIDER",
-                score: source.productScore ?? null,
-                buyingConfidence: source.buyingConfidence ?? null,
-                valueForMoney: source.valueForMoney || "Fair",
-                summary: source.bottomLine || "Latest scan loaded.",
-                mainConcerns: source.topComplaints || [],
-                strengths: source.topStrengths || [],
-                praised_features: source.topStrengths || [],
-                praisedFeatures: source.topStrengths || [],
-                positive_points: source.topStrengths || [],
-                positivePoints: source.topStrengths || [],
-                complaints: source.topComplaints || [],
-                topComplaints: source.topComplaints || [],
-                negative_points: source.topComplaints || [],
-                negativePoints: source.topComplaints || [],
-                pain_points: source.topComplaints || [],
-                painPoints: source.topComplaints || [],
-                bestFor: source.bestFor || [],
-                best_for: source.bestFor || [],
-                notIdealFor: source.notIdealFor || [],
-                not_ideal_for: source.notIdealFor || [],
+                verdict: zeroWrittenReviewEvidence
+                  ? zeroEvidenceVerdict
+                  : (
+                      (source as Record<string, unknown>).stableVerdict ||
+                      (source as Record<string, unknown>).finalVerdict ||
+                      source.verdict ||
+                      "CONSIDER"
+                    ),
+                score: zeroWrittenReviewEvidence ? null : source.productScore ?? null,
+                buyingConfidence: zeroWrittenReviewEvidence ? null : source.buyingConfidence ?? null,
+                valueForMoney: zeroWrittenReviewEvidence ? "Unknown" : source.valueForMoney || "Fair",
+                summary: zeroWrittenReviewEvidence
+                  ? "ReviewIntel could not access enough public review evidence for this product."
+                  : source.bottomLine || "Latest scan loaded.",
+                mainConcerns: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+                strengths: zeroWrittenReviewEvidence ? [] : source.topStrengths || [],
+                praised_features: zeroWrittenReviewEvidence ? [] : source.topStrengths || [],
+                praisedFeatures: zeroWrittenReviewEvidence ? [] : source.topStrengths || [],
+                positive_points: zeroWrittenReviewEvidence ? [] : source.topStrengths || [],
+                positivePoints: zeroWrittenReviewEvidence ? [] : source.topStrengths || [],
+                complaints: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+                topComplaints: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+                negative_points: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+                negativePoints: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+                pain_points: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+                painPoints: zeroWrittenReviewEvidence ? [] : source.topComplaints || [],
+                bestFor: zeroWrittenReviewEvidence ? [] : source.bestFor || [],
+                best_for: zeroWrittenReviewEvidence ? [] : source.bestFor || [],
+                notIdealFor: zeroWrittenReviewEvidence ? [] : source.notIdealFor || [],
+                not_ideal_for: zeroWrittenReviewEvidence ? [] : source.notIdealFor || [],
                 authenticity: {
-                  label: source.reviewAuthenticity?.label || "Medium Trust",
-                  score: source.reviewAuthenticity?.score || 50,
-                  suspiciousReviewRisk: source.reviewAuthenticity?.suspiciousReviewRisk || "Medium",
-                  reasons: source.reviewAuthenticity?.reasons || []
+                  label: zeroWrittenReviewEvidence ? "Review evidence not found" : source.reviewAuthenticity?.label || "Medium Trust",
+                  score: zeroWrittenReviewEvidence ? null : source.reviewAuthenticity?.score || 50,
+                  suspiciousReviewRisk: zeroWrittenReviewEvidence ? "Not scored" : source.reviewAuthenticity?.suspiciousReviewRisk || "Medium",
+                  reasons: zeroWrittenReviewEvidence
+                    ? ["ReviewIntel could not access enough public review evidence for this product."]
+                    : source.reviewAuthenticity?.reasons || []
                 }
               }
             } as unknown as AnalyzeResponse);
