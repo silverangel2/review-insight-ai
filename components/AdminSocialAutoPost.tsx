@@ -1335,27 +1335,32 @@ export default function AdminSocialAutoPost() {
         {connectorCard("TikTok", tiktokCheck)}
       </div>
 
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border-2 border-cyan-300 bg-cyan-50 p-4 shadow-soft dark:border-cyan-300/30 dark:bg-cyan-300/10 sm:rounded-[2rem] sm:p-6">
         <div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-            Social media library
-          </p>
-              <button
-                type="button"
-                onClick={clearOldLibrary}
-                disabled={saving || media.length === 0}
-                className="rounded-xl bg-red-100 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
-              >
-                Clear old library
-              </button>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">
+                Social Media Library
+              </p>
+              <h2 className="mt-1 text-2xl font-black text-ink dark:text-white">
+                Uploaded photos/videos for Facebook + TikTok
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold text-slate-600 dark:text-slate-300">
+                This is the active media library. Upload media, preview it, select it for Facebook/TikTok, replace it, or delete old media here.
+              </p>
+              <p className="mt-3 inline-flex rounded-full bg-white px-4 py-2 text-sm font-black text-ocean shadow-soft dark:bg-slate-950 dark:text-cyan-200">
+                {media.length} media item{media.length === 1 ? "" : "s"} loaded
+              </p>
             </div>
-          <h2 className="mt-1 text-xl font-black text-ink dark:text-white">
-            Photos/videos for the 100-day queue
-          </h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-300">
-            Upload photos/videos once, then ReviewIntel rotates active media through the AI queue with new captions, hooks, and hashtags.
-          </p>
+            <button
+              type="button"
+              onClick={clearOldLibrary}
+              disabled={saving || media.length === 0}
+              className="rounded-2xl bg-red-100 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
+            >
+              Clear old / unselected media
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 rounded-2xl border border-cyan-200 bg-[linear-gradient(135deg,rgba(236,254,255,0.96),rgba(255,255,255,0.9))] p-4 shadow-soft dark:border-cyan-300/20 dark:bg-cyan-300/10">
@@ -1423,7 +1428,7 @@ export default function AdminSocialAutoPost() {
             </div>
           </div>
           <label className="block cursor-pointer rounded-2xl bg-white px-4 py-4 text-sm font-black text-ink shadow-soft dark:bg-slate-900 dark:text-white">
-            <span>{uploadingMedia ? "Uploading..." : "Upload photos/videos"}</span>
+            <span>{uploadingMedia ? "Uploading..." : "Upload photos/videos to library"}</span>
             <input
               type="file"
               multiple
