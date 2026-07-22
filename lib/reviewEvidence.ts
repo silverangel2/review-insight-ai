@@ -1957,7 +1957,12 @@ Return ONLY valid JSON with the same shape as the first pass:
       hasListingMetadataSignal ? 1 : 0
     );
 
-    const actualCommentsAnalyzed = groundedCommentsAnalyzed;
+    const actualCommentsAnalyzed = Math.max(
+      groundedCommentsAnalyzed,
+      collectorReviewsCollected,
+      reviewSnippetsBase.length,
+      reviewSnippets.length,
+    );
 
     const rawEvidenceStrength =
       actualCommentsAnalyzed >= 30
@@ -2049,7 +2054,10 @@ Return ONLY valid JSON with the same shape as the first pass:
           : "open_web_intelligence",
       reviewCoverageRatio,
       commentsAnalyzed: actualCommentsAnalyzed,
-      evidenceStrength: cappedEvidenceStrength,
+      evidenceStrength:
+        collectorHasWrittenReviews && actualCommentsAnalyzed > 0 && (cappedEvidenceStrength === "none" || cappedEvidenceStrength === "weak")
+          ? "limited"
+          : cappedEvidenceStrength,
       reviewSnippets,
       repeatedPraises,
       repeatedComplaints,
