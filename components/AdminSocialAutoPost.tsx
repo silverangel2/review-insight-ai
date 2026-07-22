@@ -42,6 +42,7 @@ type SocialPost = {
 type SocialMedia = {
   id: string;
   created_at: string;
+  updated_at?: string | null;
   title?: string | null;
   media_type: "image" | "video" | string;
   file_url: string;
@@ -52,6 +53,8 @@ type SocialMedia = {
   is_active: boolean;
   used_count?: number | null;
   last_used_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+  platform_usage?: Record<string, unknown> | null;
 };
 
 type ConnectorHealth = {
@@ -135,6 +138,34 @@ const defaultSettings: Settings = {
   recycle_after_days: 100,
 };
 
+async function readApiPayload(response: Response) {
+  const text = await response.text();
+
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return { error: text };
+  }
+}
+
+function apiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = String((error as { message?: unknown }).message || "").trim();
+    if (message) return message;
+  }
+  return fallback;
+}
+
+function mediaPayloadItems(data: Record<string, unknown>) {
+  if (Array.isArray(data.media)) return data.media as SocialMedia[];
+  if (Array.isArray(data.items)) return data.items as SocialMedia[];
+  if (Array.isArray(data.assets)) return data.assets as SocialMedia[];
+  return [];
+}
+
 export default function AdminSocialAutoPost() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [posts, setPosts] = useState<SocialPost[]>([]);
@@ -148,6 +179,7 @@ export default function AdminSocialAutoPost() {
     tags: "",
   });
   const [status, setStatus] = useState("Loading social auto-post settings...");
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [facebookCheck, setFacebookCheck] = useState<ConnectorHealth | null>(null);
   const [tiktokCheck, setTikTokCheck] = useState<ConnectorHealth | null>(null);
   const [saving, setSaving] = useState(false);
@@ -155,49 +187,56 @@ export default function AdminSocialAutoPost() {
   const [generatingVideos, setGeneratingVideos] = useState(false);
   const [reelPreview, setReelPreview] = useState<SocialReelPreview | null>(null);
 
+  async function loadMediaLibrary() {
+    const mediaResponse = await fetch("/api/admin/social-media", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const mediaData = await readApiPayload(mediaResponse);
+
+    if (!mediaResponse.ok || mediaData.ok === false) {
+      const message = String(mediaData.error || `Could not load social media library. HTTP ${mediaResponse.status}.`);
+      setMedia([]);
+      setMediaError(message);
+      throw new Error(message);
+    }
+
+    const loadedMedia = mediaPayloadItems(mediaData);
+    setMedia(loadedMedia);
+    setMediaError(null);
+    return loadedMedia;
+  }
+
   async function load() {
+    const messages: string[] = [];
+
     try {
       const response = await fetch("/api/admin/social-autopost");
-      const data = await response.json();
+      const data = await readApiPayload(response);
 
       if (!response.ok || !data.ok) {
-        setStatus(data.error || "Could not load social auto-post.");
-        return;
-      }
-
-      setSettings(data.settings || defaultSettings);
-      setPosts(data.posts || []);
-
-      const mediaResponse = await fetch("/api/admin/social-media", {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const mediaData = await mediaResponse.json().catch(() => ({}));
-
-      if (!mediaResponse.ok || mediaData.ok === false) {
-        setMedia([]);
-        setStatus(mediaData.error || "Could not load social media library.");
+        messages.push(String(data.error || "Could not load social auto-post."));
       } else {
-        const loadedMedia = Array.isArray(mediaData.media)
-          ? mediaData.media
-          : Array.isArray(mediaData.items)
-            ? mediaData.items
-            : Array.isArray(mediaData.assets)
-              ? mediaData.assets
-              : [];
-
-        setMedia(loadedMedia);
-
-        if (loadedMedia.length === 0) {
-          setStatus("Social auto-post loaded, but the media library returned 0 items.");
-        }
+        setSettings((data.settings as Settings) || defaultSettings);
+        setPosts(Array.isArray(data.posts) ? data.posts as SocialPost[] : []);
+        messages.push("Social auto-post settings loaded.");
       }
-
-      setStatus("Social auto-post settings loaded.");
-    } catch {
-      setStatus("Could not load social auto-post.");
+    } catch (error) {
+      messages.push(apiErrorMessage(error, "Could not load social auto-post."));
     }
+
+    try {
+      const loadedMedia = await loadMediaLibrary();
+      messages.push(
+        loadedMedia.length > 0
+          ? `Social media library loaded ${loadedMedia.length} media item${loadedMedia.length === 1 ? "" : "s"}.`
+          : "Social media library returned 0 usable items."
+      );
+    } catch (error) {
+      messages.push(`Media library error: ${apiErrorMessage(error, "Could not load social media library.")}`);
+    }
+
+    setStatus(messages.join(" "));
   }
 
   useEffect(() => {
@@ -496,10 +535,10 @@ export default function AdminSocialAutoPost() {
           }),
         });
 
-        const saveData = await saveResponse.json().catch(() => ({}));
+        const saveData = await readApiPayload(saveResponse);
 
         if (!saveResponse.ok || !saveData.ok) {
-          setStatus(saveData.error || `Uploaded ${file.name}, but could not add it to the library.`);
+          setStatus(String(saveData.error || `Uploaded ${file.name}, but could not add it to the library.`));
           continue;
         }
 
@@ -516,16 +555,16 @@ export default function AdminSocialAutoPost() {
         }));
       }
 
-      await load();
+      const loadedMedia = await loadMediaLibrary();
       setStatus(
         options?.topic === HOMEPAGE_VIDEO_TOPIC && uploadedCount > 0
           ? "Homepage instructional video uploaded and wired to the public homepage."
           : uploadedCount === selectedFiles.length
-            ? `Uploaded and added ${uploadedCount} media file${uploadedCount === 1 ? "" : "s"} to the library.`
-          : `Added ${uploadedCount} of ${selectedFiles.length} media files. Check any failed files and try again.`
+            ? `Uploaded and added ${uploadedCount} media file${uploadedCount === 1 ? "" : "s"} to the library. ${loadedMedia.length} media item${loadedMedia.length === 1 ? "" : "s"} loaded.`
+          : `Added ${uploadedCount} of ${selectedFiles.length} media files. ${loadedMedia.length} media item${loadedMedia.length === 1 ? "" : "s"} loaded. Check any failed files and try again.`
       );
-    } catch {
-      setStatus("Could not upload media.");
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Could not upload media."));
     } finally {
       setUploadingMedia(false);
     }
@@ -542,14 +581,15 @@ export default function AdminSocialAutoPost() {
         body: JSON.stringify(mediaForm),
       });
 
-      const data = await response.json();
+      const data = await readApiPayload(response);
 
       if (!response.ok || !data.ok) {
-        setStatus(data.error || "Could not add media.");
+        setStatus(String(data.error || "Could not add media."));
         return;
       }
 
-      setMedia((current) => [data.media, ...current]);
+      setMedia((current) => [data.media as SocialMedia, ...current]);
+      setMediaError(null);
       setMediaForm({
         title: "",
         media_type: "image",
@@ -559,8 +599,8 @@ export default function AdminSocialAutoPost() {
         tags: "",
       });
       setStatus("Media added to the 100-day social library.");
-    } catch {
-      setStatus("Could not add media.");
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Could not add media."));
     } finally {
       setSaving(false);
     }
@@ -585,12 +625,12 @@ export default function AdminSocialAutoPost() {
         return;
       }
 
-      await load();
+      const loadedMedia = await loadMediaLibrary();
       setStatus(
-        `Codex video generation finished: ${result.generated_count || 0} new video asset${result.generated_count === 1 ? "" : "s"}, ${result.skipped_count || 0} already ready, ${result.failed_count || 0} failed.`
+        `Codex video generation finished: ${result.generated_count || 0} new video asset${result.generated_count === 1 ? "" : "s"}, ${result.skipped_count || 0} already ready, ${result.failed_count || 0} failed. ${loadedMedia.length} media item${loadedMedia.length === 1 ? "" : "s"} loaded.`
       );
-    } catch {
-      setStatus("Codex video generation failed. Existing image posting is unchanged.");
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Codex video generation failed. Existing image posting is unchanged."));
     } finally {
       setGeneratingVideos(false);
     }
@@ -611,19 +651,17 @@ export default function AdminSocialAutoPost() {
         }),
       });
 
-      const data = await response.json();
+      const data = await readApiPayload(response);
 
       if (!response.ok || !data.ok) {
-        setStatus(data.error || "Could not update media item.");
+        setStatus(String(data.error || "Could not update media item."));
         return;
       }
 
-      setMedia((current) =>
-        current.map((entry) => (entry.id === item.id ? { ...entry, is_active: !item.is_active } : entry))
-      );
+      applyMediaResponse(data, media.map((entry) => (entry.id === item.id ? { ...entry, is_active: !item.is_active } : entry)));
       setStatus("Media item updated.");
-    } catch {
-      setStatus("Could not update media item.");
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Could not update media item."));
     } finally {
       setSaving(false);
     }
@@ -643,17 +681,17 @@ export default function AdminSocialAutoPost() {
         body: JSON.stringify({ action: "delete-media", id: item.id }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await readApiPayload(response);
 
       if (!response.ok || !data.ok) {
-        setStatus(data.error || "Could not delete media item.");
+        setStatus(String(data.error || "Could not delete media item."));
         return;
       }
 
-      setMedia(Array.isArray(data.media) ? data.media : media.filter((entry) => entry.id !== item.id));
+      applyMediaResponse(data, media.filter((entry) => entry.id !== item.id));
       setStatus("Media item deleted.");
-    } catch {
-      setStatus("Could not delete media item.");
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Could not delete media item."));
     } finally {
       setSaving(false);
     }
@@ -670,21 +708,21 @@ export default function AdminSocialAutoPost() {
         body: JSON.stringify({ action: `select-${platform}`, id: item.id }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await readApiPayload(response);
 
       if (!response.ok || !data.ok) {
-        setStatus(data.error || "Could not select media.");
+        setStatus(String(data.error || "Could not select media."));
         return;
       }
 
-      setMedia(Array.isArray(data.media) ? data.media : media);
+      applyMediaResponse(data, media);
       setStatus(
         platform === "both"
           ? "Media selected for Facebook and TikTok."
           : `Media selected for ${platform}.`
       );
-    } catch {
-      setStatus("Could not select media.");
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Could not select media."));
     } finally {
       setSaving(false);
     }
@@ -713,17 +751,17 @@ export default function AdminSocialAutoPost() {
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await readApiPayload(response);
 
       if (!response.ok || !data.ok) {
-        setStatus(data.error || "Could not replace media.");
+        setStatus(String(data.error || "Could not replace media."));
         return;
       }
 
-      setMedia(Array.isArray(data.media) ? data.media : media);
+      applyMediaResponse(data, media);
       setStatus("Media item replaced.");
-    } catch {
-      setStatus("Could not replace media.");
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Could not replace media."));
     } finally {
       setSaving(false);
     }
@@ -745,17 +783,18 @@ export default function AdminSocialAutoPost() {
         body: JSON.stringify({ action: "clear-library" }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await readApiPayload(response);
 
       if (!response.ok || !data.ok) {
-        setStatus(data.error || "Could not clear old media.");
+        setStatus(String(data.error || "Could not clear old media."));
         return;
       }
 
-      setMedia(Array.isArray(data.media) ? data.media : []);
-      setStatus("Old unselected media cleared.");
-    } catch {
-      setStatus("Could not clear old media.");
+      applyMediaResponse(data, []);
+      const deletedCount = Number(data.deleted_count || 0);
+      setStatus(`Old unselected media cleared. ${deletedCount} item${deletedCount === 1 ? "" : "s"} removed.`);
+    } catch (error) {
+      setStatus(apiErrorMessage(error, "Could not clear old media."));
     } finally {
       setSaving(false);
     }
@@ -851,22 +890,47 @@ export default function AdminSocialAutoPost() {
     }
   }
 
-  function connectorCard(label: string, check: ConnectorHealth | null) {
-    if (!check) return null;
-
-    function getMediaPreviewUrl(item: SocialMedia) {
+  function getMediaPreviewUrl(item: SocialMedia) {
     return item.thumbnail_url || item.file_url || "";
   }
 
   function isVideoMedia(item: SocialMedia) {
-    const url = getMediaPreviewUrl(item);
+    const url = item.file_url || item.thumbnail_url || "";
     return (
       item.media_type === "video" ||
       /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url)
     );
   }
 
-  return (
+  function mediaPlatformUsage(item: SocialMedia) {
+    const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata : {};
+    const metadataUsage = metadata.platform_usage && typeof metadata.platform_usage === "object"
+      ? metadata.platform_usage as Record<string, unknown>
+      : {};
+    const legacyUsage = item.platform_usage && typeof item.platform_usage === "object" ? item.platform_usage : {};
+
+    return Object.keys(metadataUsage).length ? metadataUsage : legacyUsage;
+  }
+
+  function platformUsageLabel(item: SocialMedia) {
+    const usage = mediaPlatformUsage(item);
+    if (usage.both) return "Selected for Facebook + TikTok";
+    if (usage.facebook && usage.tiktok) return "Selected for Facebook + TikTok";
+    if (usage.facebook) return "Selected for Facebook";
+    if (usage.tiktok) return "Selected for TikTok";
+    return "";
+  }
+
+  function applyMediaResponse(data: Record<string, unknown>, fallback: SocialMedia[]) {
+    const nextMedia = mediaPayloadItems(data);
+    setMedia(nextMedia.length || Array.isArray(data.media) ? nextMedia : fallback);
+    setMediaError(null);
+  }
+
+  function connectorCard(label: string, check: ConnectorHealth | null) {
+    if (!check) return null;
+
+    return (
       <div className="mt-4 rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -920,109 +984,7 @@ export default function AdminSocialAutoPost() {
 
   return (
     <>
-      <section
-        data-reviewintel-social-library-top
-        className="rounded-[2rem] border-2 border-cyan-300 bg-cyan-50 p-5 shadow-soft dark:border-cyan-300/30 dark:bg-cyan-300/10"
-      >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
-              Social Media Library
-            </p>
-            <h2 className="mt-1 text-2xl font-black text-ink dark:text-white">
-              Uploaded photos/videos for Facebook + TikTok
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold text-slate-600 dark:text-slate-300">
-              This is the active media library. Upload media, preview it, select it for Facebook/TikTok, replace it, or delete old media here.
-            </p>
-            <p className="mt-3 inline-flex rounded-full bg-white px-4 py-2 text-sm font-black text-ocean shadow-soft dark:bg-slate-950 dark:text-cyan-200">
-              {media.length} media item{media.length === 1 ? "" : "s"} loaded
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={clearOldLibrary}
-            disabled={saving || media.length === 0}
-            className="rounded-2xl bg-red-100 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
-          >
-            Clear old / unselected media
-          </button>
-        </div>
-
-        {media.length === 0 ? (
-          <div className="mt-5 rounded-2xl border border-dashed border-cyan-300 bg-white p-5 text-center dark:border-cyan-300/20 dark:bg-slate-950">
-            <p className="text-sm font-black text-slate-600 dark:text-slate-300">
-              No media in library yet. Upload a photo or video below.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {media.map((item) => (
-              <article
-                key={`top-${item.id}`}
-                className="rounded-2xl border border-cyan-200 bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950"
-              >
-                {(item.thumbnail_url || item.file_url) ? (
-                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900">
-                    {item.media_type === "video" || /\.(mp4|mov|webm|m4v)(\?|$)/i.test(item.thumbnail_url || item.file_url || "") ? (
-                      <video
-                        src={item.thumbnail_url || item.file_url || ""}
-                        controls
-                        playsInline
-                        muted
-                        className="h-40 w-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={item.thumbnail_url || item.file_url || ""}
-                        alt={item.title || "Social media library item"}
-                        className="h-40 w-full object-cover"
-                        loading="lazy"
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 text-xs font-black text-slate-400 dark:border-white/10">
-                    No preview URL
-                  </div>
-                )}
-
-                <div className="mt-3">
-                  <p className="truncate text-sm font-black text-ink dark:text-white">
-                    {item.title || item.file_url || "Untitled media"}
-                  </p>
-                  <p className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {item.media_type || "media"} · {item.is_active ? "Active" : "Paused"}
-                  </p>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => toggleMediaActive(item)} disabled={saving} className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-200">
-                    {item.is_active ? "Active" : "Paused"}
-                  </button>
-                  <button type="button" onClick={() => selectMediaForPlatform(item, "facebook")} disabled={saving} className="rounded-xl bg-blue-100 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-200 dark:bg-blue-500/10 dark:text-blue-200">
-                    Use for Facebook
-                  </button>
-                  <button type="button" onClick={() => selectMediaForPlatform(item, "tiktok")} disabled={saving} className="rounded-xl bg-pink-100 px-3 py-2 text-xs font-black text-pink-700 hover:bg-pink-200 dark:bg-pink-500/10 dark:text-pink-200">
-                    Use for TikTok
-                  </button>
-                  <button type="button" onClick={() => selectMediaForPlatform(item, "both")} disabled={saving} className="rounded-xl bg-violet-100 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-200 dark:bg-violet-500/10 dark:text-violet-200">
-                    Use for Both
-                  </button>
-                  <button type="button" onClick={() => replaceMedia(item)} disabled={saving} className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-200">
-                    Replace URL
-                  </button>
-                  <button type="button" onClick={() => deleteMedia(item)} disabled={saving} className="rounded-xl bg-red-100 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-200 dark:bg-red-500/10 dark:text-red-200">
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-<section className="space-y-5">
+      <section className="space-y-5">
       <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
           Social auto-post
@@ -1371,6 +1333,11 @@ export default function AdminSocialAutoPost() {
               <p className="mt-3 inline-flex rounded-full bg-white px-4 py-2 text-sm font-black text-ocean shadow-soft dark:bg-slate-950 dark:text-cyan-200">
                 {media.length} media item{media.length === 1 ? "" : "s"} loaded
               </p>
+              {mediaError ? (
+                <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-200">
+                  Media API error: {mediaError}
+                </p>
+              ) : null}
             </div>
             <button
               type="button"
@@ -1522,10 +1489,10 @@ export default function AdminSocialAutoPost() {
             <article key={item.id} className="rounded-2xl border border-line bg-mist p-3 dark:border-white/10 dark:bg-slate-900">
               <div className="flex gap-3">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white dark:bg-slate-800">
-                  {item.media_type === "image" ? (
-                    <img src={item.thumbnail_url || item.file_url} alt={item.alt_text || item.title || "Social media item"} className="h-full w-full object-cover" />
+                  {isVideoMedia(item) ? (
+                    <video src={item.file_url} poster={item.thumbnail_url || undefined} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                   ) : (
-                    <video src={item.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                    <img src={getMediaPreviewUrl(item)} alt={item.alt_text || item.title || "Social media item"} className="h-full w-full object-cover" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -1533,8 +1500,13 @@ export default function AdminSocialAutoPost() {
                     {item.title || item.file_url}
                   </p>
                   <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-300">
-                    {item.media_type} · used {item.used_count || 0}x
+                    {item.media_type} · {item.is_active ? "Active" : "Paused"} · used {item.used_count || 0}x
                   </p>
+                  {platformUsageLabel(item) ? (
+                    <p className="mt-1 text-xs font-black text-emerald-700 dark:text-emerald-200">
+                      {platformUsageLabel(item)}
+                    </p>
+                  ) : null}
                   {item.topic ? (
                     <p className="mt-1 text-xs font-black text-ocean dark:text-cyan-300">
                       {item.topic === HOMEPAGE_VIDEO_TOPIC ? "homepage video" : item.topic}
@@ -1547,12 +1519,10 @@ export default function AdminSocialAutoPost() {
                   data-social-media-preview
                   className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900"
                 >
-                  {(
-                    item.media_type === "video" ||
-                    /\.(mp4|mov|webm|m4v)(\?|$)/i.test(item.thumbnail_url || item.file_url || "")
-                  ) ? (
+                  {isVideoMedia(item) ? (
                     <video
-                      src={item.thumbnail_url || item.file_url || ""}
+                      src={item.file_url || ""}
+                      poster={item.thumbnail_url || undefined}
                       controls
                       playsInline
                       muted
@@ -1560,7 +1530,7 @@ export default function AdminSocialAutoPost() {
                     />
                   ) : (
                     <img
-                      src={item.thumbnail_url || item.file_url || ""}
+                      src={getMediaPreviewUrl(item)}
                       alt={item.title || "Social media library item"}
                       className="h-44 w-full object-cover"
                       loading="lazy"
@@ -1632,8 +1602,12 @@ export default function AdminSocialAutoPost() {
               </div>
             </article>
           )) : (
-            <p className="rounded-2xl bg-mist p-4 text-sm font-bold text-slate-500 dark:bg-slate-900 dark:text-slate-300">
-              No media added yet. Add image/video URLs to feed the 100-day automation.
+            <p className={`rounded-2xl p-4 text-sm font-bold ${
+              mediaError
+                ? "border border-red-200 bg-red-50 text-red-700 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-200"
+                : "bg-mist text-slate-500 dark:bg-slate-900 dark:text-slate-300"
+            }`}>
+              {mediaError || "No media added yet. Add image/video URLs to feed the 100-day automation."}
             </p>
           )}
         </div>

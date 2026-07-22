@@ -625,6 +625,7 @@ async function main() {
           storage,
           storage_bucket: storage === "supabase" ? storageBucket : null,
           storage_bucket_source: storage === "supabase" ? publicSocialBucket.source : null,
+          object_path: storage === "supabase" ? `social/videos/${rendered.filename}` : null,
         },
         created_at: now,
         updated_at: now,
