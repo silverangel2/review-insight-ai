@@ -302,6 +302,52 @@ export default async function LandingPage() {
               padding-bottom: 2rem !important;
             }
             .home-premium-audience,
+
+            .home-mobile-rainbow-light {
+              background:
+                radial-gradient(circle at 12% 18%, rgba(255, 124, 214, 0.42), transparent 34%),
+                radial-gradient(circle at 82% 24%, rgba(45, 212, 255, 0.45), transparent 36%),
+                radial-gradient(circle at 50% 78%, rgba(255, 205, 86, 0.38), transparent 34%),
+                linear-gradient(135deg, rgba(232, 255, 252, 0.98), rgba(246, 242, 255, 0.98), rgba(255, 247, 222, 0.98));
+              background-size: 180% 180%;
+              animation: reviewintelMobileRainbowShift 16s ease-in-out infinite alternate;
+            }
+            .home-mobile-rainbow-light::after {
+              content: "";
+              position: absolute;
+              inset: -22%;
+              background:
+                radial-gradient(circle at 30% 32%, rgba(255,255,255,0.72), transparent 22%),
+                radial-gradient(circle at 70% 58%, rgba(20,184,166,0.30), transparent 28%),
+                radial-gradient(circle at 45% 78%, rgba(147,51,234,0.18), transparent 26%);
+              filter: blur(18px);
+              animation: reviewintelMobileGlowFloat 20s ease-in-out infinite alternate;
+            }
+            @keyframes reviewintelMobileRainbowShift {
+              0% { background-position: 0% 45%; transform: scale(1); }
+              50% { background-position: 62% 30%; transform: scale(1.015); }
+              100% { background-position: 100% 70%; transform: scale(1.035); }
+            }
+            @keyframes reviewintelMobileGlowFloat {
+              0% { transform: translate3d(-4%, -2%, 0) rotate(0deg); opacity: .78; }
+              100% { transform: translate3d(5%, 4%, 0) rotate(8deg); opacity: 1; }
+            }
+            .home-mobile-scan-card {
+              min-width: min(78vw, 19rem);
+              scroll-snap-align: center;
+              animation: reviewintelMobileCardFlip 8s ease-in-out infinite;
+              transform-style: preserve-3d;
+            }
+            .home-mobile-scan-card:nth-child(2) { animation-delay: 0.7s; }
+            .home-mobile-scan-card:nth-child(3) { animation-delay: 1.4s; }
+            .home-mobile-scan-card:nth-child(4) { animation-delay: 2.1s; }
+            @keyframes reviewintelMobileCardFlip {
+              0%, 100% { transform: translateY(0) rotateY(0deg) rotateZ(-1deg); }
+              45% { transform: translateY(-8px) rotateY(0deg) rotateZ(1deg); }
+              58% { transform: translateY(-8px) rotateY(8deg) rotateZ(1deg); }
+              70% { transform: translateY(-4px) rotateY(0deg) rotateZ(0deg); }
+            }
+
             .home-premium-mode {
               padding-top: 1.75rem !important;
               padding-bottom: 1.75rem !important;
@@ -351,7 +397,8 @@ export default async function LandingPage() {
           }
         `}</style>
 
-        <div className="reviewintel-home-hero-grid relative mx-auto grid min-h-[calc(100svh-112px)] max-w-7xl gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+        <div className="reviewintel-home-hero-grid relative isolate mx-auto grid min-h-[calc(100svh-112px)] max-w-7xl snap-start snap-always overflow-hidden gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:overflow-visible sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+          <div className="home-mobile-rainbow-light pointer-events-none absolute inset-0 -z-10 sm:hidden" aria-hidden="true" />
           <div>
             <HomepageHeroCopy initialLocale={locale} />
 
@@ -428,14 +475,14 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-mobile-carousel-section grid min-h-[100svh] content-center bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
+      <section className="home-mobile-carousel-section grid min-h-[100svh] snap-start snap-always content-center overflow-hidden bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
         <div className="home-mobile-carousel-shell grid w-full justify-items-center text-center">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 max-w-sm text-4xl font-black leading-tight tracking-normal">
             What the scan checks.
           </h2>
           <div className="mt-6 -mx-5 overflow-hidden">
-            <div className="home-mobile-scan-carousel flex snap-x gap-4 overflow-x-auto px-5 pb-5">
+            <div className="home-mobile-scan-carousel flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {mobileScanCards.map((card, index) => (
                 <article
                   key={card.title}
@@ -463,7 +510,7 @@ export default async function LandingPage() {
 
       <PlatformLogoOrbit initialLocale={locale} />
 
-      <section className="home-premium-payoff min-h-[100svh] bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-14 text-ink sm:min-h-0 sm:px-6 sm:py-12">
+      <section className="home-premium-payoff min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
             <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
@@ -478,7 +525,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-premium-audience min-h-[100svh] bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-8 text-ink sm:min-h-0 sm:px-6 sm:py-10">
+      <section className="home-premium-audience min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10">
         <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
           <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
             <Badge tone="good">{t("shopperMode")}</Badge>
@@ -512,7 +559,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-premium-mode min-h-0 bg-mist px-5 py-8 text-ink sm:min-h-0 sm:px-6 sm:py-12">
+      <section className="home-premium-mode hidden min-h-0 bg-mist px-5 py-8 text-ink sm:block sm:min-h-0 sm:px-6 sm:py-12">
         <div className="home-premium-mode-card mx-auto max-w-5xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-8">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 text-3xl font-black tracking-tight text-ink md:text-4xl">{t("modeIntro.title")}</h2>
@@ -524,9 +571,9 @@ export default async function LandingPage() {
           </p>
         </div>
       </section>
-      <div className="home-premium-featured-reviews"><FeaturedReviews /></div>
+      <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
     
-      <section className="home-premium-ad-section mx-auto max-w-6xl px-6 pb-12">
+      <section className="home-premium-ad-section hidden mx-auto max-w-6xl px-6 pb-12 sm:block">
         <AdSlot placement="homepage_mid" />
       </section>
 
