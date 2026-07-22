@@ -57,6 +57,17 @@ export default async function LandingPage() {
     },
   ];
 
+const mobileShopCarouselItems = [
+  { name: "Amazon", emoji: "🛒", tone: "from-orange-100 to-amber-50" },
+  { name: "Walmart", emoji: "⭐", tone: "from-sky-100 to-blue-50" },
+  { name: "Temu", emoji: "🧡", tone: "from-orange-100 to-red-50" },
+  { name: "TikTok Shop", emoji: "🎵", tone: "from-fuchsia-100 to-cyan-50" },
+  { name: "Etsy", emoji: "🎁", tone: "from-amber-100 to-rose-50" },
+  { name: "Shopify", emoji: "🛍️", tone: "from-emerald-100 to-lime-50" },
+  { name: "eBay", emoji: "💎", tone: "from-indigo-100 to-yellow-50" },
+];
+
+
   return (
     <>
     <main className="reviewintel-home-main bg-[linear-gradient(135deg,#a8eee8_0%,#e7fbff_34%,#c7e2ff_66%,#fff0c9_100%)] text-ink">
@@ -477,28 +488,33 @@ export default async function LandingPage() {
 
       <section className="home-mobile-carousel-section grid h-[100svh] min-h-[100svh] snap-start snap-always content-center overflow-hidden bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
         <div className="home-mobile-carousel-shell grid w-full justify-items-center text-center">
-          <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
+          <Badge tone="info">Marketplace intelligence</Badge>
           <h2 className="mt-4 max-w-sm text-4xl font-black leading-tight tracking-normal">
-            What the scan checks.
+            Works with your favorite shops.
           </h2>
+          <p className="mt-3 max-w-xs text-sm font-semibold leading-6 text-slate-600">
+            Amazon, Walmart, Temu, TikTok Shop, Etsy, Shopify, eBay, and more.
+          </p>
           <div className="mt-6 -mx-5 overflow-hidden">
             <div className="home-mobile-scan-carousel flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {mobileScanCards.map((card, index) => (
+              {mobileShopCarouselItems.concat(mobileShopCarouselItems).map((shop, index) => (
                 <article
-                  key={card.title}
-                  className={`home-mobile-scan-card rounded-[1.75rem] border border-white/80 bg-gradient-to-br ${card.tone} p-5 shadow-[0_22px_70px_rgba(12,36,68,0.14)] backdrop-blur`}
-                  style={{ animationDelay: `${index * 90}ms` }}
+                  key={`${shop.name}-${index}`}
+                  className={`home-mobile-scan-card rounded-[1.75rem] border border-white/80 bg-gradient-to-br ${shop.tone} p-5 text-center shadow-[0_22px_70px_rgba(12,36,68,0.14)] backdrop-blur`}
+                  style={{ animationDelay: `${index * 120}ms` }}
                 >
-                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-ocean">{card.eyebrow}</p>
-                  <p className="mt-4 text-2xl font-black leading-tight text-ink">{card.title}</p>
-                  <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{card.body}</p>
+                  <span className="text-5xl">{shop.emoji}</span>
+                  <p className="mt-4 text-2xl font-black leading-tight text-ink">{shop.name}</p>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+                    Scan products before you buy.
+                  </p>
                 </article>
               ))}
             </div>
             <div className="mt-1 flex justify-center gap-2">
-              {mobileScanCards.map((card, index) => (
+              {mobileShopCarouselItems.map((shop, index) => (
                 <span
-                  key={`${card.title}-dot`}
+                  key={`${shop.name}-dot`}
                   className={`h-1.5 rounded-full ${index === 0 ? "w-6 bg-ocean" : "w-1.5 bg-ocean/30"}`}
                   aria-hidden="true"
                 />
