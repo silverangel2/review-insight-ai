@@ -242,6 +242,7 @@ export function BetterPicksPanel({
   const [loading, setLoading] = useState(false);
   const [picks, setPicks] = useState<BetterPick[]>([]);
   const [error, setError] = useState("");
+  const [brokenImageUrls, setBrokenImageUrls] = useState<Record<string, boolean>>({});
   const [locale, setLocale] = useState<ReviewIntelLocale>("en");
   const [disclosure, setDisclosure] = useState(
     "ReviewIntel may earn a commission from qualifying purchases through affiliate links. This does not affect our verdicts or review analysis."
@@ -373,17 +374,26 @@ export function BetterPicksPanel({
 
       {picks.length > 0 ? (
         <div className={`${compact ? "mt-3 flex snap-x gap-3 overflow-x-auto pb-1" : "mt-5 grid gap-4 md:grid-cols-3"}`}>
-          {picks.map((pick) => (
+          {picks.map((pick) => {
+            const imageUrl = typeof pick.imageUrl === "string" ? pick.imageUrl : "";
+            const showImage = Boolean(imageUrl && !brokenImageUrls[imageUrl]);
+
+            return (
             <article
               key={`${pick.badge}-${pick.title}`}
               className={`${compact ? "min-w-[230px] snap-start p-3" : "p-4"} rounded-[1.5rem] border border-white/70 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/80`}
             >
-              {pick.imageUrl ? (
+              {showImage ? (
                 <div className={`${compact ? "h-24" : "h-36"} relative mb-3 overflow-hidden rounded-2xl bg-slate-50 dark:bg-white/5`}>
                   <img
-                    src={pick.imageUrl}
+                    src={imageUrl}
                     alt={pick.title}
                     loading="lazy"
+                    onError={() => {
+                      if (imageUrl) {
+                        setBrokenImageUrls((current) => ({ ...current, [imageUrl]: true }));
+                      }
+                    }}
                     className="h-full w-full object-contain p-2"
                   />
                 </div>
@@ -433,7 +443,8 @@ export function BetterPicksPanel({
                 {panelCopy.view}
               </a>
             </article>
-          ))}
+            );
+          })}
         </div>
       ) : null}
 
