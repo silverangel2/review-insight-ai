@@ -10,6 +10,7 @@ const heroCopy: Record<
     badge: string;
     languageLabel: string;
     mobileTitle: string;
+    mobileSlides: string[];
     mobileSubtitle: string;
     subtitle: string;
     slides: string[];
@@ -19,6 +20,11 @@ const heroCopy: Record<
     badge: "AI shopping assistant",
     languageLabel: "Choose language",
     mobileTitle: "Know before you buy.",
+    mobileSlides: [
+      "Know before\nyou buy.",
+      "Scan reviews\nbefore you buy.",
+      "Spot review\nrisk fast."
+    ],
     mobileSubtitle: "Paste a link or screenshot. Get a clear verdict.",
     subtitle:
       "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, common complaints, ratings, value, and AI-like review patterns to give you a fast BUY, CONSIDER, or AVOID verdict.",
@@ -32,6 +38,11 @@ const heroCopy: Record<
     badge: "Analyseur IA d’avis",
     languageLabel: "Choisir la langue",
     mobileTitle: "Sachez avant d’acheter.",
+    mobileSlides: [
+      "Sachez avant\nd’acheter.",
+      "Scannez les avis\nd’abord.",
+      "Repérez vite\nles risques."
+    ],
     mobileSubtitle: "Collez un lien ou une capture. Obtenez une réponse claire.",
     subtitle:
       "Collez les avis et obtenez un verdict clair, le risque de faux avis, les plaintes principales et la valeur du produit.",
@@ -45,6 +56,11 @@ const heroCopy: Record<
     badge: "Escáner de reseñas con IA",
     languageLabel: "Elegir idioma",
     mobileTitle: "Sabe antes de comprar.",
+    mobileSlides: [
+      "Sabe antes\nde comprar.",
+      "Escanea reseñas\nprimero.",
+      "Detecta riesgos\nrápido."
+    ],
     mobileSubtitle: "Pega un enlace o captura. Recibe una respuesta clara.",
     subtitle:
       "Pega reseñas y recibe un veredicto claro, riesgo de reseñas falsas, quejas principales y puntuación de valor.",
@@ -58,6 +74,11 @@ const heroCopy: Record<
     badge: "AI 评论扫描器",
     languageLabel: "选择语言",
     mobileTitle: "购买前先看清。",
+    mobileSlides: [
+      "购买前先看清。",
+      "购买前先扫评论。",
+      "快速发现风险。"
+    ],
     mobileSubtitle: "粘贴链接或截图，快速获得清晰判断。",
     subtitle:
       "粘贴评论，即可获得清晰结论、虚假评论风险、主要投诉和价值评分。",
@@ -71,6 +92,11 @@ const heroCopy: Record<
     badge: "KI-Bewertungsscanner",
     languageLabel: "Sprache wählen",
     mobileTitle: "Vor dem Kauf wissen.",
+    mobileSlides: [
+      "Vor dem Kauf\nwissen.",
+      "Bewertungen zuerst\nscannen.",
+      "Risiken schnell\nerkennen."
+    ],
     mobileSubtitle: "Link oder Screenshot einfügen. Schnell Klarheit bekommen.",
     subtitle:
       "Füge Rezensionen ein und erhalte ein klares Urteil, Risiko gefälschter Bewertungen, Hauptbeschwerden und eine Wertbewertung.",
@@ -84,6 +110,11 @@ const heroCopy: Record<
     badge: "AI समीक्षा स्कैनर",
     languageLabel: "भाषा चुनें",
     mobileTitle: "खरीदने से पहले जानें।",
+    mobileSlides: [
+      "खरीदने से पहले\nजानें।",
+      "पहले रिव्यू\nस्कैन करें।",
+      "जोखिम जल्दी\nदेखें।"
+    ],
     mobileSubtitle: "लिंक या स्क्रीनशॉट डालें। तुरंत साफ जवाब पाएं।",
     subtitle:
       "रिव्यू पेस्ट करें और साफ फैसला, फेक-रिव्यू जोखिम, मुख्य शिकायतें और वैल्यू स्कोर देखें।",
@@ -130,6 +161,7 @@ export function HomepageHeroCopy({ initialLocale = "en" }: HomepageHeroCopyProps
 
   const copy = heroCopy[locale];
   const activeSlide = useMemo(() => copy.slides[slideIndex % copy.slides.length], [copy.slides, slideIndex]);
+  const mobileSlides = copy.mobileSlides.length ? copy.mobileSlides : [copy.mobileTitle];
 
   return (
     <>
@@ -137,8 +169,12 @@ export function HomepageHeroCopy({ initialLocale = "en" }: HomepageHeroCopyProps
         <div className="flex flex-wrap items-center gap-3">
           <Badge tone="good">{copy.badge}</Badge>
         </div>
-        <h1 className="mt-5 max-w-[17rem] text-[clamp(3.2rem,15vw,4.45rem)] font-black leading-[0.92] tracking-normal text-[#06111f]">
-          {copy.mobileTitle}
+        <h1 className="ri-hero-mobile-copy-stack relative mt-5 min-h-[7.75rem] max-w-[18rem] text-[clamp(2.35rem,10vw,3rem)] font-black leading-[0.94] tracking-normal text-[#06111f]">
+          {mobileSlides.map((line) => (
+            <span key={line} className="ri-mobile-copy-line absolute inset-0 block">
+              {line}
+            </span>
+          ))}
         </h1>
         <p className="mt-4 max-w-[21rem] text-base font-semibold leading-6 text-slate-700">
           {copy.mobileSubtitle}

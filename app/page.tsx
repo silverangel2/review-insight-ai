@@ -34,7 +34,7 @@ export default async function LandingPage() {
     <main className="reviewintel-home-main bg-[linear-gradient(135deg,#a8eee8_0%,#e7fbff_34%,#c7e2ff_66%,#fff0c9_100%)] text-ink">
       <SponsorAnalytics placement="landing" />
 
-      <section className="reviewintel-home-hero relative isolate min-h-[100svh] overflow-hidden border-b border-white/60 sm:min-h-[calc(100vh-73px)]">
+      <section className="reviewintel-home-hero relative isolate min-h-[calc(100svh-112px)] overflow-hidden border-b border-white/60 sm:min-h-[calc(100vh-73px)]">
         <div
           className="absolute inset-0 opacity-35"
           aria-hidden="true"
@@ -93,23 +93,50 @@ export default async function LandingPage() {
           .ri-hero-copy-slide {
             animation: riHeroCopySlide 5.2s ease-in-out both;
           }
+          @keyframes riHeroMobileCopyStack {
+            0%, 28% { opacity: 1; transform: translateY(0); filter: blur(0); }
+            34%, 94% { opacity: 0; transform: translateY(-8px); filter: blur(4px); }
+            100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+          }
+          .ri-hero-mobile-copy-stack .ri-mobile-copy-line {
+            animation: riHeroMobileCopyStack 10.5s ease-in-out infinite both;
+            display: block !important;
+            font-size: inherit !important;
+            line-height: inherit !important;
+            letter-spacing: inherit !important;
+            overflow-wrap: normal !important;
+            white-space: pre-line !important;
+            word-break: normal !important;
+          }
+          .ri-hero-mobile-copy-stack .ri-mobile-copy-line:nth-child(2) {
+            animation-delay: -7s;
+          }
+          .ri-hero-mobile-copy-stack .ri-mobile-copy-line:nth-child(3) {
+            animation-delay: -3.5s;
+          }
           @media (max-width: 640px) {
             .reviewintel-home-main {
               touch-action: pan-y;
               overflow-x: hidden;
             }
             .reviewintel-home-hero {
-              min-height: 100svh !important;
+              min-height: calc(100svh - 112px) !important;
               overflow: hidden !important;
             }
             .reviewintel-home-hero-grid {
-              min-height: 100svh !important;
-              align-content: center !important;
+              min-height: calc(100svh - 112px) !important;
+              align-content: start !important;
               gap: .75rem !important;
-              padding: 1.35rem 1.25rem 1.25rem !important;
+              padding: 3.2rem 1.25rem 1.25rem !important;
             }
             .reviewintel-home-hero h1 {
-              font-size: clamp(3rem, 14vw, 4.25rem) !important;
+              font-size: clamp(2.35rem, 10vw, 3rem) !important;
+              line-height: .94 !important;
+              letter-spacing: 0 !important;
+            }
+            html[data-layout-mode="mobile"] .reviewintel-home-hero .ri-hero-mobile-copy-stack,
+            html[data-layout-mode="auto"] .reviewintel-home-hero .ri-hero-mobile-copy-stack {
+              font-size: clamp(2.35rem, 10vw, 3rem) !important;
               line-height: .94 !important;
               letter-spacing: 0 !important;
             }
@@ -188,7 +215,7 @@ export default async function LandingPage() {
           }
         `}</style>
 
-        <div className="reviewintel-home-hero-grid relative mx-auto grid min-h-[100svh] max-w-7xl gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+        <div className="reviewintel-home-hero-grid relative mx-auto grid min-h-[calc(100svh-112px)] max-w-7xl gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
           <div>
             <HomepageHeroCopy initialLocale={locale} />
 
