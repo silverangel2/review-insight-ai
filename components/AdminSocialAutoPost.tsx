@@ -609,6 +609,36 @@ export default function AdminSocialAutoPost() {
     }
   }
 
+  async function deleteMedia(item: SocialMedia) {
+    const confirmed = window.confirm(`Delete this media item?\n\n${item.title || item.file_url}`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    setStatus("Deleting media item...");
+
+    try {
+      const response = await fetch("/api/admin/social-media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete-media", id: item.id }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Could not delete media item.");
+        return;
+      }
+
+      setMedia(Array.isArray(data.media) ? data.media : media.filter((entry) => entry.id !== item.id));
+      setStatus("Media item deleted.");
+    } catch {
+      setStatus("Could not delete media item.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function deletePost(id: string) {
     const confirmed = window.confirm("Delete this social post history item?");
     if (!confirmed) return;
@@ -756,7 +786,7 @@ export default function AdminSocialAutoPost() {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
           Social auto-post
         </p>
@@ -768,7 +798,7 @@ export default function AdminSocialAutoPost() {
         </p>
       </div>
 
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
         <div className="grid gap-4 sm:grid-cols-3">
           <div className={`rounded-2xl border p-4 ${
             settings.full_auto_enabled
@@ -1088,7 +1118,7 @@ export default function AdminSocialAutoPost() {
         {connectorCard("TikTok", tiktokCheck)}
       </div>
 
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
             Social media library
@@ -1230,7 +1260,7 @@ export default function AdminSocialAutoPost() {
           type="button"
           onClick={addMedia}
           disabled={saving || !mediaForm.file_url.trim()}
-          className="mt-4 rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+          className="mt-4 rounded-2xl bg-gradient-to-r from-sky-600 to-teal-500 px-5 py-3 text-sm font-black text-white shadow-soft hover:from-sky-700 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-50 dark:from-sky-500 dark:to-teal-400 dark:text-white"
         >
           Add media to library
         </button>
@@ -1239,7 +1269,7 @@ export default function AdminSocialAutoPost() {
           {media.length ? media.map((item) => (
             <article key={item.id} className="rounded-2xl border border-line bg-mist p-3 dark:border-white/10 dark:bg-slate-900">
               <div className="flex gap-3">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white dark:bg-slate-800">
                   {item.media_type === "image" ? (
                     <img src={item.thumbnail_url || item.file_url} alt={item.alt_text || item.title || "Social media item"} className="h-full w-full object-cover" />
                   ) : (
@@ -1260,18 +1290,28 @@ export default function AdminSocialAutoPost() {
                   ) : null}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => toggleMediaActive(item)}
-                disabled={saving}
-                className={`mt-3 rounded-xl px-3 py-2 text-xs font-black ${
-                  item.is_active
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"
-                    : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                }`}
-              >
-                {item.is_active ? "Active" : "Paused"}
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleMediaActive(item)}
+                  disabled={saving}
+                  className={`rounded-xl px-3 py-2 text-xs font-black ${
+                    item.is_active
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200"
+                      : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  {item.is_active ? "Active" : "Paused"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteMedia(item)}
+                  disabled={saving}
+                  className="rounded-xl bg-red-100 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-200 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
+                >
+                  Delete
+                </button>
+              </div>
             </article>
           )) : (
             <p className="rounded-2xl bg-mist p-4 text-sm font-bold text-slate-500 dark:bg-slate-900 dark:text-slate-300">
@@ -1281,7 +1321,7 @@ export default function AdminSocialAutoPost() {
         </div>
       </div>
 
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">

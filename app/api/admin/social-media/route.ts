@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
-import { supabaseFetch, supabaseInsert, supabaseUpdate } from "@/lib/supabaseServer";
+import { supabaseDelete, supabaseFetch, supabaseInsert, supabaseUpdate } from "@/lib/supabaseServer";
 import { assertFacebookAccessibleUrl } from "@/lib/supabasePublicStorage";
 
 const allowedMediaTypes = new Set(["image", "video"]);
@@ -75,6 +75,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const action = String(body.action || "create");
+
+    if (action === "delete-media") {
+      const id = String(body.id || "").trim();
+
+      if (!id) {
+        return NextResponse.json({ ok: false, error: "Media ID is required." }, { status: 400 });
+      }
+
+      await supabaseDelete("admin_social_media", id);
+
+      const media = await supabaseFetch(
+        "admin_social_media?select=*&order=created_at.desc&limit=200"
+      );
+
+      return NextResponse.json({ ok: true, media: Array.isArray(media) ? media : [] });
+    }
 
     if (action === "toggle-active") {
       const id = String(body.id || "").trim();
