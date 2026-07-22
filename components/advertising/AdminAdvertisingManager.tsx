@@ -560,6 +560,18 @@ export function AdminAdvertisingManager() {
                       >
                         Mark paid
                       </button>
+                      <button
+                        type="button"
+                        disabled={busyId === ad.id}
+                        onClick={() => {
+                          if (window.confirm("Delete this advert/banner? This cannot be undone.")) {
+                            void runAction("delete", ad.id, "ad");
+                          }
+                        }}
+                        className="rounded-full border border-rose-300/40 px-4 py-2 text-sm font-bold text-rose-100 disabled:opacity-40"
+                      >
+                        Delete campaign
+                      </button>
                     </div>
                   </div>
                 </div>

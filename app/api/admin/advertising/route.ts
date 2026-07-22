@@ -5,7 +5,7 @@ import { saveAdCreative } from "@/lib/adCreativeUpload";
 import { supabaseFetch } from "@/lib/supabaseServer";
 
 type AdminAdvertisingBody = {
-  action?: "approve" | "reject" | "pause" | "activate" | "mark_paid" | "mark_unpaid" | "create_manual";
+  action?: "approve" | "reject" | "pause" | "activate" | "mark_paid" | "mark_unpaid" | "create_manual" | "delete" | "delete";
   applicationId?: string;
   adId?: string;
   sponsorName?: string;
@@ -323,7 +323,7 @@ export async function POST(request: Request): Promise<Response> {
       return NextResponse.json({ error: "Application ID or ad ID is required." }, { status: 400 });
     }
 
-    if ((action === "pause" || action === "activate") && !adId) {
+    if ((action === "pause" || action === "activate" || action === "delete") && !adId) {
       return NextResponse.json({ error: "Ad ID is required." }, { status: 400 });
     }
 
@@ -439,6 +439,17 @@ export async function POST(request: Request): Promise<Response> {
             status: action === "activate" ? "approved" : "paused",
             updated_at: new Date().toISOString(),
           }),
+        },
+      );
+
+      return NextResponse.json({ ok: response.ok });
+    }
+
+    if (action === "delete") {
+      const response = await supabaseFetch(
+        `/rest/v1/sponsor_ads?id=eq.${encodeURIComponent(adId)}`,
+        {
+          method: "DELETE",
         },
       );
 
