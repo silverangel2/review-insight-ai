@@ -92,6 +92,95 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, media: Array.isArray(media) ? media : [] });
     }
 
+    if (action === "clear-library") {
+      const media = await supabaseFetch(
+        "admin_social_media?select=*&order=created_at.desc&limit=500"
+      );
+
+      const rows = Array.isArray(media) ? media : [];
+      const rowsToDelete = rows.filter((item: Record<string, unknown>) => {
+        const usage =
+          item.platform_usage && typeof item.platform_usage === "object"
+            ? (item.platform_usage as Record<string, unknown>)
+            : item.platforms && typeof item.platforms === "object"
+              ? (item.platforms as Record<string, unknown>)
+              : {};
+
+        return !usage.facebook && !usage.tiktok && !usage.both;
+      });
+
+      for (const item of rowsToDelete) {
+        if (item?.id) {
+          await supabaseDelete("admin_social_media", String(item.id));
+        }
+      }
+
+      const refreshed = await supabaseFetch(
+        "admin_social_media?select=*&order=created_at.desc&limit=200"
+      );
+
+      return NextResponse.json({ ok: true, media: Array.isArray(refreshed) ? refreshed : [] });
+    }
+
+    if (action === "select-facebook" || action === "select-tiktok" || action === "select-both") {
+      const id = String(body.id || "").trim();
+
+      if (!id) {
+        return NextResponse.json({ ok: false, error: "Media ID is required." }, { status: 400 });
+      }
+
+      const platformUsage =
+        action === "select-facebook"
+          ? { facebook: true, tiktok: false, both: false, selected_at: new Date().toISOString() }
+          : action === "select-tiktok"
+            ? { facebook: false, tiktok: true, both: false, selected_at: new Date().toISOString() }
+            : { facebook: true, tiktok: true, both: true, selected_at: new Date().toISOString() };
+
+      await supabaseUpdate("admin_social_media", id, {
+        is_active: true,
+        platform_usage: platformUsage,
+      });
+
+      const media = await supabaseFetch(
+        "admin_social_media?select=*&order=created_at.desc&limit=200"
+      );
+
+      return NextResponse.json({ ok: true, media: Array.isArray(media) ? media : [] });
+    }
+
+    if (action === "replace-media") {
+      const id = String(body.id || "").trim();
+      const fileUrl = String(body.file_url || "").trim();
+      const thumbnailUrl = String(body.thumbnail_url || "").trim();
+      const title = String(body.title || "").trim();
+      const mediaType = String(body.media_type || "").trim();
+
+      if (!id || !fileUrl) {
+        return NextResponse.json(
+          { ok: false, error: "Media ID and replacement URL are required." },
+          { status: 400 }
+        );
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        file_url: fileUrl,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (thumbnailUrl) updatePayload.thumbnail_url = thumbnailUrl;
+      if (title) updatePayload.title = title;
+      if (mediaType) updatePayload.media_type = mediaType;
+
+      await supabaseUpdate("admin_social_media", id, updatePayload);
+
+      const media = await supabaseFetch(
+        "admin_social_media?select=*&order=created_at.desc&limit=200"
+      );
+
+      return NextResponse.json({ ok: true, media: Array.isArray(media) ? media : [] });
+    }
+
     if (action === "toggle-active") {
       const id = String(body.id || "").trim();
 

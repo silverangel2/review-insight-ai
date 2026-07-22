@@ -639,6 +639,108 @@ export default function AdminSocialAutoPost() {
     }
   }
 
+  async function selectMediaForPlatform(item: SocialMedia, platform: "facebook" | "tiktok" | "both") {
+    setSaving(true);
+    setStatus(`Selecting media for ${platform === "both" ? "Facebook and TikTok" : platform}...`);
+
+    try {
+      const response = await fetch("/api/admin/social-media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: `select-${platform}`, id: item.id }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Could not select media.");
+        return;
+      }
+
+      setMedia(Array.isArray(data.media) ? data.media : media);
+      setStatus(
+        platform === "both"
+          ? "Media selected for Facebook and TikTok."
+          : `Media selected for ${platform}.`
+      );
+    } catch {
+      setStatus("Could not select media.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function replaceMedia(item: SocialMedia) {
+    const fileUrl = window.prompt("Paste the replacement photo/video URL:", item.file_url || "");
+    if (!fileUrl) return;
+
+    const title = window.prompt("Optional title for this media:", item.title || "") || item.title || "";
+    const guessedType = fileUrl.match(/\.(mp4|mov|webm)(\?|$)/i) ? "video" : "image";
+
+    setSaving(true);
+    setStatus("Replacing media item...");
+
+    try {
+      const response = await fetch("/api/admin/social-media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "replace-media",
+          id: item.id,
+          file_url: fileUrl,
+          title,
+          media_type: item.media_type || guessedType,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Could not replace media.");
+        return;
+      }
+
+      setMedia(Array.isArray(data.media) ? data.media : media);
+      setStatus("Media item replaced.");
+    } catch {
+      setStatus("Could not replace media.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function clearOldLibrary() {
+    const confirmed = window.confirm(
+      "Clear old unselected media from the library?\n\nSelected Facebook/TikTok media will be kept."
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setStatus("Clearing old media library items...");
+
+    try {
+      const response = await fetch("/api/admin/social-media", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear-library" }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || "Could not clear old media.");
+        return;
+      }
+
+      setMedia(Array.isArray(data.media) ? data.media : []);
+      setStatus("Old unselected media cleared.");
+    } catch {
+      setStatus("Could not clear old media.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function deletePost(id: string) {
     const confirmed = window.confirm("Delete this social post history item?");
     if (!confirmed) return;
@@ -1120,9 +1222,19 @@ export default function AdminSocialAutoPost() {
 
       <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
             Social media library
           </p>
+              <button
+                type="button"
+                onClick={clearOldLibrary}
+                disabled={saving || media.length === 0}
+                className="rounded-xl bg-red-100 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
+              >
+                Clear old library
+              </button>
+            </div>
           <h2 className="mt-1 text-xl font-black text-ink dark:text-white">
             Photos/videos for the 100-day queue
           </h2>
@@ -1302,6 +1414,38 @@ export default function AdminSocialAutoPost() {
                   }`}
                 >
                   {item.is_active ? "Active" : "Paused"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectMediaForPlatform(item, "facebook")}
+                  disabled={saving}
+                  className="rounded-xl bg-blue-100 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-200 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20"
+                >
+                  Use for Facebook
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectMediaForPlatform(item, "tiktok")}
+                  disabled={saving}
+                  className="rounded-xl bg-pink-100 px-3 py-2 text-xs font-black text-pink-700 hover:bg-pink-200 dark:bg-pink-500/10 dark:text-pink-200 dark:hover:bg-pink-500/20"
+                >
+                  Use for TikTok
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectMediaForPlatform(item, "both")}
+                  disabled={saving}
+                  className="rounded-xl bg-violet-100 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-200 dark:bg-violet-500/10 dark:text-violet-200 dark:hover:bg-violet-500/20"
+                >
+                  Use for Both
+                </button>
+                <button
+                  type="button"
+                  onClick={() => replaceMedia(item)}
+                  disabled={saving}
+                  className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20"
+                >
+                  Replace URL
                 </button>
                 <button
                   type="button"
