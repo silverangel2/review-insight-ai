@@ -152,13 +152,53 @@ export default async function LandingPage() {
             animation-delay: -3.5s;
           }
           @media (max-width: 640px) {
+            html:has(.reviewintel-home-main),
+            html:has(.reviewintel-home-main) body {
+              scroll-behavior: smooth;
+              scroll-snap-type: y mandatory;
+            }
+            html:has(.reviewintel-home-main) body {
+              overscroll-behavior-y: contain;
+            }
             .reviewintel-home-main {
               touch-action: pan-y;
               overflow-x: hidden;
             }
+            .reviewintel-home-main > section,
+            .reviewintel-home-main > .home-premium-featured-reviews,
+            .reviewintel-home-main > .home-premium-ad-section {
+              scroll-snap-align: start;
+              scroll-snap-stop: always;
+            }
+            .reviewintel-home-main > .home-premium-featured-reviews,
+            .reviewintel-home-main > .home-premium-ad-section {
+              min-height: 100svh;
+              display: grid;
+              align-content: center;
+            }
+            .reviewintel-home-main > .home-premium-featured-reviews {
+              background: #ffffff;
+            }
             .reviewintel-home-hero {
               min-height: calc(100svh - 112px) !important;
               overflow: hidden !important;
+            }
+            .reviewintel-home-hero::before {
+              content: "";
+              position: absolute;
+              inset: -5.5rem -5rem auto -5rem;
+              height: min(58svh, 31rem);
+              pointer-events: none;
+              background:
+                linear-gradient(112deg, rgba(255, 118, 164, .26) 0%, rgba(255, 210, 92, .24) 22%, rgba(82, 220, 139, .22) 42%, rgba(82, 196, 255, .27) 64%, rgba(178, 129, 255, .24) 82%, transparent 100%),
+                radial-gradient(circle at 15% 18%, rgba(255, 118, 164, .42), transparent 34%),
+                radial-gradient(circle at 36% 9%, rgba(255, 202, 89, .38), transparent 32%),
+                radial-gradient(circle at 58% 12%, rgba(85, 216, 135, .34), transparent 30%),
+                radial-gradient(circle at 78% 18%, rgba(93, 192, 255, .42), transparent 34%),
+                radial-gradient(circle at 91% 4%, rgba(178, 129, 255, .36), transparent 32%);
+              filter: blur(13px) saturate(1.1);
+              opacity: .92;
+              transform: translateZ(0);
             }
             .reviewintel-home-hero-grid {
               min-height: calc(100svh - 112px) !important;
@@ -191,13 +231,14 @@ export default async function LandingPage() {
               margin-left: auto !important;
               margin-right: auto !important;
             }
+            .reviewintel-home-hero .ri-hero-mobile-copy-stack,
             html[data-layout-mode="mobile"] .reviewintel-home-hero .ri-hero-mobile-copy-stack,
             html[data-layout-mode="auto"] .reviewintel-home-hero .ri-hero-mobile-copy-stack {
-              width: min(100%, 22rem) !important;
-              max-width: 22rem !important;
-              min-height: 6.15rem !important;
-              font-size: clamp(2.35rem, 10vw, 3rem) !important;
-              line-height: .94 !important;
+              width: min(100%, 20.25rem) !important;
+              max-width: 20.25rem !important;
+              min-height: 5.45rem !important;
+              font-size: clamp(1.95rem, 8.05vw, 2.32rem) !important;
+              line-height: 1.02 !important;
               letter-spacing: 0 !important;
               margin-left: auto !important;
               margin-right: auto !important;
@@ -208,6 +249,7 @@ export default async function LandingPage() {
               left: 0 !important;
               right: 0 !important;
               width: 100% !important;
+              max-width: 100% !important;
               text-align: center !important;
             }
             .reviewintel-home-hero .sm\\:hidden > p {
@@ -338,9 +380,14 @@ export default async function LandingPage() {
               scroll-snap-align: center !important;
             }
             .home-premium-mode {
-              min-height: auto !important;
+              min-height: 100svh !important;
               display: grid !important;
               align-content: center !important;
+            }
+            .home-premium-ad-section {
+              width: 100% !important;
+              padding-top: 1.25rem !important;
+              padding-bottom: 1.25rem !important;
             }
             .home-premium-audience-card,
             .home-premium-mode-card,
