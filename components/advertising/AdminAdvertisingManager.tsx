@@ -491,9 +491,9 @@ export function AdminAdvertisingManager() {
       </section>
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-        <h2 className="text-2xl font-black">Live and scheduled sponsor campaigns</h2>
+        <h2 className="text-2xl font-black">Ongoing advert loop</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Paid + approved campaigns rotate automatically in their placement. Paused campaigns are never shown.
+          Only active, approved, paid adverts enter the 10-second loop. Use the switch on each banner to turn it on or off.
         </p>
 
         <div className="mt-5 grid gap-4">
@@ -504,6 +504,7 @@ export function AdminAdvertisingManager() {
           ) : (
             ads.map((ad) => {
               const creativeUrl = ad.creative_url || ad.image_url;
+              const inLoop = ad.active && ad.status === "approved" && ad.payment_status === "paid";
 
               return (
                 <div key={ad.id} className="rounded-2xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500/70 p-5">
@@ -514,10 +515,13 @@ export function AdminAdvertisingManager() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap gap-2">
                           <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${statusTone(ad.status)}`}>
-                            {ad.active ? "Live now" : "Paused"}
+                            {inLoop ? "In 10-sec loop" : ad.active ? "On but not looping" : "Off loop"}
                           </span>
                           <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${statusTone(ad.payment_status)}`}>
                             {paymentLabel(ad.payment_status)}
+                          </span>
+                          <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${inLoop ? "border-emerald-300/40 bg-emerald-300/15 text-emerald-100" : "border-rose-300/40 bg-rose-300/10 text-rose-100"}`}>
+                            Loop: {inLoop ? "ON" : "OFF"}
                           </span>
                         </div>
                         <p className="mt-3 text-sm font-semibold text-cyan-100">{ad.sponsor_name}</p>
@@ -525,6 +529,7 @@ export function AdminAdvertisingManager() {
                         <p className="mt-2 text-sm text-slate-300">{ad.description}</p>
                         <div className="mt-3 grid gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500 sm:grid-cols-2">
                           <span>Placement: {ad.placement}</span>
+                          <span>Loop: {inLoop ? "ON" : "OFF"}</span>
                           <span>Package: {ad.package_name || "Sponsor campaign"}</span>
                           <span>Impressions: {ad.impressions ?? 0}</span>
                           <span>Clicks: {ad.clicks ?? 0}</span>
@@ -548,9 +553,9 @@ export function AdminAdvertisingManager() {
                         type="button"
                         disabled={busyId === ad.id}
                         onClick={() => void runAction(ad.active ? "pause" : "activate", ad.id, "ad")}
-                        className="rounded-full border border-cyan-300/30 px-4 py-2 text-sm font-bold text-cyan-100 disabled:opacity-40"
+                        className={`rounded-full px-4 py-2 text-sm font-black disabled:opacity-40 ${ad.active ? "bg-rose-300 text-slate-950" : "bg-emerald-300 text-slate-950"}`}
                       >
-                        {ad.active ? "Pause campaign" : "Activate campaign"}
+                        {ad.active ? "Turn off loop" : "Turn on loop"}
                       </button>
                       <button
                         type="button"
