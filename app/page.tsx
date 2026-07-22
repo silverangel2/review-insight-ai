@@ -397,7 +397,7 @@ export default async function LandingPage() {
           }
         `}</style>
 
-        <div className="reviewintel-home-hero-grid relative isolate mx-auto grid min-h-[calc(100svh-112px)] max-w-7xl snap-start snap-always overflow-hidden gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:overflow-visible sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+        <div className="reviewintel-home-hero-grid relative isolate mx-auto grid h-[100svh] min-h-[100svh] max-w-7xl snap-start snap-always overflow-hidden gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:overflow-visible sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
           <div className="home-mobile-rainbow-light pointer-events-none absolute inset-0 -z-10 sm:hidden" aria-hidden="true" />
           <div>
             <HomepageHeroCopy initialLocale={locale} />
@@ -475,7 +475,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-mobile-carousel-section grid min-h-[100svh] snap-start snap-always content-center overflow-hidden bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
+      <section className="home-mobile-carousel-section grid h-[100svh] min-h-[100svh] snap-start snap-always content-center overflow-hidden bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
         <div className="home-mobile-carousel-shell grid w-full justify-items-center text-center">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 max-w-sm text-4xl font-black leading-tight tracking-normal">
@@ -510,7 +510,7 @@ export default async function LandingPage() {
 
       <PlatformLogoOrbit initialLocale={locale} />
 
-      <section className="home-premium-payoff min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
+      <section className="home-premium-payoff h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
             <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
@@ -525,7 +525,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-premium-audience min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10">
+      <section className="home-premium-audience h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10">
         <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
           <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
             <Badge tone="good">{t("shopperMode")}</Badge>
@@ -573,7 +573,7 @@ export default async function LandingPage() {
       </section>
       <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
 
-      <section className="home-mobile-advert-loop min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#f8fbff_100%)] px-5 py-8 text-ink sm:hidden">
+      <section className="home-mobile-advert-loop h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#f8fbff_100%)] px-5 py-8 text-ink sm:hidden">
         <div className="mx-auto flex h-full max-w-md flex-col justify-center">
           <div className="mb-4">
             <p className="text-xs font-black uppercase tracking-[0.28em] text-ocean">Sponsored</p>
