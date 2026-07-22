@@ -158,7 +158,7 @@ function travelpayoutsAffiliateUrl() {
   return url.toString();
 }
 
-function isConsumerHotelUrl(value?: string | null) {
+function isTravelerSafeStay22Url(value?: string | null) {
   const safe = safeExternalUrl(value);
   if (!safe) return false;
 
@@ -166,26 +166,12 @@ function isConsumerHotelUrl(value?: string | null) {
     const url = new URL(safe);
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
     const path = url.pathname.toLowerCase();
-    const consumerHotelHosts = [
-      "booking.com",
-      "hotels.com",
-      "expedia.com",
-      "agoda.com",
-      "priceline.com",
-      "kayak.com",
-      "trivago.com",
-      "hotelscombined.com",
-      "travelocity.com",
-      "orbitz.com",
-      "trip.com",
-      "vrbo.com",
-      "hoteltonight.com",
-    ];
 
-    if (host === "stay22.com" || host.endsWith(".stay22.com")) return false;
+    if (host === "app.stay22.com") return false;
+    if (host !== "stay22.com" && !host.endsWith(".stay22.com")) return false;
     if (/\b(app|admin|partner|partners|dashboard|login|signin|sign-in|account)\b/.test(host)) return false;
     if (/\/(?:app|admin|partner|partners|dashboard|login|signin|sign-in|account)(?:\/|$)/i.test(path)) return false;
-    return consumerHotelHosts.some((allowedHost) => host === allowedHost || host.endsWith(`.${allowedHost}`));
+    return true;
   } catch {
     return false;
   }
@@ -194,22 +180,23 @@ function isConsumerHotelUrl(value?: string | null) {
 function stay22AffiliateUrl() {
   const explicit = envValue([
     "REVIEWINTEL_STAY22_AFFILIATE_URL",
-    "REVIEWINTEL_STAY22_HOTEL_AFFILIATE_URL",
-    "REVIEWINTEL_STAY22_HOTEL_URL",
     "REVIEWINTEL_STAY22_SMART_LINK_URL",
     "STAY22_AFFILIATE_URL",
-    "STAY22_HOTEL_AFFILIATE_URL",
-    "STAY22_HOTEL_URL",
     "NEXT_PUBLIC_REVIEWINTEL_STAY22_AFFILIATE_URL",
-    "NEXT_PUBLIC_REVIEWINTEL_STAY22_HOTEL_AFFILIATE_URL",
-    "NEXT_PUBLIC_REVIEWINTEL_STAY22_HOTEL_URL",
     "NEXT_PUBLIC_STAY22_AFFILIATE_URL",
     "ROAMLY_STAY22_SMART_LINK_URL",
     "ROAMLY_STAY22_REFERRAL_URL",
   ]);
-  if (isConsumerHotelUrl(explicit)) return safeExternalUrl(explicit);
+  if (isTravelerSafeStay22Url(explicit)) return safeExternalUrl(explicit);
 
-  return "";
+  const partnerId = envValue([
+    "REVIEWINTEL_STAY22_PARTNER_ID",
+    "STAY22_PARTNER_ID",
+    "ROAMLY_STAY22_PARTNER_ID",
+  ]);
+  const url = new URL("https://www.stay22.com/");
+  if (partnerId) url.searchParams.set("aid", partnerId);
+  return url.toString();
 }
 
 function bannerUrl(partner: AffiliatePartner) {
@@ -224,74 +211,47 @@ function bannerUrl(partner: AffiliatePartner) {
 }
 
 function builtInCampaigns(): AffiliateAdCampaign[] {
-  const amazonUrl = amazonAffiliateUrl();
-  const travelpayoutsUrl = travelpayoutsAffiliateUrl();
-  const stay22Url = stay22AffiliateUrl();
-  const amazonEnabled = isEnabled(envValue(["REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED"]));
-  const travelpayoutsEnabled = isEnabled(envValue(["REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED"]));
-  const stay22Enabled = Boolean(stay22Url) && isEnabled(envValue(["REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED"]));
-
   return [
     {
       id: "reviewintel-affiliate-amazon-shopping",
       title: "Amazon sponsored shopping options",
       partner: "amazon",
-      affiliateUrl: amazonUrl,
+      affiliateUrl: amazonAffiliateUrl(),
       imageUrl: bannerUrl("amazon"),
       placement: "homepage_mid",
-      status: amazonEnabled ? "active" : "paused",
+      status: isEnabled(envValue(["REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED"]))
+        ? "active"
+        : "paused",
       disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
       headline: "Sponsored shopping options on Amazon",
       description: "Compare shopping options after your ReviewIntel scan. Partner compensation stays separate from review analysis.",
       ctaLabel: "Shop Amazon",
     },
     {
-      id: "reviewintel-affiliate-travelpayouts-homepage-flights",
-      title: "Travelpayouts sponsored flight deals",
-      partner: "travelpayouts",
-      affiliateUrl: travelpayoutsUrl,
-      imageUrl: bannerUrl("travelpayouts"),
-      placement: "homepage_mid",
-      status: travelpayoutsEnabled ? "active" : "paused",
-      disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
-      headline: "Sponsored flight deals",
-      description: "Travelpayouts partner placement for shoppers comparing travel purchases and reviews.",
-      ctaLabel: "Compare flights",
-    },
-    {
       id: "reviewintel-affiliate-travelpayouts-flights",
       title: "Travelpayouts sponsored flight deals",
       partner: "travelpayouts",
-      affiliateUrl: travelpayoutsUrl,
+      affiliateUrl: travelpayoutsAffiliateUrl(),
       imageUrl: bannerUrl("travelpayouts"),
       placement: "analyze_premium_top",
-      status: travelpayoutsEnabled ? "active" : "paused",
+      status: isEnabled(envValue(["REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED"]))
+        ? "active"
+        : "paused",
       disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
       headline: "Sponsored flight deals",
       description: "Travelpayouts partner placement for shoppers comparing travel purchases and reviews.",
       ctaLabel: "Compare flights",
-    },
-    {
-      id: "reviewintel-affiliate-stay22-homepage-hotels",
-      title: "Stay22 sponsored hotel deals",
-      partner: "stay22",
-      affiliateUrl: stay22Url,
-      imageUrl: bannerUrl("stay22"),
-      placement: "homepage_mid",
-      status: stay22Enabled ? "active" : "paused",
-      disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
-      headline: "Sponsored hotel deals",
-      description: "Stay22 partner placement for hotel options. ReviewIntel analysis remains independent.",
-      ctaLabel: "Find hotels",
     },
     {
       id: "reviewintel-affiliate-stay22-hotels",
       title: "Stay22 sponsored hotel deals",
       partner: "stay22",
-      affiliateUrl: stay22Url,
+      affiliateUrl: stay22AffiliateUrl(),
       imageUrl: bannerUrl("stay22"),
       placement: "footer",
-      status: stay22Enabled ? "active" : "paused",
+      status: isEnabled(envValue(["REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED"]))
+        ? "active"
+        : "paused",
       disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
       headline: "Sponsored hotel deals",
       description: "Stay22 partner placement for hotel options. ReviewIntel analysis remains independent.",

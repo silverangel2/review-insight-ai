@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   type AdPlacement,
   type SponsorAd,
@@ -59,14 +59,22 @@ function sendAdEvent(type: "impression" | "click", sponsorId: string, placement:
   });
 }
 
-function eligibleAdsForPlacement(ads: SponsorAd[], placement: AdPlacement) {
-  return ads.filter(
+function hourlySeed(placement: string) {
+  const hour = Math.floor(Date.now() / (60 * 60 * 1000));
+  return placement.split("").reduce((total, char) => total + char.charCodeAt(0), hour);
+}
+
+function pickRotatingAd(ads: SponsorAd[], placement: AdPlacement) {
+  const candidates = ads.filter(
     (item) =>
       item.placement === placement &&
       item.active &&
       item.status === "approved" &&
       item.paymentStatus === "paid",
   );
+
+  if (!candidates.length) return null;
+  return candidates[hourlySeed(placement) % candidates.length] ?? candidates[0];
 }
 
 function affiliateEventMetadata(ad: SponsorAd, placement: AdPlacement) {
@@ -147,13 +155,6 @@ function AffiliateFallbackBanner({ ad }: { ad: SponsorAd }) {
   );
 }
 
-function affiliatePosterUrl(ad: SponsorAd) {
-  if (ad.affiliatePartner === "amazon") return "/affiliate-amazon-poster.svg";
-  if (ad.affiliatePartner === "travelpayouts") return "/affiliate-travelpayouts-poster.svg";
-  if (ad.affiliatePartner === "stay22") return "/affiliate-stay22-poster.svg";
-  return "/affiliate-custom-poster.svg";
-}
-
 function affiliateDisplayCopy(ad: SponsorAd) {
   const tone = affiliateBannerTone(ad);
 
@@ -187,39 +188,6 @@ function affiliateDisplayCopy(ad: SponsorAd) {
     headline: ad.campaignTitle || "Sponsored affiliate offer",
     description: "Sponsored affiliate placement on ReviewIntel.",
   };
-}
-
-function AdDestinationLink({
-  ad,
-  className,
-  onClick,
-  children,
-}: {
-  ad: SponsorAd;
-  className: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  if (isExternalUrl(ad.destinationUrl)) {
-    return (
-      <a
-        href={ad.destinationUrl}
-        target="_blank"
-        rel="noopener noreferrer sponsored"
-        className={className}
-        data-sponsor-click={ad.id}
-        onClick={onClick}
-      >
-        {children}
-      </a>
-    );
-  }
-
-  return (
-    <Link href={ad.destinationUrl} className={className} data-sponsor-click={ad.id} onClick={onClick}>
-      {children}
-    </Link>
-  );
 }
 
 function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
@@ -286,9 +254,8 @@ function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
 
 export function AdSlot({ placement, className = "", compact = false }: AdSlotProps) {
   const [settings, setSettings] = useState<LiveAdSettings | null>(null);
-  const [adPool, setAdPool] = useState<SponsorAd[]>([]);
+  const [ad, setAd] = useState<SponsorAd | null>(null);
   const [adSource, setAdSource] = useState<AdSource | null>(null);
-  const [rotationIndex, setRotationIndex] = useState(0);
   const [googleConsent, setGoogleConsent] = useState(false);
 
   useEffect(() => {
@@ -305,43 +272,39 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         setSettings(liveSettings);
 
         if (!liveSettings.adsEnabled || !liveSettings.placements?.[placement]) {
-          setAdPool([]);
+          setAd(null);
           setAdSource(null);
-          setRotationIndex(0);
           return;
         }
 
         const sponsorAds = Array.isArray(data.ads) ? (data.ads as SponsorAd[]) : [];
         const directSponsorAds = sponsorAds.filter((item) => item.sponsorType !== "affiliate");
         const affiliateAds = sponsorAds.filter((item) => item.sponsorType === "affiliate");
-        const directSponsorCandidates =
+        const directSponsorAd =
           liveSettings.directSponsorAdsEnabled
-            ? eligibleAdsForPlacement(directSponsorAds, placement)
-            : [];
+            ? pickRotatingAd(directSponsorAds, placement)
+            : null;
 
-        if (directSponsorCandidates.length) {
-          setAdPool(directSponsorCandidates);
+        if (directSponsorAd) {
+          setAd(directSponsorAd);
           setAdSource("direct");
-          setRotationIndex(0);
           return;
         }
 
-        const affiliateCandidates =
+        const affiliateAd =
           liveSettings.directSponsorAdsEnabled
-            ? eligibleAdsForPlacement(affiliateAds, placement)
-            : [];
+            ? pickRotatingAd(affiliateAds, placement)
+            : null;
 
-        if (affiliateCandidates.length) {
-          setAdPool(affiliateCandidates);
+        if (affiliateAd) {
+          setAd(affiliateAd);
           setAdSource("affiliate");
-          setRotationIndex(0);
           return;
         }
 
         if (liveSettings.googleAdsEnabled && hasGoogleAdSenseConfig()) {
-          setAdPool([]);
+          setAd(null);
           setAdSource(null);
-          setRotationIndex(0);
           return;
         }
 
@@ -354,21 +317,18 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
                 item.status === "approved",
             ) ?? null;
 
-          setAdPool(placeholder ? [placeholder] : []);
+          setAd(placeholder);
           setAdSource(placeholder ? "placeholder" : null);
-          setRotationIndex(0);
           return;
         }
 
-        setAdPool([]);
+        setAd(null);
         setAdSource(null);
-        setRotationIndex(0);
       } catch {
         if (mounted) {
           setSettings(null);
-          setAdPool([]);
+          setAd(null);
           setAdSource(null);
-          setRotationIndex(0);
         }
       }
     }
@@ -379,16 +339,6 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       mounted = false;
     };
   }, [placement]);
-
-  useEffect(() => {
-    if (adPool.length <= 1) return;
-
-    const timer = window.setInterval(() => {
-      setRotationIndex((current) => (current + 1) % adPool.length);
-    }, 10000);
-
-    return () => window.clearInterval(timer);
-  }, [adPool.length]);
 
   useEffect(() => {
     setGoogleConsent(hasOptionalCookieConsent());
@@ -402,16 +352,15 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   }, []);
 
   useEffect(() => {
-    const visibleAd = adPool[rotationIndex % adPool.length];
-    if (!visibleAd) return;
-    if (adSource === "direct") sendAdEvent("impression", visibleAd.id, placement);
+    if (!ad) return;
+    if (adSource === "direct") sendAdEvent("impression", ad.id, placement);
     if (adSource === "affiliate") {
       trackTrafficEvent({
         eventType: "affiliate_impression",
-        metadata: affiliateEventMetadata(visibleAd, placement),
+        metadata: affiliateEventMetadata(ad, placement),
       });
     }
-  }, [adPool, adSource, placement, rotationIndex]);
+  }, [ad, adSource, placement]);
 
   const effectiveSettings: LiveAdSettings = settings ?? {
     ...defaultAdSettings,
@@ -430,7 +379,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
     hasGoogleAdSenseConfig() &&
     googleConsent;
 
-  if (!adPool.length && googleReady) {
+  if (!ad && googleReady) {
     return <GoogleAdSenseBlock className={className} />;
   }
 
@@ -446,8 +395,8 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         ) ?? null
       : null;
 
-  const visibleAd = adPool[rotationIndex % adPool.length] ?? fallbackAd;
-  const visibleAdSource = adPool.length ? adSource : fallbackAd ? "placeholder" : null;
+  const visibleAd = ad ?? fallbackAd;
+  const visibleAdSource = ad ? adSource : fallbackAd ? "placeholder" : null;
 
   if (!visibleAd) return null;
 
@@ -465,7 +414,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   const displayDescription = partnerCopy?.description || visibleAd.description;
   const ctaClassName =
     "inline-flex shrink-0 items-center justify-center rounded-full bg-ocean px-5 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200";
-  const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl || (isAffiliateAd ? affiliatePosterUrl(visibleAd) : "");
+  const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl;
   const media = mediaUrl ? (
     visibleAd.mediaType === "video" ? (
       <video
@@ -499,60 +448,6 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       });
     }
   };
-
-  if (isAffiliateAd) {
-    return (
-      <aside
-        className={`rounded-[2rem] border border-cyan-200/70 bg-white/85 p-3 text-ink shadow-soft backdrop-blur-xl dark:border-cyan-300/25 dark:bg-gradient-to-r from-sky-600 to-teal-500/80 dark:text-white ${className}`}
-        aria-label="Sponsored placement"
-        data-ri-no-translate
-      >
-        <AdDestinationLink
-          ad={visibleAd}
-          className="group block overflow-hidden rounded-[1.6rem] focus:outline-none focus:ring-4 focus:ring-ocean/25"
-          onClick={trackClick}
-        >
-          <div className="relative min-h-[22rem] overflow-hidden rounded-[1.6rem] bg-[linear-gradient(135deg,#e8fcff,#fff7df)] sm:min-h-[15rem]">
-            {mediaUrl ? (
-              <img
-                src={mediaUrl}
-                alt={`${displayHeadline} advertisement`}
-                loading="lazy"
-                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.015]"
-              />
-            ) : (
-              <AffiliateFallbackBanner ad={visibleAd} />
-            )}
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,17,31,0.02)_0%,rgba(6,17,31,0.08)_45%,rgba(6,17,31,0.68)_100%)]" />
-            <div className="absolute inset-x-4 bottom-4 z-10 rounded-[1.25rem] border border-white/45 bg-white/88 p-4 shadow-[0_18px_50px_rgba(12,36,68,0.22)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:w-[min(28rem,55%)]">
-              <div className="flex flex-wrap gap-2">
-                {badgeLabels.map((label) => (
-                  <span
-                    key={label}
-                    className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-ocean"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-              <p className="mt-3 text-sm font-black text-ocean">{displaySponsorName}</p>
-              <h3 className="mt-1 text-xl font-black leading-tight text-ink">{displayHeadline}</h3>
-              <p className="mt-2 text-sm font-semibold leading-5 text-slate-600">{displayDescription}</p>
-              {visibleAd.disclosureText ? (
-                <p className="mt-2 text-[11px] font-semibold leading-4 text-slate-500">
-                  {visibleAd.disclosureText}
-                </p>
-              ) : null}
-              <span className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-ocean px-5 py-3 text-sm font-black text-white transition group-hover:bg-cyan-700 sm:w-auto">
-                {ctaLabel}
-              </span>
-            </div>
-          </div>
-        </AdDestinationLink>
-      </aside>
-    );
-  }
-
   const cta = isExternalUrl(visibleAd.destinationUrl) ? (
     <a
       href={visibleAd.destinationUrl}
