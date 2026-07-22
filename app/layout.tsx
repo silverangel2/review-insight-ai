@@ -54,7 +54,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang={locale} data-scroll-behavior="smooth">
-<body>
+      <head>
+        <script
+          id="reviewintel-google-adsense"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5711144364755686"
+          crossOrigin="anonymous"
+        />
+      </head>
+      <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
         <LocaleSync initialLocale={locale} />
         <ClientTextLocalizer />

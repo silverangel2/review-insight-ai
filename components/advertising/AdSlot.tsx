@@ -9,6 +9,7 @@ import {
   reviewIntelPlaceholderAds,
 } from "@/lib/adConfig";
 import { COOKIE_CONSENT_EVENT, hasOptionalCookieConsent } from "@/lib/cookieConsent";
+import { trackTrafficEvent } from "@/lib/clientTraffic";
 import type { LiveAdSettings } from "@/lib/adSettingsStore";
 
 declare global {
@@ -23,7 +24,7 @@ type AdSlotProps = {
   compact?: boolean;
 };
 
-type AdSource = "direct" | "placeholder";
+type AdSource = "direct" | "affiliate" | "placeholder";
 
 function isExternalUrl(url: string): boolean {
   return /^https?:\/\//i.test(url);
@@ -74,6 +75,16 @@ function pickRotatingAd(ads: SponsorAd[], placement: AdPlacement) {
 
   if (!candidates.length) return null;
   return candidates[hourlySeed(placement) % candidates.length] ?? candidates[0];
+}
+
+function affiliateEventMetadata(ad: SponsorAd, placement: AdPlacement) {
+  return {
+    source: "affiliate_ad_slot",
+    sponsorId: ad.id,
+    campaignTitle: ad.campaignTitle || ad.headline,
+    partner: ad.affiliatePartner || ad.sponsorName,
+    placement,
+  };
 }
 
 function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
@@ -164,14 +175,27 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         }
 
         const sponsorAds = Array.isArray(data.ads) ? (data.ads as SponsorAd[]) : [];
+        const directSponsorAds = sponsorAds.filter((item) => item.sponsorType !== "affiliate");
+        const affiliateAds = sponsorAds.filter((item) => item.sponsorType === "affiliate");
         const directSponsorAd =
           liveSettings.directSponsorAdsEnabled
-            ? pickRotatingAd(sponsorAds, placement)
+            ? pickRotatingAd(directSponsorAds, placement)
             : null;
 
         if (directSponsorAd) {
           setAd(directSponsorAd);
           setAdSource("direct");
+          return;
+        }
+
+        const affiliateAd =
+          liveSettings.directSponsorAdsEnabled
+            ? pickRotatingAd(affiliateAds, placement)
+            : null;
+
+        if (affiliateAd) {
+          setAd(affiliateAd);
+          setAdSource("affiliate");
           return;
         }
 
@@ -225,8 +249,14 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   }, []);
 
   useEffect(() => {
-    if (!ad || adSource !== "direct") return;
-    sendAdEvent("impression", ad.id, placement);
+    if (!ad) return;
+    if (adSource === "direct") sendAdEvent("impression", ad.id, placement);
+    if (adSource === "affiliate") {
+      trackTrafficEvent({
+        eventType: "affiliate_impression",
+        metadata: affiliateEventMetadata(ad, placement),
+      });
+    }
   }, [ad, adSource, placement]);
 
   const effectiveSettings: LiveAdSettings = settings ?? {
@@ -268,10 +298,15 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   if (!visibleAd) return null;
 
   const isHouseAd = visibleAdSource === "placeholder";
-  const ctaLabel = isHouseAd ? "Advertise with ReviewIntel" : visibleAdSource === "direct" ? "Learn more" : "Apply for ads";
-  const badgeLabel = isHouseAd ? "ReviewIntel ad spot" : "Sponsored";
+  const isAffiliateAd = visibleAdSource === "affiliate" || visibleAd.sponsorType === "affiliate";
+  const ctaLabel =
+    visibleAd.ctaLabel ||
+    (isHouseAd ? "Advertise with ReviewIntel" : isAffiliateAd ? "View offer" : visibleAdSource === "direct" ? "Learn more" : "Apply for ads");
+  const badgeLabels = visibleAd.labels?.length
+    ? visibleAd.labels
+    : [isHouseAd ? "ReviewIntel ad spot" : "Sponsored"];
   const ctaClassName =
-    "inline-flex shrink-0 items-center justify-center rounded-full bg-ink px-5 py-2 text-sm font-bold text-white transition hover:bg-ocean dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200";
+    "inline-flex shrink-0 items-center justify-center rounded-full bg-ocean px-5 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200";
   const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl;
   const media = mediaUrl ? (
     visibleAd.mediaType === "video" ? (
@@ -294,6 +329,15 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   ) : null;
   const trackClick = () => {
     if (visibleAdSource === "direct") sendAdEvent("click", visibleAd.id, placement);
+    if (isAffiliateAd) {
+      trackTrafficEvent({
+        eventType: "affiliate_click",
+        metadata: {
+          ...affiliateEventMetadata(visibleAd, placement),
+          destinationUrl: visibleAd.destinationUrl,
+        },
+      });
+    }
   };
   const cta = isExternalUrl(visibleAd.destinationUrl) ? (
     <a
@@ -322,8 +366,15 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
           {media}
 
           <div className="min-w-0">
-            <div className="mb-2 inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-ocean dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100">
-              {badgeLabel}
+            <div className="mb-2 flex flex-wrap gap-2">
+              {badgeLabels.map((label) => (
+                <span
+                  key={label}
+                  className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold tracking-[0.12em] text-ocean dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100"
+                >
+                  {label}
+                </span>
+              ))}
             </div>
 
             <p className="text-sm font-semibold text-ocean dark:text-cyan-100">{visibleAd.sponsorName}</p>
@@ -333,6 +384,11 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
             {visibleAd.description ? (
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {visibleAd.description}
+              </p>
+            ) : null}
+            {visibleAd.disclosureText ? (
+              <p className="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-500 dark:text-cyan-100/80">
+                {visibleAd.disclosureText}
               </p>
             ) : null}
           </div>

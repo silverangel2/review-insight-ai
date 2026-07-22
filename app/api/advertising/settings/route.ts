@@ -6,6 +6,7 @@ import {
   type AdMediaType,
   type SponsorAd,
 } from "@/lib/adConfig";
+import { getAffiliateAdCampaigns } from "@/lib/affiliateAds";
 import { readAdSettings, writeAdSettings } from "@/lib/adSettingsStore";
 import { supabaseSelect } from "@/lib/supabaseServer";
 
@@ -168,12 +169,16 @@ async function readTodayImpressionCounts(ids: string[]) {
 
 export async function GET(): Promise<Response> {
   const settings = await readAdSettings();
-  const ads =
+  const sponsorAds =
     settings.adsEnabled && settings.directSponsorAdsEnabled
       ? await readApprovedSponsorAds()
       : [];
+  const affiliateAds =
+    settings.adsEnabled && settings.directSponsorAdsEnabled
+      ? getAffiliateAdCampaigns(settings.placements)
+      : [];
 
-  return NextResponse.json({ settings, ads });
+  return NextResponse.json({ settings, ads: [...sponsorAds, ...affiliateAds] });
 }
 
 export async function PATCH(request: Request): Promise<Response> {

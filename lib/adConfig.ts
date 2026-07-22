@@ -13,10 +13,13 @@ export type AdvertiserApplicationStatus = "pending" | "approved" | "rejected" | 
 export type AdPaymentStatus = "unpaid" | "pending_review" | "paid" | "refunded";
 export type AdMediaType = "image" | "video";
 export type AdPackageId = "sponsored_monthly" | "featured_monthly";
+export type AdSourceType = "direct" | "affiliate" | "house";
+export type AffiliatePartner = "amazon" | "travelpayouts" | "stay22" | "custom";
 
 export type SponsorAd = {
   id: string;
   sponsorName: string;
+  campaignTitle?: string;
   headline: string;
   description: string;
   imageUrl?: string;
@@ -31,6 +34,11 @@ export type SponsorAd = {
   impressionsToday?: number;
   startsAt?: string;
   endsAt?: string;
+  sponsorType?: AdSourceType;
+  affiliatePartner?: AffiliatePartner;
+  labels?: string[];
+  disclosureText?: string;
+  ctaLabel?: string;
 };
 
 export type AdSettings = {

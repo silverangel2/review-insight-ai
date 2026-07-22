@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { readAccountSession } from "@/lib/accountSession";
 import { isSupabaseConfigured, supabaseInsert, supabaseSelect } from "@/lib/supabaseServer";
 
-type TrafficEventType = "page_view" | "affiliate_click" | "pricing_click" | "signup_intent";
+type TrafficEventType = "page_view" | "affiliate_impression" | "affiliate_click" | "pricing_click" | "signup_intent";
 
 type TrafficEventBody = {
   eventType?: string;
@@ -43,6 +43,7 @@ type TrafficRow = {
 
 const allowedEvents = new Set<TrafficEventType>([
   "page_view",
+  "affiliate_impression",
   "affiliate_click",
   "pricing_click",
   "signup_intent",
