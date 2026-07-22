@@ -87,6 +87,109 @@ function affiliateEventMetadata(ad: SponsorAd, placement: AdPlacement) {
   };
 }
 
+function affiliateBannerTone(ad: SponsorAd) {
+  switch (ad.affiliatePartner) {
+    case "amazon":
+      return {
+        brand: "Amazon",
+        bg: "from-amber-100 via-white to-cyan-50",
+        ring: "border-amber-200/80",
+        accent: "bg-amber-400",
+      };
+    case "travelpayouts":
+      return {
+        brand: "Travelpayouts",
+        bg: "from-sky-100 via-white to-teal-50",
+        ring: "border-sky-200/80",
+        accent: "bg-sky-400",
+      };
+    case "stay22":
+      return {
+        brand: "Stay22",
+        bg: "from-teal-100 via-white to-lime-50",
+        ring: "border-teal-200/80",
+        accent: "bg-teal-400",
+      };
+    default:
+      return {
+        brand: ad.sponsorName || "Affiliate",
+        bg: "from-cyan-100 via-white to-amber-50",
+        ring: "border-cyan-200/80",
+        accent: "bg-cyan-400",
+      };
+  }
+}
+
+function AffiliateFallbackBanner({ ad }: { ad: SponsorAd }) {
+  const tone = affiliateBannerTone(ad);
+
+  return (
+    <div
+      className={`relative h-24 w-full overflow-hidden rounded-2xl border ${tone.ring} bg-gradient-to-br ${tone.bg} p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.74)] sm:w-40`}
+      aria-hidden="true"
+    >
+      <div className="absolute right-3 top-3 flex gap-1.5">
+        <span className={`size-2 rounded-full ${tone.accent} opacity-80`} />
+        <span className="size-2 rounded-full bg-ocean/55" />
+        <span className="size-2 rounded-full bg-white shadow-sm" />
+      </div>
+      <div className="relative z-10 flex h-full flex-col justify-between">
+        <div className="flex items-center gap-2">
+          <span className="grid size-8 place-items-center rounded-xl bg-white/82 text-sm font-black text-ink shadow-sm">
+            RI
+          </span>
+          <span className="rounded-full bg-white/70 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-ocean">
+            Sponsored
+          </span>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">
+            Powered by
+          </p>
+          <p className="truncate text-lg font-black leading-none text-ink">
+            {tone.brand}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function affiliateDisplayCopy(ad: SponsorAd) {
+  const tone = affiliateBannerTone(ad);
+
+  if (ad.affiliatePartner === "amazon") {
+    return {
+      sponsorName: "Amazon",
+      headline: "Sponsored shopping options on Amazon",
+      description:
+        "Compare shopping options after your ReviewIntel scan. Partner compensation stays separate from review analysis.",
+    };
+  }
+
+  if (ad.affiliatePartner === "travelpayouts") {
+    return {
+      sponsorName: "Travelpayouts",
+      headline: "Sponsored flight deals",
+      description: "Travelpayouts partner placement for shoppers comparing travel purchases and reviews.",
+    };
+  }
+
+  if (ad.affiliatePartner === "stay22") {
+    return {
+      sponsorName: "Stay22",
+      headline: "Sponsored hotel deals",
+      description: "Stay22 partner placement for hotel options. ReviewIntel analysis remains independent.",
+    };
+  }
+
+  return {
+    sponsorName: tone.brand,
+    headline: ad.campaignTitle || "Sponsored affiliate offer",
+    description: "Sponsored affiliate placement on ReviewIntel.",
+  };
+}
+
 function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
   const client = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT;
   const slot = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_SLOT;
@@ -305,6 +408,10 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   const badgeLabels = visibleAd.labels?.length
     ? visibleAd.labels
     : [isHouseAd ? "ReviewIntel ad spot" : "Sponsored"];
+  const partnerCopy = isAffiliateAd ? affiliateDisplayCopy(visibleAd) : null;
+  const displaySponsorName = partnerCopy?.sponsorName || visibleAd.sponsorName;
+  const displayHeadline = partnerCopy?.headline || visibleAd.headline;
+  const displayDescription = partnerCopy?.description || visibleAd.description;
   const ctaClassName =
     "inline-flex shrink-0 items-center justify-center rounded-full bg-ocean px-5 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200";
   const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl;
@@ -326,6 +433,8 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         className="h-24 w-full rounded-2xl border border-cyan-200/70 object-cover sm:w-36"
       />
     )
+  ) : isAffiliateAd ? (
+    <AffiliateFallbackBanner ad={visibleAd} />
   ) : null;
   const trackClick = () => {
     if (visibleAdSource === "direct") sendAdEvent("click", visibleAd.id, placement);
@@ -360,6 +469,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
     <aside
       className={`rounded-3xl border border-cyan-200/70 bg-[linear-gradient(135deg,rgba(232,252,255,0.96),rgba(255,255,255,0.98)_54%,rgba(255,247,226,0.9))] p-4 text-ink shadow-soft backdrop-blur-xl dark:border-cyan-300/25 dark:bg-gradient-to-r from-sky-600 to-teal-500/80 dark:text-white ${isHouseAd ? "ri-house-ad-slot" : ""} ${className}`}
       aria-label="Sponsored placement"
+      data-ri-no-translate
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center">
@@ -377,13 +487,13 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
               ))}
             </div>
 
-            <p className="text-sm font-semibold text-ocean dark:text-cyan-100">{visibleAd.sponsorName}</p>
+            <p className="text-sm font-semibold text-ocean dark:text-cyan-100">{displaySponsorName}</p>
             <h3 className={compact ? "mt-1 text-lg font-bold" : "mt-1 text-xl font-bold"}>
-              {visibleAd.headline}
+              {displayHeadline}
             </h3>
-            {visibleAd.description ? (
+            {displayDescription ? (
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                {visibleAd.description}
+                {displayDescription}
               </p>
             ) : null}
             {visibleAd.disclosureText ? (

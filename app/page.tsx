@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Badge } from "@/components/Badge";
 import { FeaturedReviews } from "@/components/FeaturedReviews";
 import { HomepageHeroCopy } from "@/components/HomepageHeroCopy";
+import { HomepageInstructionVideo } from "@/components/HomepageInstructionVideo";
 import { PlatformLogoOrbit } from "@/components/PlatformLogoOrbit";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { getHomepageVideo } from "@/lib/homepageVideo";
@@ -27,6 +28,33 @@ export default async function LandingPage() {
     t("sellerWins.keywordIntelligence"),
     t("sellerWins.painPoints"),
     t("sellerWins.exportReport")
+  ];
+
+  const mobileScanCards = [
+    {
+      eyebrow: t("heroCards.identityEyebrow"),
+      title: t("heroCards.identityTitle"),
+      body: t("heroCards.identityLabel"),
+      tone: "from-white/90 to-cyan-50/88",
+    },
+    {
+      eyebrow: t("heroCards.evidenceEyebrow"),
+      title: t("heroCards.evidenceTitle"),
+      body: t("buyerWins.complaint"),
+      tone: "from-cyan-50/92 to-white/88",
+    },
+    {
+      eyebrow: t("heroCards.auditEyebrow"),
+      title: t("buyerWins.fakeRisk"),
+      body: t("heroCards.auditBody"),
+      tone: "from-white/92 to-amber-50/86",
+    },
+    {
+      eyebrow: t("shopperMode"),
+      title: t("fastShoppingVerdict"),
+      body: t("buyerWins.verdict"),
+      tone: "from-teal-50/92 to-white/88",
+    },
   ];
 
   return (
@@ -85,6 +113,15 @@ export default async function LandingPage() {
           .ri-hero-spark {
             animation: riHeroSpark 4.8s ease-in-out infinite;
           }
+          @keyframes riMobileAccentFloat {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(.92); opacity: .28; }
+            45% { transform: translate3d(12px, -18px, 0) scale(1.08); opacity: .68; }
+            72% { transform: translate3d(-8px, 10px, 0) scale(.96); opacity: .44; }
+          }
+          @keyframes riMobileCarouselCardIn {
+            from { opacity: 0; transform: translate3d(16px, 0, 0) scale(.98); }
+            to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+          }
           @keyframes riHeroCopySlide {
             0% { opacity: 0; transform: translateY(18px); filter: blur(7px); }
             16%, 84% { opacity: 1; transform: translateY(0); filter: blur(0); }
@@ -125,27 +162,90 @@ export default async function LandingPage() {
             }
             .reviewintel-home-hero-grid {
               min-height: calc(100svh - 112px) !important;
-              align-content: start !important;
+              align-content: center !important;
               gap: .75rem !important;
-              padding: 3.2rem 1.25rem 1.25rem !important;
+              padding: 1.25rem 1rem 1.4rem !important;
+            }
+            .reviewintel-home-hero-grid > div:first-child {
+              display: flex !important;
+              min-height: calc(100svh - 136px) !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              justify-content: center !important;
+              text-align: center !important;
+            }
+            .reviewintel-home-hero .reviewintel-home-hero-grid > div:first-child > .sm\\:hidden {
+              display: flex !important;
+              width: min(100%, 22rem) !important;
+              flex-direction: column !important;
+              align-items: center !important;
+            }
+            .reviewintel-home-hero .reviewintel-home-hero-grid > div:first-child > .sm\\:hidden > .flex {
+              width: 100% !important;
+              justify-content: center !important;
             }
             .reviewintel-home-hero h1 {
               font-size: clamp(2.35rem, 10vw, 3rem) !important;
               line-height: .94 !important;
               letter-spacing: 0 !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
             }
             html[data-layout-mode="mobile"] .reviewintel-home-hero .ri-hero-mobile-copy-stack,
             html[data-layout-mode="auto"] .reviewintel-home-hero .ri-hero-mobile-copy-stack {
+              width: min(100%, 22rem) !important;
+              max-width: 22rem !important;
+              min-height: 6.15rem !important;
               font-size: clamp(2.35rem, 10vw, 3rem) !important;
               line-height: .94 !important;
               letter-spacing: 0 !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+              overflow: hidden !important;
+              text-align: center !important;
+            }
+            .reviewintel-home-hero .ri-hero-mobile-copy-stack .ri-mobile-copy-line {
+              left: 0 !important;
+              right: 0 !important;
+              width: 100% !important;
+              text-align: center !important;
+            }
+            .reviewintel-home-hero .sm\\:hidden > p {
+              width: min(100%, 21rem) !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+              text-align: center !important;
             }
             .reviewintel-home-hero .reviewintel-home-hero-grid > div:first-child > .mt-8 {
               margin-top: 1rem !important;
             }
-            .reviewintel-home-hero .ri-pixie-field,
             .reviewintel-home-hero .ri-hero-spark {
               display: none !important;
+            }
+            .reviewintel-home-hero .ri-pixie-field {
+              display: block !important;
+              opacity: .32 !important;
+            }
+            .reviewintel-home-hero .ri-pixie-field span {
+              width: .42rem !important;
+              height: .42rem !important;
+              animation: riMobileAccentFloat 6.8s ease-in-out infinite !important;
+              box-shadow: 0 0 18px rgba(8,183,168,.32) !important;
+            }
+            .reviewintel-home-hero a[href="/analyze"] {
+              margin-left: auto !important;
+              margin-right: auto !important;
+              width: min(100%, 20rem) !important;
+              transform: translateZ(0) !important;
+            }
+            .reviewintel-home-hero a[href="/analyze"]:active {
+              transform: translateY(1px) scale(.99) !important;
+            }
+            .reviewintel-home-hero .mt-5.flex {
+              justify-content: center !important;
+              max-width: 21rem !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
             }
             header a[href="/login"] {
               background: #08b7a8 !important;
@@ -205,6 +305,42 @@ export default async function LandingPage() {
             .home-premium-mode {
               padding-top: 1.75rem !important;
               padding-bottom: 1.75rem !important;
+            }
+            .home-mobile-carousel-section {
+              min-height: 100svh !important;
+              overflow: hidden !important;
+              padding: 2.25rem 0 1.75rem !important;
+            }
+            .home-mobile-carousel-shell {
+              min-height: calc(100svh - 4rem) !important;
+              align-content: center !important;
+            }
+            .home-mobile-scan-carousel {
+              display: flex !important;
+              width: 100vw !important;
+              max-width: 100vw !important;
+              flex-direction: row !important;
+              flex-wrap: nowrap !important;
+              justify-content: flex-start !important;
+              scroll-behavior: smooth !important;
+              scroll-snap-type: x mandatory !important;
+              -webkit-overflow-scrolling: touch !important;
+            }
+            .home-mobile-scan-carousel::-webkit-scrollbar {
+              display: none !important;
+            }
+            .home-mobile-scan-card {
+              width: min(82vw, 20rem) !important;
+              min-width: min(82vw, 20rem) !important;
+              max-width: min(82vw, 20rem) !important;
+              flex: 0 0 min(82vw, 20rem) !important;
+              animation: riMobileCarouselCardIn .62s cubic-bezier(.22,1,.36,1) both;
+              scroll-snap-align: center !important;
+            }
+            .home-premium-mode {
+              min-height: auto !important;
+              display: grid !important;
+              align-content: center !important;
             }
             .home-premium-audience-card,
             .home-premium-mode-card,
@@ -292,23 +428,35 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="grid min-h-[100svh] content-center bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
-        <div>
+      <section className="home-mobile-carousel-section grid min-h-[100svh] content-center bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
+        <div className="home-mobile-carousel-shell grid w-full justify-items-center text-center">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 max-w-sm text-4xl font-black leading-tight tracking-normal">
             What the scan checks.
           </h2>
-          <div className="mt-6 grid gap-4">
-            <article className="rounded-[1.75rem] border border-white/80 bg-white/78 p-5 shadow-soft backdrop-blur">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.identityEyebrow")}</p>
-              <p className="mt-3 text-2xl font-black leading-tight text-ink">{t("heroCards.identityTitle")}</p>
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{t("heroCards.identityLabel")}</p>
-            </article>
-            <article className="rounded-[1.75rem] border border-white/80 bg-cyan-50/80 p-5 shadow-soft backdrop-blur">
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.evidenceEyebrow")}</p>
-              <p className="mt-3 text-2xl font-black leading-tight text-ink">{t("heroCards.evidenceTitle")}</p>
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{t("buyerWins.complaint")}</p>
-            </article>
+          <div className="mt-6 -mx-5 overflow-hidden">
+            <div className="home-mobile-scan-carousel flex snap-x gap-4 overflow-x-auto px-5 pb-5">
+              {mobileScanCards.map((card, index) => (
+                <article
+                  key={card.title}
+                  className={`home-mobile-scan-card rounded-[1.75rem] border border-white/80 bg-gradient-to-br ${card.tone} p-5 shadow-[0_22px_70px_rgba(12,36,68,0.14)] backdrop-blur`}
+                  style={{ animationDelay: `${index * 90}ms` }}
+                >
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-ocean">{card.eyebrow}</p>
+                  <p className="mt-4 text-2xl font-black leading-tight text-ink">{card.title}</p>
+                  <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{card.body}</p>
+                </article>
+              ))}
+            </div>
+            <div className="mt-1 flex justify-center gap-2">
+              {mobileScanCards.map((card, index) => (
+                <span
+                  key={`${card.title}-dot`}
+                  className={`h-1.5 rounded-full ${index === 0 ? "w-6 bg-ocean" : "w-1.5 bg-ocean/30"}`}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -325,26 +473,7 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="home-instruction-video-frame mx-auto w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/82 p-3 shadow-[0_30px_100px_rgba(12,36,68,0.16)] backdrop-blur">
-            {homepageVideo ? (
-              <video
-                className="aspect-[9/16] w-full rounded-[1.35rem] bg-ink object-contain"
-                src={homepageVideo.file_url}
-                poster={homepageVideo.thumbnail_url || undefined}
-                playsInline
-                controls
-                preload="metadata"
-              />
-            ) : (
-              <div className="flex aspect-[9/16] w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/70">
-                  {t("instructionVideo.emptyEyebrow")}
-                </p>
-                <h3 className="mt-3 text-3xl font-black">{t("instructionVideo.emptyTitle")}</h3>
-                <p className="mt-3 max-w-xl text-sm font-bold leading-6 text-white/82">
-                  {t("instructionVideo.emptyBody")}
-                </p>
-              </div>
-            )}
+            <HomepageInstructionVideo video={homepageVideo} />
           </div>
         </div>
       </section>
@@ -383,11 +512,14 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-premium-mode min-h-[100svh] bg-mist px-5 py-8 text-ink sm:min-h-0 sm:px-6 sm:py-12">
+      <section className="home-premium-mode min-h-0 bg-mist px-5 py-8 text-ink sm:min-h-0 sm:px-6 sm:py-12">
         <div className="home-premium-mode-card mx-auto max-w-5xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-8">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 text-3xl font-black tracking-tight text-ink md:text-4xl">{t("modeIntro.title")}</h2>
-          <p className="mt-4 text-base font-semibold leading-8 text-slate-700 md:text-lg md:leading-9">
+          <p className="mt-4 text-base font-semibold leading-7 text-slate-700 sm:hidden">
+            Shopper mode helps buyers decide. Seller mode finds product signals.
+          </p>
+          <p className="mt-4 hidden text-base font-semibold leading-8 text-slate-700 sm:block md:text-lg md:leading-9">
             {t("modeIntro.body")}
           </p>
         </div>

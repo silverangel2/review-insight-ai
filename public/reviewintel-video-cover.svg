@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-labelledby="title desc">
+  <title id="title">ReviewIntel homepage video cover</title>
+  <desc id="desc">ReviewIntel branded cover for the homepage instruction video.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#06111f"/>
+      <stop offset="0.42" stop-color="#087f8f"/>
+      <stop offset="0.72" stop-color="#08b7a8"/>
+      <stop offset="1" stop-color="#f5c15c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="30%" r="65%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.76"/>
+      <stop offset="0.34" stop-color="#bdf7f1" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="url(#glow)"/>
+  <g opacity="0.32">
+    <path d="M90 210h900M90 360h900M90 510h900M90 660h900M90 810h900M90 960h900M90 1110h900M90 1260h900M90 1410h900M90 1560h900M90 1710h900" stroke="#fff" stroke-width="3"/>
+    <path d="M180 120v1680M330 120v1680M480 120v1680M630 120v1680M780 120v1680M930 120v1680" stroke="#fff" stroke-width="3"/>
+  </g>
+  <g transform="translate(140 430)">
+    <rect width="800" height="930" rx="82" fill="#ffffff" opacity="0.88"/>
+    <rect x="42" y="42" width="716" height="846" rx="58" fill="#f7fdff"/>
+    <circle cx="160" cy="160" r="72" fill="#08b7a8"/>
+    <text x="160" y="184" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="900" fill="#ffffff">RI</text>
+    <text x="98" y="330" font-family="Arial, Helvetica, sans-serif" font-size="88" font-weight="900" fill="#06111f">ReviewIntel</text>
+    <text x="98" y="430" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="900" fill="#087f8f">Scan reviews</text>
+    <text x="98" y="500" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="900" fill="#087f8f">before you buy.</text>
+    <rect x="98" y="618" width="604" height="34" rx="17" fill="#d7f7f4"/>
+    <rect x="98" y="618" width="422" height="34" rx="17" fill="#08b7a8"/>
+    <rect x="98" y="704" width="250" height="96" rx="48" fill="#06111f"/>
+    <polygon points="196,728 196,776 238,752" fill="#ffffff"/>
+    <text x="376" y="766" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="900" fill="#475569">BUY / CONSIDER / AVOID</text>
+  </g>
+  <text x="540" y="1530" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="900" fill="#ffffff">Affiliate ads never affect verdicts.</text>
+</svg>
