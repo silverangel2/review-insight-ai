@@ -486,47 +486,7 @@ const mobileShopCarouselItems = [
         </div>
       </section>
 
-      <section className="home-mobile-carousel-section grid h-[100svh] min-h-[100svh] snap-start snap-always content-center overflow-hidden bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
-        <div className="home-mobile-carousel-shell grid w-full justify-items-center text-center">
-          <Badge tone="info">Marketplace intelligence</Badge>
-          <h2 className="mt-4 max-w-sm text-4xl font-black leading-tight tracking-normal">
-            Works with your favorite shops.
-          </h2>
-          <p className="mt-3 max-w-xs text-sm font-semibold leading-6 text-slate-600">
-            Amazon, Walmart, Temu, TikTok Shop, Etsy, Shopify, eBay, and more.
-          </p>
-          <div className="mt-6 -mx-5 overflow-hidden">
-            <div className="home-mobile-scan-carousel flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {mobileShopCarouselItems.concat(mobileShopCarouselItems).map((shop, index) => (
-                <article
-                  key={`${shop.name}-${index}`}
-                  className={`home-mobile-scan-card rounded-[1.75rem] border border-white/80 bg-gradient-to-br ${shop.tone} p-5 text-center shadow-[0_22px_70px_rgba(12,36,68,0.14)] backdrop-blur`}
-                  style={{ animationDelay: `${index * 120}ms` }}
-                >
-                  <span className="text-5xl">{shop.emoji}</span>
-                  <p className="mt-4 text-2xl font-black leading-tight text-ink">{shop.name}</p>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-                    Scan products before you buy.
-                  </p>
-                </article>
-              ))}
-            </div>
-            <div className="mt-1 flex justify-center gap-2">
-              {mobileShopCarouselItems.map((shop, index) => (
-                <span
-                  key={`${shop.name}-dot`}
-                  className={`h-1.5 rounded-full ${index === 0 ? "w-6 bg-ocean" : "w-1.5 bg-ocean/30"}`}
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <PlatformLogoOrbit initialLocale={locale} />
-
-      <section className="home-premium-payoff h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
+      <section className="home-premium-payoff hidden overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-10 text-ink sm:block sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
             <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
@@ -541,7 +501,7 @@ const mobileShopCarouselItems = [
         </div>
       </section>
 
-      <section className="home-premium-audience h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10">
+      <section className="home-premium-audience hidden overflow-hidden bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-10 text-ink sm:block sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10">
         <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
           <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
             <Badge tone="good">{t("shopperMode")}</Badge>
@@ -588,19 +548,6 @@ const mobileShopCarouselItems = [
         </div>
       </section>
       <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
-
-      <section className="home-mobile-advert-loop h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#f8fbff_100%)] px-5 py-8 text-ink sm:hidden">
-        <div className="mx-auto flex h-full max-w-md flex-col justify-center">
-          <div className="mb-4">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-ocean">Sponsored</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight">Deals from our partners</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              Affiliate banners may earn ReviewIntel commission. Verdicts stay independent.
-            </p>
-          </div>
-          <AdSlot placement="mobile_homepage" compact />
-        </div>
-      </section>
     
       <section className="home-premium-ad-section hidden mx-auto max-w-6xl px-6 pb-12 sm:block">
         <AdSlot placement="homepage_mid" />
