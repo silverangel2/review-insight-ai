@@ -1587,7 +1587,7 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       ? vision.reviewCount
       : undefined;
 
-  const reviewEvidenceTimeoutMs = Number(process.env.REVIEW_EVIDENCE_TIMEOUT_MS || 9000);
+  const reviewEvidenceTimeoutMs = Number(process.env.REVIEW_EVIDENCE_TIMEOUT_MS || 18000);
 
   const fallbackReviewEvidence = (reason: string) =>
     ({
@@ -1626,7 +1626,7 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
         suspiciousReviewRisk: "Not scored",
         reasons: [
           reason,
-          "ReviewIntel returned the screenshot-based product result first so the shopper does not wait too long.",
+          "ReviewIntel returned a quick scan first and will need deeper evidence refresh for a fully verified review verdict.",
         ],
         suspiciousComments: [],
       },
@@ -1641,7 +1641,7 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       bestFor: ["Shoppers who want a quick first-pass buying signal before checking the full reviews."],
       notIdealFor: ["Shoppers who need a fully verified verdict from written review evidence before buying."],
       bottomLine:
-        "Quick scan completed. ReviewIntel identified the product and visible marketplace signals from the screenshot, but deeper written review evidence still needs to be refreshed before treating this as a fully verified verdict.",
+        "Quick scan completed. ReviewIntel identified the product and visible marketplace signals from the screenshot. Treat this as a cautious first-pass result until deeper written review evidence is refreshed.",
     }) as Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>;
 
   const reviewEvidence = await Promise.race([
@@ -1660,11 +1660,11 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       forceRefresh: false,
     }).catch((error) => {
       console.error("[ReviewIntel reviewEvidence error]", error);
-      return fallbackReviewEvidence("Review evidence collection failed during the initial scan.");
+      return fallbackReviewEvidence("Deep written review collection failed during the initial scan, but visible product facts were still analyzed.");
     }),
     new Promise<Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>>((resolve) => {
       setTimeout(() => {
-        resolve(fallbackReviewEvidence("Review evidence collection timed out during the initial scan."));
+        resolve(fallbackReviewEvidence("Quick scan completed before deep written review collection finished."));
       }, reviewEvidenceTimeoutMs);
     }),
   ]);
