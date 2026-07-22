@@ -90,15 +90,15 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
   return (
     <>
       {children}
-      <div className="reviewintel-view-switcher fixed bottom-3 right-3 z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1 rounded-full border border-white/40 bg-gradient-to-r from-sky-600 to-teal-500/85 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-2xl backdrop-blur-xl">
-      <span className="text-white/50">Layout:</span>
+      <div className="reviewintel-view-switcher fixed bottom-3 right-3 z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1 rounded-full border border-slate-300 bg-white/95 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-800 shadow-2xl backdrop-blur-sm">
+      <span className="text-slate-700">Layout:</span>
       <button
         type="button"
         onClick={() => {
           window.localStorage.setItem(STORAGE_KEY, "auto");
           window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "auto" } }));
         }}
-        className={`ml-2 rounded-full px-2 py-1 ${mode === "auto" ? "bg-white text-slate-950" : "text-white/70"}`}
+        className={`ml-2 rounded-full px-2 py-1 ${mode === "auto" ? "border border-slate-900 bg-slate-900 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
       >
         Auto/{resolvedMode}
       </button>
@@ -108,7 +108,7 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
           window.localStorage.setItem(STORAGE_KEY, "mobile");
           window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "mobile" } }));
         }}
-        className={`rounded-full px-2 py-1 ${mode === "mobile" ? "bg-white text-slate-950" : "text-white/70"}`}
+        className={`rounded-full px-2 py-1 ${mode === "mobile" ? "border border-slate-900 bg-slate-900 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
       >
         Mobile
       </button>
@@ -118,7 +118,7 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
           window.localStorage.setItem(STORAGE_KEY, "desktop");
           window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "desktop" } }));
         }}
-        className={`rounded-full px-2 py-1 ${mode === "desktop" ? "bg-white text-slate-950" : "text-white/70"}`}
+        className={`rounded-full px-2 py-1 ${mode === "desktop" ? "border border-slate-900 bg-slate-900 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
       >
         Desktop
       </button>
@@ -128,7 +128,7 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
           window.localStorage.setItem(STORAGE_KEY, "desktop-mini");
           window.dispatchEvent(new CustomEvent("reviewintel-layout-mode", { detail: { mode: "desktop-mini" } }));
         }}
-        className={`rounded-full px-2 py-1 ${mode === "desktop-mini" ? "bg-white text-slate-950" : "text-white/70"}`}
+        className={`rounded-full px-2 py-1 ${mode === "desktop-mini" ? "border border-slate-900 bg-slate-900 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"}`}
       >
         Mini
       </button>

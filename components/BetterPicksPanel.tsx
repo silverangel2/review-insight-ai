@@ -382,7 +382,7 @@ export function BetterPicksPanel({
           type="button"
           onClick={() => void findBetterPicks()}
           disabled={loading || !productName}
-          className={`${compact ? "px-4 py-2 text-[10px]" : "px-5 py-3 text-xs"} rounded-full bg-emerald-600 font-black uppercase tracking-[0.16em] text-white shadow-sm transition hover:scale-[1.02] disabled:opacity-50`}
+          className={`${compact ? "px-4 py-2 text-[10px]" : "px-5 py-3 text-xs"} rounded-full bg-emerald-600 font-black uppercase tracking-[0.16em] text-white shadow-sm transition hover:scale-[1.02] disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300`}
         >
           {loading ? panelCopy.searching : panelCopy.button}
         </button>

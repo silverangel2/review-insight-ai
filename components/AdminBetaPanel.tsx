@@ -158,7 +158,7 @@ export function AdminBetaPanel() {
               type="button"
               onClick={() => sendWeeklySurvey(false)}
               disabled={isSendingSurvey}
-              className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-ink shadow-soft disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-ink shadow-soft disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
             >
               {isSendingSurvey ? "Sending..." : "Send Due Weekly Survey"}
             </button>

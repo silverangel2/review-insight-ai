@@ -435,7 +435,7 @@ export function AdminEmailInbox() {
                         type="button"
                         onClick={() => applyReplyTemplate(template.body)}
                         disabled={!selected.email || sendingReply}
-                        className="rounded-xl bg-mist px-3 py-2 text-xs font-black text-ink transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[0.06] dark:text-white"
+                        className="rounded-xl bg-mist px-3 py-2 text-xs font-black text-ink transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white/[0.06] dark:text-white"
                       >
                         {template.label}
                       </button>
@@ -456,7 +456,7 @@ export function AdminEmailInbox() {
                       type="button"
                       onClick={() => void sendReply()}
                       disabled={!selected.email || sendingReply || !replyBody.trim()}
-                      className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+                      className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
                     >
                       {sendingReply ? "Sending..." : "Send Reply"}
                     </button>

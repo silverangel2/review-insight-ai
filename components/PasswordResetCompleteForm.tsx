@@ -146,7 +146,7 @@ export function PasswordResetCompleteForm() {
           type="button"
           disabled={!canSubmit}
           onClick={() => void submit()}
-          className="rounded-xl bg-ink px-5 py-4 font-black text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
+          className="rounded-xl bg-ink px-5 py-4 font-black text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-slate-950"
         >
           {submitting ? "Updating password..." : "Update password"}
         </button>

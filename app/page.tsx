@@ -453,7 +453,7 @@ const mobileShopCarouselItems = [
             <div className="reviewintel-home-card-stage relative z-10 grid min-h-[620px] grid-cols-1 grid-rows-[auto_auto_auto_auto_auto] gap-4 p-5 sm:grid-cols-2 sm:grid-rows-[auto_auto_auto] md:min-h-[690px] md:gap-5 md:p-8">
               <article className="ri-home-card self-start rounded-[2rem] bg-[#11182a] p-5 text-white shadow-[0_30px_90px_rgba(4,10,24,0.42)] ring-1 ring-white/10 [--ri-end:-1deg] [--ri-rot:-24deg] [--ri-x:-340px] [--ri-y:210px]">
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-900">{t("heroCards.identityEyebrow")}</p>
-                <p className="mt-3 text-sm font-black text-white/70">{t("heroCards.identityLabel")}</p>
+                <p className="mt-3 text-sm font-black text-slate-700">{t("heroCards.identityLabel")}</p>
                 <p className="mt-3 text-4xl font-black leading-tight md:text-5xl reviewintel-flip-card" style={{ animationDelay: "0.4s" }}>{t("heroCards.identityTitle")}</p>
                 <p className="mt-4 text-sm font-black leading-6 text-cyan-900 md:text-base">{t("heroCards.identityBody")}</p>
               </article>

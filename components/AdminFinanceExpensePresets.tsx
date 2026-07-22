@@ -225,7 +225,7 @@ export default function AdminFinanceExpensePresets() {
         <button
           type="submit"
           disabled={saving}
-          className="self-end rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:cursor-not-allowed disabled:opacity-60"
+          className="self-end rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
         >
           {saving ? "Logging..." : "Log Expense"}
         </button>

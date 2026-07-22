@@ -276,7 +276,7 @@ export function AdminSEOManager() {
                 type="button"
                 onClick={() => void autoBuildSeo()}
                 disabled={isSaving}
-                className="rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
               >
                 Auto-build all SEO
               </button>
@@ -284,7 +284,7 @@ export function AdminSEOManager() {
                 type="button"
                 onClick={() => void saveSeoSettings()}
                 disabled={isSaving}
-                className="rounded-xl bg-ink px-4 py-2 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+                className="rounded-xl bg-ink px-4 py-2 text-sm font-black text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
               >
                 {isSaving ? "Saving..." : "Save SEO Settings"}
               </button>

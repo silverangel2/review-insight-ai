@@ -169,8 +169,8 @@ export function AdminDailyCheckCenter() {
             disabled={Boolean(runningCheck)}
             className={`rounded-2xl px-4 py-4 text-left text-sm font-black transition ${
               check.id === "all"
-                ? "bg-ink text-white hover:bg-ocean disabled:opacity-60 dark:bg-white dark:text-ink"
-                : "border border-line bg-mist text-ink hover:-translate-y-0.5 hover:border-ocean disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
+                ? "bg-ink text-white hover:bg-ocean disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
+                : "border border-line bg-mist text-ink hover:-translate-y-0.5 hover:border-ocean disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
             }`}
           >
             <span>{runningCheck === check.id ? "Running..." : check.label}</span>

@@ -144,7 +144,7 @@ export function MarketingCampaignManager() {
             type="button"
             onClick={() => void sendCampaign()}
             disabled={sending || subject.trim().length < 4 || message.trim().length < 10}
-            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
           >
             {sending ? "Sending campaign..." : "Send Campaign"}
           </button>

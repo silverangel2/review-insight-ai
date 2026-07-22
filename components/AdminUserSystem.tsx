@@ -284,7 +284,7 @@ export function AdminUserSystem() {
         disabled={Boolean(busyAction)}
         title={actionCopy[action].helper}
         aria-label={`${actionCopy[action].label}: ${actionCopy[action].helper}`}
-        className={`${className} disabled:cursor-wait disabled:opacity-60`}
+        className={`${className} disabled:cursor-wait disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300`}
       >
         {busy ? actionCopy[action].busy : actionCopy[action].label}
       </button>

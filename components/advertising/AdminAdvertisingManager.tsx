@@ -380,7 +380,7 @@ export function AdminAdvertisingManager() {
             <button
               type="submit"
               disabled={manualBusy}
-              className="rounded-full bg-ink px-6 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-50 dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200"
+              className="rounded-full bg-ink px-6 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200"
             >
               {manualBusy ? "Adding owner ad..." : "Add to ad rotation"}
             </button>

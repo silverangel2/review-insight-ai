@@ -115,7 +115,7 @@ export function CookieConsentBanner() {
             type="button"
             onClick={() => choose("accepted")}
             disabled={Boolean(saving)}
-            className="rounded-2xl bg-[linear-gradient(135deg,#08b7a8,#2356a3)] px-4 py-3 text-sm font-black text-white shadow-[0_14px_35px_rgba(35,86,163,0.20)] disabled:opacity-60"
+            className="rounded-2xl bg-[linear-gradient(135deg,#08b7a8,#2356a3)] px-4 py-3 text-sm font-black text-white shadow-[0_14px_35px_rgba(35,86,163,0.20)] disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
           >
             {saving === "accepted" ? "Saving..." : text.accept}
           </button>
@@ -123,7 +123,7 @@ export function CookieConsentBanner() {
             type="button"
             onClick={() => choose("essential")}
             disabled={Boolean(saving)}
-            className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-sm disabled:opacity-60"
+            className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-sm disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
           >
             {saving === "essential" ? "Saving..." : text.essential}
           </button>

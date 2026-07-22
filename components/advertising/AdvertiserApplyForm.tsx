@@ -166,7 +166,7 @@ export function AdvertiserApplyForm() {
       <button
         type="submit"
         disabled={status === "sending"}
-        className="rounded-full bg-cyan-300 px-6 py-3 font-bold text-slate-950 transition hover:bg-cyan-200 disabled:opacity-50"
+        className="rounded-full bg-cyan-300 px-6 py-3 font-bold text-slate-950 transition hover:bg-cyan-200 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
       >
         {status === "sending" ? "Submitting..." : "Submit campaign for review"}
       </button>

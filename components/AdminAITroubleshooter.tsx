@@ -78,7 +78,7 @@ export function AdminAITroubleshooter() {
               type="button"
               onClick={() => void ask(item)}
               disabled={loading}
-              className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-slate-600 transition hover:border-ocean hover:text-ocean disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+              className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-slate-600 transition hover:border-ocean hover:text-ocean disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
             >
               {item}
             </button>
@@ -101,7 +101,7 @@ export function AdminAITroubleshooter() {
           type="button"
           onClick={() => void ask()}
           disabled={loading || !question.trim()}
-          className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+          className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
         >
           {loading ? "Checking..." : "Ask Troubleshooter"}
         </button>

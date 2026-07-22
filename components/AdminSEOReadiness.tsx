@@ -78,7 +78,7 @@ export function AdminSEOReadiness() {
             type="button"
             onClick={() => void runReadiness()}
             disabled={status === "checking"}
-            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-60 dark:bg-white dark:text-ink"
+            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
           >
             {status === "checking" ? "Checking..." : "Make SEO Ready"}
           </button>

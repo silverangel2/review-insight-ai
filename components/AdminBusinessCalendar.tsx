@@ -473,7 +473,7 @@ export function AdminBusinessCalendar() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:opacity-60"
+                className="w-full rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
               >
                 {saving ? "Saving..." : "Add to Calendar"}
               </button>

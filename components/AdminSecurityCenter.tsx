@@ -238,7 +238,7 @@ export function AdminSecurityCenter() {
             type="button"
             onClick={() => void testSecurityLog()}
             disabled={testing}
-            className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:opacity-60"
+            className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
           >
             {testing ? "Testing..." : "Test Security Log"}
           </button>
@@ -314,7 +314,7 @@ export function AdminSecurityCenter() {
                 type="button"
                 onClick={() => void blockIpAddress()}
                 disabled={blocking || !blockIp.trim()}
-                className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink"
+                className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
               >
                 {blocking ? "Blocking..." : "Block IP"}
               </button>
@@ -362,7 +362,7 @@ export function AdminSecurityCenter() {
                           type="button"
                           onClick={() => void blockIpAddress(event.ip_address)}
                           disabled={blocking}
-                          className="rounded-full border border-line bg-white px-3 py-1 text-xs font-black uppercase text-ink transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-50 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
+                          className="rounded-full border border-line bg-white px-3 py-1 text-xs font-black uppercase text-ink transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
                         >
                           Block IP
                         </button>

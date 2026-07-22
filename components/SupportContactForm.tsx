@@ -94,7 +94,7 @@ export function SupportContactForm({ defaultTopic = "Product question" }: { defa
           <button
             type="submit"
             disabled={status === "sending"}
-            className="inline-flex justify-center rounded-2xl bg-[linear-gradient(135deg,#2356a3,#08b7a8)] px-6 py-3 text-sm font-black text-white shadow-glow transition hover:-translate-y-0.5 disabled:opacity-60"
+            className="inline-flex justify-center rounded-2xl bg-[linear-gradient(135deg,#2356a3,#08b7a8)] px-6 py-3 text-sm font-black text-white shadow-glow transition hover:-translate-y-0.5 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
           >
             {status === "sending" ? "Sending..." : status === "sent" ? "Message Sent" : "Send Message"}
           </button>

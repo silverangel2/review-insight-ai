@@ -14,7 +14,7 @@ export function HomepageInstructionVideo({ video }: HomepageInstructionVideoProp
   if (!video) {
     return (
       <div className="flex aspect-[9/16] w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-white/70">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">
           ReviewIntel video
         </p>
         <h3 className="mt-3 text-3xl font-black">Scan reviews before you buy</h3>

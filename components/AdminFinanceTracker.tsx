@@ -318,7 +318,7 @@ export function AdminFinanceTracker() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:opacity-60 lg:col-span-4"
+          className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ink disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 lg:col-span-4"
         >
           {saving ? "Saving..." : "Add Finance Entry"}
         </button>
@@ -382,7 +382,7 @@ export function AdminFinanceTracker() {
                       type="button"
                       onClick={() => deleteEntry(entry.id, `${entry.category} · ${entry.entry_date} · ${money(Number(entry.amount ?? 0), entry.currency ?? "CAD")}`)}
                       disabled={deletingId === entry.id}
-                      className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200"
+                      className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-black text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200"
                     >
                       {deletingId === entry.id ? "Deleting..." : "Delete mistaken entry"}
                     </button>

@@ -750,7 +750,7 @@ export function AccountDashboard() {
                           type="button"
                           onClick={handleSendBetaFeedback}
                           disabled={isSendingBetaFeedback}
-                          className="account-beta-feedback rounded-full bg-ink px-4 py-2 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-ink"
+                          className="account-beta-feedback rounded-full bg-ink px-4 py-2 text-xs font-black text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink"
                         >
                           {isSendingBetaFeedback ? "Sending..." : "Send Beta Feedback"}
                         </button>

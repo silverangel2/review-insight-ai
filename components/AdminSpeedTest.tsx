@@ -71,7 +71,7 @@ export function AdminSpeedTest() {
             Quick owner-side test for homepage response, admin API response, and browser storage speed.
           </p>
         </div>
-        <button type="button" onClick={runSpeedTest} disabled={isRunning} className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-ink">
+        <button type="button" onClick={runSpeedTest} disabled={isRunning} className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-ink">
           {isRunning ? "Testing..." : "Run speed test"}
         </button>
       </div>

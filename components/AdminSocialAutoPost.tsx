@@ -1161,7 +1161,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={saveSettings}
                 disabled={saving}
-                className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
               >
                 {saving ? "Saving..." : "Save all social settings"}
               </button>
@@ -1169,7 +1169,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={runNow}
                 disabled={saving}
-                className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
               >
                 Post one test now
               </button>
@@ -1177,7 +1177,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={previewFacebookReel}
                 disabled={saving}
-                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200"
+                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-cyan-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200"
               >
                 Preview next Reel
               </button>
@@ -1193,7 +1193,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={checkFacebook}
                 disabled={saving}
-                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200"
+                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-cyan-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200"
               >
                 Check Facebook / Instagram
               </button>
@@ -1201,7 +1201,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={checkTikTok}
                 disabled={saving}
-                className="rounded-2xl border border-rose-300/40 bg-white px-5 py-3 text-sm font-black text-rose-600 shadow-soft disabled:opacity-60 dark:border-rose-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-rose-200"
+                className="rounded-2xl border border-rose-300/40 bg-white px-5 py-3 text-sm font-black text-rose-600 shadow-soft disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-rose-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-rose-200"
               >
                 Check TikTok
               </button>
@@ -1343,7 +1343,7 @@ export default function AdminSocialAutoPost() {
               type="button"
               onClick={clearOldLibrary}
               disabled={saving || media.length === 0}
-              className="rounded-2xl bg-red-100 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
+              className="rounded-2xl bg-red-100 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
             >
               Clear old / unselected media
             </button>
@@ -1408,7 +1408,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={generateVideoAssets}
                 disabled={saving || uploadingMedia || generatingVideos}
-                className="rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-60 dark:bg-cyan-300 dark:text-ink dark:hover:bg-white"
+                className="rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-cyan-300 dark:text-ink dark:hover:bg-white"
               >
                 {generatingVideos ? "Generating reels..." : "Generate video assets"}
               </button>
@@ -1479,7 +1479,7 @@ export default function AdminSocialAutoPost() {
           type="button"
           onClick={addMedia}
           disabled={saving || !mediaForm.file_url.trim()}
-          className="mt-4 rounded-2xl bg-gradient-to-r from-sky-600 to-teal-500 px-5 py-3 text-sm font-black text-white shadow-soft hover:from-sky-700 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-50 dark:from-sky-500 dark:to-teal-400 dark:text-white"
+          className="mt-4 rounded-2xl bg-gradient-to-r from-sky-600 to-teal-500 px-5 py-3 text-sm font-black text-white shadow-soft hover:from-sky-700 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:from-sky-500 dark:to-teal-400 dark:text-white"
         >
           Add media to library
         </button>
@@ -1629,7 +1629,7 @@ export default function AdminSocialAutoPost() {
               type="button"
               onClick={prunePostHistory}
               disabled={saving}
-              className="rounded-xl border border-line px-3 py-2 text-xs font-black text-ink transition hover:border-ocean disabled:opacity-60 dark:border-white/10 dark:text-white"
+              className="rounded-xl border border-line px-3 py-2 text-xs font-black text-ink transition hover:border-ocean disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-white/10 dark:text-white"
             >
               Auto-clean 30+ days
             </button>
@@ -1637,7 +1637,7 @@ export default function AdminSocialAutoPost() {
               type="button"
               onClick={clearPostHistory}
               disabled={saving || posts.length === 0}
-              className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white transition hover:bg-rose-700 disabled:opacity-60"
+              className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white transition hover:bg-rose-700 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
             >
               Clear all history
             </button>
@@ -1670,7 +1670,7 @@ export default function AdminSocialAutoPost() {
                   type="button"
                   onClick={() => void deletePost(post.id)}
                   disabled={saving}
-                  className="w-fit rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 dark:border-rose-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-rose-200"
+                  className="w-fit rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-rose-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-rose-200"
                 >
                   Delete log
                 </button>

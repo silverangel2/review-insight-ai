@@ -269,7 +269,7 @@ export function ResultIntelligencePanel({ result, onResultUpdate }: { result: Re
           type="button"
           onClick={refreshEvidence}
           disabled={refreshing}
-          className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+          className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-100 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
         >
           {refreshing ? "Refreshing..." : "Refresh evidence"}
         </button>
@@ -311,7 +311,7 @@ export function ResultIntelligencePanel({ result, onResultUpdate }: { result: Re
               type="button"
               onClick={() => runFollowUp(item.action)}
               disabled={Boolean(loadingAction)}
-              className="rounded-full bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-2 text-xs font-black text-white transition hover:scale-[1.02] disabled:opacity-50 dark:bg-white dark:text-slate-950"
+              className="rounded-full bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-2 text-xs font-black text-white transition hover:scale-[1.02] disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:bg-white dark:text-slate-950"
             >
               {loadingAction === item.action ? "Thinking..." : item.label}
             </button>

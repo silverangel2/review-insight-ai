@@ -236,7 +236,7 @@ export function NotificationCenter({ scope }: { scope: "admin" | "customer" }) {
           <button onClick={() => void loadNotifications()} className="rounded-2xl border border-line px-5 py-3 text-sm font-black text-ink dark:border-white/10 dark:text-white">
             Refresh
           </button>
-          <button onClick={() => void createTestNotification()} disabled={testing} className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+          <button onClick={() => void createTestNotification()} disabled={testing} className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300">
             {testing ? "Testing..." : "Test Notification"}
           </button>
           <button onClick={() => void copyReport()} className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white dark:bg-white dark:text-ink">
@@ -340,7 +340,7 @@ export function NotificationCenter({ scope }: { scope: "admin" | "customer" }) {
                     <button
                       onClick={() => void markRead(selected)}
                       disabled={updatingId === selected.id || selected.status === "read"}
-                      className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
+                      className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
                     >
                       {updatingId === selected.id ? "Updating..." : selected.status === "read" ? "Already Read" : "Mark Read"}
                     </button>
