@@ -168,10 +168,30 @@ export default function AdminSocialAutoPost() {
       setSettings(data.settings || defaultSettings);
       setPosts(data.posts || []);
 
-      const mediaResponse = await fetch("/api/admin/social-media");
+      const mediaResponse = await fetch("/api/admin/social-media", {
+        credentials: "include",
+        cache: "no-store",
+      });
+
       const mediaData = await mediaResponse.json().catch(() => ({}));
-      if (mediaResponse.ok && mediaData.ok) {
-        setMedia(mediaData.media || []);
+
+      if (!mediaResponse.ok || mediaData.ok === false) {
+        setMedia([]);
+        setStatus(mediaData.error || "Could not load social media library.");
+      } else {
+        const loadedMedia = Array.isArray(mediaData.media)
+          ? mediaData.media
+          : Array.isArray(mediaData.items)
+            ? mediaData.items
+            : Array.isArray(mediaData.assets)
+              ? mediaData.assets
+              : [];
+
+        setMedia(loadedMedia);
+
+        if (loadedMedia.length === 0) {
+          setStatus("Social auto-post loaded, but the media library returned 0 items.");
+        }
       }
 
       setStatus("Social auto-post settings loaded.");
