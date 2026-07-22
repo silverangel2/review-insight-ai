@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type SourceLink = {
   label?: string;
@@ -141,7 +141,7 @@ const followUps = [
   { action: "explain_verdict", label: "Explain verdict" },
 ];
 
-export function ResultIntelligencePanel({ result }: { result: ResultRecord }) {
+export function ResultIntelligencePanel({ result, onResultUpdate }: { result: ResultRecord; onResultUpdate?: (result: ResultRecord) => void }) {
   const [answer, setAnswer] = useState("");
   const [loadingAction, setLoadingAction] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -205,13 +205,50 @@ export function ResultIntelligencePanel({ result }: { result: ResultRecord }) {
         throw new Error(data.error || "Refresh failed.");
       }
 
-      setRefreshMessage("Evidence refreshed. Run the scan again to show the newest merged verdict.");
+      const updatedResult = data.result || data.analysis || data.updatedResult;
+
+      if (updatedResult && typeof updatedResult === "object") {
+        onResultUpdate?.(updatedResult as ResultRecord);
+        setRefreshMessage("Evidence refreshed. ReviewIntel updated this result with deeper review evidence.");
+      } else {
+        setRefreshMessage("Evidence refreshed. ReviewIntel will use the newest evidence on the next scan.");
+      }
     } catch (error) {
       setRefreshMessage(error instanceof Error ? error.message : "Refresh evidence failed.");
     } finally {
       setRefreshing(false);
     }
   }
+
+  useEffect(() => {
+    const reviewEvidence = asRecord(asRecord(result).reviewEvidence);
+    const reviewCollector = asRecord(reviewEvidence.reviewCollector);
+    const listingEvidence = asRecord(reviewEvidence.listingEvidence);
+
+    const reviewsCollected =
+      getNumber(asRecord(result).reviewsCollected) ??
+      getNumber(reviewEvidence.reviewsCollected) ??
+      getNumber(reviewCollector.reviewsCollected) ??
+      0;
+    const sourcesChecked = Array.isArray(reviewEvidence.sourcesChecked) ? reviewEvidence.sourcesChecked.length : 0;
+    const evidenceStrength = getString(reviewEvidence.evidenceStrength).toLowerCase();
+    const exactConfidence = getString(listingEvidence.confidence).toLowerCase();
+    const shouldAutoRefresh =
+      reviewsCollected === 0 &&
+      sourcesChecked === 0 &&
+      (evidenceStrength === "limited" || evidenceStrength === "not enough" || exactConfidence === "low" || !evidenceStrength);
+
+    if (!shouldAutoRefresh || refreshing) return;
+
+    const key = productPayload.productKey || productPayload.productName;
+    if (!key) return;
+
+    const storageKey = `reviewintel:auto-refresh:${key}`;
+    if (typeof window !== "undefined" && window.sessionStorage.getItem(storageKey)) return;
+    if (typeof window !== "undefined") window.sessionStorage.setItem(storageKey, "1");
+
+    refreshEvidence();
+  }, [result, productPayload.productKey, productPayload.productName, refreshing]);
 
   return (
     <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-950/80">
