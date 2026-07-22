@@ -486,46 +486,6 @@ const mobileShopCarouselItems = [
         </div>
       </section>
 
-      <section className="home-mobile-carousel-section grid h-[100svh] min-h-[100svh] snap-start snap-always content-center overflow-hidden bg-[linear-gradient(180deg,#eefcff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:hidden">
-        <div className="home-mobile-carousel-shell grid w-full justify-items-center text-center">
-          <Badge tone="info">Marketplace intelligence</Badge>
-          <h2 className="mt-4 max-w-sm text-4xl font-black leading-tight tracking-normal">
-            Works with your favorite shops.
-          </h2>
-          <p className="mt-3 max-w-xs text-sm font-semibold leading-6 text-slate-600">
-            Amazon, Walmart, Temu, TikTok Shop, Etsy, Shopify, eBay, and more.
-          </p>
-          <div className="mt-6 -mx-5 overflow-hidden">
-            <div className="home-mobile-scan-carousel flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {mobileShopCarouselItems.concat(mobileShopCarouselItems).map((shop, index) => (
-                <article
-                  key={`${shop.name}-${index}`}
-                  className={`home-mobile-scan-card rounded-[1.75rem] border border-white/80 bg-gradient-to-br ${shop.tone} p-5 text-center shadow-[0_22px_70px_rgba(12,36,68,0.14)] backdrop-blur`}
-                  style={{ animationDelay: `${index * 120}ms` }}
-                >
-                  <span className="text-5xl">{shop.emoji}</span>
-                  <p className="mt-4 text-2xl font-black leading-tight text-ink">{shop.name}</p>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-                    Scan products before you buy.
-                  </p>
-                </article>
-              ))}
-            </div>
-            <div className="mt-1 flex justify-center gap-2">
-              {mobileShopCarouselItems.map((shop, index) => (
-                <span
-                  key={`${shop.name}-dot`}
-                  className={`h-1.5 rounded-full ${index === 0 ? "w-6 bg-ocean" : "w-1.5 bg-ocean/30"}`}
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <PlatformLogoOrbit initialLocale={locale} />
-
       <section className="home-premium-payoff h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
