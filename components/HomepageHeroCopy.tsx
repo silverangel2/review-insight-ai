@@ -9,6 +9,8 @@ const heroCopy: Record<
   {
     badge: string;
     languageLabel: string;
+    mobileTitle: string;
+    mobileSubtitle: string;
     subtitle: string;
     slides: string[];
   }
@@ -16,6 +18,8 @@ const heroCopy: Record<
   en: {
     badge: "AI shopping assistant",
     languageLabel: "Choose language",
+    mobileTitle: "Know before you buy.",
+    mobileSubtitle: "Paste a link or screenshot. Get a quick BUY, CONSIDER, or AVOID.",
     subtitle:
       "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, common complaints, ratings, value, and AI-like review patterns to give you a fast BUY, CONSIDER, or AVOID verdict.",
     slides: [
@@ -27,6 +31,8 @@ const heroCopy: Record<
   fr: {
     badge: "Analyseur IA d’avis",
     languageLabel: "Choisir la langue",
+    mobileTitle: "Sachez avant d’acheter.",
+    mobileSubtitle: "Collez un lien ou une capture. Obtenez une réponse claire.",
     subtitle:
       "Collez les avis et obtenez un verdict clair, le risque de faux avis, les plaintes principales et la valeur du produit.",
     slides: [
@@ -38,6 +44,8 @@ const heroCopy: Record<
   es: {
     badge: "Escáner de reseñas con IA",
     languageLabel: "Elegir idioma",
+    mobileTitle: "Sabe antes de comprar.",
+    mobileSubtitle: "Pega un enlace o captura. Recibe una respuesta clara.",
     subtitle:
       "Pega reseñas y recibe un veredicto claro, riesgo de reseñas falsas, quejas principales y puntuación de valor.",
     slides: [
@@ -49,6 +57,8 @@ const heroCopy: Record<
   zh: {
     badge: "AI 评论扫描器",
     languageLabel: "选择语言",
+    mobileTitle: "购买前先看清。",
+    mobileSubtitle: "粘贴链接或截图，快速获得清晰判断。",
     subtitle:
       "粘贴评论，即可获得清晰结论、虚假评论风险、主要投诉和价值评分。",
     slides: [
@@ -60,6 +70,8 @@ const heroCopy: Record<
   de: {
     badge: "KI-Bewertungsscanner",
     languageLabel: "Sprache wählen",
+    mobileTitle: "Vor dem Kauf wissen.",
+    mobileSubtitle: "Link oder Screenshot einfügen. Schnell Klarheit bekommen.",
     subtitle:
       "Füge Rezensionen ein und erhalte ein klares Urteil, Risiko gefälschter Bewertungen, Hauptbeschwerden und eine Wertbewertung.",
     slides: [
@@ -71,6 +83,8 @@ const heroCopy: Record<
   hi: {
     badge: "AI समीक्षा स्कैनर",
     languageLabel: "भाषा चुनें",
+    mobileTitle: "खरीदने से पहले जानें।",
+    mobileSubtitle: "लिंक या स्क्रीनशॉट डालें। तुरंत साफ जवाब पाएं।",
     subtitle:
       "रिव्यू पेस्ट करें और साफ फैसला, फेक-रिव्यू जोखिम, मुख्य शिकायतें और वैल्यू स्कोर देखें।",
     slides: [
@@ -119,15 +133,26 @@ export function HomepageHeroCopy({ initialLocale = "en" }: HomepageHeroCopyProps
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="sm:hidden">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge tone="good">{copy.badge}</Badge>
+        </div>
+        <h1 className="mt-5 max-w-[19rem] text-[clamp(3rem,14vw,4.25rem)] font-black leading-[0.94] tracking-normal text-[#06111f]">
+          {copy.mobileTitle}
+        </h1>
+        <p className="mt-4 max-w-[21rem] text-base font-semibold leading-6 text-slate-700">
+          {copy.mobileSubtitle}
+        </p>
+      </div>
+      <div className="hidden sm:flex sm:flex-wrap sm:items-center sm:gap-3">
         <Badge tone="good">{copy.badge}</Badge>
       </div>
-      <div className="mt-6 flex min-h-[clamp(13rem,29vw,25rem)] items-center md:min-h-[clamp(16rem,27vw,25rem)]">
+      <div className="mt-6 hidden min-h-[clamp(13rem,29vw,25rem)] items-center sm:flex md:min-h-[clamp(16rem,27vw,25rem)]">
         <h1 key={activeSlide} className="ri-hero-copy-slide max-w-[min(100%,54rem)] text-[clamp(2.65rem,5.8vw,5.75rem)] font-black leading-[0.95] tracking-[-0.01em] text-[#06111f] [overflow-wrap:anywhere]">
           {activeSlide}
         </h1>
       </div>
-      <p className="mt-6 max-w-2xl text-xl leading-8 text-slate-700">
+      <p className="mt-6 hidden max-w-2xl text-xl leading-8 text-slate-700 sm:block">
         {copy.subtitle}
       </p>
     </>

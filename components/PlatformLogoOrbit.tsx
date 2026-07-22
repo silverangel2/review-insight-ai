@@ -99,6 +99,8 @@ const carouselItems = [...platforms, ...platforms.map((platform) => ({
               : "Bluetooth speaker: strong bass for the size, but app pairing confused several buyers."
 }))];
 
+const mobileMarketplaces = ["Amazon", "Walmart", "Temu", "TikTok Shop", "Etsy", "Shopify", "eBay"];
+
 type PlatformLogoOrbitProps = {
   initialLocale?: ReviewIntelLocale | string;
 };
@@ -111,7 +113,7 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
   const locale = normalizeLocale(initialLocale);
 
   return (
-    <section className="ri-orbit-section relative min-h-[590px] overflow-hidden rounded-[2.5rem] border border-white/70 bg-[radial-gradient(circle_at_16%_14%,rgba(45,212,191,0.36),transparent_30%),radial-gradient(circle_at_78%_14%,rgba(96,165,250,0.34),transparent_33%),radial-gradient(circle_at_54%_94%,rgba(251,191,36,0.36),transparent_34%),radial-gradient(circle_at_92%_82%,rgba(244,114,182,0.20),transparent_26%),linear-gradient(135deg,#d6fff8_0%,#f8fdff_42%,#fff1c8_100%)] px-6 py-10 text-ink shadow-[0_40px_130px_rgba(35,86,163,0.16)]">
+    <section className="ri-orbit-section relative min-h-[100svh] overflow-hidden rounded-[1.75rem] border border-white/70 bg-[radial-gradient(circle_at_16%_14%,rgba(45,212,191,0.36),transparent_30%),radial-gradient(circle_at_78%_14%,rgba(96,165,250,0.34),transparent_33%),radial-gradient(circle_at_54%_94%,rgba(251,191,36,0.36),transparent_34%),radial-gradient(circle_at_92%_82%,rgba(244,114,182,0.20),transparent_26%),linear-gradient(135deg,#d6fff8_0%,#f8fdff_42%,#fff1c8_100%)] px-5 py-8 text-ink shadow-[0_40px_130px_rgba(35,86,163,0.16)] sm:min-h-[590px] sm:rounded-[2.5rem] sm:px-6 sm:py-10">
       <style jsx>{`
         @keyframes riCarouselPan {
           0% { transform: translateX(0) rotateZ(-0.6deg); }
@@ -151,9 +153,9 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
 
         @media (max-width: 640px) {
           .ri-orbit-section {
-            min-height: 330px !important;
-            border-radius: 1.25rem !important;
-            padding: 1rem 0 !important;
+            min-height: 100svh !important;
+            border-radius: 1.5rem !important;
+            padding: 2rem 1.25rem 1.5rem !important;
           }
 
           .ri-orbit-title {
@@ -275,12 +277,26 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
         <p className="mx-auto inline-flex rounded-full border border-white/70 bg-white/60 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-ocean shadow-sm backdrop-blur-lg">
           {t(locale, "Marketplace intelligence")}
         </p>
-        <h2 className="mt-5 text-4xl font-black tracking-tight sm:text-6xl">
+        <h2 className="mt-5 hidden text-4xl font-black tracking-tight sm:block sm:text-6xl">
           {t(locale, "All reviews. One AI scan. Clear buying answers.")}
+        </h2>
+        <h2 className="mt-4 text-3xl font-black leading-tight tracking-normal sm:hidden">
+          {t(locale, "One scan. Clear answers.")}
         </h2>
       </div>
 
-      <div className="ri-carousel-window relative z-10 mt-12 overflow-hidden py-16">
+      <div className="relative z-20 mt-8 grid grid-cols-2 gap-3 sm:hidden">
+        {mobileMarketplaces.map((item) => (
+          <span key={item} className="rounded-3xl border border-white/70 bg-white/70 px-4 py-4 text-center text-sm font-black text-ink shadow-sm backdrop-blur">
+            {item}
+          </span>
+        ))}
+      </div>
+      <p className="relative z-20 mx-auto mt-6 max-w-xs text-center text-sm font-semibold leading-6 text-slate-700 sm:hidden">
+        Review signals, complaints, value, and risk in one clean scan.
+      </p>
+
+      <div className="ri-carousel-window relative z-10 mt-12 hidden overflow-hidden py-16 sm:block">
         <div className="pointer-events-none absolute left-0 top-0 z-20 h-full w-28 bg-gradient-to-r from-[#e4fffb] to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 z-20 h-full w-28 bg-gradient-to-l from-[#fff1cd] to-transparent" />
         <div className="ri-carousel-track flex w-max gap-8 px-8">

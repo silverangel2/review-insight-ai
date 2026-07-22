@@ -34,7 +34,7 @@ export default async function LandingPage() {
     <main className="reviewintel-home-main bg-[linear-gradient(135deg,#a8eee8_0%,#e7fbff_34%,#c7e2ff_66%,#fff0c9_100%)] text-ink">
       <SponsorAnalytics placement="landing" />
 
-      <section className="reviewintel-home-hero relative isolate min-h-[calc(100vh-73px)] overflow-hidden border-b border-white/60">
+      <section className="reviewintel-home-hero relative isolate min-h-[100svh] overflow-hidden border-b border-white/60 sm:min-h-[calc(100vh-73px)]">
         <div
           className="absolute inset-0 opacity-35"
           aria-hidden="true"
@@ -99,17 +99,18 @@ export default async function LandingPage() {
               overflow-x: hidden;
             }
             .reviewintel-home-hero {
-              min-height: auto !important;
-              overflow: visible !important;
+              min-height: 100svh !important;
+              overflow: hidden !important;
             }
             .reviewintel-home-hero-grid {
-              min-height: auto !important;
-              gap: .95rem !important;
-              padding: 1.15rem 1rem 1.75rem !important;
+              min-height: 100svh !important;
+              align-content: start !important;
+              gap: .9rem !important;
+              padding: 1.65rem 1.25rem 1.25rem !important;
             }
             .reviewintel-home-hero h1 {
-              font-size: clamp(2.05rem, 10.5vw, 2.65rem) !important;
-              line-height: 1.02 !important;
+              font-size: clamp(3rem, 14vw, 4.25rem) !important;
+              line-height: .94 !important;
               letter-spacing: 0 !important;
             }
             .reviewintel-home-hero .reviewintel-home-hero-grid > div:first-child > .mt-8 {
@@ -182,35 +183,48 @@ export default async function LandingPage() {
           }
         `}</style>
 
-        <div className="reviewintel-home-hero-grid relative mx-auto grid min-h-[calc(100vh-73px)] max-w-7xl gap-10 px-6 py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+        <div className="reviewintel-home-hero-grid relative mx-auto grid min-h-[100svh] max-w-7xl gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
           <div>
             <HomepageHeroCopy initialLocale={locale} />
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
               <Link
                 href="/analyze"
-                className="rounded-2xl bg-ink px-7 py-4 text-center text-sm font-black text-white shadow-[0_20px_70px_rgba(15,23,42,0.25)] transition hover:-translate-y-0.5 hover:bg-ocean"
+                className="rounded-2xl bg-ocean px-7 py-4 text-center text-sm font-black text-white shadow-[0_20px_70px_rgba(8,183,168,0.24)] transition hover:-translate-y-0.5 hover:bg-teal sm:bg-ink sm:shadow-[0_20px_70px_rgba(15,23,42,0.25)] sm:hover:bg-ocean"
               >
                 {t("scanReviewsNow")}
               </Link>
               <Link
                 href="/pricing"
-                className="rounded-2xl border border-white/70 bg-white/60 px-7 py-4 text-center text-sm font-black text-ink shadow-soft backdrop-blur transition hover:-translate-y-0.5 hover:bg-white"
+                className="hidden rounded-2xl border border-white/70 bg-white/60 px-7 py-4 text-center text-sm font-black text-ink shadow-soft backdrop-blur transition hover:-translate-y-0.5 hover:bg-white sm:inline-flex sm:justify-center"
               >
                 {t("seePricing")}
               </Link>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-2 text-xs font-black uppercase text-slate-600">
-              {["Amazon", "Walmart", "Temu", "TikTok Shop", "Etsy", "Shopify", "eBay"].map((item) => (
-                <span key={item} className="rounded-full border border-white/70 bg-white/45 px-3 py-2 shadow-sm backdrop-blur">
+            <div className="mt-5 flex max-w-full flex-wrap gap-2 text-[11px] font-black uppercase text-slate-600 sm:mt-8 sm:text-xs">
+              {["Amazon", "Walmart", "Temu", "TikTok Shop", "Etsy", "Shopify", "eBay"].map((item, index) => (
+                <span key={item} className={`${index > 3 ? "hidden sm:inline-flex" : "inline-flex"} rounded-full border border-white/70 bg-white/60 px-3 py-2 shadow-sm backdrop-blur`}>
                   {item}
                 </span>
               ))}
             </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:hidden">
+              <article className="rounded-3xl border border-white/70 bg-white/70 p-4 shadow-soft backdrop-blur">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.identityEyebrow")}</p>
+                <p className="mt-2 text-lg font-black leading-tight text-ink">{t("heroCards.identityTitle")}</p>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">{t("heroCards.identityLabel")}</p>
+              </article>
+              <article className="rounded-3xl border border-white/70 bg-cyan-50/80 p-4 shadow-soft backdrop-blur">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-ocean">{t("heroCards.evidenceEyebrow")}</p>
+                <p className="mt-2 text-lg font-black leading-tight text-ink">{t("heroCards.evidenceTitle")}</p>
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">{t("buyerWins.complaint")}</p>
+              </article>
+            </div>
           </div>
 
-          <div className="ri-hero-visual relative mx-auto min-h-[620px] w-full max-w-[760px] overflow-hidden rounded-[2.8rem] border border-white/70 bg-[linear-gradient(135deg,rgba(6,17,35,0.96),rgba(16,72,111,0.78)_42%,rgba(56,148,180,0.48)_68%,rgba(255,255,255,0.28)_100%)] shadow-[0_45px_150px_rgba(12,36,68,0.3)] backdrop-blur-lg md:min-h-[690px]">
+          <div className="ri-hero-visual relative mx-auto hidden min-h-[620px] w-full max-w-[760px] overflow-hidden rounded-[2.8rem] border border-white/70 bg-[linear-gradient(135deg,rgba(6,17,35,0.96),rgba(16,72,111,0.78)_42%,rgba(56,148,180,0.48)_68%,rgba(255,255,255,0.28)_100%)] shadow-[0_45px_150px_rgba(12,36,68,0.3)] backdrop-blur-lg sm:block md:min-h-[690px]">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_46%,rgba(142,222,255,0.5),transparent_36%),radial-gradient(circle_at_38%_72%,rgba(255,198,103,0.3),transparent_34%)]" aria-hidden="true" />
             <div className="ri-home-crystal ri-crystal-orb absolute right-[-2%] top-[10%] size-[640px] rounded-full border border-white/36 bg-[radial-gradient(circle_at_30%_24%,rgba(255,255,255,.98),rgba(174,244,238,.9)_20%,rgba(89,170,255,.52)_52%,rgba(255,189,88,.3)_80%,rgba(255,255,255,.08))] opacity-90 blur-[0.2px] backdrop-blur-lg" aria-hidden="true" />
             <div className="absolute right-[16%] top-[31%] size-[340px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,.44),rgba(16,198,163,.18)_42%,transparent_72%)] blur-2xl" aria-hidden="true" />
@@ -307,7 +321,7 @@ export default async function LandingPage() {
                 </span>
               ))}
             </div>
-            <Link href="/analyze" className="mt-6 inline-flex rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
+            <Link href="/analyze" className="mt-6 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
               {t("tryShopperScan")}
             </Link>
           </article>
@@ -322,7 +336,7 @@ export default async function LandingPage() {
                 </span>
               ))}
             </div>
-            <Link href="/pricing" className="mt-6 inline-flex rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
+            <Link href="/pricing" className="mt-6 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
               {t("seeSellerPlans")}
             </Link>
           </article>
