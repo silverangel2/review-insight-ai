@@ -899,7 +899,110 @@ export default function AdminSocialAutoPost() {
   const homepageVideo = media.find((item) => item.is_active && item.media_type === "video" && item.topic === HOMEPAGE_VIDEO_TOPIC);
 
   return (
-    <section className="space-y-5">
+    <>
+      <section
+        data-reviewintel-social-library-top
+        className="rounded-[2rem] border-2 border-cyan-300 bg-cyan-50 p-5 shadow-soft dark:border-cyan-300/30 dark:bg-cyan-300/10"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
+              Social Media Library
+            </p>
+            <h2 className="mt-1 text-2xl font-black text-ink dark:text-white">
+              Uploaded photos/videos for Facebook + TikTok
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm font-semibold text-slate-600 dark:text-slate-300">
+              This is the active media library. Upload media, preview it, select it for Facebook/TikTok, replace it, or delete old media here.
+            </p>
+            <p className="mt-3 inline-flex rounded-full bg-white px-4 py-2 text-sm font-black text-ocean shadow-soft dark:bg-slate-950 dark:text-cyan-200">
+              {media.length} media item{media.length === 1 ? "" : "s"} loaded
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={clearOldLibrary}
+            disabled={saving || media.length === 0}
+            className="rounded-2xl bg-red-100 px-4 py-3 text-xs font-black text-red-700 hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
+          >
+            Clear old / unselected media
+          </button>
+        </div>
+
+        {media.length === 0 ? (
+          <div className="mt-5 rounded-2xl border border-dashed border-cyan-300 bg-white p-5 text-center dark:border-cyan-300/20 dark:bg-slate-950">
+            <p className="text-sm font-black text-slate-600 dark:text-slate-300">
+              No media in library yet. Upload a photo or video below.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {media.map((item) => (
+              <article
+                key={`top-${item.id}`}
+                className="rounded-2xl border border-cyan-200 bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950"
+              >
+                {(item.thumbnail_url || item.file_url) ? (
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900">
+                    {item.media_type === "video" || /\.(mp4|mov|webm|m4v)(\?|$)/i.test(item.thumbnail_url || item.file_url || "") ? (
+                      <video
+                        src={item.thumbnail_url || item.file_url || ""}
+                        controls
+                        playsInline
+                        muted
+                        className="h-40 w-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={item.thumbnail_url || item.file_url || ""}
+                        alt={item.title || "Social media library item"}
+                        className="h-40 w-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 text-xs font-black text-slate-400 dark:border-white/10">
+                    No preview URL
+                  </div>
+                )}
+
+                <div className="mt-3">
+                  <p className="truncate text-sm font-black text-ink dark:text-white">
+                    {item.title || item.file_url || "Untitled media"}
+                  </p>
+                  <p className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {item.media_type || "media"} · {item.is_active ? "Active" : "Paused"}
+                  </p>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => toggleMediaActive(item)} disabled={saving} className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-black text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-200">
+                    {item.is_active ? "Active" : "Paused"}
+                  </button>
+                  <button type="button" onClick={() => selectMediaForPlatform(item, "facebook")} disabled={saving} className="rounded-xl bg-blue-100 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-200 dark:bg-blue-500/10 dark:text-blue-200">
+                    Use for Facebook
+                  </button>
+                  <button type="button" onClick={() => selectMediaForPlatform(item, "tiktok")} disabled={saving} className="rounded-xl bg-pink-100 px-3 py-2 text-xs font-black text-pink-700 hover:bg-pink-200 dark:bg-pink-500/10 dark:text-pink-200">
+                    Use for TikTok
+                  </button>
+                  <button type="button" onClick={() => selectMediaForPlatform(item, "both")} disabled={saving} className="rounded-xl bg-violet-100 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-200 dark:bg-violet-500/10 dark:text-violet-200">
+                    Use for Both
+                  </button>
+                  <button type="button" onClick={() => replaceMedia(item)} disabled={saving} className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-200">
+                    Replace URL
+                  </button>
+                  <button type="button" onClick={() => deleteMedia(item)} disabled={saving} className="rounded-xl bg-red-100 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-200 dark:bg-red-500/10 dark:text-red-200">
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+<section className="space-y-5">
       <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900 sm:rounded-[2rem] sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
           Social auto-post
@@ -1615,5 +1718,6 @@ export default function AdminSocialAutoPost() {
         </div>
       </div>
     </section>
+    </>
   );
 }
