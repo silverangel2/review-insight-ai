@@ -60,7 +60,7 @@ const reviewerNotes = [
 export default function TikTokApprovalPage() {
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
           TikTok review video flow
         </p>
@@ -92,7 +92,7 @@ export default function TikTokApprovalPage() {
         {approvalSteps.map((step) => (
           <article
             key={step.label}
-            className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950"
+            className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500"
           >
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-ocean text-sm font-black text-white">
               {step.label}
@@ -119,7 +119,7 @@ export default function TikTokApprovalPage() {
         </p>
       </section>
 
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
           Reviewer notes
         </p>

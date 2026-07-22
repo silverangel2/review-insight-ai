@@ -162,7 +162,7 @@ export function DeveloperControlCenter({ serverDeveloperMode = false }: { server
 
   return (
     <section className="space-y-6">
-      <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <Badge tone={developerMode ? "good" : "warn"}>{developerMode ? "Developer Mode Active" : "Developer Mode Off"}</Badge>
@@ -196,7 +196,7 @@ export function DeveloperControlCenter({ serverDeveloperMode = false }: { server
             <button
               key={key}
               onClick={() => toggle(typedKey)}
-              className="rounded-2xl border border-line bg-white p-5 text-left shadow-soft transition hover:border-ocean dark:border-white/10 dark:bg-slate-950"
+              className="rounded-2xl border border-line bg-white p-5 text-left shadow-soft transition hover:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500"
             >
               <Badge tone={settings[typedKey] ? "good" : "neutral"}>{settings[typedKey] ? "On" : "Off"}</Badge>
               <h3 className="mt-4 text-lg font-black text-ink dark:text-white">{title}</h3>
@@ -206,7 +206,7 @@ export function DeveloperControlCenter({ serverDeveloperMode = false }: { server
         })}
       </section>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h2 className="text-xl font-black tracking-tight text-ink dark:text-white">System announcement</h2>
         <textarea
           value={settings.announcement_text}
@@ -218,7 +218,7 @@ export function DeveloperControlCenter({ serverDeveloperMode = false }: { server
         </p>
       </section>
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h2 className="text-xl font-black tracking-tight text-ink dark:text-white">Test account access</h2>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {(["free_buyer", "buyer_pro", "seller_premium", "seller_pro"] as SubscriptionPlan[]).map((plan) => (
@@ -241,17 +241,17 @@ export function DeveloperControlCenter({ serverDeveloperMode = false }: { server
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">API usage</p>
           <p className="mt-4 text-3xl font-black text-ocean dark:text-cyan-300">Live soon</p>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Production stats will read usage_tracking and token fields.</p>
         </article>
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Failed webhooks</p>
           <p className="mt-4 text-3xl font-black text-amber">0</p>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Placeholder for Stripe webhook failure logs.</p>
         </article>
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Screenshot logs</p>
           <p className="mt-4 text-3xl font-black text-teal">Ready</p>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Uploaded image records are modeled in Supabase.</p>

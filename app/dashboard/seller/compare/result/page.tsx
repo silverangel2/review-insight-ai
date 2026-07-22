@@ -108,7 +108,7 @@ function SellerProofPill({ label, value }: { label: string; value: string | numb
   const display = value === null || value === undefined || value === "" ? "Not found" : String(value);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+    <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
       <p className="mt-1 text-sm font-black text-slate-950 dark:text-white">{display}</p>
     </div>
@@ -146,7 +146,7 @@ function SellerProductProofCard({ label, product }: { label: string; product: un
             {proof.sourcesChecked.slice(0, 6).map((source, index) => (
               <span
                 key={`${String(source)}-${index}`}
-                className="rounded-full border border-cyan-200 bg-white px-3 py-1 text-xs font-black text-cyan-800 dark:border-cyan-300/20 dark:bg-slate-950 dark:text-cyan-200"
+                className="rounded-full border border-cyan-200 bg-white px-3 py-1 text-xs font-black text-cyan-800 dark:border-cyan-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200"
               >
                 {String(source).slice(0, 40)}
               </span>
@@ -214,7 +214,7 @@ function SellerCompareToolProof({ result }: { result: unknown }) {
   if (!hasAnyProof) return null;
 
   return (
-    <section className="rounded-[2rem] border border-cyan-200 bg-white p-4 shadow-sm dark:border-cyan-300/20 dark:bg-slate-950 sm:p-6">
+    <section className="rounded-[2rem] border border-cyan-200 bg-white p-4 shadow-sm dark:border-cyan-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:p-6">
       <div className="mb-5">
         <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-700 dark:text-cyan-200">
           AI tool proof
@@ -306,7 +306,7 @@ export default function SellerCompareResultPage() {
     <main className="seller-compare-result-page min-h-screen bg-[#f7f3ea] px-4 py-8 text-[#172033]">
       <section className="mx-auto max-w-7xl">
         <div className="seller-compare-result-shell overflow-hidden rounded-[36px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-          <div className="seller-compare-hero bg-slate-950 px-6 py-7 text-white md:px-8">
+          <div className="seller-compare-hero bg-gradient-to-r from-sky-600 to-teal-500 px-6 py-7 text-white md:px-8">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.35em] text-teal-300">
@@ -379,7 +379,7 @@ export default function SellerCompareResultPage() {
             <StrategyCard title="Risk warnings" items={riskWarnings} tone="rose" />
           </div>
 
-          <div className="seller-compare-plan-section border-t border-slate-200 bg-slate-950 p-6 text-white md:p-8">
+          <div className="seller-compare-plan-section border-t border-slate-200 bg-gradient-to-r from-sky-600 to-teal-500 p-6 text-white md:p-8">
             <div className="seller-compare-plan-grid grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
               <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-teal-300">
@@ -409,7 +409,7 @@ export default function SellerCompareResultPage() {
           <div className="seller-compare-actions flex flex-wrap gap-3 border-t border-slate-200 bg-white p-6 md:p-8">
             <Link
               href="/dashboard/seller/compare"
-              className="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-black text-white hover:bg-slate-800"
+              className="rounded-2xl bg-gradient-to-r from-sky-600 to-teal-500 px-6 py-3 text-sm font-black text-white hover:bg-slate-800"
             >
               Run another compare
             </Link>

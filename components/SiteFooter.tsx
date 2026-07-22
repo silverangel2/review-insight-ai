@@ -8,7 +8,7 @@ export async function SiteFooter() {
   const tr = (text: string) => getUiTextTranslation(locale, text) || text;
 
   return (
-    <footer className="border-t border-cyan-100/70 bg-white/85 px-4 py-10 text-ink shadow-[0_-20px_70px_rgba(8,183,168,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 dark:text-white sm:px-6">
+    <footer className="border-t border-cyan-100/70 bg-white/85 px-4 py-10 text-ink shadow-[0_-20px_70px_rgba(8,183,168,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/90 dark:text-white sm:px-6">
       <div className="mx-auto grid max-w-7xl min-w-0 gap-8 lg:grid-cols-[1.05fr_1.6fr]">
         <section className="relative min-w-0 overflow-hidden rounded-[2rem] border border-line bg-[linear-gradient(135deg,#172033,#2356a3_52%,#08b7a8)] p-5 text-white shadow-glow dark:border-white/10 sm:p-6">
           <div className="ri-scan-grid absolute inset-0 opacity-20" />

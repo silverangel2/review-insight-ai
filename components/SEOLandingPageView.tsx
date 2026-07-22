@@ -31,7 +31,7 @@ export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-white/15 bg-slate-950/52 p-5 shadow-[0_25px_90px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          <div className="rounded-[2rem] border border-white/15 bg-gradient-to-r from-sky-600 to-teal-500/52 p-5 shadow-[0_25px_90px_rgba(0,0,0,0.28)] backdrop-blur-xl">
             <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Launch-ready search focus</p>
             <div className="mt-4 grid gap-3">
               {page.highlights.map((highlight, index) => (
@@ -47,14 +47,14 @@ export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
 
       <section className="mt-6 grid gap-5 md:grid-cols-3">
         {(page.sections ?? []).map((section) => (
-          <article key={section.title} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <article key={section.title} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h2 className="text-2xl font-black text-ink dark:text-white">{section.title}</h2>
             <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">{section.body}</p>
           </article>
         ))}
       </section>
 
-      <section className="mt-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="mt-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase text-ocean dark:text-cyan-300">Keywords and search topics</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {page.keywords.map((keyword) => (

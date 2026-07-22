@@ -325,13 +325,13 @@ export function ShopperResultHistoryCorner() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex max-w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-lg hover:border-teal-300 hover:text-teal-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200"
+        className="flex max-w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 shadow-lg hover:border-teal-300 hover:text-teal-700 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-slate-200"
       >
         🕘 {shopperHistoryCopy(readStoredLocale()).history} · {items.length}
       </button>
 
       {open ? (
-        <div className="reviewintel-history-popup-panel mt-2 max-w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-slate-950">
+        <div className="reviewintel-history-popup-panel mt-2 max-w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
               {shopperHistoryCopy(readStoredLocale()).savedTests}

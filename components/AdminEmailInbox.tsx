@@ -228,7 +228,7 @@ export function AdminEmailInbox() {
   }, [selected?.id, selected?.admin_notes]);
 
   return (
-    <section className="rounded-[2rem] border border-line bg-white shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-[2rem] border border-line bg-white shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="border-b border-line px-5 py-4 dark:border-white/10">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -423,7 +423,7 @@ export function AdminEmailInbox() {
                 </div>
               </div>
 
-              <div className="border-t border-line bg-white p-5 dark:border-white/10 dark:bg-slate-950">
+              <div className="border-t border-line bg-white p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                 <div className="rounded-3xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
                   <p className="text-xs font-black uppercase tracking-[0.15em] text-ocean dark:text-cyan-300">
                     Reply to customer

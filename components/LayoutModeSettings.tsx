@@ -46,7 +46,7 @@ export default function LayoutModeSettings() {
   }
 
   return (
-    <section className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">
+    <section className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
         Layout settings
       </p>

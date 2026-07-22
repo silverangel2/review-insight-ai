@@ -24,7 +24,7 @@ export function SponsoredResources({
   return (
     <section
       aria-labelledby={`sponsored-${placement}`}
-      className={compact ? "rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950" : "border-b border-line bg-white dark:border-white/10 dark:bg-slate-950"}
+      className={compact ? "rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500" : "border-b border-line bg-white dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500"}
     >
       <div className={compact ? "" : "mx-auto max-w-7xl px-6 py-14"}>
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -57,7 +57,7 @@ export function SponsoredResources({
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-white text-sm font-black text-ink dark:border-white/10 dark:bg-slate-950 dark:text-white">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-line bg-white text-sm font-black text-ink dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
                     {sponsor.logoText}
                   </div>
                   <div>

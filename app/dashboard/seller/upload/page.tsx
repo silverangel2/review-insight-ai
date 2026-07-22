@@ -76,22 +76,22 @@ export default function SellerDashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-slate-950 dark:text-white">
+    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
       <div className="mx-auto max-w-5xl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <Link
             href="/seller/analyze"
-            className="rounded-full border border-line bg-white px-3 py-2 text-xs font-bold sm:px-4 sm:text-sm text-ink shadow-soft transition hover:border-teal hover:text-ink dark:border-white/10 dark:bg-slate-950 dark:text-white"
+            className="rounded-full border border-line bg-white px-3 py-2 text-xs font-bold sm:px-4 sm:text-sm text-ink shadow-soft transition hover:border-teal hover:text-ink dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
           >
             ← Seller Dashboard
           </Link>
 
-          <span className="rounded-full border border-line bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] sm:px-4 sm:text-xs sm:tracking-[0.2em] text-teal shadow-soft dark:border-white/10 dark:bg-slate-950 dark:text-cyan-200">
+          <span className="rounded-full border border-line bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] sm:px-4 sm:text-xs sm:tracking-[0.2em] text-teal shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200">
             Seller CSV Intelligence
           </span>
         </div>
 
-        <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-slate-950">
+        <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] sm:text-sm sm:tracking-[0.3em] text-teal dark:text-cyan-200">ReviewIntel Seller</p>
 
           <h1 className="mt-3 text-3xl font-black tracking-tight text-ink sm:mt-4 sm:text-6xl dark:text-white">
@@ -103,7 +103,7 @@ export default function SellerDashboardPage() {
           </p>
 
           <div id="upload-csv" className="mx-auto mt-5 max-w-2xl sm:mt-10">
-            <label className="group flex min-h-[210px] sm:min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border-2 border-dashed border-teal/40 bg-white p-5 sm:rounded-[2.5rem] sm:border-4 sm:p-8 text-center shadow-soft transition hover:border-teal sm:hover:-translate-y-1 sm:hover:shadow-glow dark:border-cyan-300/40 dark:bg-slate-950">
+            <label className="group flex min-h-[210px] sm:min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[1.75rem] border-2 border-dashed border-teal/40 bg-white p-5 sm:rounded-[2.5rem] sm:border-4 sm:p-8 text-center shadow-soft transition hover:border-teal sm:hover:-translate-y-1 sm:hover:shadow-glow dark:border-cyan-300/40 dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <div className="mb-4 grid size-16 place-items-center rounded-2xl bg-teal text-3xl sm:mb-5 sm:size-24 sm:rounded-full sm:text-5xl font-black text-white shadow-glow">
                 📄
               </div>

@@ -1,6 +1,6 @@
 export default function MaintenancePage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-mist px-6 py-16 dark:bg-slate-950">
+    <main className="flex min-h-screen items-center justify-center bg-mist px-6 py-16 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <section className="max-w-xl rounded-2xl border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-white/5">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">ReviewIntel</p>
         <h1 className="mt-4 text-4xl font-black tracking-tight text-ink dark:text-white">ReviewIntel is temporarily updating.</h1>

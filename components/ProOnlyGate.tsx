@@ -35,7 +35,7 @@ export function ProOnlyGate({ children }: { children: ReactNode }) {
 
   if (!loaded) {
     return (
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <Badge tone="info">Checking access</Badge>
         <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">Loading seller workspace...</h1>
       </section>
@@ -44,7 +44,7 @@ export function ProOnlyGate({ children }: { children: ReactNode }) {
 
   if (!account) {
     return (
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <Badge tone="warn">Login required</Badge>
         <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">Please log in to open the seller dashboard.</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -62,7 +62,7 @@ export function ProOnlyGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <Badge tone="warn">Seller plan</Badge>
       <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">Seller dashboard requires a seller plan</h1>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">

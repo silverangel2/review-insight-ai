@@ -303,7 +303,7 @@ export function PlatformLogoOrbit({ initialLocale = "en" }: PlatformLogoOrbitPro
                   </div>
                 </div>
 
-                <div className="ri-card-face ri-card-back border border-white/25 bg-slate-950/70 p-5 text-left backdrop-blur-2xl">
+                <div className="ri-card-face ri-card-back border border-white/25 bg-gradient-to-r from-sky-600 to-teal-500/70 p-5 text-left backdrop-blur-2xl">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(45,212,191,0.30),transparent_34%),radial-gradient(circle_at_80%_85%,rgba(251,191,36,0.20),transparent_30%)]" />
                   <div className="relative z-[4] flex h-full flex-col justify-between">
                     <div>

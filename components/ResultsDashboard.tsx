@@ -161,7 +161,7 @@ function RatingBreakdown({ breakdown }: { breakdown: AnalyzeResponse["meta"]["ra
   const total = ratingTotal(breakdown);
 
   return (
-    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Rating breakdown</p>
       <div className="mt-4 grid gap-3">
         {(["5", "4", "3", "2", "1"] as const).map((rating) => {
@@ -733,7 +733,7 @@ function TrustMetricVisual({ criterion }: { criterion: TrustCriterion }) {
         className="grid size-32 place-items-center rounded-full p-3 shadow-inner"
         style={{ background: `conic-gradient(${style.hex} ${score * 3.6}deg, #e2e8f0 0deg)` }}
       >
-        <div className="grid size-24 place-items-center rounded-full bg-white dark:bg-slate-950">
+        <div className="grid size-24 place-items-center rounded-full bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <span className={`text-3xl font-black ${style.text}`}>{Math.round(Number(score) || 0)}</span>
         </div>
       </div>
@@ -747,7 +747,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
   const style = TRUST_TONE_STYLE[criterion.tone];
 
   return (
-    <article className={`min-h-[520px] rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft dark:bg-slate-950`}>
+    <article className={`min-h-[520px] rounded-[1.75rem] border ${style.border} bg-white p-5 shadow-soft dark:bg-gradient-to-r from-sky-600 to-teal-500`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-base font-black leading-tight text-ink dark:text-white">{criterion.title}</p>
@@ -785,7 +785,7 @@ function TrustCriterionCard({ criterion }: { criterion: TrustCriterion }) {
               [t("worry"), criterion.worries],
               [t("action"), criterion.actions]
             ].map(([title, items]) => (
-              <div key={title as string} className="rounded-2xl bg-white p-3 dark:bg-slate-950">
+              <div key={title as string} className="rounded-2xl bg-white p-3 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                 <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">{title as string}</p>
                 <ul className="mt-2 grid gap-2">
                   {(items as string[]).slice(0, 3).map((item, index) => (
@@ -819,7 +819,7 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-[2rem] border border-line bg-[linear-gradient(135deg,#f8fbff,#eef7ff_42%,#fff7eb)] p-5 shadow-soft dark:border-white/10 dark:bg-slate-950 dark:bg-none">
+      <div className="rounded-[2rem] border border-line bg-[linear-gradient(135deg,#f8fbff,#eef7ff_42%,#fff7eb)] p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:bg-none">
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <Badge tone="info">{t("sellerProTrustCriteria")}</Badge>
@@ -845,7 +845,7 @@ function SellerTrustCriteriaDashboard({ result }: { result: AnalyzeResponse }) {
         ))}
       </section>
 
-      <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr]">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">{t("sellerTrustDiagnosis")}</p>
@@ -901,7 +901,7 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
       : t("sellerPremium");
 
   return (
-    <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="grid gap-6 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
         <div>
           <Badge tone="info">{t("trustSnapshot", { plan: sellerPlanLabel })}</Badge>
@@ -1037,7 +1037,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
   const displayMetric = card.metric || `${numericScore}%`;
 
   return (
-    <article className={`min-h-[460px] overflow-hidden rounded-[2rem] border ${style.border} bg-gradient-to-br ${style.shell} p-5 shadow-soft dark:border-white/10 dark:bg-slate-950`}>
+    <article className={`min-h-[460px] overflow-hidden rounded-[2rem] border ${style.border} bg-gradient-to-br ${style.shell} p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500`}>
       <div className="flex h-full min-h-[420px] flex-col">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -1111,7 +1111,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
             <p className="mt-3 text-lg font-black leading-7 text-ink dark:text-white">{card.recommendation}</p>
             <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
               {card.details.slice(0, 3).map((detail) => (
-                <p key={detail} className="rounded-xl bg-mist px-3 py-2 dark:bg-slate-950">{detail}</p>
+                <p key={detail} className="rounded-xl bg-mist px-3 py-2 dark:bg-gradient-to-r from-sky-600 to-teal-500">{detail}</p>
               ))}
               <p><span className="font-black text-ink dark:text-white">Check before buying: </span>{card.checks[0]}</p>
               <p><span className="font-black text-ink dark:text-white">Avoid if: </span>{card.avoid}</p>
@@ -1297,7 +1297,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
                 [translateResultText(locale, "Main Warning"), localizedBiggestComplaint, "text-coral"],
                 [translateResultText(locale, "Buying Notes"), localizedBuyingNotesPhrase, "text-ocean"]
               ].map(([label, value, color]) => (
-                <div key={label} className="min-h-28 rounded-[1.4rem] border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+                <div key={label} className="min-h-28 rounded-[1.4rem] border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                   <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
                   <p className={`mt-3 text-2xl font-black leading-tight ${color}`}>{value}</p>
                 </div>
@@ -1307,7 +1307,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
               <Link href="/analyze" className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean">
                 Test another product
               </Link>
-              <Link href="/compare" className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black break-words text-ink transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white">
+              <Link href="/compare" className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black break-words text-ink transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
                 Compare products
               </Link>
             </div>
@@ -1315,7 +1315,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Before you buy</p>
         <h3 className="mt-2 text-2xl font-black text-ink dark:text-white">What to check before checkout</h3>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -1356,7 +1356,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
       <SellerBusinessKpiDashboard analysis={analysis} plan={accountPlan ?? undefined} />
       {isSellerPro ? <SellerTrustCriteriaDashboard result={result} /> : <SellerTrustCriteriaSnapshot result={result} accountPlan={accountPlan} />}
 
-      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-ink text-white shadow-soft dark:bg-slate-950">
+      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-ink text-white shadow-soft dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="ri-scan-grid relative opacity-20" />
         <div className="relative grid gap-6 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-8">
           <div>
@@ -1406,7 +1406,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
         <SellerKpi label="Improvement upside" value={formatPercent(opportunityScore)} detail="Visible product, listing, and feature opportunities." tone="info" />
         <SellerKpi label="Evidence quality" value={formatPercent(evidenceScore)} detail={meta.confidence_detail ?? "Evidence confidence from valid reviews."} tone={confidenceTone(confidenceLabel)} />
       </section>
-      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Seller growth moves</p>
         <h3 className="mt-2 text-2xl font-black text-ink dark:text-white">Fix first, advertise better, and stop overpromising.</h3>
 
@@ -1434,7 +1434,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
         </div>
       </section>
 
-      <section className="rounded-[2.5rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950 lg:p-8">
+      <section className="rounded-[2.5rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 lg:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Seller intelligence map</p>
@@ -1453,7 +1453,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
         </div>
 
         <div className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-black/20">
+          <div className="rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/20">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Buyer confidence graph</p>
@@ -1526,7 +1526,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
               </p>
             </article>
 
-            <article className="rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-black/20">
+            <article className="rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/20">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Fix first</p>
               <p className="mt-3 text-base font-bold leading-7 text-ink dark:text-white">
                 {analysis.seller_insights.refund_risk_issues.length
@@ -1557,7 +1557,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
           </div>
         </div>
 
-        <div className="mt-6 rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-black/20">
+        <div className="mt-6 rounded-[2rem] border border-line bg-slate-50 p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/20">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Rating background</p>
           <div className="mt-4">
             <RatingBreakdown breakdown={meta.rating_breakdown} />

@@ -367,7 +367,7 @@ export function BetterPicksPanel({
       {loading && picks.length === 0 ? (
         <div className={`${compact ? "mt-3" : "mt-5"} grid gap-3 ${compact ? "grid-cols-1" : "md:grid-cols-3"}`}>
           {[0, 1, 2].map((item) => (
-            <div key={item} className="h-36 animate-pulse rounded-[1.5rem] border border-white/70 bg-white/70 dark:border-white/10 dark:bg-slate-950/60" />
+            <div key={item} className="h-36 animate-pulse rounded-[1.5rem] border border-white/70 bg-white/70 dark:border-white/10 dark:bg-gradient-to-r from-teal-600 to-emerald-500/60" />
           ))}
         </div>
       ) : null}
@@ -381,7 +381,7 @@ export function BetterPicksPanel({
             return (
             <article
               key={`${pick.badge}-${pick.title}`}
-              className={`${compact ? "min-w-[230px] snap-start p-3" : "p-4"} rounded-[1.5rem] border border-white/70 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/80`}
+              className={`${compact ? "min-w-[230px] snap-start p-3" : "p-4"} rounded-[1.5rem] border border-white/70 bg-white shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-teal-600 to-emerald-500/80`}
             >
               {showImage ? (
                 <div className={`${compact ? "h-24" : "h-36"} relative mb-3 overflow-hidden rounded-2xl bg-slate-50 dark:bg-white/5`}>
@@ -434,7 +434,7 @@ export function BetterPicksPanel({
                     },
                   })
                 }
-                className={`${compact ? "px-3 py-2 text-[10px]" : "px-4 py-2 text-xs"} mt-4 inline-flex rounded-full bg-slate-950 font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 dark:bg-white dark:text-slate-950`}
+                className={`${compact ? "px-3 py-2 text-[10px]" : "px-4 py-2 text-xs"} mt-4 inline-flex rounded-full bg-gradient-to-r from-teal-600 to-emerald-500 font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 dark:bg-white dark:text-slate-950`}
               >
                 {panelCopy.view}
               </a>

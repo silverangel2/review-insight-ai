@@ -119,7 +119,7 @@ function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
 
   return (
     <aside
-      className={`rounded-3xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950/70 ${className}`}
+      className={`rounded-3xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70 ${className}`}
       aria-label="Google AdSense advertisement"
     >
       <div className="mb-2 text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
@@ -314,7 +314,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
 
   return (
     <aside
-      className={`rounded-3xl border border-cyan-200/70 bg-[linear-gradient(135deg,rgba(232,252,255,0.96),rgba(255,255,255,0.98)_54%,rgba(255,247,226,0.9))] p-4 text-ink shadow-soft backdrop-blur-xl dark:border-cyan-300/25 dark:bg-slate-950/80 dark:text-white ${isHouseAd ? "ri-house-ad-slot" : ""} ${className}`}
+      className={`rounded-3xl border border-cyan-200/70 bg-[linear-gradient(135deg,rgba(232,252,255,0.96),rgba(255,255,255,0.98)_54%,rgba(255,247,226,0.9))] p-4 text-ink shadow-soft backdrop-blur-xl dark:border-cyan-300/25 dark:bg-gradient-to-r from-sky-600 to-teal-500/80 dark:text-white ${isHouseAd ? "ri-house-ad-slot" : ""} ${className}`}
       aria-label="Sponsored placement"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

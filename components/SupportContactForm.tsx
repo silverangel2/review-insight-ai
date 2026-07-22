@@ -55,7 +55,7 @@ export function SupportContactForm({ defaultTopic = "Product question" }: { defa
   }
 
   return (
-    <form onSubmit={submitMessage} className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <form onSubmit={submitMessage} className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="block">
           <span className="text-sm font-black text-ink dark:text-white">Your email</span>

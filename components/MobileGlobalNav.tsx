@@ -193,7 +193,7 @@ export default function MobileGlobalNav() {
             <button
               type="button"
               onClick={() => setLayoutMode("desktop")}
-              className="col-span-2 flex h-10 items-center justify-center rounded-2xl bg-slate-950 text-center text-[10px] font-black uppercase tracking-[0.16em] text-white"
+              className="col-span-2 flex h-10 items-center justify-center rounded-2xl bg-gradient-to-r from-sky-600 to-teal-500 text-center text-[10px] font-black uppercase tracking-[0.16em] text-white"
             >
               Desktop
             </button>

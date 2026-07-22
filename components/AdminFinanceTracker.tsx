@@ -202,7 +202,7 @@ export function AdminFinanceTracker() {
   }
 
   return (
-    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -370,7 +370,7 @@ export function AdminFinanceTracker() {
                   </div>
 
                   {entry.description ? <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{entry.description}</p> : null}
-                  {entry.tax_note ? <p className="mt-2 rounded-xl bg-white p-3 text-xs font-bold text-slate-600 dark:bg-black/20 dark:text-slate-300">Tax note: {entry.tax_note}</p> : null}
+                  {entry.tax_note ? <p className="mt-2 rounded-xl bg-white p-3 text-xs font-bold text-slate-600 dark:bg-gradient-to-r from-sky-600 to-teal-500/20 dark:text-slate-300">Tax note: {entry.tax_note}</p> : null}
                   {entry.receipt_url ? (
                     <a href={entry.receipt_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-black text-ocean dark:text-cyan-300">
                       Open receipt

@@ -31,7 +31,7 @@ export default function AdminEmailPage() {
   return (
     <DashboardShell title="Admin Email" subtitle="Manage customer email workflows and communication tools." experience="admin">
       <div className="space-y-6">
-        <div className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <div className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -64,7 +64,7 @@ export default function AdminEmailPage() {
 
         <section className="grid gap-4 lg:grid-cols-4">
           {emailCommandCards.map((card) => (
-            <article key={card.label} className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <article key={card.label} className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">
                 {card.label}
               </p>

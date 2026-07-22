@@ -20,7 +20,7 @@ function ListCard({
   empty?: string;
 }) {
   return (
-    <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <h2 className="text-lg font-black text-ink dark:text-white">{title}</h2>
       <div className="mt-4 grid gap-2">
         {items.length ? (
@@ -106,7 +106,7 @@ export default async function AdminTrafficPage() {
           <ListCard title="UTM campaigns" items={summary.topCampaigns} empty="No tagged campaigns yet. Use links like /?utm_source=facebook&utm_campaign=launch." />
         </section>
 
-        <section className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <section className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
             Recent activity
           </p>

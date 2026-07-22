@@ -85,7 +85,7 @@ export default function VerifyEmailPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-14">
-      <section className="rounded-2xl border border-line bg-white p-8 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-8 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <Badge tone={status === "error" ? "bad" : status === "checking" ? "warn" : "info"}>Email verification</Badge>
         <h1 className="mt-5 text-3xl font-black tracking-tight text-ink dark:text-white">
           {status === "error" ? "Verification needs attention" : status === "checking" ? "Verifying your email" : "Verification link ready"}

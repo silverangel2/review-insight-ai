@@ -184,7 +184,7 @@ export function AdminSEOManager() {
 
   return (
     <section className="grid gap-6 xl:grid-cols-[1fr_0.72fr]">
-      <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-xs font-black uppercase text-ocean dark:text-cyan-300">SEO manager</p>
@@ -291,7 +291,7 @@ export function AdminSEOManager() {
               <button
                 type="button"
                 onClick={resetDraft}
-                className="rounded-xl border border-teal/40 bg-white px-4 py-2 text-sm font-black text-teal transition hover:border-teal dark:bg-slate-950"
+                className="rounded-xl border border-teal/40 bg-white px-4 py-2 text-sm font-black text-teal transition hover:border-teal dark:bg-gradient-to-r from-sky-600 to-teal-500"
               >
                 Reset this page
               </button>
@@ -301,7 +301,7 @@ export function AdminSEOManager() {
       </article>
 
       <aside className="space-y-5">
-        <article className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Social preview</p>
           <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-mist dark:border-white/10 dark:bg-white/[0.04]">
             {draft.ogImage ? (
@@ -323,7 +323,7 @@ export function AdminSEOManager() {
           </div>
         </article>
 
-        <article className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Search preview</p>
           <h3 className="mt-3 text-xl font-black text-ocean dark:text-cyan-300">{draft.title}</h3>
           <p className="mt-2 truncate text-xs font-bold text-teal">{draft.canonicalUrl}</p>

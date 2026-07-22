@@ -531,7 +531,7 @@ export default function SellerDashboardPage() {
           subtitle={isSellerPro ? "Seller Pro tools include competitor compare and advanced improvement tracking." : "Seller Premium includes seller analysis, reports, and improvement planning."}
           experience="seller"
         >
-<section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+<section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h2 className="text-2xl font-black text-ink dark:text-white">Seller dashboard is not available on shopper accounts.</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
               Shopper accounts are for buying decisions. Seller dashboards are for product review intelligence, complaint tracking, and listing improvement.
@@ -608,7 +608,7 @@ export default function SellerDashboardPage() {
       >
         <SponsorAnalytics placement="seller_dashboard" />
 
-        <section className="seller-premium-hero mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <section className="seller-premium-hero mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro summary</p>
           <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Your product improvement command center.</h2>
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
@@ -618,7 +618,7 @@ export default function SellerDashboardPage() {
 
         <section className="seller-premium-command-grid mb-6 grid gap-4 lg:grid-cols-4">
           {sellerCommandCards.map((card) => (
-            <article key={card.eyebrow} className={`seller-command-card min-w-0 rounded-[1.35rem] border bg-white p-5 shadow-soft dark:bg-slate-950 ${card.tone}`}>
+            <article key={card.eyebrow} className={`seller-command-card min-w-0 rounded-[1.35rem] border bg-white p-5 shadow-soft dark:bg-gradient-to-r from-sky-600 to-teal-500 ${card.tone}`}>
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{card.eyebrow}</p>
               <h3 className="mt-2 max-w-full break-words text-lg font-black leading-tight text-ink [overflow-wrap:anywhere] dark:text-white">{card.title}</h3>
               <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{card.detail}</p>
@@ -657,7 +657,7 @@ export default function SellerDashboardPage() {
         </section>
 
         {isSellerPro && dashboard.trendSeries.length ? (
-          <section className="seller-improvement-trend mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="seller-improvement-trend mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Improvement graph</p>
@@ -746,7 +746,7 @@ export default function SellerDashboardPage() {
         ) : null}
 
         {dashboard.productRows.length ? (
-          <section className="seller-growth-pulse mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="seller-growth-pulse mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Seller growth pulse</p>
@@ -810,7 +810,7 @@ export default function SellerDashboardPage() {
         ) : null}
 
         {dashboard.productRows.length ? (
-          <section className="seller-premium-ranking mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="seller-premium-ranking mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">Product health ranking</p>
@@ -849,7 +849,7 @@ export default function SellerDashboardPage() {
         ) : null}
 
         <section className="seller-premium-focus-grid mb-6 grid gap-5 lg:grid-cols-2">
-          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-coral">Focus first</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">
               {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "No product selected yet"}
@@ -861,7 +861,7 @@ export default function SellerDashboardPage() {
             </p>
           </article>
 
-          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Best performer</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">
               {dashboard.strongestProduct ? productDisplayCode(dashboard.strongestProduct.name) : "No strong product signal yet"}
@@ -893,7 +893,7 @@ export default function SellerDashboardPage() {
         </section>
 
         <section className="seller-premium-utility-grid mb-6 grid gap-5 lg:grid-cols-2">
-          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             {isSellerPro ? <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-700 dark:text-violet-300">Compare intelligence</p> : null}
             {isSellerPro ? <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">Compare results guide strategy, but do not affect product health averages.</h3> : null}
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
@@ -901,7 +901,7 @@ export default function SellerDashboardPage() {
             </p>
           </article>
 
-          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Report center</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">Export-ready seller insights.</h3>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -913,7 +913,7 @@ export default function SellerDashboardPage() {
         </section>
 
         {isSellerPro ? (
-          <section className="seller-calendar-workspace mb-6 rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="seller-calendar-workspace mb-6 rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="mb-5">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro workspace</p>
               <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Improvement calendar</h2>
@@ -1004,7 +1004,7 @@ export default function SellerDashboardPage() {
         ) : null}
 
         {!hasData && !isSellerPro ? (
-          <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h2 className="text-2xl font-black text-ink dark:text-white">Start your seller data</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
               This dashboard no longer uses fake metrics. Run a seller analysis and saved scan data will populate this page.
@@ -1019,7 +1019,7 @@ export default function SellerDashboardPage() {
             </div>
           </section>
         ) : (
-          <section className="mt-6 rounded-2xl border border-line bg-white shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="mt-6 rounded-2xl border border-line bg-white shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <details className="group">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
                 <div>
@@ -1098,7 +1098,7 @@ export default function SellerDashboardPage() {
         )}
 
         {!isSellerPro ? (
-          <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h2 className="text-2xl font-black text-ink dark:text-white">Seller Pro unlocks the improvement calendar.</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
               Seller Premium gets the seller intelligence dashboard and improvement planning. Seller Pro adds competitor compare, saved calendar, notes, scan momentum, and deeper tracking tools.

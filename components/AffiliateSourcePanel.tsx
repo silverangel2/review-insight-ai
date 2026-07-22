@@ -152,7 +152,7 @@ export function AffiliateSourcePanel({
       </div>
 
       {loading ? (
-        <div className="mt-4 h-16 animate-pulse rounded-2xl bg-white/80 dark:bg-slate-950/50" />
+        <div className="mt-4 h-16 animate-pulse rounded-2xl bg-white/80 dark:bg-gradient-to-r from-sky-600 to-teal-500/50" />
       ) : null}
 
       {error ? (
@@ -181,7 +181,7 @@ export function AffiliateSourcePanel({
                   },
                 })
               }
-              className={`${compact ? "min-w-[210px] p-3" : "p-4"} rounded-2xl border border-white/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-white/10 dark:bg-slate-950/80`}
+              className={`${compact ? "min-w-[210px] p-3" : "p-4"} rounded-2xl border border-white/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/80`}
             >
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-600 dark:text-sky-200">
                 Amazon source
@@ -192,7 +192,7 @@ export function AffiliateSourcePanel({
               <p className="mt-1 truncate text-[11px] font-bold text-slate-500 dark:text-slate-400">
                 {link.host}
               </p>
-              <span className="mt-3 inline-flex rounded-full bg-slate-950 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950">
+              <span className="mt-3 inline-flex rounded-full bg-gradient-to-r from-sky-600 to-teal-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950">
                 {copy.open}
               </span>
             </a>

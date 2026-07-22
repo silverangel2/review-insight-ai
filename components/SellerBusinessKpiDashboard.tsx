@@ -594,7 +594,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
   ];
 
   return (
-    <section className="seller-money-kpi-section mt-8 rounded-[2rem] border border-line bg-white/85 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/80">
+    <section className="seller-money-kpi-section mt-8 rounded-[2rem] border border-line bg-white/85 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/80">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Seller money intelligence</p>

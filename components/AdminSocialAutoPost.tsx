@@ -726,7 +726,7 @@ export default function AdminSocialAutoPost() {
 
         <div className="mt-3 grid gap-2">
           {check.checks?.map((item) => (
-            <div key={item.label} className="rounded-xl bg-mist p-3 dark:bg-slate-950">
+            <div key={item.label} className="rounded-xl bg-mist p-3 dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <p className={`text-xs font-black uppercase tracking-[0.12em] ${
                 item.status === "passed"
                   ? "text-emerald-700 dark:text-emerald-300"
@@ -756,7 +756,7 @@ export default function AdminSocialAutoPost() {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
           Social auto-post
         </p>
@@ -768,7 +768,7 @@ export default function AdminSocialAutoPost() {
         </p>
       </div>
 
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
         <div className="grid gap-4 sm:grid-cols-3">
           <div className={`rounded-2xl border p-4 ${
             settings.full_auto_enabled
@@ -948,7 +948,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={previewFacebookReel}
                 disabled={saving}
-                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-slate-950 dark:text-cyan-200"
+                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200"
               >
                 Preview next Reel
               </button>
@@ -964,7 +964,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={checkFacebook}
                 disabled={saving}
-                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-slate-950 dark:text-cyan-200"
+                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-60 dark:border-cyan-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200"
               >
                 Check Facebook / Instagram
               </button>
@@ -972,7 +972,7 @@ export default function AdminSocialAutoPost() {
                 type="button"
                 onClick={checkTikTok}
                 disabled={saving}
-                className="rounded-2xl border border-rose-300/40 bg-white px-5 py-3 text-sm font-black text-rose-600 shadow-soft disabled:opacity-60 dark:border-rose-300/30 dark:bg-slate-950 dark:text-rose-200"
+                className="rounded-2xl border border-rose-300/40 bg-white px-5 py-3 text-sm font-black text-rose-600 shadow-soft disabled:opacity-60 dark:border-rose-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-rose-200"
               >
                 Check TikTok
               </button>
@@ -989,7 +989,7 @@ export default function AdminSocialAutoPost() {
                 onClick={() => {
                   window.location.href = "/api/auth/tiktok/start";
                 }}
-                className="rounded-2xl bg-black px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-black/90"
+                className="rounded-2xl bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-gradient-to-r from-sky-600 to-teal-500/90"
               >
                 Connect TikTok
               </button>
@@ -1012,13 +1012,13 @@ export default function AdminSocialAutoPost() {
                   alert("TikTok disconnected.");
                   await checkTikTok();
                 }}
-                className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-soft transition hover:bg-mist dark:border-white/10 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+                className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-soft transition hover:bg-mist dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white dark:hover:bg-slate-800"
               >
                 Disconnect TikTok
               </button>
               <a
                 href="/admin/social/tiktok-approval"
-                className="rounded-2xl border border-violet-300/40 bg-white px-5 py-3 text-center text-sm font-black text-violet-700 shadow-soft transition hover:border-violet-500 dark:border-violet-300/30 dark:bg-slate-950 dark:text-violet-200"
+                className="rounded-2xl border border-violet-300/40 bg-white px-5 py-3 text-center text-sm font-black text-violet-700 shadow-soft transition hover:border-violet-500 dark:border-violet-300/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-violet-200"
               >
                 TikTok approval guide
               </a>
@@ -1051,7 +1051,7 @@ export default function AdminSocialAutoPost() {
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl bg-mist p-4 dark:bg-slate-950">
+              <div className="rounded-2xl bg-mist p-4 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Video overlay</p>
                 <p className="mt-3 text-2xl font-black leading-tight text-ink dark:text-white">{reelPreview.overlay.hook}</p>
                 <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">{reelPreview.overlay.support}</p>
@@ -1061,7 +1061,7 @@ export default function AdminSocialAutoPost() {
                 <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-slate-400">{reelPreview.overlay.brand}</p>
               </div>
 
-              <div className="rounded-2xl bg-mist p-4 dark:bg-slate-950">
+              <div className="rounded-2xl bg-mist p-4 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Caption</p>
                 <pre className="mt-3 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
                   {reelPreview.finalCaption}
@@ -1088,7 +1088,7 @@ export default function AdminSocialAutoPost() {
         {connectorCard("TikTok", tiktokCheck)}
       </div>
 
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
             Social media library
@@ -1239,7 +1239,7 @@ export default function AdminSocialAutoPost() {
           {media.length ? media.map((item) => (
             <article key={item.id} className="rounded-2xl border border-line bg-mist p-3 dark:border-white/10 dark:bg-slate-900">
               <div className="flex gap-3">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white dark:bg-slate-950">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500">
                   {item.media_type === "image" ? (
                     <img src={item.thumbnail_url || item.file_url} alt={item.alt_text || item.title || "Social media item"} className="h-full w-full object-cover" />
                   ) : (
@@ -1281,7 +1281,7 @@ export default function AdminSocialAutoPost() {
         </div>
       </div>
 
-      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-6">
+      <div className="rounded-[1.5rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
@@ -1338,7 +1338,7 @@ export default function AdminSocialAutoPost() {
                   type="button"
                   onClick={() => void deletePost(post.id)}
                   disabled={saving}
-                  className="w-fit rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 dark:border-rose-300/20 dark:bg-slate-950 dark:text-rose-200"
+                  className="w-fit rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 transition hover:bg-rose-50 disabled:opacity-60 dark:border-rose-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-rose-200"
                 >
                   Delete log
                 </button>
@@ -1352,7 +1352,7 @@ export default function AdminSocialAutoPost() {
                 </p>
               ) : null}
               {post.metadata?.shortVideoScript || post.metadata?.content?.shortVideoScript ? (
-                <details className="mt-3 rounded-xl bg-white p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+                <details className="mt-3 rounded-xl bg-white p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-slate-300">
                   <summary className="cursor-pointer font-black text-ink dark:text-white">
                     Short video script
                   </summary>

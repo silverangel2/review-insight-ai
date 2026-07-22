@@ -216,7 +216,7 @@ export function NotificationCenter({ scope }: { scope: "admin" | "customer" }) {
   }, []);
 
   return (
-    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -293,10 +293,10 @@ export function NotificationCenter({ scope }: { scope: "admin" | "customer" }) {
                     <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${severityClass(item.severity)}`}>
                       {item.severity ?? "normal"}
                     </span>
-                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:bg-black/20 dark:text-slate-300">
+                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:bg-gradient-to-r from-sky-600 to-teal-500/20 dark:text-slate-300">
                       {item.status ?? "unread"}
                     </span>
-                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:bg-black/20 dark:text-slate-300">
+                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:bg-gradient-to-r from-sky-600 to-teal-500/20 dark:text-slate-300">
                       {item.type ?? "system"}
                     </span>
                   </div>
@@ -340,7 +340,7 @@ export function NotificationCenter({ scope }: { scope: "admin" | "customer" }) {
                     <button
                       onClick={() => void markRead(selected)}
                       disabled={updatingId === selected.id || selected.status === "read"}
-                      className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                      className="rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
                     >
                       {updatingId === selected.id ? "Updating..." : selected.status === "read" ? "Already Read" : "Mark Read"}
                     </button>

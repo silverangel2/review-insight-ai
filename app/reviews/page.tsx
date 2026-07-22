@@ -29,7 +29,7 @@ export default function ReviewsPage() {
       <section className="mt-8 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
         <div className="space-y-4">
           {reviews.length ? reviews.map((review) => (
-            <article key={review.id} className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <article key={review.id} className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p className="text-4xl font-black text-ocean dark:text-cyan-300">{review.rating}%</p>
@@ -43,7 +43,7 @@ export default function ReviewsPage() {
               </div>
             </article>
           )) : (
-            <article className="rounded-3xl border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <article className="rounded-3xl border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <Badge tone="warn">No public reviews yet</Badge>
               <h2 className="mt-4 text-3xl font-black text-ink dark:text-white">Be the first to leave ReviewIntel feedback.</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">

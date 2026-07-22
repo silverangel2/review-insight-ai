@@ -129,7 +129,7 @@ function BigButton({
   return (
     <Link
       href={href}
-      className="group rounded-[1.5rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-6 transition hover:-translate-y-1 hover:shadow-glow dark:border-white/10 dark:bg-slate-950"
+      className="group rounded-[1.5rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-6 transition hover:-translate-y-1 hover:shadow-glow dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500"
     >
       <div className="flex items-center gap-4">
         <div className="grid size-12 place-items-center rounded-2xl bg-teal text-2xl sm:size-16 sm:rounded-[1.5rem] sm:text-3xl text-white shadow-glow">
@@ -188,8 +188,8 @@ export default function CustomerDashboardPage() {
 
   if (dashboardAllowed !== true) {
     return (
-      <main className="min-h-screen bg-paper px-6 py-12 text-ink dark:bg-slate-950 dark:text-white">
-        <section className="mx-auto max-w-xl rounded-[2rem] border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <main className="min-h-screen bg-paper px-6 py-12 text-ink dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
+        <section className="mx-auto max-w-xl rounded-[2rem] border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-teal dark:text-cyan-200">Shopper Free</p>
           <h1 className="mt-3 text-3xl font-black">Dashboard is premium-only.</h1>
           <p className="mt-3 text-sm font-bold leading-6 text-slate-500 dark:text-slate-400">
@@ -211,22 +211,22 @@ export default function CustomerDashboardPage() {
     : "Free does not save scan history";
 
   return (
-    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-slate-950 dark:text-white">
+    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <Link
             href="/analyze"
-            className="rounded-full border border-line bg-white px-3 py-2 text-xs font-black sm:px-4 sm:text-sm text-ink shadow-soft transition hover:border-teal dark:border-white/10 dark:bg-slate-950 dark:text-white"
+            className="rounded-full border border-line bg-white px-3 py-2 text-xs font-black sm:px-4 sm:text-sm text-ink shadow-soft transition hover:border-teal dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
           >
             Analyze Product
           </Link>
 
-          <span className="rounded-full border border-line bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] sm:px-4 sm:text-xs sm:tracking-[0.2em] text-teal shadow-soft dark:border-white/10 dark:bg-slate-950 dark:text-cyan-200">
+          <span className="rounded-full border border-line bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] sm:px-4 sm:text-xs sm:tracking-[0.2em] text-teal shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200">
             {isPremium ? "Shopper Premium" : "Shopper Free"}
           </span>
         </div>
 
-        <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-slate-950">
+        <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] sm:text-sm sm:tracking-[0.3em] text-teal dark:text-cyan-200">
             Shopping Hub
           </p>
@@ -274,19 +274,19 @@ export default function CustomerDashboardPage() {
         </section>
 
         <section className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-3">
-          <div className="rounded-[1.5rem] border border-line bg-white p-4 sm:rounded-[2rem] sm:p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <div className="rounded-[1.5rem] border border-line bg-white p-4 sm:rounded-[2rem] sm:p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Today</p>
             <p className="mt-1 text-3xl font-black sm:mt-2 sm:text-4xl text-ink dark:text-white">{scanLimitLabel}</p>
             <p className="mt-2 text-sm font-bold text-slate-500">{historyHelper}</p>
           </div>
 
-          <div className="rounded-[1.5rem] border border-line bg-white p-4 sm:rounded-[2rem] sm:p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <div className="rounded-[1.5rem] border border-line bg-white p-4 sm:rounded-[2rem] sm:p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">History</p>
             <p className="mt-1 text-3xl font-black sm:mt-2 sm:text-4xl text-ink dark:text-white">{historyWindowLabel}</p>
             <p className="mt-2 text-sm font-bold text-slate-500">{isPremium ? "Saved scans auto-clear" : "Current scan only"}</p>
           </div>
 
-          <div className="rounded-[1.5rem] border border-line bg-white p-4 sm:rounded-[2rem] sm:p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <div className="rounded-[1.5rem] border border-line bg-white p-4 sm:rounded-[2rem] sm:p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Warnings</p>
             <p className="mt-1 text-3xl font-black sm:mt-2 sm:text-4xl text-ink dark:text-white">{avoidCount}</p>
             <p className="mt-2 text-sm font-bold text-slate-500">Products to think twice about</p>
@@ -301,7 +301,7 @@ export default function CustomerDashboardPage() {
           />
         ) : null}
 
-        <section id="recent-scans" className="mt-6 rounded-[1.5rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-6 dark:border-white/10 dark:bg-slate-950">
+        <section id="recent-scans" className="mt-6 rounded-[1.5rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-6 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Recent Scans</p>
@@ -348,7 +348,7 @@ export default function CustomerDashboardPage() {
           </div>
         </section>
 
-        <section id="avoid-list" className="mt-6 rounded-[1.5rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-6 dark:border-white/10 dark:bg-slate-950">
+        <section id="avoid-list" className="mt-6 rounded-[1.5rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-6 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Avoid List</p>
           <h2 className="mt-2 text-lg font-black text-ink sm:text-2xl dark:text-white">Products with warning signs</h2>
 

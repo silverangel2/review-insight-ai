@@ -17,7 +17,7 @@ export function ScoreCard({
   }[tone];
 
   return (
-    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</p>
       <p className={`mt-4 text-4xl font-black tracking-tight ${color}`}>{value}</p>
       <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{detail}</p>

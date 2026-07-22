@@ -289,7 +289,7 @@ export default function AnalyzerForm() {
       </div>
 
       <div className="mx-auto mt-10 max-w-2xl">
-        <label className="group flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[2.5rem] border-4 border-dashed border-teal/40 bg-white p-8 text-center shadow-soft transition hover:-translate-y-1 hover:border-teal hover:shadow-glow dark:border-cyan-300/40 dark:bg-slate-950">
+        <label className="group flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[2.5rem] border-4 border-dashed border-teal/40 bg-white p-8 text-center shadow-soft transition hover:-translate-y-1 hover:border-teal hover:shadow-glow dark:border-cyan-300/40 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <input
             type="file"
             accept="image/*"
@@ -317,7 +317,7 @@ export default function AnalyzerForm() {
           value={productLink}
           onChange={(event) => setProductLink(event.target.value)}
           placeholder={analyzerFormCopy(readStoredLocale()).linkPlaceholder}
-          className="mt-5 w-full rounded-2xl border border-line bg-white px-5 py-4 text-base font-bold text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/15 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+          className="mt-5 w-full rounded-2xl border border-line bg-white px-5 py-4 text-base font-bold text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/15 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
         />
 
         {error ? (
@@ -359,11 +359,11 @@ export default function AnalyzerForm() {
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-100">
                 ReviewIntel detective scan
               </p>
-              <p className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-sky-700 shadow-sm dark:bg-slate-950 dark:text-sky-100">
+              <p className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-sky-700 shadow-sm dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-sky-100">
                 {scanProgress}%
               </p>
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-slate-950">
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <div
                 className="h-full rounded-full bg-[linear-gradient(90deg,#08b7a8,#2356a3,#ffb238)] transition-all duration-700"
                 style={{ width: `${scanProgress}%` }}

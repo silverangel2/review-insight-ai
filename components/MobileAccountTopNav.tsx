@@ -107,7 +107,7 @@ export default function MobileAccountTopNav() {
               href={item.href}
               className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black ${
                 active
-                  ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                  ? "bg-gradient-to-r from-sky-600 to-teal-500 text-white dark:bg-white dark:text-slate-950"
                   : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white/80"
               }`}
             >

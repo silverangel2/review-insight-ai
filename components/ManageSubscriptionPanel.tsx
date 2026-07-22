@@ -45,7 +45,7 @@ export function ManageSubscriptionPanel() {
 
   return (
     <section className="grid gap-5 lg:grid-cols-[1fr_0.86fr]">
-      <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <article className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase text-ocean dark:text-cyan-300">Subscription controls</p>
         <h2 className="mt-3 text-3xl font-black text-ink dark:text-white">Manage billing or upgrade your plan.</h2>
         <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">

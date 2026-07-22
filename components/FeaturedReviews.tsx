@@ -19,7 +19,7 @@ export function FeaturedReviews() {
   if (!reviews.length) return null;
 
   return (
-    <section className="bg-white px-6 py-12 text-ink dark:bg-slate-950 dark:text-white">
+    <section className="bg-white px-6 py-12 text-ink dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
       <div className="mx-auto max-w-7xl">
         <Badge tone="good">Featured Reviews</Badge>
         <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">

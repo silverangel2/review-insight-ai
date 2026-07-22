@@ -90,7 +90,7 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
   return (
     <>
       {children}
-      <div className="reviewintel-view-switcher fixed bottom-3 right-3 z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1 rounded-full border border-white/40 bg-slate-950/85 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-2xl backdrop-blur-xl">
+      <div className="reviewintel-view-switcher fixed bottom-3 right-3 z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1 rounded-full border border-white/40 bg-gradient-to-r from-sky-600 to-teal-500/85 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-2xl backdrop-blur-xl">
       <span className="text-white/50">Layout:</span>
       <button
         type="button"

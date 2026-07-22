@@ -8,7 +8,7 @@ export default function AccountPage() {
 <Suspense fallback={<p className="text-sm text-slate-600">Loading account...</p>}>
         <AccountDashboard />
       </Suspense>
-      <section className="mt-6 rounded-[2rem] border border-coral/20 bg-white p-6 shadow-soft dark:border-coral/30 dark:bg-slate-950">
+      <section className="mt-6 rounded-[2rem] border border-coral/20 bg-white p-6 shadow-soft dark:border-coral/30 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-coral">Privacy control</p>
         <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">Clear saved scan history</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">

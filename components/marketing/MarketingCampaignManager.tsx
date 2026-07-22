@@ -73,7 +73,7 @@ export function MarketingCampaignManager() {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
           Auto email campaign
         </p>
@@ -151,7 +151,7 @@ export function MarketingCampaignManager() {
         </div>
       </section>
 
-      <section className="rounded-[2rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-[2rem] border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="overflow-hidden rounded-[1.75rem] bg-[#07111f] shadow-[0_24px_70px_rgba(7,17,31,0.25)]">
           <div className="bg-gradient-to-br from-[#07111f] via-[#0f766e] to-[#22d3ee] p-7 text-white">
             <div className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-4 py-3">

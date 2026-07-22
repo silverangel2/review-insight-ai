@@ -96,7 +96,7 @@ export function QuickNav({ mode = "general", current = "" }: QuickNavProps) {
   if (hideQuickNavOnMobile) return null;
 
   return (
-    <nav className="reviewintel-quick-nav mb-5 rounded-[1.5rem] border border-line bg-white/90 p-3 shadow-soft backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
+    <nav className="reviewintel-quick-nav mb-5 rounded-[1.5rem] border border-line bg-white/90 p-3 shadow-soft backdrop-blur dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/90">
       <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
         <button
           type="button"

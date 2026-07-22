@@ -141,7 +141,7 @@ export function PricingCards() {
             className={`rounded-3xl border p-5 shadow-soft ${
               tier.highlight
                 ? "border-cyan-200 bg-[linear-gradient(145deg,#ffffff,#ecfeff)] dark:border-cyan-300/30 dark:bg-[linear-gradient(145deg,rgba(8,145,178,0.20),rgba(15,23,42,0.96))]"
-                : "border-line bg-white dark:border-white/10 dark:bg-slate-950"
+                : "border-line bg-white dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500"
             }`}
           >
             <Badge tone={tier.plan === "seller_pro" || tier.plan === "seller_premium" ? "good" : tier.plan === "free_buyer" ? "neutral" : "info"}>
@@ -170,7 +170,7 @@ export function PricingCards() {
           </article>
         ))}
       </div>
-      <div className="mt-6 grid gap-3 rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="mt-6 grid gap-3 rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 md:grid-cols-[1fr_auto] md:items-center">
         <div>
           <p className="text-sm font-black text-ink dark:text-white">Need subscription help before checkout?</p>
           <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">Review refund terms, billing support, and cancellation controls before upgrading.</p>

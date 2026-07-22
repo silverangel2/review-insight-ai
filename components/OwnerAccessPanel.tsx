@@ -249,7 +249,7 @@ export function OwnerAccessPanel() {
   }
 
   return (
-    <section className="mx-auto max-w-4xl rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="mx-auto max-w-4xl rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <Badge tone="warn">Private owner access</Badge>
       <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">ReviewIntel owner access</h1>
       <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">

@@ -121,7 +121,7 @@ export default async function AdminPage() {
             <Link
               key={tool.href}
               href={tool.href}
-              className="rounded-3xl border border-line bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950"
+              className="rounded-3xl border border-line bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500"
             >
               <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">
                 {tool.action}
@@ -137,7 +137,7 @@ export default async function AdminPage() {
         <AdminAITroubleshooter />
         <AdminSEOReadiness />
 
-        <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
             Comfort checklist
           </p>

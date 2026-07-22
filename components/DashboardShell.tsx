@@ -56,7 +56,7 @@ export function DashboardShell({
           : "dashboard-shell-main mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[260px_minmax(0,1fr)]"
       }
     >
-      <aside className="dashboard-shell-sidebar rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <aside className="dashboard-shell-sidebar rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="dashboard-shell-workspace-card rounded-2xl bg-ink p-4 text-white dark:bg-white dark:text-ink">
           <p className="text-xs font-bold uppercase opacity-70">Workspace</p>
           <p className="mt-2 text-lg font-black">{workspaceLabel}</p>
@@ -124,7 +124,7 @@ export function DashboardShell({
       </aside>
 
       <section className="dashboard-shell-content min-w-0">
-        <div className="dashboard-shell-page-title mb-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <div className="dashboard-shell-page-title mb-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <Badge tone="info">Dashboard</Badge>
           <h1 className="mt-4 text-3xl font-black text-ink dark:text-white">{title}</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">{subtitle}</p>
@@ -144,7 +144,7 @@ export function DashboardMetric({ label, value, detail, tone = "info" }: { label
   }[tone];
 
   return (
-    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">{label}</p>
       <p className={`mt-4 text-3xl font-black ${color}`}>{value}</p>
       <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{detail}</p>
@@ -161,7 +161,7 @@ export function MiniBarChart({ items }: { items: Array<{ label: string; value: n
   };
 
   return (
-    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Trend snapshot</p>
       <div className="mt-5 grid gap-4">
         {items.map((item) => (

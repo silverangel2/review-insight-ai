@@ -613,7 +613,7 @@ export function AccountDashboard() {
   return (
     <section className="space-y-8">
       {!account ? (
-        <article data-account-profile className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article data-account-profile className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <Badge tone="warn">Account required</Badge>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">Log in to open your workspace</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -632,7 +632,7 @@ export function AccountDashboard() {
 
       {account ? (
       <>
-      <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="flex flex-wrap gap-2">
@@ -653,7 +653,7 @@ export function AccountDashboard() {
       </article>
 
       <section className="grid gap-5">
-        <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">Account profile</p>
@@ -740,7 +740,7 @@ export function AccountDashboard() {
                         rows={3}
                         maxLength={2000}
                         placeholder="Send bugs, observations, confusing parts, or anything you notice while testing beta."
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-amber-400 dark:border-white/10 dark:bg-slate-950/60 dark:text-white"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-amber-400 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/60 dark:text-white"
                       />
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-300">
@@ -760,19 +760,19 @@ export function AccountDashboard() {
                 ) : null}
 
                 <div data-account-profile-summary className="mt-4 grid gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 sm:grid-cols-3">
-                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
+                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-gradient-to-r from-sky-600 to-teal-500/60">
                     <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Plan</span>
                     <span className="mt-1 block text-ink dark:text-white">{displayPlanBadge(account, activePlan)}</span>
                   </div>
 
-                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
+                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-gradient-to-r from-sky-600 to-teal-500/60">
                     <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Daily usage</span>
                     <span className="mt-1 block text-ink dark:text-white">
                       {hasUnlimitedUsage(account.role, activePlan) ? "Unlimited" : quota ? quotaText(quota) : `${FREE_DAILY_REVIEW_LIMIT} free scans`}
                     </span>
                   </div>
 
-                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-slate-950/60">
+                  <div className="rounded-xl bg-white px-3 py-2 dark:bg-gradient-to-r from-sky-600 to-teal-500/60">
                     <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Profile status</span>
                     <span className="mt-1 block text-ink dark:text-white">
                       {isProfileReady ? "Ready" : `Missing ${profileMissingFields.join(", ")}`}
@@ -817,7 +817,7 @@ export function AccountDashboard() {
                     ],
                   },
                 ].map((group) => (
-                  <div key={group.title} data-profile-group={group.title} data-account-profile-card className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
+                  <div key={group.title} data-profile-group={group.title} data-account-profile-card className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/60">
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">
                       {group.title}
                     </p>
@@ -966,7 +966,7 @@ export function AccountDashboard() {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Security</p>
           <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">Password and access</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -1002,7 +1002,7 @@ export function AccountDashboard() {
             ["SEO Manager", "SEO pages, metadata, robots, sitemap, and landing pages.", "/admin/seo"],
             ["Marketing", "Marketing campaigns and outbound launch tools.", "/admin/marketing"],
           ].map(([title, detail, href]) => (
-            <Link key={href} href={href} className="rounded-2xl border border-line bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950">
+            <Link key={href} href={href} className="rounded-2xl border border-line bg-white p-6 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <Badge tone="good">Admin</Badge>
               <h2 className="mt-5 text-xl font-black text-ink dark:text-white">{title}</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{detail}</p>
@@ -1012,7 +1012,7 @@ export function AccountDashboard() {
       ) : (
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {visiblePlanOptions.map((option) => (
-            <article key={option.plan} className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <article key={option.plan} className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
               <Badge tone={option.plan === activePlan ? "good" : "neutral"}>{option.plan === activePlan ? "Active" : "Available"}</Badge>
               <h2 className="mt-5 text-xl font-black text-ink dark:text-white">{option.title}</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{option.detail}</p>
@@ -1029,7 +1029,7 @@ export function AccountDashboard() {
 
       {error ? <p className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
 
-      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h2 className="text-xl font-black tracking-tight text-ink dark:text-white">Saved analysis history</h2>
         <div className="mt-4 grid gap-3">
           {recentAnalyses.length ? recentAnalyses.map((item) => (
@@ -1052,7 +1052,7 @@ export function AccountDashboard() {
           ["Customer Service", "Contact ReviewIntel support with product, account, or report questions.", "/contact"],
           ["Delete Account / Data", "Request account deletion, analysis deletion, export, or correction.", "/delete-account"]
         ].map(([title, detail, href]) => (
-          <Link key={`${title}-${href}`} href={href} className="rounded-2xl border border-line bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-slate-950">
+          <Link key={`${title}-${href}`} href={href} className="rounded-2xl border border-line bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-lg font-black text-ink dark:text-white">{title}</p>
             <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{detail}</p>
           </Link>

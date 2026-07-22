@@ -141,7 +141,7 @@ export function AdminDailyCheckCenter() {
   }
 
   return (
-    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -214,13 +214,13 @@ export function AdminDailyCheckCenter() {
                     <p className="text-base font-black">{item.label}</p>
                     <p className="mt-2 text-sm leading-6">{item.message}</p>
                   </div>
-                  <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-black uppercase dark:bg-black/20">
+                  <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-black uppercase dark:bg-gradient-to-r from-sky-600 to-teal-500/20">
                     {item.status}
                   </span>
                 </div>
 
                 {item.suggested_fix ? (
-                  <p className="mt-3 rounded-xl bg-white/70 p-3 text-xs font-bold leading-5 dark:bg-black/20">
+                  <p className="mt-3 rounded-xl bg-white/70 p-3 text-xs font-bold leading-5 dark:bg-gradient-to-r from-sky-600 to-teal-500/20">
                     Fix: {item.suggested_fix}
                   </p>
                 ) : null}

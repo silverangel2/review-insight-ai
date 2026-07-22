@@ -101,7 +101,7 @@ export default function AdminEmailLogViewer() {
   }, []);
 
   return (
-    <section className="min-w-0 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+    <section className="min-w-0 w-full overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex min-w-0 flex-col gap-4 border-b border-slate-100 pb-5 dark:border-slate-800 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-teal">
@@ -158,7 +158,7 @@ export default function AdminEmailLogViewer() {
                     >
                       {log.status}
                     </span>
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-950">
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-black uppercase text-slate-500 dark:border-slate-700 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                       {log.email_type}
                     </span>
                   </div>
@@ -181,7 +181,7 @@ export default function AdminEmailLogViewer() {
                 </p>
               </div>
 
-              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                 <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
                   {log.status === "failed" ? "Error" : "Provider ID"}
                 </p>

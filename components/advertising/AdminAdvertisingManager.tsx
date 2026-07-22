@@ -214,7 +214,7 @@ export function AdminAdvertisingManager() {
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-slate-950/50">
+          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/50">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-200">
               Best banner size
             </p>
@@ -224,7 +224,7 @@ export function AdminAdvertisingManager() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-slate-950/50">
+          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/50">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-200">
               Queue rule
             </p>
@@ -234,7 +234,7 @@ export function AdminAdvertisingManager() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-slate-950/50">
+          <div className="rounded-2xl border border-line bg-mist p-4 text-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/50">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean dark:text-cyan-200">
               Display priority
             </p>
@@ -252,7 +252,7 @@ export function AdminAdvertisingManager() {
               <input
                 name="sponsorName"
                 defaultValue="ReviewIntel"
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               />
             </label>
 
@@ -261,7 +261,7 @@ export function AdminAdvertisingManager() {
               <select
                 name="placement"
                 defaultValue="homepage_mid"
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               >
                 {placementOptions.map((placement) => (
                   <option key={placement.value} value={placement.value}>
@@ -279,7 +279,7 @@ export function AdminAdvertisingManager() {
                 name="headline"
                 required
                 placeholder="Try ReviewIntel before you buy"
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               />
             </label>
 
@@ -288,7 +288,7 @@ export function AdminAdvertisingManager() {
               <input
                 name="destinationUrl"
                 defaultValue="/analyze"
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               />
             </label>
           </div>
@@ -299,7 +299,7 @@ export function AdminAdvertisingManager() {
               name="description"
               rows={3}
               placeholder="Short, simple message for this ad placement."
-              className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+              className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
             />
           </label>
 
@@ -310,7 +310,7 @@ export function AdminAdvertisingManager() {
                 name="creativeFile"
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
-                className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-slate-600 outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-ocean file:px-4 file:py-2 file:text-sm file:font-black file:text-white focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-slate-600 outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-ocean file:px-4 file:py-2 file:text-sm file:font-black file:text-white focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-slate-300"
               />
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Optional. Images up to 8 MB; video up to 60 MB. Starter banner URL: /uploads/ads/reviewintel-ad-banner-1600x500.png
@@ -322,7 +322,7 @@ export function AdminAdvertisingManager() {
               <input
                 name="creativeUrl"
                 placeholder="https://..."
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               />
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 Use this if the banner/video already lives in Supabase or another CDN.
@@ -336,7 +336,7 @@ export function AdminAdvertisingManager() {
               <select
                 value={manualPackage}
                 onChange={(event) => setManualPackage(event.target.value as AdPackageId)}
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               >
                 {packageOptions.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -353,7 +353,7 @@ export function AdminAdvertisingManager() {
                 type="number"
                 min="1"
                 defaultValue={adPackages[manualPackage].dailyImpressionCap}
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               />
             </label>
 
@@ -364,7 +364,7 @@ export function AdminAdvertisingManager() {
                 type="number"
                 min="1"
                 defaultValue={adPackages[manualPackage].durationDays}
-                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                className="rounded-xl border border-line bg-white px-4 py-3 text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
               />
             </label>
 
@@ -412,7 +412,7 @@ export function AdminAdvertisingManager() {
           {loading ? (
             <p className="text-slate-400">Loading advertising data...</p>
           ) : applications.length === 0 ? (
-            <p className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-400">
+            <p className="rounded-2xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500/60 p-4 text-slate-400">
               No advertiser applications yet.
             </p>
           ) : (
@@ -424,7 +424,7 @@ export function AdminAdvertisingManager() {
               return (
                 <div
                   key={application.id}
-                  className="rounded-2xl border border-white/10 bg-slate-950/70 p-5"
+                  className="rounded-2xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500/70 p-5"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
@@ -497,7 +497,7 @@ export function AdminAdvertisingManager() {
 
         <div className="mt-5 grid gap-4">
           {ads.length === 0 ? (
-            <p className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-slate-400">
+            <p className="rounded-2xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500/60 p-4 text-slate-400">
               No sponsor campaigns yet. ReviewIntel house ads or Google AdSense can fill slots depending on your switches above.
             </p>
           ) : (
@@ -505,7 +505,7 @@ export function AdminAdvertisingManager() {
               const creativeUrl = ad.creative_url || ad.image_url;
 
               return (
-                <div key={ad.id} className="rounded-2xl border border-white/10 bg-slate-950/70 p-5">
+                <div key={ad.id} className="rounded-2xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500/70 p-5">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex min-w-0 flex-col gap-4 sm:flex-row">
                       <CreativePreview url={creativeUrl} type={ad.media_type} />

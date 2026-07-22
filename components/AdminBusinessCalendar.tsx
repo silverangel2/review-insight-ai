@@ -264,7 +264,7 @@ export function AdminBusinessCalendar() {
   }, []);
 
   return (
-    <section className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -369,7 +369,7 @@ export function AdminBusinessCalendar() {
                   className={`min-h-[118px] rounded-2xl border p-2 text-left transition ${
                     isSelected
                       ? "border-ocean bg-white shadow-lg ring-2 ring-ocean/20 dark:border-cyan-300 dark:bg-slate-900"
-                      : "border-white bg-white/80 hover:border-ocean/40 hover:bg-white dark:border-white/5 dark:bg-slate-950/70 dark:hover:border-cyan-300/30"
+                      : "border-white bg-white/80 hover:border-ocean/40 hover:bg-white dark:border-white/5 dark:bg-gradient-to-r from-sky-600 to-teal-500/70 dark:hover:border-cyan-300/30"
                   } ${inMonth ? "opacity-100" : "opacity-40"}`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -480,7 +480,7 @@ export function AdminBusinessCalendar() {
             </form>
           </div>
 
-          <div className="rounded-[1.75rem] border border-line bg-white p-5 dark:border-white/10 dark:bg-slate-950">
+          <div className="rounded-[1.75rem] border border-line bg-white p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
               Events on this day
             </p>
@@ -505,7 +505,7 @@ export function AdminBusinessCalendar() {
                       <span className={`text-[10px] font-black uppercase ${priorityClass(task.priority)}`}>
                         {task.priority ?? "normal"}
                       </span>
-                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:bg-black/20 dark:text-slate-300">
+                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-600 dark:bg-gradient-to-r from-sky-600 to-teal-500/20 dark:text-slate-300">
                         {task.category ?? "business"}
                       </span>
                     </div>
@@ -539,7 +539,7 @@ export function AdminBusinessCalendar() {
             </div>
           </div>
 
-          <div className="rounded-[1.75rem] border border-line bg-white p-5 dark:border-white/10 dark:bg-slate-950">
+          <div className="rounded-[1.75rem] border border-line bg-white p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
               Upcoming
             </p>

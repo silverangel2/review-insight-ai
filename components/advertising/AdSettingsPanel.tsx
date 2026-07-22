@@ -34,7 +34,7 @@ function ToggleButton({
       className={`rounded-2xl border p-4 text-left transition ${
         value
           ? "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-300/40 dark:bg-emerald-300/10 dark:text-emerald-100"
-          : "border-line bg-white text-slate-600 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300"
+          : "border-line bg-white text-slate-600 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-slate-300"
       }`}
     >
       <p className="text-xs font-black uppercase tracking-[0.2em]">

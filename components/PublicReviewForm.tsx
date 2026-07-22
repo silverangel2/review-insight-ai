@@ -42,7 +42,7 @@ export function PublicReviewForm() {
   }
 
   return (
-    <form onSubmit={(event) => void submitReview(event)} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <form onSubmit={(event) => void submitReview(event)} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <Badge tone="info">Leave feedback</Badge>
       <h2 className="mt-4 text-2xl font-black text-ink dark:text-white">Tell us what ReviewIntel helped you decide.</h2>
       <div className="mt-5 grid gap-4 md:grid-cols-2">

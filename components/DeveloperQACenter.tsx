@@ -194,7 +194,7 @@ export function DeveloperQACenter() {
 
   return (
     <section className="space-y-6">
-      <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Badge tone="good">Developer QA/Test Center</Badge>
@@ -211,19 +211,19 @@ export function DeveloperQACenter() {
       </article>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Active role</p>
           <p className="mt-3 text-2xl font-black capitalize text-ink dark:text-white">{displayRole(account?.role)}</p>
         </article>
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Active plan</p>
           <p className="mt-3 text-2xl font-black text-ink dark:text-white">{account ? planLabel(account.plan) : "Guest"}</p>
         </article>
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Quota state</p>
           <p className="mt-3 text-sm font-black text-ink dark:text-white">{quota ? quotaText(quota) : "Unknown"}</p>
         </article>
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase text-slate-500 dark:text-slate-400">Admin session</p>
           <p className="mt-3 text-sm font-black text-ink dark:text-white">{diagnostics?.admin.expires_at ? `Expires ${new Date(diagnostics.admin.expires_at).toLocaleTimeString()}` : "Checking"}</p>
         </article>
@@ -231,7 +231,7 @@ export function DeveloperQACenter() {
 
       {error ? <p className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
 
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h3 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Role isolation test modes</h3>
@@ -267,7 +267,7 @@ export function DeveloperQACenter() {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <h3 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Service diagnostics</h3>
           <div className="mt-4 grid gap-3">
             {Object.entries(diagnostics?.services ?? { openai: "checking", stripe: "checking", supabase: "checking", api: "checking" }).map(([name, status]) => (
@@ -279,7 +279,7 @@ export function DeveloperQACenter() {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <h3 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Mode test flows</h3>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Link href="/analyze" className="rounded-xl border border-line p-4 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:text-white">
@@ -304,7 +304,7 @@ export function DeveloperQACenter() {
         </article>
       </section>
 
-      <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h3 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Route validation</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           {Object.entries(diagnostics?.route_access ?? { guest: "analyze only", shopper: "analyze for free, dashboard for premium", seller: "seller dashboard", admin: "all routes" }).map(([roleName, access]) => (
@@ -317,7 +317,7 @@ export function DeveloperQACenter() {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <h3 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Sample datasets</h3>
           <div className="mt-4 grid gap-3">
             {sampleDatasets.map((item) => (
@@ -329,7 +329,7 @@ export function DeveloperQACenter() {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <h3 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Release checklist</h3>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {validationItems.map((item) => (

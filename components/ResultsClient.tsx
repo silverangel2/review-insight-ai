@@ -799,7 +799,7 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
 
 function MiniMetric({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
-    <div className="rounded-xl border border-line bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-slate-950 sm:rounded-2xl sm:px-4 sm:py-4">
+    <div className="rounded-xl border border-line bg-white px-3 py-3 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-2xl sm:px-4 sm:py-4">
       <p className="text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:text-[11px]">{label}</p>
       <p className="mt-2 break-words text-lg font-black text-ink dark:text-white sm:text-xl">{value}</p>
       {helper ? <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">{helper}</p> : null}
@@ -811,7 +811,7 @@ function SignalList({ title, tone, items, empty }: { title: string; tone: "good"
   const color = tone === "good" ? "text-emerald-700 bg-emerald-100" : "text-rose-700 bg-rose-100";
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[1.5rem] sm:p-6">
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.5rem] sm:p-6">
       <h2 className="text-lg font-black text-ink dark:text-white sm:text-xl">{title}</h2>
       <div className="mt-4 grid gap-3 sm:mt-5 sm:gap-4">
         {(items.length ? items : [empty]).map((item, index) => (
@@ -936,7 +936,7 @@ function ShopperCompareDetail({ result }: { result: AnalyzeResponse }) {
   const code = displayCodeForResult({ ...record, type: "compare" }, title);
 
   return (
-    <section className="shopper-compare-ai-result ri-reveal-pop rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:p-7">
+    <section className="shopper-compare-ai-result ri-reveal-pop rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:p-7">
       <div className="space-y-2">
         <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-ocean dark:text-cyan-300">{copy.aiCompareResult}</p>
         <h2 className="text-2xl font-semibold leading-tight text-ink dark:text-white">{title}</h2>
@@ -1097,7 +1097,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </div>
         </section>
 
-        <section className="grid grid-cols-[104px_minmax(0,1fr)] gap-3 rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <section className="grid grid-cols-[104px_minmax(0,1fr)] gap-3 rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <div className="relative h-[104px] overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02]">
             {preview ? (
               <Image src={preview} alt="Analyzed product screenshot" fill className="object-contain p-1.5" unoptimized priority />
@@ -1186,7 +1186,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       {/* Desktop report layout unchanged */}
       <div className="ri-results-desktop space-y-4 sm:space-y-6">
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
-        <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[1.75rem] sm:p-4">
+        <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.75rem] sm:p-4">
           <div className="relative grid h-[260px] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02] sm:h-[360px] sm:rounded-2xl lg:h-[520px]">
             {preview ? (
               <Image src={preview} alt="Analyzed product screenshot" fill className="object-contain p-2" unoptimized priority />
@@ -1337,7 +1337,7 @@ function formatCoverageRatio(value: number | null) {
 
 function ToolProofPill({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
-    <div className="rounded-2xl border border-line bg-white/80 p-3 shadow-soft dark:border-white/10 dark:bg-slate-950/70">
+    <div className="rounded-2xl border border-line bg-white/80 p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
       <p className="mt-1 text-sm font-black text-ink dark:text-white">{toolProofValue(value)}</p>
     </div>
@@ -1504,7 +1504,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
       </div>
 
       {exactListingTitle ? (
-        <p className="mt-4 rounded-2xl bg-white/70 p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-slate-950/50 dark:text-slate-300">
+        <p className="mt-4 rounded-2xl bg-white/70 p-3 text-xs font-bold leading-5 text-slate-600 dark:bg-gradient-to-r from-sky-600 to-teal-500/50 dark:text-slate-300">
           Exact listing candidate: {exactListingTitle}
         </p>
       ) : null}
@@ -1516,7 +1516,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
             {sourcesChecked.slice(0, 8).map((source, index) => (
               <span
                 key={`${String(source)}-${index}`}
-                className="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-black text-sky-700 dark:border-sky-300/20 dark:bg-slate-950 dark:text-sky-200"
+                className="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-black text-sky-700 dark:border-sky-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-sky-200"
               >
                 {String(source).slice(0, 44)}
               </span>
@@ -1728,13 +1728,13 @@ export function ResultsClient() {
       <button
         type="button"
         onClick={() => window.history.back()}
-        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
       >
         ← {navText("Back")}
       </button>
       <Link
         href={dashboardHref}
-        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
       >
         {navText("Dashboard")}
       </Link>
@@ -1746,7 +1746,7 @@ export function ResultsClient() {
       </Link>
       <Link
         href="/account"
-        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+        className="rounded-full border border-line bg-white px-4 py-2 text-xs font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
       >
         {navText("Account")}
       </Link>
@@ -2054,7 +2054,7 @@ export function ResultsClient() {
     return (
       <>
         {accountPlan !== "free_buyer" ? customerNav : null}
-        <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-5 text-center shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[2rem] sm:p-8">
+        <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-5 text-center shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-8">
         <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-teal via-ocean to-amber" />
         <Badge tone="warn">No scan loaded</Badge>
         <h1 className="mx-auto mt-4 max-w-2xl text-2xl font-black text-ink dark:text-white sm:text-4xl">Run a real analysis to see ReviewIntel results.</h1>
@@ -2091,7 +2091,7 @@ export function ResultsClient() {
     <div className="space-y-5">
       {accountPlan !== "free_buyer" ? customerNav : null}
       {!isSellerAudience && ["buyer_pro", "buyer_beta", "shopper_beta"].includes(String(accountPlan)) ? <ShopperResultHistoryCorner /> : null}
-      <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:rounded-[1.6rem] sm:p-4">
+      <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.6rem] sm:p-4">
         <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-b from-teal via-ocean to-amber" />
         <div className="flex flex-col gap-4 pl-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">

@@ -512,7 +512,7 @@ function SideInput({
   const hasInput = Boolean(side.file || side.link.trim());
 
   return (
-    <div className="w-full rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-5 dark:border-white/10 dark:bg-slate-950">
+    <div className="w-full rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2rem] sm:p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.3em] text-teal dark:text-cyan-200">{displayCodeForResult({ productName: `Product ${side.label}` }, `Product ${side.label}`)}</p>
@@ -646,7 +646,7 @@ function CompareProofPill({ label, value }: { label: string; value: string | num
   const display = value === null || value === undefined || value === "" ? "Not found" : String(value);
 
   return (
-    <div className="rounded-2xl border border-line bg-white/80 p-3 shadow-soft dark:border-white/10 dark:bg-slate-950/70">
+    <div className="rounded-2xl border border-line bg-white/80 p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
       <p className="mt-1 text-sm font-black text-ink dark:text-white">{display}</p>
     </div>
@@ -687,7 +687,7 @@ function ProductCompareToolProof({ label, result }: { label: string; result: Ana
             {proof.sourcesChecked.slice(0, 6).map((source, index) => (
               <span
                 key={`${String(source)}-${index}`}
-                className="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-black text-sky-700 dark:border-sky-300/20 dark:bg-slate-950 dark:text-sky-200"
+                className="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-black text-sky-700 dark:border-sky-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-sky-200"
               >
                 {String(source).slice(0, 40)}
               </span>
@@ -714,7 +714,7 @@ function ShopperCompareToolProof({ productA, productB }: { productA: AnalyzeResu
         : "Product B has stronger review evidence.";
 
   return (
-    <section className="rounded-[2rem] border border-sky-200 bg-white p-4 shadow-soft dark:border-sky-300/20 dark:bg-slate-950 sm:p-6">
+    <section className="rounded-[2rem] border border-sky-200 bg-white p-4 shadow-soft dark:border-sky-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:p-6">
       <div className="mb-5">
         <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-600 dark:text-sky-200">
           AI tool proof
@@ -1140,7 +1140,7 @@ function CompareProgressSteps() {
 
       <div className="space-y-3">
         {COMPARE_PROGRESS_STEPS.map((step, index) => (
-          <div key={step} className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 dark:bg-slate-950/60">
+          <div key={step} className="flex items-center gap-3 rounded-2xl bg-white/80 p-3 dark:bg-gradient-to-r from-sky-600 to-teal-500/60">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-600 text-xs font-black text-white dark:bg-sky-300 dark:text-slate-950">
               {index + 1}
             </div>
@@ -1308,19 +1308,19 @@ export function CompareForm() {
   const confidenceValue = comparison?.confidence ?? (directSubstitutes ? Math.min(92, 62 + scoreGap) : 88);
 
   return (
-    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-slate-950 dark:text-ink">
+    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-ink">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/analyze" className="rounded-full border border-line bg-white px-3 py-2 text-xs font-bold text-ink shadow-soft transition hover:border-teal dark:border-white/10 dark:bg-slate-950 dark:text-ink sm:px-4 sm:text-sm">
+          <Link href="/analyze" className="rounded-full border border-line bg-white px-3 py-2 text-xs font-bold text-ink shadow-soft transition hover:border-teal dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-ink sm:px-4 sm:text-sm">
             ← Analyze One Product
           </Link>
-          <span className="rounded-full border border-line bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-teal shadow-soft dark:border-white/10 dark:bg-slate-950 dark:text-cyan-200 sm:px-4 sm:text-xs sm:tracking-[0.2em]">
+          <span className="rounded-full border border-line bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-teal shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200 sm:px-4 sm:text-xs sm:tracking-[0.2em]">
             Shopper Premium
           </span>
         </div>
 
         {!showResults && (
-        <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-slate-950">
+        <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-teal sm:text-sm sm:tracking-[0.3em] dark:text-cyan-200">{copy.reviewIntelCompare}</p>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-ink sm:text-6xl dark:text-ink">
             {copy.compareProductsTitle}
@@ -1362,7 +1362,7 @@ export function CompareForm() {
         )}
 
         {showResults && (
-          <section className="shopper-compare-result-shell rounded-[2.5rem] border border-line bg-white p-4 shadow-soft sm:p-8 dark:border-white/10 dark:bg-slate-950">
+          <section className="shopper-compare-result-shell rounded-[2.5rem] border border-line bg-white p-4 shadow-soft sm:p-8 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="mb-6 rounded-[2rem] border border-line bg-teal-50 p-5 text-center shadow-soft sm:p-6 dark:border-white/10">
               <p className="text-xs font-black uppercase tracking-[0.3em] text-teal dark:text-cyan-200">{compareCopy(readStoredLocale()).comparisonVerdict}</p>
               <h2 className="mt-2 text-3xl font-black text-ink sm:text-4xl dark:text-ink">

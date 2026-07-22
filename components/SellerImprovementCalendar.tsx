@@ -446,7 +446,7 @@ export function SellerImprovementCalendar() {
 
   if (!sellerProJournalEnabled) {
     return (
-      <section className="rounded-[2rem] border border-dashed border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-[2rem] border border-dashed border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <Badge tone="warn">Seller Pro feature</Badge>
         <h2 className="mt-4 text-3xl font-black text-ink dark:text-white">Daily product improvement journal</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
@@ -457,7 +457,7 @@ export function SellerImprovementCalendar() {
   }
 
   return (
-    <section className="seller-calendar-shell rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="seller-calendar-shell rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Badge tone="info">Seller Pro calendar</Badge>
@@ -506,7 +506,7 @@ export function SellerImprovementCalendar() {
             </div>
           ))}
         </div>
-        <div className="seller-calendar-month-grid grid grid-cols-7 bg-white dark:bg-slate-950">
+        <div className="seller-calendar-month-grid grid grid-cols-7 bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500">
           {cells.map((cell) => {
             const metrics = dayMetrics(cell.scans);
             const hasScans = cell.scans.length > 0;
@@ -535,7 +535,7 @@ export function SellerImprovementCalendar() {
                 aria-label={`${cell.date}: ${mobileStatus}${hasScans ? `, ${cell.scans.length} scans` : ""}`}
                 onClick={() => setSelectedDate(cell.date)}
                 className={`seller-calendar-day-cell min-h-36 border-b border-r border-line p-3 text-left transition hover:bg-cyan-50 dark:border-white/10 dark:hover:bg-white/[0.04] ${
-                  cell.inMonth ? "bg-white dark:bg-slate-950" : "bg-slate-50 text-slate-400 dark:bg-white/[0.02]"
+                  cell.inMonth ? "bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500" : "bg-slate-50 text-slate-400 dark:bg-white/[0.02]"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -582,8 +582,8 @@ export function SellerImprovementCalendar() {
       </div>
 
       {selectedDate ? (
-        <div className="seller-calendar-modal-overlay fixed inset-0 z-40 grid place-items-center bg-slate-950/70 px-5 py-8 backdrop-blur-lg">
-          <div className="seller-calendar-modal-panel max-h-[88vh] w-full max-w-4xl overflow-auto rounded-[2rem] border border-white/15 bg-white p-6 shadow-[0_40px_140px_rgba(0,0,0,0.4)] dark:bg-slate-950">
+        <div className="seller-calendar-modal-overlay fixed inset-0 z-40 grid place-items-center bg-gradient-to-r from-sky-600 to-teal-500/70 px-5 py-8 backdrop-blur-lg">
+          <div className="seller-calendar-modal-panel max-h-[88vh] w-full max-w-4xl overflow-auto rounded-[2rem] border border-white/15 bg-white p-6 shadow-[0_40px_140px_rgba(0,0,0,0.4)] dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <Badge tone={selectedScans.length ? sentimentTone(selectedMetrics.sentiment) : "neutral"}>{selectedScans.length ? `${selectedScans.length} scan day` : "Open planning day"}</Badge>
@@ -624,7 +624,7 @@ export function SellerImprovementCalendar() {
                     <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">Product score by item</p>
                     <div className="mt-3 grid gap-2">
                       {productAverageRows(selectedScans).map((product) => (
-                        <div key={product.name} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm dark:bg-black/20">
+                        <div key={product.name} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm dark:bg-gradient-to-r from-sky-600 to-teal-500/20">
                           <span className="font-bold text-ink dark:text-white">{sellerCalendarProductName(product.name)}</span>
                           <span className="font-black text-ocean">{formatPercent(product.average)} · {product.count} scan{product.count === 1 ? "" : "s"}</span>
                         </div>

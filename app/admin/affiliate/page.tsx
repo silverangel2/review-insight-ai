@@ -86,7 +86,7 @@ export default async function AffiliateAdminPage() {
   const walmartConnected = Boolean(diagnostics.walmart?.publisherConnected);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
       <div className="mx-auto max-w-6xl space-y-6">
         <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-600">
@@ -128,7 +128,7 @@ export default async function AffiliateAdminPage() {
                   href={diagnostics.amazon.sampleAffiliateUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950"
+                  className="mt-3 inline-flex rounded-full bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950"
                 >
                   Open Amazon test link
                 </a>
@@ -175,7 +175,7 @@ export default async function AffiliateAdminPage() {
                   href={diagnostics.walmart.sampleAffiliateUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 inline-flex rounded-full bg-slate-950 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950"
+                  className="mt-3 inline-flex rounded-full bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950"
                 >
                   Open Walmart test link
                 </a>

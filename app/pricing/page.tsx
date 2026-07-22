@@ -11,13 +11,13 @@ export default function PricingPage() {
         Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.
       </p>
       <div className="mt-5 grid gap-3 text-sm font-bold text-slate-700 dark:text-slate-200 md:grid-cols-3">
-        <p className="rounded-2xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <p className="rounded-2xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           Secure Stripe checkout for paid plans.
         </p>
-        <p className="rounded-2xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <p className="rounded-2xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           Shopper Free keeps 3 scans per day.
         </p>
-        <p className="rounded-2xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-950">
+        <p className="rounded-2xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           Seller signups require paid access unless beta/admin-approved.
         </p>
       </div>

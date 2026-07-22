@@ -161,7 +161,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
             : "";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/50 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
+    <header className="sticky top-0 z-50 border-b border-white/50 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/95">
       <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center gap-3 whitespace-nowrap">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] text-sm font-black text-white shadow-soft">

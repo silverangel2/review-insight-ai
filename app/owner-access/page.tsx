@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function OwnerAccessPage() {
   return (
-    <main className="min-h-screen bg-mist px-6 py-10 dark:bg-slate-950">
+    <main className="min-h-screen bg-mist px-6 py-10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <OwnerAccessPanel />
     </main>
   );

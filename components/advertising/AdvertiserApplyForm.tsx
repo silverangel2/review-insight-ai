@@ -63,7 +63,7 @@ export function AdvertiserApplyForm() {
               className={`rounded-2xl border p-4 transition ${
                 selectedPackage === item.id
                   ? "border-cyan-300 bg-cyan-300/10"
-                  : "border-white/10 bg-slate-950"
+                  : "border-white/10 bg-gradient-to-r from-sky-600 to-teal-500"
               }`}
             >
               <input
@@ -95,36 +95,36 @@ export function AdvertiserApplyForm() {
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-bold">
           Brand name
-          <input name="brandName" required className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Your brand" />
+          <input name="brandName" required className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Your brand" />
         </label>
 
         <label className="grid gap-2 text-sm font-bold">
           Contact name
-          <input name="contactName" className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="John Smith" />
+          <input name="contactName" className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="John Smith" />
         </label>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-bold">
           Contact email
-          <input name="contactEmail" required type="email" className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="name@company.com" />
+          <input name="contactEmail" required type="email" className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="name@company.com" />
         </label>
 
         <label className="grid gap-2 text-sm font-bold">
           Website URL
-          <input name="websiteUrl" required className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="https://yourbrand.com" />
+          <input name="websiteUrl" required className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="https://yourbrand.com" />
         </label>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-bold">
           Campaign headline
-          <input name="headline" className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Your offer in one short line" />
+          <input name="headline" className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Your offer in one short line" />
         </label>
 
         <label className="grid gap-2 text-sm font-bold">
           Destination URL
-          <input name="destinationUrl" className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="https://yourbrand.com/offer" />
+          <input name="destinationUrl" className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="https://yourbrand.com/offer" />
         </label>
       </div>
 
@@ -135,21 +135,21 @@ export function AdvertiserApplyForm() {
             name="creativeFile"
             type="file"
             accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
-            className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-300 outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-300 file:px-4 file:py-2 file:text-sm file:font-black file:text-slate-950 focus:border-cyan-300"
+            className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-sm text-slate-300 outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-cyan-300 file:px-4 file:py-2 file:text-sm file:font-black file:text-slate-950 focus:border-cyan-300"
           />
           <span className="text-xs font-semibold text-slate-400">Images up to 8 MB. MP4/WEBM/MOV video up to 60 MB, muted autoplay.</span>
         </label>
 
         <label className="grid gap-2 text-sm font-bold">
           Payment reference or Stripe email
-          <input name="paymentReference" className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Stripe receipt email, transaction ID, or note" />
+          <input name="paymentReference" className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Stripe receipt email, transaction ID, or note" />
           <span className="text-xs font-semibold text-slate-400">Leave blank if you want ReviewIntel to contact you before payment.</span>
         </label>
       </div>
 
       <label className="grid gap-2 text-sm font-bold">
         Preferred placement
-        <select name="preferredPlacement" className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300">
+        <select name="preferredPlacement" className="rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300">
           {placements.map((placement) => (
             <option key={placement.value} value={placement.value}>
               {placement.label}
@@ -160,7 +160,7 @@ export function AdvertiserApplyForm() {
 
       <label className="grid gap-2 text-sm font-bold">
         What do you want to advertise?
-        <textarea name="campaignGoal" required className="min-h-28 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Tell us about your product, offer, or campaign." />
+        <textarea name="campaignGoal" required className="min-h-28 rounded-xl border border-white/10 bg-gradient-to-r from-sky-600 to-teal-500 px-4 py-3 text-white outline-none focus:border-cyan-300" placeholder="Tell us about your product, offer, or campaign." />
       </label>
 
       <button

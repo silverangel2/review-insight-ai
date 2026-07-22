@@ -91,7 +91,7 @@ export default async function AdminAdvertisingPage() {
           <h2 className="text-2xl font-black">How paid sponsor ads go live</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-4">
             {["Advertiser pays and uploads", "You verify payment", "You approve creative", "System rotates the campaign"].map((item, index) => (
-              <div key={item} className="rounded-2xl border border-line dark:border-white/10 bg-white dark:bg-slate-950/70 p-4">
+              <div key={item} className="rounded-2xl border border-line dark:border-white/10 bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500/70 p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-ocean dark:text-cyan-200">
                   Step {index + 1}
                 </p>

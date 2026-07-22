@@ -17,7 +17,7 @@ export default function AdminFinanceReports() {
   }, [year]);
 
   return (
-    <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">

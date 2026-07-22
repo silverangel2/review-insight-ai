@@ -211,7 +211,7 @@ export function AdminSecurityCenter() {
 
 
   return (
-    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -328,7 +328,7 @@ export function AdminSecurityCenter() {
                 type="button"
                 onClick={() => void clearSecurityEvents()}
                 disabled={data.events.length === 0}
-                className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-black uppercase text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-400/30 dark:bg-slate-950 dark:text-red-300"
+                className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-black uppercase text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-400/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-red-300"
               >
                 Clear all logs
               </button>
@@ -352,7 +352,7 @@ export function AdminSecurityCenter() {
                       <button
                         type="button"
                         onClick={() => void deleteSecurityEvent(event.id)}
-                        className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-black uppercase text-red-600 transition hover:bg-red-50 dark:border-red-400/30 dark:bg-slate-950 dark:text-red-300"
+                        className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-black uppercase text-red-600 transition hover:bg-red-50 dark:border-red-400/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-red-300"
                       >
                         Delete log
                       </button>
@@ -362,7 +362,7 @@ export function AdminSecurityCenter() {
                           type="button"
                           onClick={() => void blockIpAddress(event.ip_address)}
                           disabled={blocking}
-                          className="rounded-full border border-line bg-white px-3 py-1 text-xs font-black uppercase text-ink transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-50 dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                          className="rounded-full border border-line bg-white px-3 py-1 text-xs font-black uppercase text-ink transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-50 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
                         >
                           Block IP
                         </button>

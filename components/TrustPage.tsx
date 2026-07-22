@@ -41,7 +41,7 @@ export function TrustPage({ page }: { page: TrustPageContent }) {
 
       <section className="mt-6 grid gap-5">
         {page.sections.map((section) => (
-          <article key={section.title} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <article key={section.title} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h2 className="text-2xl font-black text-ink dark:text-white">{section.title}</h2>
             <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">{section.body}</p>
             {section.items?.length ? (

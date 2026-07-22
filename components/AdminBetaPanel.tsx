@@ -142,7 +142,7 @@ export function AdminBetaPanel() {
 
   return (
     <div className="admin-beta-panel space-y-6">
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -180,21 +180,21 @@ export function AdminBetaPanel() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <div className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Active beta users</p>
           <p className="mt-2 text-3xl font-black text-ink dark:text-white">{betaProfiles.length}</p>
         </div>
-        <div className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <div className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Open observations</p>
           <p className="mt-2 text-3xl font-black text-ink dark:text-white">{openMessages.length}</p>
         </div>
-        <div className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+        <div className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Total feedback</p>
           <p className="mt-2 text-3xl font-black text-ink dark:text-white">{messages.length}</p>
         </div>
       </section>
 
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h2 className="text-xl font-black text-ink dark:text-white">Active beta users</h2>
 
         {loading ? (
@@ -231,7 +231,7 @@ export function AdminBetaPanel() {
         )}
       </section>
 
-      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <section className="rounded-3xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h2 className="text-xl font-black text-ink dark:text-white">Beta feedback messages</h2>
 
         {loading ? (
@@ -259,7 +259,7 @@ export function AdminBetaPanel() {
                     </span>
                   </div>
 
-                  <p className="mt-4 rounded-2xl bg-white p-4 text-sm font-semibold leading-6 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200">
+                  <p className="mt-4 rounded-2xl bg-white p-4 text-sm font-semibold leading-6 text-slate-700 dark:bg-gradient-to-r from-sky-600 to-teal-500/70 dark:text-slate-200">
                     {message.message}
                   </p>
 
@@ -273,7 +273,7 @@ export function AdminBetaPanel() {
                     }
                     rows={3}
                     placeholder="Admin reply / notes..."
-                    className="mt-3 w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-slate-950 dark:text-white"
+                    className="mt-3 w-full rounded-2xl border border-line bg-white px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-ocean dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
                   />
 
                   <div className="mt-3 flex flex-wrap gap-2">

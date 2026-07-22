@@ -106,7 +106,7 @@ function PriorityPlan({ items }: { items: string[] }) {
   const safeItems = items?.length ? items : ["Review the top complaint themes and improve the product listing before scaling sales."];
 
   return (
-    <div className="seller-priority-plan rounded-[2rem] border border-slate-900 bg-slate-950 p-6 text-white shadow-xl">
+    <div className="seller-priority-plan rounded-[2rem] border border-slate-900 bg-gradient-to-r from-sky-600 to-teal-500 p-6 text-white shadow-xl">
       <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-200">Priority Action Plan</p>
       <h3 className="mt-2 text-3xl font-black">What to fix next</h3>
 
@@ -318,7 +318,7 @@ export default function SellerResultPage() {
 
         {mobileCardDetail ? (
           <div
-            className="seller-mobile-card-modal fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
+            className="seller-mobile-card-modal fixed inset-0 z-[120] flex items-center justify-center bg-gradient-to-r from-sky-600 to-teal-500/45 px-4 py-6 backdrop-blur-sm"
             role="dialog"
             aria-modal="true"
             onClick={() => setMobileCardDetail(null)}
@@ -339,7 +339,7 @@ export default function SellerResultPage() {
                 <button
                   type="button"
                   onClick={() => setMobileCardDetail(null)}
-                  className="rounded-full bg-slate-950 px-3 py-2 text-xs font-black text-white"
+                  className="rounded-full bg-gradient-to-r from-sky-600 to-teal-500 px-3 py-2 text-xs font-black text-white"
                 >
                   Close
                 </button>

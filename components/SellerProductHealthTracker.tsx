@@ -163,7 +163,7 @@ export function SellerProductHealthTracker() {
   }
 
   return (
-    <section className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-[2rem] border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Badge tone="good">Seller Pro Product Health Tracker</Badge>
@@ -238,7 +238,7 @@ export function SellerProductHealthTracker() {
             </div>
           </article>
 
-          <article className="rounded-3xl border border-line bg-white p-5 dark:border-white/10 dark:bg-slate-950">
+          <article className="rounded-3xl border border-line bg-white p-5 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h3 className="text-lg font-black text-ink dark:text-white">Products</h3>
             <div className="mt-4 grid gap-3">
               {products.length ? products.map((product) => {
@@ -305,7 +305,7 @@ export function SellerProductHealthTracker() {
               </article>
 
               <section className="grid gap-4 md:grid-cols-2">
-                <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+                <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                   <h4 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Review trend</h4>
                   <div className="mt-4 grid gap-3">
                     <div className="rounded-2xl border border-teal/20 bg-teal/10 p-4">
@@ -319,7 +319,7 @@ export function SellerProductHealthTracker() {
                   </div>
                 </article>
 
-                <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+                <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                   <h4 className="text-sm font-black uppercase text-slate-500 dark:text-slate-400">Product notes</h4>
                   <textarea
                     value={selectedProduct.notes}
@@ -336,7 +336,7 @@ export function SellerProductHealthTracker() {
                   ["Top Complaints", topComplaints.length ? topComplaints : ["Run a scan to capture complaint themes."], "bad"],
                   ["Seller Action Plan", actionPlan.length ? actionPlan : ["Attach a scan to generate action recommendations."], "info"]
                 ].map(([title, items, tone]) => (
-                  <article key={title as string} className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+                  <article key={title as string} className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                     <Badge tone={tone as "good" | "bad" | "info"}>{title as string}</Badge>
                     <div className="mt-4 grid gap-2">
                       {(items as string[]).map((item) => (
@@ -347,7 +347,7 @@ export function SellerProductHealthTracker() {
                 ))}
               </section>
 
-              <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+              <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                 <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                   <div>
                     <h4 className="text-xl font-black text-ink dark:text-white">Calendar Progress Tracker</h4>
@@ -379,7 +379,7 @@ export function SellerProductHealthTracker() {
                 </div>
               </article>
 
-              <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-slate-950">
+              <article className="rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
                 <h4 className="text-xl font-black text-ink dark:text-white">Review Scan History</h4>
                 <div className="mt-4 grid gap-3">
                   {selectedProduct.scans.length ? selectedProduct.scans.slice(0, 8).map((scan) => (

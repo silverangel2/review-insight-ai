@@ -292,8 +292,8 @@ export function AdminUserSystem() {
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 sm:p-5">
-      <div className="mb-5 rounded-2xl border border-line bg-white/95 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/95">
+    <section className="rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:p-5">
+      <div className="mb-5 rounded-2xl border border-line bg-white/95 p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/95">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
@@ -443,7 +443,7 @@ export function AdminUserSystem() {
             </thead>
             <tbody className="divide-y divide-line dark:divide-white/10">
               {users.map((user) => (
-                <tr key={user.id} className="bg-white transition hover:bg-cyan-50/40 dark:bg-slate-950 dark:hover:bg-white/[0.04]">
+                <tr key={user.id} className="bg-white transition hover:bg-cyan-50/40 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:hover:bg-white/[0.04]">
                   <td className="border-r border-line px-4 py-3 text-xs font-black text-ink dark:border-white/10 dark:text-white">{user.email}</td>
                   <td className="border-r border-line px-4 py-3 capitalize text-slate-600 dark:border-white/10 dark:text-slate-300">{displayRole(user.role)}</td>
                   <td className="border-r border-line px-4 py-3 text-slate-600 dark:border-white/10 dark:text-slate-300">{user.plan}</td>
@@ -501,7 +501,7 @@ export function AdminUserSystem() {
 
       {selectedUser ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/60 px-4 backdrop-blur">
-          <div className="w-full max-w-2xl rounded-[2rem] bg-white p-6 shadow-2xl dark:bg-slate-950">
+          <div className="w-full max-w-2xl rounded-[2rem] bg-white p-6 shadow-2xl dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <Badge tone={statusTone(selectedUser.status)}>{selectedUser.status || "active"}</Badge>

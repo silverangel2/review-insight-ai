@@ -52,7 +52,7 @@ export function SellerProCommandPanel() {
 
   if (!sellerPro) {
     return (
-      <article className="rounded-[2rem] border border-dashed border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+      <article className="rounded-[2rem] border border-dashed border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <Badge tone="warn">Seller Pro feature</Badge>
         <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">Command board is reserved for Seller Pro.</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">

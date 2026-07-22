@@ -38,7 +38,7 @@ export function ReviewIntelScanOverlay({ activeStep }: ReviewIntelScanOverlayPro
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 px-5 py-8 backdrop-blur-xl" role="status" aria-live="polite">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-gradient-to-r from-sky-600 to-teal-500/80 px-5 py-8 backdrop-blur-xl" role="status" aria-live="polite">
       <div className="ri-scan-grid absolute inset-0 opacity-20" />
       <div className="ri-scan-fog absolute inset-0" aria-hidden="true" />
       <div className="ri-energy-wave ri-energy-wave-one" aria-hidden="true" />

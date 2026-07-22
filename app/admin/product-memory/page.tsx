@@ -39,7 +39,7 @@ export default async function ProductMemoryAdminPage() {
   const products = await getProducts();
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-slate-950 dark:text-white">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-600">ReviewIntel admin</p>

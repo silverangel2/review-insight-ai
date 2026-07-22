@@ -9,7 +9,7 @@ export default async function UnsubscribePage({ searchParams }: UnsubscribePageP
   const email = params?.email ?? "";
 
   return (
-    <main className="min-h-screen bg-sand px-6 py-12 text-ink dark:bg-slate-950 dark:text-white">
+    <main className="min-h-screen bg-sand px-6 py-12 text-ink dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
       <section className="mx-auto max-w-2xl rounded-[2rem] border border-line bg-white p-8 shadow-soft dark:border-white/10 dark:bg-slate-900">
         <p className="text-sm font-black uppercase tracking-[0.2em] text-ocean dark:text-cyan-300">
           ReviewIntel

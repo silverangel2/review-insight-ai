@@ -62,7 +62,7 @@ export function AdminSpeedTest() {
   const average = results.length ? Math.round(results.reduce((sum, item) => sum + item.ms, 0) / results.length) : 0;
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-950">
+    <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <Badge tone="info">Admin speed test</Badge>
