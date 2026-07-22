@@ -8,18 +8,21 @@ const nextConfig: NextConfig = {
       "./scripts/generate-social-videos.mjs",
       "./scripts/social-storage-public.mjs",
       "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
+      "./node_modules/@ffmpeg-installer/linux-x64/**/*",
       "./node_modules/fluent-ffmpeg/**/*"
     ],
     "/api/admin/social-autopost": [
       "./scripts/generate-social-videos.mjs",
       "./scripts/social-storage-public.mjs",
       "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
+      "./node_modules/@ffmpeg-installer/linux-x64/**/*",
       "./node_modules/fluent-ffmpeg/**/*"
     ],
     "/api/cron/social-autopost": [
       "./scripts/generate-social-videos.mjs",
       "./scripts/social-storage-public.mjs",
       "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
+      "./node_modules/@ffmpeg-installer/linux-x64/**/*",
       "./node_modules/fluent-ffmpeg/**/*"
     ]
   },
