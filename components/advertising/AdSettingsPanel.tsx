@@ -5,6 +5,7 @@ import type { AdPlacement } from "@/lib/adConfig";
 import type { LiveAdSettings } from "@/lib/adSettingsStore";
 
 const placementLabels: Record<AdPlacement, string> = {
+  mobile_homepage: "Mobile homepage banner",
   homepage_hero: "Homepage hero",
   homepage_mid: "Homepage middle",
   analyze_below_card: "Analyze page",

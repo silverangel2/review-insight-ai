@@ -1,4 +1,5 @@
 export type AdPlacement =
+  | "mobile_homepage"
   | "homepage_hero"
   | "homepage_mid"
   | "analyze_below_card"
@@ -84,6 +85,7 @@ export const defaultAdSettings: AdSettings = {
   directSponsorAdsEnabled: true,
   requireOwnerApproval: true,
   placements: {
+    mobile_homepage: true,
     homepage_hero: true,
     homepage_mid: true,
     analyze_below_card: true,

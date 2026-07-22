@@ -48,6 +48,7 @@ type SponsorAdRow = {
 };
 
 const placementOptions: Array<{ value: AdPlacement; label: string }> = [
+  { value: "mobile_homepage", label: "Mobile homepage banner" },
   { value: "homepage_hero", label: "Homepage hero" },
   { value: "homepage_mid", label: "Homepage middle" },
   { value: "analyze_below_card", label: "Analyze page" },
