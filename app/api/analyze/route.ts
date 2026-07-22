@@ -1630,14 +1630,18 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
         ],
         suspiciousComments: [],
       },
-      strengths: [],
-      complaints: [],
-      topStrengths: [],
-      topComplaints: [],
-      bestFor: [],
-      notIdealFor: [],
+      strengths: screenshotRating || screenshotReviewCount
+        ? ["Marketplace rating and review count were visible in the screenshot."]
+        : ["Product identity was detected from the screenshot."],
+      complaints: ["Written review evidence was not retrieved during the quick scan."],
+      topStrengths: screenshotRating || screenshotReviewCount
+        ? ["Marketplace rating and review count were visible in the screenshot."]
+        : ["Product identity was detected from the screenshot."],
+      topComplaints: ["Written review evidence was not retrieved during the quick scan."],
+      bestFor: ["Shoppers who want a quick first-pass buying signal before checking the full reviews."],
+      notIdealFor: ["Shoppers who need a fully verified verdict from written review evidence before buying."],
       bottomLine:
-        "Review evidence is still limited. ReviewIntel identified the product from the screenshot, but deeper written review collection took too long for the initial scan.",
+        "Quick scan completed. ReviewIntel identified the product and visible marketplace signals from the screenshot, but deeper written review evidence still needs to be refreshed before treating this as a fully verified verdict.",
     }) as Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>;
 
   const reviewEvidence = await Promise.race([
