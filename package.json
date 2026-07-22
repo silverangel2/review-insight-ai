@@ -35,5 +35,8 @@
   "overrides": {
     "js-yaml": "4.3.0",
     "postcss": "8.5.10"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
