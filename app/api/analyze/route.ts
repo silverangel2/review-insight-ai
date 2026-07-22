@@ -1587,20 +1587,83 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       ? vision.reviewCount
       : undefined;
 
-  const reviewEvidence = await collectAndAnalyzeReviewEvidence({
-    productName: productForReviewEvidence || vision.category || "unknown product",
-    brand: vision.brand,
-    model: undefined,
-    store: vision.store,
-    price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
-      ? vision.price
-      : undefined,
-    rating: screenshotRating,
-    reviewCount: screenshotReviewCount,
-    locale,
-    outputLanguage,
-    forceRefresh: false,
-  });
+  const reviewEvidenceTimeoutMs = Number(process.env.REVIEW_EVIDENCE_TIMEOUT_MS || 9000);
+
+  const fallbackReviewEvidence = (reason: string) =>
+    ({
+      analysisVersion: "review-evidence-v2",
+      finalDecisionSource: "reviewEvidenceTimedOut",
+      decisionStatus: "limited_review_evidence",
+      exactListingConfirmed: false,
+      reviewsFound: 0,
+      evidenceStrength: "limited",
+      reviewIntelligenceMode: "listing_metadata",
+      sourcesChecked: [],
+      sourceNotes: [reason],
+      commentsAnalyzed: 0,
+      reviewsCollected: 0,
+      reviewCoverageRatio: 0,
+      collectorHasWrittenReviews: false,
+      marketplaceReviewCount: parseVisibleReviewCount(screenshotReviewCount || ""),
+      listingEvidence: {
+        store: vision.store || "",
+        brand: vision.brand || "",
+        price: (() => {
+          const amount = Number(String(vision.price || "").replace(/[^0-9.]/g, ""));
+          return Number.isFinite(amount) && amount > 0 ? amount : null;
+        })(),
+        rating: parseVisibleRating(screenshotRating || ""),
+        reviewCount: parseVisibleReviewCount(screenshotReviewCount || ""),
+        confidence: "low",
+        exactListingUrl: "",
+        exactListingTitle: "",
+        sourcesChecked: [],
+        notes: [reason],
+      },
+      reviewAuthenticity: {
+        score: null,
+        label: "Review scan not verified",
+        suspiciousReviewRisk: "Not scored",
+        reasons: [
+          reason,
+          "ReviewIntel returned the screenshot-based product result first so the shopper does not wait too long.",
+        ],
+        suspiciousComments: [],
+      },
+      strengths: [],
+      complaints: [],
+      topStrengths: [],
+      topComplaints: [],
+      bestFor: [],
+      notIdealFor: [],
+      bottomLine:
+        "Review evidence is still limited. ReviewIntel identified the product from the screenshot, but deeper written review collection took too long for the initial scan.",
+    }) as Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>;
+
+  const reviewEvidence = await Promise.race([
+    collectAndAnalyzeReviewEvidence({
+      productName: productForReviewEvidence || vision.category || "unknown product",
+      brand: vision.brand,
+      model: undefined,
+      store: vision.store,
+      price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
+        ? vision.price
+        : undefined,
+      rating: screenshotRating,
+      reviewCount: screenshotReviewCount,
+      locale,
+      outputLanguage,
+      forceRefresh: false,
+    }).catch((error) => {
+      console.error("[ReviewIntel reviewEvidence error]", error);
+      return fallbackReviewEvidence("Review evidence collection failed during the initial scan.");
+    }),
+    new Promise<Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>>((resolve) => {
+      setTimeout(() => {
+        resolve(fallbackReviewEvidence("Review evidence collection timed out during the initial scan."));
+      }, reviewEvidenceTimeoutMs);
+    }),
+  ]);
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
   const reviewAuthenticity =
