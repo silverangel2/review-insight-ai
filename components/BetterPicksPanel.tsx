@@ -397,11 +397,7 @@ export function BetterPicksPanel({
                     className="h-full w-full object-contain p-2"
                   />
                 </div>
-              ) : (
-                <div className={`${compact ? "h-20" : "h-28"} mb-3 grid place-items-center rounded-2xl bg-[radial-gradient(circle_at_top_left,#d1fae5,#eff6ff_55%,#fff7ed)] px-3 text-center text-[10px] font-black uppercase tracking-[0.18em] text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-100`}>
-                  {panelCopy.imageFallback}
-                </div>
-              )}
+              ) : null}
 
               <p className={`${compact ? "text-[10px]" : "text-xs"} font-black uppercase tracking-[0.18em] text-emerald-600`}>
                 {pick.badge}
