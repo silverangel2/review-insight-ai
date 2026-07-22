@@ -61,7 +61,7 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
     en: {
       searching: "Searching Amazon...",
       view: "See Amazon deal",
-      imageFallback: "Amazon image loading",
+      imageFallback: "Image unavailable",
       price: "Price",
       rating: "Rating",
       reviews: "Reviews",
