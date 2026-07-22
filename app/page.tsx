@@ -486,6 +486,12 @@ const mobileShopCarouselItems = [
         </div>
       </section>
 
+      <div className="hidden sm:block">
+        <div className="hidden sm:block">
+        <PlatformLogoOrbit initialLocale={locale} />
+      </div>
+      </div>
+
       <section className="home-premium-payoff h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
