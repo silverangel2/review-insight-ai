@@ -1610,7 +1610,14 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
       evidenceStrength: "none",
       reviewIntelligenceMode: "listing_metadata",
       reviewIntelligenceSignals: 0,
-      sourcesChecked: [],
+      sourcesChecked: uniqueTextArray(
+        [
+          productForReviewEvidence ? `review-search:${productForReviewEvidence}` : "",
+          vision.store ? `store:${vision.store}` : "",
+          reason,
+        ],
+        6
+      ),
       sourceLinks: [],
       sourceNotes: [
         PUBLIC_REVIEW_EVIDENCE_FAILURE,
@@ -1634,7 +1641,13 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
         confidence: "low",
         exactListingUrl: "",
         exactListingTitle: "",
-        sourcesChecked: [],
+        sourcesChecked: uniqueTextArray(
+          [
+            productForReviewEvidence ? `review-search:${productForReviewEvidence}` : "",
+            vision.store ? `store:${vision.store}` : "",
+          ],
+          4
+        ),
         notes: [reason],
       },
       reviewAuthenticity: {
@@ -2077,7 +2090,6 @@ function buildReviewEvidenceShopperResult(input: {
   const noPublicReviewEvidence =
     collectorReviewsCollected <= 0 &&
     commentsAnalyzed <= 0 &&
-    (Array.isArray(evidence.sourcesChecked) ? evidence.sourcesChecked.length : 0) <= 0 &&
     evidenceReviewSignalCount <= 0;
 
   const praiseThemes = repeatedPraises
@@ -2213,12 +2225,15 @@ function buildReviewEvidenceShopperResult(input: {
   const sourceLinksForResult = Array.isArray(evidence.sourceLinks)
     ? evidence.sourceLinks.filter((item) => item && typeof item === "object") as Array<Record<string, unknown>>
     : [];
+  const attemptedSourcesChecked = Array.isArray(evidence.sourcesChecked)
+    ? uniqueTextArray(evidence.sourcesChecked.map(String), 16)
+    : [];
   const sourcesUsed = noPublicReviewEvidence ? [] : uniqueTextArray(
     [
       ...sourceLinksForResult.map((item) =>
         String(item.domain || item.label || item.url || "").trim()
       ),
-      ...(Array.isArray(evidence.sourcesChecked) ? evidence.sourcesChecked.map(String) : []),
+      ...attemptedSourcesChecked,
       exactListingUrl ? new URL(exactListingUrl).hostname.replace(/^www\./, "") : "",
     ],
     8
@@ -2232,7 +2247,11 @@ function buildReviewEvidenceShopperResult(input: {
         ? "limited"
         : "screenshot_only",
     exactProductMatch: Boolean(exactListingUrl || hasRecognizedProductEvidence),
-    sourceCount: noPublicReviewEvidence ? 0 : Math.max(sourcesUsed.length, exactListingUrl ? 1 : 0),
+    sourceCount: Math.max(
+      sourcesUsed.length,
+      attemptedSourcesChecked.length,
+      exactListingUrl ? 1 : 0
+    ),
     citationCount: noPublicReviewEvidence ? 0 : sourceLinksForResult.length,
     notes: [
       noPublicReviewEvidence

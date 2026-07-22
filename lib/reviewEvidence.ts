@@ -25,6 +25,10 @@ import { localeLabel, normalizeLocale } from "@/lib/i18n";
 import { findExactProductListing, type ExactProductSearchResult } from "@/lib/exactProductSearch";
 import { runFirecrawlFallback } from "@/lib/firecrawlFallback";
 import {
+  runNativeReviewRetrieval,
+  type NativeReviewRetrievalResult,
+} from "@/lib/nativeReviewRetrieval";
+import {
   collectWrittenReviewsFromListing,
   formatCollectedReviewsForPrompt,
   type ReviewCollectorResult,
@@ -1020,6 +1024,40 @@ function mergeUnknownArrays<T = unknown>(left: unknown, right: unknown, limit: n
   return next;
 }
 
+function evidenceStrengthForCount(count: number): ReviewEvidenceResult["evidenceStrength"] {
+  if (count >= 30) return "strong";
+  if (count >= 15) return "usable";
+  if (count >= 5) return "limited";
+  if (count > 0) return "weak";
+  return "none";
+}
+
+function reviewCollectorResultWith(
+  current: ReviewCollectorResult,
+  input: {
+    reviews?: ReviewCollectorResult["reviews"];
+    coverageNote?: string;
+    fallbackUrlsTried?: string[];
+  }
+): ReviewCollectorResult {
+  const reviews = input.reviews || current.reviews;
+
+  return {
+    ...current,
+    attempted: true,
+    reviews,
+    reviewsCollected: reviews.length,
+    collectorHasWrittenReviews: reviews.length > 0,
+    coverageNote: input.coverageNote || current.coverageNote,
+    fallbackUrlsTried: Array.from(
+      new Set([
+        ...(current.fallbackUrlsTried || []),
+        ...(input.fallbackUrlsTried || []),
+      ])
+    ).slice(0, 24),
+  };
+}
+
 function mergeParsedReviewEvidence(primary: Record<string, unknown>, secondary: Record<string, unknown>) {
   const primaryAuth =
     primary.reviewAuthenticity && typeof primary.reviewAuthenticity === "object"
@@ -1292,9 +1330,63 @@ export async function collectAndAnalyzeReviewEvidence(
         fallbackUrlsTried: [],
       };
 
-  let firecrawlRecoveryNote = "Firecrawl fallback was not needed.";
+  let nativeReviewRetrieval: NativeReviewRetrievalResult | null = null;
+  let nativeRetrievalNote =
+    collectedWrittenReviews.reviewsCollected >= 3
+      ? "Native retrieval was not needed because the listing collector already found written review text."
+      : "Native retrieval was not attempted.";
 
-  if (listingUrlForReviewCollector && collectedWrittenReviews.reviewsCollected <= 0) {
+  if (collectedWrittenReviews.reviewsCollected < 3) {
+    nativeReviewRetrieval = await runNativeReviewRetrieval({
+      productTitle: listingEvidenceForCollection?.exactListingTitle || input.productName,
+      brand: input.brand,
+      model: input.model,
+      store: input.store,
+      listingUrl: listingUrlForReviewCollector,
+      sourceLinks: listingEvidenceForCollection?.sourceLinks,
+      maxQueries: 8,
+      maxPages: 12,
+      maxSnippets: 80,
+    });
+
+    nativeRetrievalNote = nativeReviewRetrieval.coverageNote;
+
+    if (nativeReviewRetrieval.reviewsCollected > 0) {
+      const nativeReviews = nativeReviewRetrieval.reviews.map((review) => ({
+        ...review,
+        source: review.source || "Native public review retrieval",
+      }));
+      const combinedReviews = mergeUnknownArrays<ReviewCollectorResult["reviews"][number]>(
+        collectedWrittenReviews.reviews,
+        nativeReviews,
+        80
+      );
+
+      collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
+        reviews: combinedReviews,
+        coverageNote: `${collectedWrittenReviews.coverageNote} ${nativeReviewRetrieval.coverageNote}`,
+        fallbackUrlsTried: nativeReviewRetrieval.sourcesChecked,
+      });
+    } else {
+      collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
+        coverageNote: `${collectedWrittenReviews.coverageNote} ${nativeReviewRetrieval.coverageNote}`,
+        fallbackUrlsTried: nativeReviewRetrieval.sourcesChecked,
+      });
+    }
+  }
+
+  let firecrawlRecoveryNote = "Firecrawl fallback was not needed.";
+  const firecrawlLastResortAllowed = Boolean(
+    listingUrlForReviewCollector &&
+      collectedWrittenReviews.reviewsCollected <= 0 &&
+      nativeReviewRetrieval?.attempted &&
+      nativeReviewRetrieval.normalFetchFailed &&
+      nativeReviewRetrieval.playwrightFailed &&
+      !nativeReviewRetrieval.usableSnippetsExtracted &&
+      process.env.FIRECRAWL_API_KEY
+  );
+
+  if (listingUrlForReviewCollector && collectedWrittenReviews.reviewsCollected <= 0 && firecrawlLastResortAllowed) {
     const firecrawlFallback = await runFirecrawlFallback({
       url: listingUrlForReviewCollector,
       reason: collectedWrittenReviews.coverageNote,
@@ -1340,7 +1432,145 @@ export async function collectAndAnalyzeReviewEvidence(
         ).slice(0, 12),
       };
     }
+  } else if (listingUrlForReviewCollector && collectedWrittenReviews.reviewsCollected <= 0) {
+    if (!process.env.FIRECRAWL_API_KEY) {
+      firecrawlRecoveryNote = "Firecrawl fallback skipped because FIRECRAWL_API_KEY is missing.";
+    } else if (!nativeReviewRetrieval?.attempted) {
+      firecrawlRecoveryNote = "Firecrawl fallback skipped because native retrieval did not run.";
+    } else if (!nativeReviewRetrieval.normalFetchFailed || !nativeReviewRetrieval.playwrightFailed) {
+      firecrawlRecoveryNote =
+        "Firecrawl fallback skipped because native fetch or Playwright was not fully exhausted.";
+    } else {
+      firecrawlRecoveryNote =
+        "Firecrawl fallback skipped because native retrieval found usable snippets or no product URL required Firecrawl.";
+    }
   }
+
+  const localAttemptedSources = Array.from(
+    new Set(
+      [
+        ...listingEvidence.sourcesChecked,
+        listingUrlForReviewCollector,
+        ...(collectedWrittenReviews.fallbackUrlsTried || []),
+        ...(nativeReviewRetrieval?.sourcesChecked || []),
+      ]
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 80);
+
+  const localSourceLinks = normalizeSourceLinks([
+    ...(Array.isArray(listingEvidenceForCollection?.sourceLinks)
+      ? listingEvidenceForCollection.sourceLinks
+      : []),
+    ...(nativeReviewRetrieval?.sourceLinks || []),
+    ...(listingUrlForReviewCollector
+      ? [
+          {
+            label: listingEvidenceForCollection?.exactListingTitle || "Exact product listing",
+            url: listingUrlForReviewCollector,
+            domain: listingEvidenceForCollection?.store || undefined,
+          },
+        ]
+      : []),
+  ]);
+
+  const localDisplayListingEvidence = applyObservedScreenshotSignalsToListing(
+    normalizeListingConfidence(
+      listingDomainMatchesRequestedStore(
+        listingMatchesRequestedSignals(
+          normalizeListingEvidenceNumbers(listingEvidenceForCollection),
+          input
+        ),
+        input
+      ),
+      input
+    ) ?? null,
+    input
+  );
+
+  const recoveryEvidenceFromLocalRetrieval = (reason: string): ReviewEvidenceResult => {
+    const reviewSnippets = collectedWrittenReviews.reviews
+      .map((review) => ({
+        source: review.source || collectedWrittenReviews.extractor || "Native public review retrieval",
+        snippet: review.body,
+        sentiment:
+          typeof review.rating === "number"
+            ? review.rating >= 4
+              ? "positive" as const
+              : review.rating <= 2
+                ? "negative" as const
+                : "mixed" as const
+            : "mixed" as const,
+        evidenceType: review.source?.toLowerCase().includes("search snippet")
+          ? "open web review intelligence"
+          : "marketplace review",
+      }))
+      .filter((item) => item.snippet.trim().length >= 12)
+      .slice(0, 40);
+    const commentsAnalyzed = reviewSnippets.length;
+    const sourcesChecked = localAttemptedSources.length
+      ? localAttemptedSources
+      : [reviewSearchIdentity || product || "native review retrieval attempted"];
+
+    return cleanFinalReviewEvidence({
+      ...emptyEvidence(reason),
+      locale: requestedLocale,
+      outputLanguage,
+      sourcesChecked,
+      sourceLinks: localSourceLinks,
+      listingEvidence: localDisplayListingEvidence,
+      reviewsFound: Number(
+        firstPositiveNumber(
+          listingEvidenceForCollection?.reviewCount,
+          input.reviewCount,
+          commentsAnalyzed
+        ) || commentsAnalyzed
+      ),
+      marketplaceReviewCount: firstPositiveNumber(
+        listingEvidenceForCollection?.reviewCount,
+        input.reviewCount
+      ),
+      reviewCollector: {
+        attempted: collectedWrittenReviews.attempted,
+        sourceUrl: collectedWrittenReviews.sourceUrl,
+        extractor: collectedWrittenReviews.extractor,
+        reviewsCollected: commentsAnalyzed,
+        collectorHasWrittenReviews: commentsAnalyzed > 0,
+        coverageNote: collectedWrittenReviews.coverageNote,
+        fallbackUrlsTried: collectedWrittenReviews.fallbackUrlsTried,
+      },
+      reviewsCollected: commentsAnalyzed,
+      collectorHasWrittenReviews: commentsAnalyzed > 0,
+      reviewIntelligenceSignals: commentsAnalyzed,
+      reviewIntelligenceMode: commentsAnalyzed > 0 ? "written_reviews" : "listing_metadata",
+      reviewCoverageRatio: commentsAnalyzed > 0 ? 1 : 0,
+      commentsAnalyzed,
+      evidenceStrength: evidenceStrengthForCount(commentsAnalyzed),
+      reviewSnippets,
+      sourceNotes: [
+        reason,
+        collectedWrittenReviews.coverageNote,
+        nativeRetrievalNote,
+        firecrawlRecoveryNote,
+      ].filter(Boolean),
+      reviewAuthenticity: {
+        score: null,
+        label: commentsAnalyzed > 0 ? "Review evidence collected" : "Review evidence not found",
+        suspiciousReviewRisk: "Not scored",
+        reasons:
+          commentsAnalyzed > 0
+            ? [
+                "ReviewIntel collected public review-like snippets, but AI review analysis did not complete.",
+              ]
+            : [
+                "No written review bodies were collected or analyzed.",
+                "Marketplace rating/review count from a screenshot or listing is metadata only, not review evidence.",
+              ],
+        suspiciousComments: [],
+      },
+    });
+  };
 
   const collectedWrittenReviewsPrompt = formatCollectedReviewsForPrompt(
     collectedWrittenReviews
@@ -1375,6 +1605,9 @@ ${collectedWrittenReviewsPrompt}
 
 Written review collection coverage:
 ${collectedWrittenReviews.coverageNote}
+
+Native retrieval recovery:
+${nativeRetrievalNote}
 
 Firecrawl fallback recovery:
 ${firecrawlRecoveryNote}
@@ -1643,11 +1876,9 @@ Scoring rules:
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      return {
-        ...emptyEvidence(`OpenAI web review search failed: ${response.status} ${errorText.slice(0, 180)}`),
-        locale: requestedLocale,
-        outputLanguage,
-      };
+      return recoveryEvidenceFromLocalRetrieval(
+        `OpenAI web review search failed: ${response.status} ${errorText.slice(0, 180)}`
+      );
     }
 
     const data = await response.json();
@@ -1660,11 +1891,7 @@ Scoring rules:
       "";
 
     if (!outputText.trim()) {
-      return {
-        ...emptyEvidence("OpenAI web review search returned no review evidence."),
-        locale: requestedLocale,
-        outputLanguage,
-      };
+      return recoveryEvidenceFromLocalRetrieval("OpenAI web review search returned no review evidence.");
     }
 
     let parsed = safeParseReviewEvidenceJson(outputText);
@@ -1698,6 +1925,9 @@ Zero evidence is not a final result. If reviewsCollected, commentsAnalyzed, sour
 
 Already collected written reviews from ReviewIntel's marketplace collector:
 ${collectedWrittenReviewsPrompt}
+
+Native retrieval recovery:
+${nativeRetrievalNote}
 
 Firecrawl fallback recovery:
 ${firecrawlRecoveryNote}
@@ -2129,13 +2359,17 @@ Return ONLY valid JSON with the same shape as the first pass:
       outputLanguage,
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
+            ...localAttemptedSources,
             ...listingEvidence.sourcesChecked,
             ...parsed.sourcesChecked.map(String),
-          ]))
-        : listingEvidence.sourcesChecked,
+          ].filter(Boolean)))
+        : localAttemptedSources.length
+          ? localAttemptedSources
+          : listingEvidence.sourcesChecked,
       listingEvidence: displayListingEvidence,
       exactListingConfirmed,
       sourceLinks: normalizeSourceLinks([
+        ...localSourceLinks,
         ...(Array.isArray(parsed.sourceLinks) ? parsed.sourceLinks : []),
         ...(Array.isArray(normalizedListingEvidence?.sourceLinks)
           ? normalizedListingEvidence.sourceLinks
@@ -2205,6 +2439,8 @@ Return ONLY valid JSON with the same shape as the first pass:
                 ? `Screenshot/request showed a ${displayListingEvidence.rating} rating; Walmart.ca structured rating was not independently confirmed.`
                 : "Current public listing rating was not fully confirmed from structured listing fields.",
             collectedWrittenReviews.coverageNote,
+            nativeRetrievalNote,
+            firecrawlRecoveryNote,
             collectorHasWrittenReviews
               ? `ReviewIntel analyzed ${actualCommentsAnalyzed} written review bodies from the marketplace or a same-product fallback source.`
               : hasReviewIntelligenceEvidence
@@ -2212,8 +2448,17 @@ Return ONLY valid JSON with the same shape as the first pass:
                 : "ReviewIntel did not calculate a product verdict because no product review intelligence was collected.",
           ]
         : Array.isArray(parsed.sourceNotes)
-          ? parsed.sourceNotes
-          : [],
+          ? [
+              ...parsed.sourceNotes,
+              collectedWrittenReviews.coverageNote,
+              nativeRetrievalNote,
+              firecrawlRecoveryNote,
+            ]
+          : [
+              collectedWrittenReviews.coverageNote,
+              nativeRetrievalNote,
+              firecrawlRecoveryNote,
+            ],
       reviewAuthenticity: {
         score: hasReviewIntelligenceEvidence ? score : null,
         label:
@@ -2266,8 +2511,12 @@ Return ONLY valid JSON with the same shape as the first pass:
         reviewIntelligenceSignals: 0,
         commentsAnalyzed: 0,
         reviewsCollected: 0,
-        sourcesChecked: [],
-        sourceLinks: [],
+        sourcesChecked: finalEvidence.sourcesChecked.length
+          ? finalEvidence.sourcesChecked
+          : localAttemptedSources.length
+            ? localAttemptedSources
+            : [reviewSearchIdentity || product || "native review retrieval attempted"],
+        sourceLinks: finalEvidence.sourceLinks,
         reviewCoverageRatio: 0,
         collectorHasWrittenReviews: false,
         overallImpact: "",
@@ -2306,10 +2555,8 @@ Return ONLY valid JSON with the same shape as the first pass:
 
     return finalEvidence;
   } catch (error: unknown) {
-    return {
-      ...emptyEvidence(`Review evidence scan failed: ${error instanceof Error ? error.message : "Unknown error"}`),
-      locale: requestedLocale,
-      outputLanguage,
-    };
+    return recoveryEvidenceFromLocalRetrieval(
+      `Review evidence scan failed: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
   }
 }
