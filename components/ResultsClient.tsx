@@ -1812,8 +1812,7 @@ export function ResultsClient() {
 
         const selectedHistoryId =
           typeof window !== "undefined"
-            ? new URLSearchParams(window.location.search).get("history") ||
-              window.localStorage.getItem("reviewintel_selected_history_id")
+            ? new URLSearchParams(window.location.search).get("history")
             : null;
 
         const latest = selectedHistoryId
@@ -1830,7 +1829,9 @@ export function ResultsClient() {
                 String(analysisJson.compareId ?? "") === selectedHistoryId
               );
             }) ?? reviewEvidenceAnalyses[0] ?? null
-          : reviewEvidenceAnalyses[0] ?? null;
+          : parsed
+            ? null
+            : reviewEvidenceAnalyses[0] ?? null;
 
         const stored = latest?.analysis_json && typeof latest.analysis_json === "object"
           ? (latest.analysis_json as Record<string, unknown>)

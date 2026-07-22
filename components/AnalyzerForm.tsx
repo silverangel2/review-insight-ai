@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { isAccountProfileComplete, profileCompletionMissingFields } from "@/lib/account";
 import { accountHeaders, getClientAccount, saveQuota } from "@/lib/clientAccount";
-import { saveLatestPreview, saveLatestResult } from "@/lib/resultStorage";
+import { saveLatestPreview, saveLatestResult, clearLatestResult } from "@/lib/resultStorage";
 import { incrementStoredScanTally } from "@/lib/clientAccount";
 
 const SCAN_PROGRESS_STEPS = [
@@ -218,6 +218,16 @@ export default function AnalyzerForm() {
       return;
     }
 
+    try {
+      clearLatestResult();
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem("reviewintel_selected_history_id");
+        window.localStorage.removeItem("reviewintel_selected_history_id");
+      }
+    } catch {
+      // Ignore browser storage cleanup errors before a new scan.
+    }
+
     setIsLoading(true);
     setError("");
 
@@ -251,6 +261,8 @@ export default function AnalyzerForm() {
         window.sessionStorage.removeItem("reviewintel_latest_result");
         window.localStorage.removeItem("reviewintel_latest_result_last");
         window.localStorage.removeItem("reviewintel_latest_result_fallback");
+        window.sessionStorage.removeItem("reviewintel_selected_history_id");
+        window.localStorage.removeItem("reviewintel_selected_history_id");
       } catch {
         // Keep scan flow alive even if browser storage is unavailable.
       }
