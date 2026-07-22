@@ -32,6 +32,7 @@ function placementFromPath(pathname: string): AdPlacement {
   if (pathname === "/analyze") return "analyze_below_card";
   if (pathname === "/analyze/result") return "results_below_verdict";
   if (pathname.startsWith("/dashboard/customer")) return "buyer_dashboard";
+  if (pathname === "/pricing") return "pricing";
   return "footer";
 }
 

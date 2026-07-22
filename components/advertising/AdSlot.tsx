@@ -280,13 +280,13 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
               .filter((item) => item.placement === placement && item.active && item.status === "approved" && item.paymentStatus === "paid")
               .map((item) => ({ ad: item, source: "direct" as const })),
           );
-
-          eligibleAds.push(
-            ...affiliateAds
-              .filter((item) => item.placement === placement && item.active && item.status === "approved" && item.paymentStatus === "paid")
-              .map((item) => ({ ad: item, source: "affiliate" as const })),
-          );
         }
+
+        eligibleAds.push(
+          ...affiliateAds
+            .filter((item) => item.placement === placement && item.active && item.status === "approved" && item.paymentStatus === "paid")
+            .map((item) => ({ ad: item, source: "affiliate" as const })),
+        );
 
         if (!eligibleAds.length && liveSettings.googleAdsEnabled && hasGoogleAdSenseConfig()) {
           setRotatingAds([]);

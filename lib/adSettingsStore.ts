@@ -1,12 +1,23 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { defaultAdSettings, type AdSettings } from "@/lib/adConfig";
+import {
+  defaultAdSettings,
+  defaultAffiliatePartnerSettings,
+  managedAffiliatePartners,
+  type AdSettings,
+  type AffiliatePartnerSettings,
+  type ManagedAffiliatePartner,
+} from "@/lib/adConfig";
 
 export type LiveAdSettings = AdSettings & {
   placeholderAdsEnabled: boolean;
 };
 
 const settingsPath = path.join(process.cwd(), "data", "ad-settings.json");
+
+type PartialAffiliatePartnerSettings = Partial<
+  Record<ManagedAffiliatePartner, Partial<AffiliatePartnerSettings>>
+>;
 
 export const defaultLiveAdSettings: LiveAdSettings = {
   ...defaultAdSettings,
@@ -15,6 +26,30 @@ export const defaultLiveAdSettings: LiveAdSettings = {
   googleAdsEnabled: false,
   placeholderAdsEnabled: true,
 };
+
+function mergeAffiliatePartners(
+  base: Record<ManagedAffiliatePartner, AffiliatePartnerSettings>,
+  next?: PartialAffiliatePartnerSettings,
+): Record<ManagedAffiliatePartner, AffiliatePartnerSettings> {
+  return managedAffiliatePartners.reduce<Record<ManagedAffiliatePartner, AffiliatePartnerSettings>>(
+    (merged, partner) => {
+      const current = base[partner] ?? defaultAffiliatePartnerSettings[partner];
+      const incoming = next?.[partner];
+
+      merged[partner] = {
+        ...current,
+        ...(incoming ?? {}),
+        placements: {
+          ...current.placements,
+          ...(incoming?.placements ?? {}),
+        },
+      };
+
+      return merged;
+    },
+    {} as Record<ManagedAffiliatePartner, AffiliatePartnerSettings>,
+  );
+}
 
 export async function readAdSettings(): Promise<LiveAdSettings> {
   try {
@@ -28,6 +63,10 @@ export async function readAdSettings(): Promise<LiveAdSettings> {
         ...defaultLiveAdSettings.placements,
         ...(saved.placements ?? {}),
       },
+      affiliatePartners: mergeAffiliatePartners(
+        defaultLiveAdSettings.affiliatePartners,
+        saved.affiliatePartners as PartialAffiliatePartnerSettings | undefined,
+      ),
     };
   } catch {
     return defaultLiveAdSettings;
@@ -44,6 +83,10 @@ export async function writeAdSettings(settings: Partial<LiveAdSettings>) {
       ...current.placements,
       ...(settings.placements ?? {}),
     },
+    affiliatePartners: mergeAffiliatePartners(
+      current.affiliatePartners,
+      settings.affiliatePartners as PartialAffiliatePartnerSettings | undefined,
+    ),
   };
 
   await fs.mkdir(path.dirname(settingsPath), { recursive: true });

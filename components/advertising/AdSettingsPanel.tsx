@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AdPlacement } from "@/lib/adConfig";
+import {
+  affiliatePartnerPlacements,
+  managedAffiliatePartners,
+  type AdPlacement,
+  type AffiliatePartnerPlacement,
+  type ManagedAffiliatePartner,
+} from "@/lib/adConfig";
 import type { LiveAdSettings } from "@/lib/adSettingsStore";
 
 const placementLabels: Record<AdPlacement, string> = {
@@ -14,7 +20,22 @@ const placementLabels: Record<AdPlacement, string> = {
   results_below_verdict: "Results page",
   buyer_dashboard: "Buyer dashboard",
   seller_dashboard: "Seller dashboard",
+  pricing: "Pricing page",
   footer: "Footer",
+};
+
+const partnerLabels: Record<ManagedAffiliatePartner, string> = {
+  amazon: "Amazon",
+  travelpayouts: "Travelpayouts",
+  stay22: "Stay22",
+};
+
+const affiliatePlacementLabels: Record<AffiliatePartnerPlacement, string> = {
+  mobile_homepage: "Mobile homepage",
+  homepage: "Homepage",
+  results: "Results",
+  dashboard: "Dashboard",
+  pricing: "Pricing",
 };
 
 function ToggleButton({
@@ -31,6 +52,7 @@ function ToggleButton({
   return (
     <button
       type="button"
+      aria-pressed={value}
       onClick={() => onChange(!value)}
       className={`rounded-2xl border p-4 text-left transition ${
         value
@@ -46,6 +68,29 @@ function ToggleButton({
         <p className="mt-2 text-xs leading-5 opacity-80">{description}</p>
       ) : null}
     </button>
+  );
+}
+
+function mergeAffiliatePartners(
+  current: LiveAdSettings["affiliatePartners"],
+  next?: Partial<LiveAdSettings["affiliatePartners"]>,
+): LiveAdSettings["affiliatePartners"] {
+  return managedAffiliatePartners.reduce<LiveAdSettings["affiliatePartners"]>(
+    (merged, partner) => {
+      const incoming = next?.[partner];
+
+      merged[partner] = {
+        ...current[partner],
+        ...(incoming ?? {}),
+        placements: {
+          ...current[partner].placements,
+          ...(incoming?.placements ?? {}),
+        },
+      };
+
+      return merged;
+    },
+    { ...current },
   );
 }
 
@@ -69,6 +114,10 @@ export function AdSettingsPanel() {
         ...settings.placements,
         ...(next.placements ?? {}),
       },
+      affiliatePartners: mergeAffiliatePartners(
+        settings.affiliatePartners,
+        next.affiliatePartners,
+      ),
     };
 
     setSettings(merged);
@@ -146,6 +195,67 @@ export function AdSettingsPanel() {
           value={settings.placeholderAdsEnabled}
           onChange={(value) => saveSettings({ placeholderAdsEnabled: value })}
         />
+      </div>
+
+      <div className="mt-8 border-t border-line pt-8 dark:border-white/10">
+        <h3 className="text-xl font-black">Affiliate partner controls</h3>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          These switches only affect Amazon, Travelpayouts, and Stay22 affiliate banners or affiliate recommendation ads. Manual advert banners stay in the sponsor and owner queue above.
+        </p>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          {managedAffiliatePartners.map((partner) => {
+            const partnerSettings = settings.affiliatePartners[partner];
+
+            return (
+              <div
+                key={partner}
+                className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]"
+              >
+                <ToggleButton
+                  label={partnerLabels[partner]}
+                  description={`${partnerLabels[partner]} ON/OFF master affiliate switch.`}
+                  value={partnerSettings.enabled}
+                  onChange={(value) =>
+                    saveSettings({
+                      affiliatePartners: {
+                        ...settings.affiliatePartners,
+                        [partner]: {
+                          ...partnerSettings,
+                          enabled: value,
+                        },
+                      },
+                    })
+                  }
+                />
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                  {affiliatePartnerPlacements.map((placement) => (
+                    <ToggleButton
+                      key={`${partner}-${placement}`}
+                      label={affiliatePlacementLabels[placement]}
+                      value={Boolean(partnerSettings.placements[placement])}
+                      onChange={(value) =>
+                        saveSettings({
+                          affiliatePartners: {
+                            ...settings.affiliatePartners,
+                            [partner]: {
+                              ...partnerSettings,
+                              placements: {
+                                ...partnerSettings.placements,
+                                [placement]: value,
+                              },
+                            },
+                          },
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="mt-8">

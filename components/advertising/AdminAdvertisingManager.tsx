@@ -57,6 +57,7 @@ const placementOptions: Array<{ value: AdPlacement; label: string }> = [
   { value: "results_below_verdict", label: "Results page" },
   { value: "buyer_dashboard", label: "Buyer dashboard" },
   { value: "seller_dashboard", label: "Seller dashboard" },
+  { value: "pricing", label: "Pricing page" },
   { value: "footer", label: "Footer" },
 ];
 

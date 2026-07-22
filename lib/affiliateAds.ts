@@ -1,5 +1,13 @@
 import { buildAmazonAffiliateUrl } from "@/lib/affiliate";
-import type { AdPlacement, AffiliatePartner, SponsorAd } from "@/lib/adConfig";
+import {
+  affiliatePartnerCanShowAtPlacement,
+  managedAffiliatePartners,
+  type AdPlacement,
+  type AffiliatePartner,
+  type AffiliatePartnerSettings,
+  type ManagedAffiliatePartner,
+  type SponsorAd,
+} from "@/lib/adConfig";
 
 export type AffiliateAdCampaignStatus = "active" | "paused";
 
@@ -18,10 +26,16 @@ export type AffiliateAdCampaign = {
   ctaLabel: string;
 };
 
+export type AffiliateAdCampaignFilters = {
+  placements?: Partial<Record<AdPlacement, boolean>>;
+  affiliatePartners?: Partial<Record<ManagedAffiliatePartner, Partial<AffiliatePartnerSettings>>>;
+};
+
 export const REVIEWINTEL_AFFILIATE_DISCLOSURE =
   "ReviewIntel may earn commission. Affiliate compensation does not affect verdicts or review analysis.";
 
 const AD_PLACEMENTS: AdPlacement[] = [
+  "mobile_homepage",
   "homepage_hero",
   "homepage_mid",
   "analyze_below_card",
@@ -30,7 +44,16 @@ const AD_PLACEMENTS: AdPlacement[] = [
   "results_below_verdict",
   "buyer_dashboard",
   "seller_dashboard",
+  "pricing",
   "footer",
+];
+
+const BUILT_IN_AFFILIATE_PLACEMENTS: AdPlacement[] = [
+  "mobile_homepage",
+  "homepage_mid",
+  "results_below_verdict",
+  "buyer_dashboard",
+  "pricing",
 ];
 
 function clean(value?: string | null) {
@@ -210,54 +233,71 @@ function bannerUrl(partner: AffiliatePartner) {
   );
 }
 
-function builtInCampaigns(): AffiliateAdCampaign[] {
-  return [
-    {
-      id: "reviewintel-affiliate-amazon-shopping",
+function builtInCampaignStatus(partner: ManagedAffiliatePartner): AffiliateAdCampaignStatus {
+  if (partner === "amazon") {
+    return isEnabled(envValue(["REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED"]))
+      ? "active"
+      : "paused";
+  }
+
+  if (partner === "travelpayouts") {
+    return isEnabled(envValue(["REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED"]))
+      ? "active"
+      : "paused";
+  }
+
+  return isEnabled(envValue(["REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED"]))
+    ? "active"
+    : "paused";
+}
+
+function builtInCampaignCreative(partner: ManagedAffiliatePartner) {
+  if (partner === "amazon") {
+    return {
       title: "Amazon sponsored shopping options",
-      partner: "amazon",
       affiliateUrl: amazonAffiliateUrl(),
       imageUrl: bannerUrl("amazon"),
-      placement: "homepage_mid",
-      status: isEnabled(envValue(["REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_AMAZON_AFFILIATE_ADS_ENABLED"]))
-        ? "active"
-        : "paused",
-      disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
       headline: "Sponsored shopping options on Amazon",
       description: "Compare shopping options after your ReviewIntel scan. Partner compensation stays separate from review analysis.",
       ctaLabel: "Shop Amazon",
-    },
-    {
-      id: "reviewintel-affiliate-travelpayouts-flights",
-      title: "Travelpayouts sponsored flight deals",
-      partner: "travelpayouts",
+    };
+  }
+
+  if (partner === "travelpayouts") {
+    return {
+      title: "Travelpayouts sponsored travel deals",
       affiliateUrl: travelpayoutsAffiliateUrl(),
       imageUrl: bannerUrl("travelpayouts"),
-      placement: "analyze_premium_top",
-      status: isEnabled(envValue(["REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_TRAVELPAYOUTS_AFFILIATE_ADS_ENABLED"]))
-        ? "active"
-        : "paused",
-      disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
       headline: "Sponsored flight deals",
       description: "Travelpayouts partner placement for shoppers comparing travel purchases and reviews.",
       ctaLabel: "Compare flights",
-    },
-    {
-      id: "reviewintel-affiliate-stay22-hotels",
-      title: "Stay22 sponsored hotel deals",
-      partner: "stay22",
-      affiliateUrl: stay22AffiliateUrl(),
-      imageUrl: bannerUrl("stay22"),
-      placement: "footer",
-      status: isEnabled(envValue(["REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_STAY22_AFFILIATE_ADS_ENABLED"]))
-        ? "active"
-        : "paused",
+    };
+  }
+
+  return {
+    title: "Stay22 sponsored hotel deals",
+    affiliateUrl: stay22AffiliateUrl(),
+    imageUrl: bannerUrl("stay22"),
+    headline: "Sponsored hotel deals",
+    description: "Stay22 partner placement for hotel options. ReviewIntel analysis remains independent.",
+    ctaLabel: "Find hotels",
+  };
+}
+
+function builtInCampaigns(): AffiliateAdCampaign[] {
+  return managedAffiliatePartners.flatMap((partner) => {
+    const creative = builtInCampaignCreative(partner);
+    const status = builtInCampaignStatus(partner);
+
+    return BUILT_IN_AFFILIATE_PLACEMENTS.map((placement) => ({
+      id: `reviewintel-affiliate-${partner}-${placement}`,
+      partner,
+      placement,
+      status,
       disclosureText: REVIEWINTEL_AFFILIATE_DISCLOSURE,
-      headline: "Sponsored hotel deals",
-      description: "Stay22 partner placement for hotel options. ReviewIntel analysis remains independent.",
-      ctaLabel: "Find hotels",
-    },
-  ];
+      ...creative,
+    }));
+  });
 }
 
 function textField(record: Record<string, unknown>, ...keys: string[]) {
@@ -337,13 +377,36 @@ function toSponsorAd(campaign: AffiliateAdCampaign): SponsorAd | null {
   };
 }
 
-export function getAffiliateAdCampaigns(placements?: Partial<Record<AdPlacement, boolean>>): SponsorAd[] {
+function normalizeFilters(
+  filters?: AffiliateAdCampaignFilters | Partial<Record<AdPlacement, boolean>>,
+): AffiliateAdCampaignFilters {
+  if (filters && ("placements" in filters || "affiliatePartners" in filters)) {
+    return filters as AffiliateAdCampaignFilters;
+  }
+
+  return {
+    placements: filters as Partial<Record<AdPlacement, boolean>> | undefined,
+  };
+}
+
+export function getAffiliateAdCampaigns(
+  filters?: AffiliateAdCampaignFilters | Partial<Record<AdPlacement, boolean>>,
+): SponsorAd[] {
   if (!isEnabled(envValue(["REVIEWINTEL_AFFILIATES_ENABLED", "NEXT_PUBLIC_REVIEWINTEL_AFFILIATES_ENABLED"]))) {
     return [];
   }
 
+  const normalizedFilters = normalizeFilters(filters);
+
   return [...builtInCampaigns(), ...customCampaignsFromEnv()]
-    .filter((campaign) => placementIsEnabled(campaign.placement, placements))
+    .filter((campaign) => placementIsEnabled(campaign.placement, normalizedFilters.placements))
+    .filter((campaign) =>
+      affiliatePartnerCanShowAtPlacement(
+        campaign.partner,
+        campaign.placement,
+        normalizedFilters.affiliatePartners,
+      ),
+    )
     .map(toSponsorAd)
     .filter((ad): ad is SponsorAd => Boolean(ad));
 }

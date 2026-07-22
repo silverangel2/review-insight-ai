@@ -298,6 +298,7 @@ export default function CustomerDashboardPage() {
             result={history[0].result}
             compact
             title="Latest scan qualifying links"
+            affiliatePlacement="dashboard"
           />
         ) : null}
 

@@ -5,6 +5,11 @@ import {
   getAmazonAssociateTag,
   isSupportedAffiliateUrl,
 } from "@/lib/affiliate";
+import {
+  affiliatePartnerCanShowInGroup,
+  normalizeAffiliatePartnerPlacement,
+} from "@/lib/adConfig";
+import { readAdSettings } from "@/lib/adSettingsStore";
 import { localeLabel, normalizeLocale } from "@/lib/i18n";
 
 function safeJsonParse(text: string) {
@@ -124,6 +129,34 @@ export async function POST(req: NextRequest) {
     const productIdentitySnake = asRecord(result.product_identity);
     const locale = normalizeLocale(bodyRecord.locale);
     const outputLanguage = localeLabel(locale);
+    const affiliatePlacement = normalizeAffiliatePartnerPlacement(
+      bodyRecord.affiliatePlacement,
+      "results",
+    );
+    const settings = await readAdSettings();
+
+    if (
+      !settings.adsEnabled ||
+      !affiliatePartnerCanShowInGroup(
+        "amazon",
+        affiliatePlacement,
+        settings.affiliatePartners,
+      )
+    ) {
+      return NextResponse.json({
+        ok: true,
+        shopperOnly: true,
+        locale,
+        outputLanguage,
+        affiliateDisabled: true,
+        affiliateReady: false,
+        affiliateProviders: {
+          amazonReady: false,
+        },
+        disclosure: getAffiliateDisclosure(),
+        recommendations: [],
+      });
+    }
 
     const productName =
       getString(result.productName) ||

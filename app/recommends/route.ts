@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
+import { affiliatePartnerIsEnabled } from "@/lib/adConfig";
+import { readAdSettings } from "@/lib/adSettingsStore";
 import { resolveAmazonAffiliateDestination } from "@/lib/socialRedirects";
 
-export function GET() {
+export async function GET() {
+  const settings = await readAdSettings();
+
+  if (!settings.adsEnabled || !affiliatePartnerIsEnabled("amazon", settings.affiliatePartners)) {
+    return NextResponse.json(
+      { ok: false, error: "ReviewIntel Amazon affiliate destination is disabled." },
+      { status: 404 }
+    );
+  }
+
   const destination = resolveAmazonAffiliateDestination();
 
   if (!destination) {

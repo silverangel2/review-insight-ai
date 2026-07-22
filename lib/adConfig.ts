@@ -8,6 +8,7 @@ export type AdPlacement =
   | "results_below_verdict"
   | "buyer_dashboard"
   | "seller_dashboard"
+  | "pricing"
   | "footer";
 
 export type AdvertiserApplicationStatus = "pending" | "approved" | "rejected" | "paused";
@@ -16,6 +17,21 @@ export type AdMediaType = "image" | "video";
 export type AdPackageId = "sponsored_monthly" | "featured_monthly";
 export type AdSourceType = "direct" | "affiliate" | "house";
 export type AffiliatePartner = "amazon" | "travelpayouts" | "stay22" | "custom";
+export const managedAffiliatePartners = ["amazon", "travelpayouts", "stay22"] as const;
+export type ManagedAffiliatePartner = (typeof managedAffiliatePartners)[number];
+export const affiliatePartnerPlacements = [
+  "mobile_homepage",
+  "homepage",
+  "results",
+  "dashboard",
+  "pricing",
+] as const;
+export type AffiliatePartnerPlacement = (typeof affiliatePartnerPlacements)[number];
+
+export type AffiliatePartnerSettings = {
+  enabled: boolean;
+  placements: Record<AffiliatePartnerPlacement, boolean>;
+};
 
 export type SponsorAd = {
   id: string;
@@ -48,7 +64,90 @@ export type AdSettings = {
   directSponsorAdsEnabled: boolean;
   requireOwnerApproval: boolean;
   placements: Record<AdPlacement, boolean>;
+  affiliatePartners: Record<ManagedAffiliatePartner, AffiliatePartnerSettings>;
 };
+
+export const defaultAffiliatePartnerPlacements: Record<AffiliatePartnerPlacement, boolean> = {
+  mobile_homepage: true,
+  homepage: true,
+  results: true,
+  dashboard: true,
+  pricing: true,
+};
+
+export const defaultAffiliatePartnerSettings: Record<ManagedAffiliatePartner, AffiliatePartnerSettings> = {
+  amazon: {
+    enabled: true,
+    placements: { ...defaultAffiliatePartnerPlacements },
+  },
+  travelpayouts: {
+    enabled: true,
+    placements: { ...defaultAffiliatePartnerPlacements },
+  },
+  stay22: {
+    enabled: true,
+    placements: { ...defaultAffiliatePartnerPlacements },
+  },
+};
+
+export function isManagedAffiliatePartner(partner: AffiliatePartner): partner is ManagedAffiliatePartner {
+  return managedAffiliatePartners.includes(partner as ManagedAffiliatePartner);
+}
+
+export function normalizeAffiliatePartnerPlacement(
+  value: unknown,
+  fallback: AffiliatePartnerPlacement = "results",
+): AffiliatePartnerPlacement {
+  return affiliatePartnerPlacements.includes(value as AffiliatePartnerPlacement)
+    ? (value as AffiliatePartnerPlacement)
+    : fallback;
+}
+
+export function affiliatePlacementGroupForAdPlacement(
+  placement: AdPlacement,
+): AffiliatePartnerPlacement | null {
+  if (placement === "mobile_homepage") return "mobile_homepage";
+  if (placement === "homepage_hero" || placement === "homepage_mid") return "homepage";
+  if (placement === "results_below_verdict") return "results";
+  if (placement === "buyer_dashboard" || placement === "seller_dashboard") return "dashboard";
+  if (placement === "pricing") return "pricing";
+  return null;
+}
+
+export function affiliatePartnerIsEnabled(
+  partner: AffiliatePartner,
+  settings?: Partial<Record<ManagedAffiliatePartner, Partial<AffiliatePartnerSettings>>>,
+): boolean {
+  if (!isManagedAffiliatePartner(partner)) return true;
+  return settings?.[partner]?.enabled ?? defaultAffiliatePartnerSettings[partner].enabled;
+}
+
+export function affiliatePartnerCanShowInGroup(
+  partner: AffiliatePartner,
+  placement: AffiliatePartnerPlacement,
+  settings?: Partial<Record<ManagedAffiliatePartner, Partial<AffiliatePartnerSettings>>>,
+): boolean {
+  if (!isManagedAffiliatePartner(partner)) return true;
+  if (!affiliatePartnerIsEnabled(partner, settings)) return false;
+
+  return (
+    settings?.[partner]?.placements?.[placement] ??
+    defaultAffiliatePartnerSettings[partner].placements[placement]
+  );
+}
+
+export function affiliatePartnerCanShowAtPlacement(
+  partner: AffiliatePartner,
+  placement: AdPlacement,
+  settings?: Partial<Record<ManagedAffiliatePartner, Partial<AffiliatePartnerSettings>>>,
+): boolean {
+  if (!isManagedAffiliatePartner(partner)) return true;
+
+  const group = affiliatePlacementGroupForAdPlacement(placement);
+  if (!group) return false;
+
+  return affiliatePartnerCanShowInGroup(partner, group, settings);
+}
 
 export const adPackages: Record<AdPackageId, {
   id: AdPackageId;
@@ -94,8 +193,10 @@ export const defaultAdSettings: AdSettings = {
     results_below_verdict: true,
     buyer_dashboard: true,
     seller_dashboard: true,
+    pricing: true,
     footer: true,
   },
+  affiliatePartners: defaultAffiliatePartnerSettings,
 };
 
 export const reviewIntelPlaceholderAds: SponsorAd[] = [
@@ -184,6 +285,17 @@ export const reviewIntelPlaceholderAds: SponsorAd[] = [
       "Put your brand in front of shoppers and sellers while they analyze products, reviews, and competitors.",
     destinationUrl: "/advertise/apply",
     placement: "seller_dashboard",
+    active: true,
+    status: "approved",
+  },
+  {
+    id: "reviewintel-self-pricing",
+    sponsorName: "ReviewIntel ad spot",
+    headline: "Promote your offer beside pricing decisions",
+    description:
+      "Reach shoppers and sellers while they compare ReviewIntel plan options.",
+    destinationUrl: "/advertise/apply",
+    placement: "pricing",
     active: true,
     status: "approved",
   },

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
+import type { AffiliatePartnerPlacement } from "@/lib/adConfig";
 import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 
 type AffiliateLink = {
@@ -72,11 +73,13 @@ export function AffiliateSourcePanel({
   compact = false,
   title,
   autoLoad = true,
+  affiliatePlacement = "results",
 }: {
   result: unknown;
   compact?: boolean;
   title?: string;
   autoLoad?: boolean;
+  affiliatePlacement?: AffiliatePartnerPlacement;
 }) {
   const [locale, setLocale] = useState<ReviewIntelLocale>("en");
   const [links, setLinks] = useState<AffiliateLink[]>([]);
@@ -104,7 +107,11 @@ export function AffiliateSourcePanel({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ result, limit: compact ? 4 : 6 }),
+          body: JSON.stringify({
+            result,
+            limit: compact ? 4 : 6,
+            affiliatePlacement,
+          }),
         });
         const data = await response.json();
 
@@ -129,7 +136,7 @@ export function AffiliateSourcePanel({
     return () => {
       cancelled = true;
     };
-  }, [autoLoad, compact, requestKey, result]);
+  }, [affiliatePlacement, autoLoad, compact, requestKey, result]);
 
   if (!loading && !error && links.length === 0) return null;
 

@@ -25,6 +25,7 @@ type ApplicationRow = Record<string, unknown>;
 type SponsorAdRow = Record<string, unknown>;
 
 const adPlacements = new Set<AdPlacement>([
+  "mobile_homepage",
   "homepage_hero",
   "homepage_mid",
   "analyze_below_card",
@@ -33,6 +34,7 @@ const adPlacements = new Set<AdPlacement>([
   "results_below_verdict",
   "buyer_dashboard",
   "seller_dashboard",
+  "pricing",
   "footer",
 ]);
 

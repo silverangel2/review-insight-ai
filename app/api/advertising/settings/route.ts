@@ -6,11 +6,13 @@ import {
   type AdMediaType,
   type SponsorAd,
 } from "@/lib/adConfig";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { getAffiliateAdCampaigns } from "@/lib/affiliateAds";
 import { readAdSettings, writeAdSettings } from "@/lib/adSettingsStore";
 import { supabaseSelect } from "@/lib/supabaseServer";
 
 const adPlacements = new Set<AdPlacement>([
+  "mobile_homepage",
   "homepage_hero",
   "homepage_mid",
   "analyze_below_card",
@@ -19,6 +21,7 @@ const adPlacements = new Set<AdPlacement>([
   "results_below_verdict",
   "buyer_dashboard",
   "seller_dashboard",
+  "pricing",
   "footer",
 ]);
 
@@ -174,14 +177,23 @@ export async function GET(): Promise<Response> {
       ? await readApprovedSponsorAds()
       : [];
   const affiliateAds =
-    settings.adsEnabled && settings.directSponsorAdsEnabled
-      ? getAffiliateAdCampaigns(settings.placements)
+    settings.adsEnabled
+      ? getAffiliateAdCampaigns({
+          placements: settings.placements,
+          affiliatePartners: settings.affiliatePartners,
+        })
       : [];
 
   return NextResponse.json({ settings, ads: [...sponsorAds, ...affiliateAds] });
 }
 
 export async function PATCH(request: Request): Promise<Response> {
+  const adminSession = adminSessionFromRequest(request);
+
+  if (!adminSession) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
+
   try {
     const body = await request.json().catch(() => ({}));
     const settings = await writeAdSettings(body);

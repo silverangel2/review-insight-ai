@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
+import type { AffiliatePartnerPlacement } from "@/lib/adConfig";
 import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 
 type ResultRecord = Record<string, unknown>;
@@ -54,6 +55,23 @@ function getVerdict(result: ResultRecord) {
 
 function cacheKeyFor(productName: string, verdict: string, locale: string) {
   return `reviewintel_better_picks:${locale}:${productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 90)}:${verdict}`;
+}
+
+async function amazonAffiliateIsVisible(placement: AffiliatePartnerPlacement) {
+  try {
+    const response = await fetch("/api/advertising/settings", { cache: "no-store" });
+    const data = await response.json();
+    const settings = data.settings;
+    const amazon = settings?.affiliatePartners?.amazon;
+
+    return (
+      settings?.adsEnabled !== false &&
+      amazon?.enabled !== false &&
+      amazon?.placements?.[placement] !== false
+    );
+  } catch {
+    return false;
+  }
 }
 
 function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
@@ -234,16 +252,19 @@ export function BetterPicksPanel({
   result,
   compact = false,
   autoLoad = true,
+  affiliatePlacement = "results",
 }: {
   result: ResultRecord;
   compact?: boolean;
   autoLoad?: boolean;
+  affiliatePlacement?: AffiliatePartnerPlacement;
 }) {
   const [loading, setLoading] = useState(false);
   const [picks, setPicks] = useState<BetterPick[]>([]);
   const [error, setError] = useState("");
   const [brokenImageUrls, setBrokenImageUrls] = useState<Record<string, boolean>>({});
   const [locale, setLocale] = useState<ReviewIntelLocale>("en");
+  const [affiliateDisabled, setAffiliateDisabled] = useState(false);
   const [disclosure, setDisclosure] = useState(
     "ReviewIntel may earn a commission from qualifying purchases through affiliate links. This does not affect our verdicts or review analysis."
   );
@@ -259,6 +280,17 @@ export function BetterPicksPanel({
 
   async function findBetterPicks(options?: { useCache?: boolean }) {
     if (!productName) return;
+
+    const amazonVisible = await amazonAffiliateIsVisible(affiliatePlacement);
+    if (!amazonVisible) {
+      setAffiliateDisabled(true);
+      setPicks([]);
+      setError("");
+      window.sessionStorage.removeItem(requestKey);
+      return;
+    }
+
+    setAffiliateDisabled(false);
 
     const cached = window.sessionStorage.getItem(requestKey);
     if (cached && options?.useCache) {
@@ -284,6 +316,7 @@ export function BetterPicksPanel({
           productName,
           result,
           locale,
+          affiliatePlacement,
         }),
       });
 
@@ -293,6 +326,15 @@ export function BetterPicksPanel({
         throw new Error(data.error || "Could not find better picks.");
       }
 
+      if (data.affiliateDisabled) {
+        setAffiliateDisabled(true);
+        setPicks([]);
+        setError("");
+        window.sessionStorage.removeItem(requestKey);
+        return;
+      }
+
+      setAffiliateDisabled(false);
       const nextPicks = Array.isArray(data.recommendations) ? data.recommendations : [];
       setPicks(nextPicks);
       setDisclosure(data.disclosure || disclosure);
@@ -315,23 +357,11 @@ export function BetterPicksPanel({
   useEffect(() => {
     if (!autoLoad || !productName) return;
 
-    try {
-      const cached = window.sessionStorage.getItem(requestKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed?.recommendations)) {
-          setPicks(parsed.recommendations);
-          if (typeof parsed?.disclosure === "string") setDisclosure(parsed.disclosure);
-          return;
-        }
-      }
-    } catch {
-      // Ignore broken browser cache and refetch below.
-    }
-
     void findBetterPicks({ useCache: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoLoad, productName, requestKey]);
+  }, [affiliatePlacement, autoLoad, productName, requestKey]);
+
+  if (affiliateDisabled) return null;
 
   return (
     <section className={`${compact ? "mt-3 rounded-2xl p-3" : "mt-6 rounded-[2rem] p-5"} border border-emerald-200 bg-emerald-50 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10`}>

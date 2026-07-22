@@ -12,7 +12,40 @@
     "results_below_verdict": true,
     "buyer_dashboard": true,
     "seller_dashboard": true,
+    "pricing": true,
     "footer": true
+  },
+  "affiliatePartners": {
+    "amazon": {
+      "enabled": true,
+      "placements": {
+        "mobile_homepage": true,
+        "homepage": true,
+        "results": true,
+        "dashboard": true,
+        "pricing": true
+      }
+    },
+    "travelpayouts": {
+      "enabled": true,
+      "placements": {
+        "mobile_homepage": true,
+        "homepage": true,
+        "results": true,
+        "dashboard": true,
+        "pricing": true
+      }
+    },
+    "stay22": {
+      "enabled": true,
+      "placements": {
+        "mobile_homepage": true,
+        "homepage": true,
+        "results": true,
+        "dashboard": true,
+        "pricing": true
+      }
+    }
   },
   "placeholderAdsEnabled": true
 }
