@@ -2,7 +2,24 @@ import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true
+  reactStrictMode: true,
+  outputFileTracingIncludes: {
+    "/api/admin/social-media/generate-videos": [
+      "./scripts/generate-social-videos.mjs",
+      "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
+      "./node_modules/fluent-ffmpeg/**/*"
+    ],
+    "/api/admin/social-autopost": [
+      "./scripts/generate-social-videos.mjs",
+      "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
+      "./node_modules/fluent-ffmpeg/**/*"
+    ],
+    "/api/cron/social-autopost": [
+      "./scripts/generate-social-videos.mjs",
+      "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
+      "./node_modules/fluent-ffmpeg/**/*"
+    ]
+  },
 };
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
