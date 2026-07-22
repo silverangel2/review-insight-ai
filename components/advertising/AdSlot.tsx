@@ -64,18 +64,6 @@ function hourlySeed(placement: string) {
   return placement.split("").reduce((total, char) => total + char.charCodeAt(0), hour);
 }
 
-function pickRotatingAd(ads: SponsorAd[], placement: AdPlacement) {
-  const candidates = ads.filter(
-    (item) =>
-      item.placement === placement &&
-      item.active &&
-      item.status === "approved" &&
-      item.paymentStatus === "paid",
-  );
-
-  if (!candidates.length) return null;
-  return candidates[hourlySeed(placement) % candidates.length] ?? candidates[0];
-}
 
 function affiliateEventMetadata(ad: SponsorAd, placement: AdPlacement) {
   return {
