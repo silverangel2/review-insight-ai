@@ -741,14 +741,31 @@ export async function collectWrittenReviewsFromListing(input: {
   const extractor = extractorForUrl(listingUrl);
 
   if (!listingUrl) {
+    const publicFallbackReviews = input.productName
+      ? await fetchPublicReviewFallback({
+          productName: input.productName,
+          listingUrl: "",
+          maxReviews,
+        })
+      : [];
+
+    const reviews = dedupeReviews(publicFallbackReviews, maxReviews);
+
     return {
       sourceUrl: null,
-      attempted: false,
-      extractor: "none",
-      reviews: [],
-      reviewsCollected: 0,
-      collectorHasWrittenReviews: false,
-      coverageNote: "No exact listing URL was available for written-review collection.",
+      attempted: true,
+      extractor: "generic",
+      reviews,
+      reviewsCollected: reviews.length,
+      collectorHasWrittenReviews: reviews.length > 0,
+      coverageNote: reviews.length
+        ? `${reviews.length} written review texts were collected from public review search because no exact listing URL was available.`
+        : input.productName
+          ? "No exact listing URL was available, so ReviewIntel searched public review pages by product name but did not collect written review text."
+          : "No exact listing URL or product name was available for written-review collection.",
+      fallbackUrlsTried: input.productName
+        ? buildPublicReviewSearchQueries(input.productName, "").slice(0, 12)
+        : [],
     };
   }
 
