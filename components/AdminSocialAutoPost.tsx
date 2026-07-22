@@ -834,7 +834,19 @@ export default function AdminSocialAutoPost() {
   function connectorCard(label: string, check: ConnectorHealth | null) {
     if (!check) return null;
 
+    function getMediaPreviewUrl(item: SocialMedia) {
+    return item.thumbnail_url || item.file_url || "";
+  }
+
+  function isVideoMedia(item: SocialMedia) {
+    const url = getMediaPreviewUrl(item);
     return (
+      item.media_type === "video" ||
+      /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url)
+    );
+  }
+
+  return (
       <div className="mt-4 rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-900">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1402,6 +1414,40 @@ export default function AdminSocialAutoPost() {
                   ) : null}
                 </div>
               </div>
+              {(item.thumbnail_url || item.file_url) ? (
+                <div
+                  data-social-media-preview
+                  className="mb-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-900"
+                >
+                  {(
+                    item.media_type === "video" ||
+                    /\.(mp4|mov|webm|m4v)(\?|$)/i.test(item.thumbnail_url || item.file_url || "")
+                  ) ? (
+                    <video
+                      src={item.thumbnail_url || item.file_url || ""}
+                      controls
+                      playsInline
+                      muted
+                      className="h-44 w-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={item.thumbnail_url || item.file_url || ""}
+                      alt={item.title || "Social media library item"}
+                      className="h-44 w-full object-cover"
+                      loading="lazy"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div
+                  data-social-media-preview
+                  className="mb-3 flex h-44 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400 dark:border-white/10 dark:bg-slate-900 dark:text-slate-500"
+                >
+                  No preview URL
+                </div>
+              )}
+
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
