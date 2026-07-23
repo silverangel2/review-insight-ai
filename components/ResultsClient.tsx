@@ -1204,7 +1204,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
         <section className="grid grid-cols-2 gap-2">
           <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 2)} empty={copy.bestForEmpty} />
-          <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor.slice(0, 2)} empty={copy.notIdealEmpty} />
+          <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor} empty={copy.notIdealEmpty} />
         </section>
 
         <div className="rounded-2xl border border-ocean/20 bg-ocean/5 p-3 text-[10px] font-bold leading-4 text-slate-600 dark:border-cyan-300/20 dark:bg-cyan-300/10 dark:text-slate-200">

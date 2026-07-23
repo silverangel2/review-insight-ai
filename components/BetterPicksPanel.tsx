@@ -33,6 +33,8 @@ function getProductName(result: ResultRecord) {
   const identity = getRecord(result.productIdentity);
   const identitySnake = getRecord(result.product_identity);
 
+
+
   return (
     getString(result.productName) ||
     getString(result.name) ||
@@ -422,7 +424,7 @@ export function BetterPicksPanel({
 
       {picks.length > 0 ? (
         <div className={`${compact ? "mt-3 flex snap-x gap-3 overflow-x-auto pb-1" : "mt-5 grid gap-4 md:grid-cols-3"}`}>
-          {picks.map((pick) => {
+          {picks.slice(0, 3).map((pick) => {
             const imageUrl = typeof pick.imageUrl === "string" ? pick.imageUrl : "";
             const showImage = Boolean(imageUrl && !brokenImageUrls[imageUrl]);
 
