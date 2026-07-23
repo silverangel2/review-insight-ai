@@ -408,7 +408,7 @@ const mobileShopCarouselItems = [
           }
         `}</style>
 
-        <div className="reviewintel-home-hero-grid relative isolate mx-auto grid h-[100svh] min-h-[100svh] max-w-7xl snap-start snap-always overflow-hidden gap-10 px-5 py-8 sm:min-h-[calc(100vh-73px)] sm:overflow-visible sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+        <div className="reviewintel-home-hero-grid relative isolate mx-auto grid h-auto min-h-0 max-w-7xl overflow-hidden gap-10 px-5 py-8 sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
           <div className="home-mobile-rainbow-light pointer-events-none absolute inset-0 -z-10 sm:hidden" aria-hidden="true" />
           <div>
             <HomepageHeroCopy initialLocale={locale} />
