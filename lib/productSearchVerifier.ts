@@ -137,12 +137,17 @@ function cleanRetryQuery(value: unknown) {
       .replace(/\s+/g, " ")
       .trim()
       .match(/"[^"]+"|site:\S+|\S+/g) || [];
+  const hasAmazonDomain = parts.some((part) => /^"?amazon\.(?:ca|com)"?$/i.test(part) || /^site:amazon\.(?:ca|com)$/i.test(part));
+  const hasWalmartDomain = parts.some((part) => /^"?walmart\.(?:ca|com)"?$/i.test(part) || /^site:walmart\.(?:ca|com)$/i.test(part));
   const seen = new Set<string>();
   const cleaned: string[] = [];
 
   for (const part of parts) {
     const key = part.replace(/^"|"$/g, "").toLowerCase();
     if (!key || key === "s") continue;
+    if (["color", "variant", "requested", "candidate", "appears", "product", "page"].includes(key)) continue;
+    if (hasAmazonDomain && key === "amazon") continue;
+    if (hasWalmartDomain && key === "walmart") continue;
     if (cleaned.length && cleaned[cleaned.length - 1].replace(/^"|"$/g, "").toLowerCase() === key) continue;
     if (!key.startsWith("site:") && seen.has(key)) continue;
     seen.add(key);
@@ -152,30 +157,134 @@ function cleanRetryQuery(value: unknown) {
   return cleaned.join(" ").replace(/\s+/g, " ").trim();
 }
 
+function cleanDisplayToken(value: unknown) {
+  return String(value || "")
+    .replace(/[^\p{L}\p{N}.%+-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function withoutDuplicateTerms(values: unknown[], limit = 12) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const value of values) {
+    const text = cleanDisplayToken(value);
+    if (!text) continue;
+    for (const part of text.split(/\s+/)) {
+      const key = part.toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(part);
+      if (out.length >= limit) return out;
+    }
+  }
+
+  return out;
+}
+
+function colorForJob(job: ProductSearchJob) {
+  const direct = cleanDisplayToken(job.color);
+  if (direct) return direct;
+  const text = [job.productName, job.productKey].filter(Boolean).join(" ");
+  const match = text.match(/\b(black|white|gray|grey|pink|blue|green|red|purple|yellow|orange|silver|gold|beige|brown|navy|cream|clear)\b/i)?.[1] || "";
+  return match.replace(/^grey$/i, "Gray").replace(/^gray$/i, "Gray");
+}
+
+function featureTermsForJob(job: ProductSearchJob) {
+  const rawText = [job.productName, job.productKey].filter(Boolean).join(" ");
+  const terms: string[] = [];
+
+  for (const match of rawText.matchAll(/\b\d+(?:\.\d+)?\s*(?:mah|ml|oz|inch|inches|cm|mm|w|v|gb|tb)\b/gi)) {
+    terms.push(match[0].replace(/\s+/g, ""));
+  }
+  for (const match of rawText.matchAll(/\b\d+(?:\.\d+)?\s*(?:hours?|speed|pack|pcs|pieces?)\b/gi)) {
+    terms.push(match[0].replace(/\s+/g, " "));
+  }
+
+  return Array.from(new Set(terms.map(cleanDisplayToken).filter(Boolean))).slice(0, 6);
+}
+
+function productTypeTermsForJob(job: ProductSearchJob) {
+  const brandKey = normalize(job.brand);
+  const colorKey = normalize(colorForJob(job));
+  const storeKey = normalize(job.store);
+  const featureKeys = new Set(featureTermsForJob(job).map(normalize));
+  const stop = new Set([
+    "amazon",
+    "amazon.ca",
+    "amazon.com",
+    "walmart",
+    "walmart.ca",
+    "walmart.com",
+    "color",
+    "variant",
+    "for",
+    "with",
+    "and",
+    "the",
+    "a",
+    "an",
+    "usb",
+    "mah",
+    "ml",
+    "oz",
+    "inch",
+    "inches",
+    "cm",
+    "mm",
+    "hour",
+    "hours",
+    "speed",
+    "speeds",
+    "pack",
+    "packs",
+    "pcs",
+    "piece",
+    "pieces",
+    "rechargeable",
+    "portable",
+    "battery",
+    "operated",
+    "personal",
+  ]);
+  const words = cleanDisplayToken(job.productName)
+    .split(/\s+/)
+    .filter((word) => {
+      const key = normalize(word);
+      if (!key || key === brandKey || key === colorKey || key === storeKey) return false;
+      if (stop.has(key) || featureKeys.has(key)) return false;
+      if (/^\d/.test(key) || /\d/.test(key)) return false;
+      return true;
+    });
+
+  return withoutDuplicateTerms(words, 4);
+}
+
 export function buildProductRetryQueries(job: ProductSearchJob, reason?: string) {
-  const brand = String(job.brand || "").trim();
-  const name = String(job.productName || "").trim();
-  const store = String(job.store || "").trim() || "Amazon.ca";
+  void reason;
+  const brand = cleanDisplayToken(job.brand || job.productName?.split(/\s+/)[0] || "");
+  const store = cleanDisplayToken(job.store || storeDomain(job.store) || "Amazon.ca");
   const rating = job.rating ? `${job.rating} stars` : "";
   const reviews = job.reviewCount ? `${job.reviewCount} reviews` : "";
-  const color =
-    String(job.color || "").trim() ||
-    (name.match(/\b(black|white|gray|grey|pink|blue|green|red|purple|yellow|orange|silver|gold|beige|brown|navy|cream|clear)\b/i)?.[1] || "");
-  const important = importantTerms(job).slice(0, 8);
-  const quotedImportant = important.slice(0, 5).map((term) => `"${term}"`).join(" ");
+  const color = colorForJob(job);
+  const features = featureTermsForJob(job);
+  const productType = productTypeTermsForJob(job);
+  const firstFeature = features[0] || "";
+  const variantFeatures = features.slice(0, 3);
+  const quotedParts = [brand, firstFeature, color, store]
+    .filter(Boolean)
+    .map((term) => `"${term}"`)
+    .join(" ");
   const siteTarget = storeDomain(store) || store.toLowerCase();
 
   const queries = [
-    `${brand} ${name} ${store}`,
-    `${brand} ${important.join(" ")} ${color} ${store}`,
+    `${brand} ${productType.join(" ")} ${firstFeature} ${color} ${store}`,
+    `${brand} ${firstFeature} ${color} ${variantFeatures.slice(1).join(" ")} ${store}`,
     `${brand} ${color} ${rating} ${reviews} ${store}`,
-    `"${brand}" ${quotedImportant} "${store}"`,
-    `site:${siteTarget} ${brand} ${important.join(" ")}`,
+    quotedParts,
+    `site:${siteTarget} ${brand} ${firstFeature} ${color} ${productType.join(" ")}`,
   ];
-
-  if (reason) {
-    queries.push(`${brand} ${name} ${store} ${reason}`);
-  }
 
   return Array.from(
     new Set(
@@ -195,7 +304,7 @@ export function verifyProductCandidate(job: ProductSearchJob, candidate: Product
   const expectedDomain = storeDomain(job.store);
   const preferredStoreMismatch = Boolean(expectedDomain && candidateDomain && !candidateDomain.includes(expectedDomain));
 
-  if (!candidateUrl || /\/s\?|search|keyword|category|browse/i.test(candidateUrl)) {
+  if (!candidateUrl || /\/s(?:[/?#]|$)|[?&]k=|search|keyword|category|browse|\/c(?:[/?#]|$)|\/brand(?:[/?#]|$)/i.test(candidateUrl)) {
     return {
       verifierStatus: "rejected_non_product_page",
       verifierConfidence: 0,

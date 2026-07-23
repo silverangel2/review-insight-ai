@@ -204,12 +204,17 @@ function cleanSearchQuery(value: unknown) {
       .replace(/\s+/g, " ")
       .trim()
       .match(/"[^"]+"|site:\S+|\S+/g) || [];
+  const hasAmazonDomain = parts.some((part) => /^"?amazon\.(?:ca|com)"?$/i.test(part) || /^site:amazon\.(?:ca|com)$/i.test(part));
+  const hasWalmartDomain = parts.some((part) => /^"?walmart\.(?:ca|com)"?$/i.test(part) || /^site:walmart\.(?:ca|com)$/i.test(part));
   const seen = new Set<string>();
   const cleaned: string[] = [];
 
   for (const part of parts) {
     const key = part.replace(/^"|"$/g, "").toLowerCase();
     if (!key || key === "s") continue;
+    if (["color", "variant", "requested", "candidate", "appears", "product", "page"].includes(key)) continue;
+    if (hasAmazonDomain && key === "amazon") continue;
+    if (hasWalmartDomain && key === "walmart") continue;
     if (cleaned.length && cleaned[cleaned.length - 1].replace(/^"|"$/g, "").toLowerCase() === key) continue;
     if (!key.startsWith("site:") && seen.has(key)) continue;
     seen.add(key);
@@ -231,7 +236,7 @@ function readCandidate(value: unknown): ExactProductCandidate | null {
     cleanString(record.exactListingUrl) ||
     cleanString(record.link);
 
-  if (!url || !isProductCandidateUrl(url)) return null;
+  if (!url) return null;
 
   return {
     url,
@@ -248,7 +253,9 @@ function readCandidate(value: unknown): ExactProductCandidate | null {
     source: cleanString(record.source) || "exact-product-search",
     notes: Array.isArray(record.notes)
       ? record.notes.map(String).filter(Boolean).slice(0, 6)
-      : [],
+      : isProductCandidateUrl(url)
+        ? []
+        : ["Candidate appears to be a non-product or search/category URL and must be verified before use."],
   };
 }
 

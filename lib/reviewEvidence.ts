@@ -1453,15 +1453,15 @@ async function runExactProductAgent({
   rememberedEvidence: ReviewEvidenceResult | null;
 }): Promise<ExactProductAgentResult> {
   const startedAt = Date.now();
-  const configuredTimeoutMs = Number(process.env.REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS || 18000);
+  const configuredTimeoutMs = Number(process.env.REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS || 12000);
   const timeoutMs = Math.max(
     5000,
-    Math.min(Number.isFinite(configuredTimeoutMs) ? configuredTimeoutMs : 18000, 18000)
+    Math.min(Number.isFinite(configuredTimeoutMs) ? configuredTimeoutMs : 12000, 18000)
   );
   const deadline = startedAt + timeoutMs;
   const maxCandidates = 5;
   const maxRetryRounds = 2;
-  const perAttemptTimeoutMs = 5500;
+  const perAttemptTimeoutMs = 3500;
   const job: ProductSearchJob = {
     scanId: reviewSearchIdentity || cleanVisibleIdentity || input.productName || "unknown-scan",
     store: input.store,
@@ -1486,6 +1486,7 @@ async function runExactProductAgent({
   const checkedCandidateUrls = new Set<string>();
   const usedSearchQueries = new Set<string>();
   const initialSearchQueries = mergeUniqueStrings([
+    ...retrySearchQueries,
     reviewSearchIdentity,
     cleanVisibleIdentity,
     product,
@@ -1508,6 +1509,18 @@ async function runExactProductAgent({
     verifierResult = result;
     verifierReasons = mergeUniqueStrings([...verifierReasons, ...result.verifierReasons], 16);
     retrySearchQueries = mergeUniqueStrings([...result.retrySearchQueries, ...retrySearchQueries], 8);
+    const accepted = Boolean(result.canCollectReviews && result.verifiedListingUrl);
+    const rejected = !accepted;
+
+    console.log("[ReviewIntel DEBUG exactProductCandidateVerifier]", {
+      candidateUrl,
+      candidateTitle: candidate.title || null,
+      candidateSource: candidate.source || sourceLabel,
+      verifierStatus: result.verifierStatus,
+      verifierReasons: result.verifierReasons,
+      accepted,
+      rejected,
+    });
 
     if (result.canCollectReviews && result.verifiedListingUrl) {
       const listingEvidence = exactListingFromCandidate(
@@ -1541,7 +1554,7 @@ async function runExactProductAgent({
       };
     }
 
-    if (result.rejectedListingUrl) rejectedListingUrls.push(result.rejectedListingUrl);
+    if (result.rejectedListingUrl || candidateUrl) rejectedListingUrls.push(result.rejectedListingUrl || candidateUrl);
     return null;
   };
 
@@ -1620,7 +1633,9 @@ async function runExactProductAgent({
       searchRoundLabel: round === 0 ? "initial_exact_product_search" : `verifier_retry_${round}`,
     });
 
-    if (searchResult.timedOut) exactSearchTimedOut = true;
+    if (searchResult.timedOut) {
+      notes.push(`Agent round ${round + 1} hit its per-attempt timeout for query: ${primaryQuery}`);
+    }
     sourcesChecked.push(...searchResult.sourcesChecked, ...searchResult.candidates.map((candidate) => candidate.url || ""));
     sourceLinks.push(...searchResult.sourceLinks);
     notes.push(`Agent round ${round + 1} query: ${primaryQuery}`, ...searchResult.notes);
@@ -1628,6 +1643,22 @@ async function runExactProductAgent({
       ...retrySearchQueries,
       ...searchResult.queries,
     ], 8);
+
+    if (searchResult.candidates.length === 0) {
+      const reason = `No product candidates returned for agent round ${round + 1}: ${primaryQuery}`;
+      verifierReasons = mergeUniqueStrings([...verifierReasons, reason], 16);
+      verifierResult = defaultVerifierResult(job, reason);
+      retrySearchQueries = mergeUniqueStrings([...retrySearchQueries, ...verifierResult.retrySearchQueries], 8);
+      console.log("[ReviewIntel DEBUG exactProductCandidateVerifier]", {
+        candidateUrl: null,
+        candidateTitle: null,
+        candidateSource: `agent round ${round + 1}`,
+        verifierStatus: verifierResult.verifierStatus,
+        verifierReasons: verifierResult.verifierReasons,
+        accepted: false,
+        rejected: true,
+      });
+    }
 
     for (const candidate of searchResult.candidates) {
       const verified = verifyCandidate(candidate, round === 0 ? "initial exact search" : "retry exact search");
@@ -1649,7 +1680,15 @@ async function runExactProductAgent({
       if (checkedCandidateUrls.size >= maxCandidates) break;
     }
 
-    if (!retrySearchQueries.length || Date.now() >= deadline - 1000) break;
+    if (!retrySearchQueries.length) break;
+    const hasMoreAgentRounds =
+      round < maxRetryRounds &&
+      checkedCandidateUrls.size < maxCandidates &&
+      retrySearchQueries.length > 0;
+    if (hasMoreAgentRounds && Date.now() >= deadline - 1000) {
+      exactSearchTimedOut = true;
+      break;
+    }
   }
 
   const result: ExactProductAgentResult = {
@@ -2249,7 +2288,7 @@ export async function collectAndAnalyzeReviewEvidence(
         "ReviewIntel rejected the matched listing, so written review collection was skipped."
     );
 
-    await saveReviewEvidenceToMemory(input, insufficientEvidence);
+    void saveReviewEvidenceToMemory(input, insufficientEvidence);
 
     return insufficientEvidence;
   }
