@@ -372,6 +372,103 @@ function emptyCandidateSearchResult(
   };
 }
 
+
+function amazonSearchUrlForQuery(query: string) {
+  return `https://www.amazon.ca/s?k=${encodeURIComponent(
+    cleanExactSearchQuery(query)
+      .replace(/\bAmazon\.ca\b/gi, "")
+      .replace(/\bAmazon\b/gi, "")
+      .trim()
+  )}`;
+}
+
+function amazonTitleFromHtmlAround(html: string, hrefIndex: number) {
+  const start = Math.max(0, hrefIndex - 1800);
+  const end = Math.min(html.length, hrefIndex + 2400);
+  const chunk = html.slice(start, end);
+
+  const aria = chunk.match(/aria-label="([^"]{12,260})"/i)?.[1];
+  if (aria && !/stars|ratings?|sponsored|add to cart/i.test(aria)) {
+    return aria.replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  }
+
+  const span = chunk.match(/<span[^>]*class="[^"]*a-text-normal[^"]*"[^>]*>([\s\S]{12,400}?)<\/span>/i)?.[1];
+  if (span) {
+    return span
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  return null;
+}
+
+async function fetchAmazonSearchCandidates(query: string, maxCandidates = 4, timeoutMs = 3500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const searchUrl = amazonSearchUrlForQuery(query);
+    const response = await fetch(searchUrl, {
+      signal: controller.signal,
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "accept":
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-CA,en;q=0.9",
+      },
+    });
+
+    if (!response.ok) return [];
+
+    const html = await response.text();
+    const candidates: Array<{
+      url: string;
+      title: string;
+      domain: string;
+      store: string;
+      price: null;
+      rating: null;
+      reviewCount: null;
+      source: string;
+      notes: string[];
+    }> = [];
+
+    const seen = new Set<string>();
+    const hrefPattern = /href="([^"]*\/(?:dp|gp\/product)\/([A-Z0-9]{10})[^"]*)"/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = hrefPattern.exec(html)) && candidates.length < maxCandidates) {
+      const asin = match[2];
+      if (!asin || seen.has(asin)) continue;
+      seen.add(asin);
+
+      const href = match[1].replace(/&amp;/g, "&");
+      const title = amazonTitleFromHtmlAround(html, match.index) || `Amazon.ca product ${asin}`;
+
+      candidates.push({
+        url: `https://www.amazon.ca/dp/${asin}`,
+        title,
+        domain: "amazon.ca",
+        store: "Amazon.ca",
+        price: null,
+        rating: null,
+        reviewCount: null,
+        source: "amazon-search-fallback",
+        notes: [`Parsed from Amazon.ca search page for query: ${cleanExactSearchQuery(query)}`],
+      });
+    }
+
+    return candidates;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function findExactProductCandidates(
   input: ExactProductSearchInput
 ): Promise<ExactProductCandidateSearchResult> {
@@ -569,9 +666,16 @@ Rules:
       "exact-product-search"
     ).slice(0, maxCandidates);
 
+    const amazonFallbackCandidates =
+      realCandidates.length === 0 && /amazon\.ca/i.test(searchQueries.join(" "))
+        ? await fetchAmazonSearchCandidates(searchQueries[0], maxCandidates)
+        : [];
+
     const finalCandidates = realCandidates.length > 0
       ? realCandidates
-      : candidates.filter((candidate) => candidate?.url && /^https?:\/\//i.test(candidate.url));
+      : amazonFallbackCandidates.length > 0
+        ? amazonFallbackCandidates
+        : candidates.filter((candidate) => candidate?.url && /^https?:\/\//i.test(candidate.url));
 
     return {
       candidates: finalCandidates,
@@ -582,9 +686,11 @@ Rules:
       sourceLinks,
       notes: [
         ...(Array.isArray(parsed.notes) ? parsed.notes.map(String).slice(0, 8) : []),
-        finalCandidates.length === 0
-          ? "No real product candidate URLs were parsed from exact product search."
-          : `Parsed ${finalCandidates.length} real product candidate URL(s).`,
+        amazonFallbackCandidates.length > 0
+          ? `Parsed ${amazonFallbackCandidates.length} Amazon.ca candidate URL(s) from direct search fallback.`
+          : finalCandidates.length === 0
+            ? "No real product candidate URLs were parsed from exact product search."
+            : `Parsed ${finalCandidates.length} real product candidate URL(s).`,
       ],
       elapsedMs: Date.now() - startedAt,
       timedOut: false,
