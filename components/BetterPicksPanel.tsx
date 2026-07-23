@@ -382,7 +382,7 @@ export function BetterPicksPanel({
           type="button"
           onClick={() => void findBetterPicks()}
           disabled={loading || !productName}
-          className={`${compact ? "px-4 py-2 text-[10px]" : "px-5 py-3 text-xs"} rounded-full bg-emerald-600 font-black uppercase tracking-[0.16em] text-white shadow-sm transition hover:scale-[1.02] disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300`}
+          className={`${compact ? "px-4 py-2 text-[10px]" : "px-5 py-3 text-xs"} rounded-full border border-emerald-700 bg-emerald-600 font-black uppercase tracking-[0.16em] text-white shadow-sm transition hover:scale-[1.02] hover:bg-emerald-700 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300`}
         >
           {loading ? panelCopy.searching : panelCopy.button}
         </button>
@@ -464,7 +464,7 @@ export function BetterPicksPanel({
                     },
                   })
                 }
-                className={`${compact ? "px-3 py-2 text-[10px]" : "px-4 py-2 text-xs"} mt-4 inline-flex rounded-full bg-gradient-to-r from-teal-600 to-emerald-500 font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 dark:bg-white dark:text-slate-950`}
+                className={`${compact ? "px-3 py-2 text-[10px]" : "px-4 py-2 text-xs"} mt-4 inline-flex rounded-full border border-emerald-700 bg-emerald-600 font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 dark:border-emerald-500 dark:bg-emerald-600 dark:text-white`}
               >
                 {panelCopy.view}
               </a>
