@@ -92,6 +92,90 @@ function labelFor(candidate: SourceCandidate) {
   return "Amazon source";
 }
 
+function meaningfulProductTokens(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 4)
+    .filter(
+      (token) =>
+        ![
+          "amazon",
+          "source",
+          "product",
+          "review",
+          "reviews",
+          "price",
+          "prime",
+          "shop",
+          "store",
+          "with",
+          "from",
+          "this",
+          "that",
+          "and",
+          "for",
+          "the",
+          "best",
+          "better",
+          "value",
+          "quality",
+          "option",
+          "checked",
+          "qualifying",
+          "link",
+        ].includes(token),
+    );
+}
+
+function collectProductIdentityText(value: unknown, out: string[], depth = 0) {
+  if (depth > 5 || out.length > 40) return;
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectProductIdentityText(item, out, depth + 1);
+    return;
+  }
+
+  const record = asRecord(value);
+  if (!Object.keys(record).length) return;
+
+  for (const key of [
+    "productTitle",
+    "product_title",
+    "title",
+    "name",
+    "detectedProduct",
+    "detected_product",
+    "productName",
+    "product_name",
+    "listingTitle",
+    "listing_title",
+    "screenshotProductTitle",
+    "screenshot_product_title",
+  ]) {
+    const value = getString(record[key]);
+    if (value && !/^https?:\/\//i.test(value)) out.push(value);
+  }
+
+  for (const item of Object.values(record)) {
+    collectProductIdentityText(item, out, depth + 1);
+  }
+}
+
+function sourceMatchesProduct(candidate: SourceCandidate, productTokens: string[]) {
+  if (productTokens.length < 2) return true;
+
+  const haystack = `${candidate.label || ""} ${candidate.url || ""}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ");
+
+  const matched = productTokens.filter((token) => haystack.includes(token)).length;
+  const firstToken = productTokens[0];
+
+  return haystack.includes(firstToken) && matched >= Math.min(3, productTokens.length);
+}
+
 function collectCandidates(value: unknown, out: SourceCandidate[], depth = 0) {
   if (depth > 7 || out.length > 120) return;
 
@@ -142,6 +226,12 @@ export function collectAffiliateSourceLinks(payload: unknown, limit = 8): Affili
   const candidates: SourceCandidate[] = [];
   collectCandidates(payload, candidates);
 
+  const productIdentityText: string[] = [];
+  collectProductIdentityText(payload, productIdentityText);
+  const productTokens = Array.from(
+    new Set(productIdentityText.flatMap((value) => meaningfulProductTokens(value))),
+  ).slice(0, 10);
+
   const unique = new Map<string, AffiliateSourceLink>();
 
   for (const candidate of candidates) {
@@ -151,6 +241,10 @@ export function collectAffiliateSourceLinks(payload: unknown, limit = 8): Affili
 
     const provider = providerFor(candidate.url);
     if (!provider) continue;
+
+    if (provider === "amazon" && !sourceMatchesProduct(candidate, productTokens)) {
+      continue;
+    }
 
     const sourceUrl = candidate.url;
     const affiliateUrl = buildAffiliateUrl(sourceUrl);
