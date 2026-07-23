@@ -158,8 +158,8 @@ const resultCopy: Record<
     notIdealFor: "Not Ideal For",
     noStrengths: "No clear strengths found.",
     noComplaints: "No repeated complaints found.",
-    bestForEmpty: "Good for shoppers who match the product strengths.",
-    notIdealEmpty: "Not enough evidence to say.",
+    bestForEmpty: "No specific buyer group could be confirmed from the collected reviews.",
+    notIdealEmpty: "No repeated buyer-specific limitation was found in the collected reviews.",
     priceNotShown: "Price not shown",
     researchLabels: { verified: "Open-web research", limited: "Limited web evidence", screenshot_only: "Screenshot-only warning", product_mismatch: "Product match warning" },
     valueLabels: { Excellent: "Excellent", Good: "Good", Fair: "Fair", Poor: "Poor" },
@@ -794,11 +794,105 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
     asTextArray(source.topComplaints?.length ? source.topComplaints : analysis?.common_complaints?.length ? analysis.common_complaints : analysis?.negative_points, 14),
     6
   );
-  const bestFor = cleanBuyerInsightArray(asTextArray(source.bestFor, 8), 4);
-  const notIdealFor = cleanBuyerInsightArray(
-    asTextArray(source.notIdealFor?.length ? source.notIdealFor : analysis?.quality_concerns, 8),
+  const suppliedBestFor = cleanBuyerInsightArray(
+    asTextArray(source.bestFor, 8),
     4
   );
+
+  const suppliedNotIdealFor = cleanBuyerInsightArray(
+    asTextArray(
+      source.notIdealFor?.length
+        ? source.notIdealFor
+        : analysis?.quality_concerns,
+      8
+    ),
+    4
+  );
+
+  const strengthText = strengths.join(" ").toLowerCase();
+  const complaintText = complaints.join(" ").toLowerCase();
+
+  const derivedBestFor: string[] = [];
+
+  if (/portable|compact|lightweight|travel|small/.test(strengthText)) {
+    derivedBestFor.push(
+      "Travelers, commuters, and anyone who wants a compact portable product."
+    );
+  }
+
+  if (/battery|rechargeable|cordless|runtime|charge/.test(strengthText)) {
+    derivedBestFor.push(
+      "People who value rechargeable convenience and longer cordless use."
+    );
+  }
+
+  if (/strong airflow|powerful|strong performance|effective|works well/.test(strengthText)) {
+    derivedBestFor.push(
+      "People who want strong everyday performance for the product’s size."
+    );
+  }
+
+  if (/speed|setting|adjustable|control/.test(strengthText)) {
+    derivedBestFor.push(
+      "People who prefer adjustable settings for different situations."
+    );
+  }
+
+  if (/durable|sturdy|build quality|well made/.test(strengthText)) {
+    derivedBestFor.push(
+      "Buyers who care about sturdy construction and practical build quality."
+    );
+  }
+
+  const derivedNotIdealFor: string[] = [];
+
+  if (/noise|noisy|loud/.test(complaintText)) {
+    derivedNotIdealFor.push(
+      "People who are very sensitive to operating noise, especially at higher settings."
+    );
+  }
+
+  if (/battery|runtime|charge|charging/.test(complaintText)) {
+    derivedNotIdealFor.push(
+      "Buyers who require the maximum advertised battery runtime on every use."
+    );
+  }
+
+  if (/weak|airflow|power|not powerful/.test(complaintText)) {
+    derivedNotIdealFor.push(
+      "People expecting heavy-duty or large-area performance."
+    );
+  }
+
+  if (/broken|stopped working|durability|failed|defect/.test(complaintText)) {
+    derivedNotIdealFor.push(
+      "Buyers who need proven long-term durability with minimal failure risk."
+    );
+  }
+
+  if (/small|size|capacity|limited/.test(complaintText)) {
+    derivedNotIdealFor.push(
+      "People who need a larger-capacity or full-size product."
+    );
+  }
+
+  const genericBestFor = suppliedBestFor.some((item) =>
+    /match the product strengths|compare alternatives|current buying evidence/i.test(item)
+  );
+
+  const genericNotIdealFor = suppliedNotIdealFor.some((item) =>
+    /not enough evidence|features not shown|proven long-term reliability/i.test(item)
+  );
+
+  const bestFor =
+    suppliedBestFor.length > 0 && !genericBestFor
+      ? suppliedBestFor
+      : cleanBuyerInsightArray(derivedBestFor, 4);
+
+  const notIdealFor =
+    suppliedNotIdealFor.length > 0 && !genericNotIdealFor
+      ? suppliedNotIdealFor
+      : cleanBuyerInsightArray(derivedNotIdealFor, 4);
   const sourceRecord = source as Record<string, unknown>;
   const analysisRecord = (analysis || {}) as Record<string, unknown>;
 

@@ -282,6 +282,57 @@ export function BetterPicksPanel({
   const panelCopy = copyForVerdict(verdict, locale);
   const requestKey = useMemo(() => cacheKeyFor(productName, verdict, locale, scanId), [productName, verdict, locale, scanId]);
 
+  const fallbackPicks = useMemo<BetterPick[]>(() => {
+    if (!productName) return [];
+
+    const suggestions = [
+      {
+        badge: "Best-rated search",
+        suffix: "best rated alternative",
+        whyBetter:
+          "Compare highly rated Amazon products in the same category.",
+      },
+      {
+        badge: "Better-value search",
+        suffix: "better value alternative",
+        whyBetter:
+          "Compare similar products that may offer better value for the price.",
+      },
+      {
+        badge: "Premium alternative",
+        suffix: "premium quality alternative",
+        whyBetter:
+          "Compare stronger-quality options with more established buyer feedback.",
+      },
+    ];
+
+    return suggestions.map((suggestion) => {
+      const query = `${productName} ${suggestion.suffix}`;
+      const url = `https://www.amazon.ca/s?k=${encodeURIComponent(query)}`;
+
+      return {
+        title: suggestion.badge,
+        store: "Amazon.ca",
+        url,
+        affiliateUrl: url,
+        imageUrl: null,
+        rating: null,
+        reviewCount: null,
+        price: null,
+        badge: suggestion.badge,
+        whyBetter: suggestion.whyBetter,
+        aiLikeRisk: null,
+      };
+    });
+  }, [productName]);
+
+  const visiblePicks =
+    picks.length > 0
+      ? picks.slice(0, 3)
+      : !loading && !error
+        ? fallbackPicks
+        : [];
+
   useEffect(() => {
     setLocale(readStoredLocale());
   }, []);
@@ -422,9 +473,9 @@ export function BetterPicksPanel({
         </div>
       ) : null}
 
-      {picks.length > 0 ? (
+      {visiblePicks.length > 0 ? (
         <div className={`${compact ? "mt-3 flex snap-x gap-3 overflow-x-auto pb-1" : "mt-5 grid gap-4 md:grid-cols-3"}`}>
-          {picks.slice(0, 3).map((pick) => {
+          {visiblePicks.map((pick) => {
             const imageUrl = typeof pick.imageUrl === "string" ? pick.imageUrl : "";
             const showImage = Boolean(imageUrl && !brokenImageUrls[imageUrl]);
 
