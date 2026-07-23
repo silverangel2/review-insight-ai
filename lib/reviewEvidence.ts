@@ -28,6 +28,11 @@ import {
   runNativeReviewRetrieval,
   type NativeReviewRetrievalResult,
 } from "@/lib/nativeReviewRetrieval";
+
+import {
+  verifyProductCandidate,
+  buildProductRetryQueries,
+} from "./productSearchVerifier";
 import {
   collectWrittenReviewsFromListing,
   formatCollectedReviewsForPrompt,
@@ -1437,12 +1442,66 @@ export async function collectAndAnalyzeReviewEvidence(
       ? "No exact listing URL was accepted for written review collection."
       : null;
 
+
+  const verifierScanId = reviewSearchIdentity || cleanVisibleIdentity || input.productName || "unknown-scan";
+
+  const productVerifierResult = listingEvidenceForCollection?.exactListingUrl
+    ? verifyProductCandidate(
+        {
+          scanId: verifierScanId,
+          store: input.store,
+          brand: input.brand,
+          productName: input.productName,
+          productKey: reviewSearchIdentity,
+          price: input.price,
+          rating: input.rating,
+          reviewCount: input.reviewCount,
+        },
+        {
+          url: listingEvidenceForCollection.exactListingUrl,
+          title: listingEvidenceForCollection.exactListingTitle || null,
+          store: listingEvidenceForCollection.store || input.store || null,
+          price: listingEvidenceForCollection.price || null,
+          rating: listingEvidenceForCollection.rating || null,
+          reviewCount: listingEvidenceForCollection.reviewCount || null,
+          source: "exactListingSearch",
+          notes: Array.isArray(listingEvidenceForCollection.notes)
+            ? listingEvidenceForCollection.notes
+            : [],
+        }
+      )
+    : {
+        verifierStatus: "possible_match_needs_more_search" as const,
+        verifierConfidence: 0,
+        verifierReasons: ["No exact listing URL was found for verification."],
+        verifiedListingUrl: null,
+        rejectedListingUrl: null,
+        rejectedListingTitle: null,
+        retrySearchQueries: buildProductRetryQueries({
+          scanId: verifierScanId,
+          store: input.store,
+          brand: input.brand,
+          productName: input.productName,
+          productKey: reviewSearchIdentity,
+          price: input.price,
+          rating: input.rating,
+          reviewCount: input.reviewCount,
+        }),
+        canCollectReviews: false,
+        canScoreProduct: false,
+      };
+
+  const verifiedListingUrlForCollection = productVerifierResult.canCollectReviews
+    ? productVerifierResult.verifiedListingUrl
+    : null;
+
   const listingUrlForReviewCollector =
     !listingRejectedForCollection &&
-    typeof listingEvidenceForCollection?.exactListingUrl === "string" &&
-    listingEvidenceForCollection.exactListingUrl.trim()
-      ? listingEvidenceForCollection.exactListingUrl
+    typeof verifiedListingUrlForCollection === "string" &&
+    verifiedListingUrlForCollection.trim()
+      ? verifiedListingUrlForCollection
       : null;
+
   const exactListingAccepted = Boolean(listingUrlForReviewCollector);
   const collectorSourceAccepted = Boolean(exactListingAccepted && listingUrlForReviewCollector);
   const collectorSourceRejectedReason = collectorSourceAccepted
