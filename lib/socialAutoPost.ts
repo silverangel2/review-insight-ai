@@ -1601,6 +1601,8 @@ async function resolveFacebookMediaForFormat(
           freshFacebookReel: {
             ok: false,
             fallback: "none",
+            requiresVideo: true,
+            blockedDirectImageUpload: true,
             error: errorMessage(error, "Fresh Facebook Reel generation failed."),
           },
         },
