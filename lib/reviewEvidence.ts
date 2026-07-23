@@ -1420,6 +1420,25 @@ function mergeUniqueStrings(values: unknown[], limit = 24) {
   return out;
 }
 
+function agentQueryKey(value: unknown) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function takeNextAgentQuery(queries: unknown[], usedQueries: Set<string>) {
+  for (const query of queries) {
+    const text = String(query || "").replace(/\s+/g, " ").trim();
+    const key = agentQueryKey(text);
+    if (!key || usedQueries.has(key)) continue;
+    usedQueries.add(key);
+    return text;
+  }
+
+  return null;
+}
+
 async function runExactProductAgent({
   input,
   product,
@@ -1465,6 +1484,12 @@ async function runExactProductAgent({
   const sourceLinks: Array<{ label: string; url: string; domain?: string }> = [];
   const notes: string[] = [];
   const checkedCandidateUrls = new Set<string>();
+  const usedSearchQueries = new Set<string>();
+  const initialSearchQueries = mergeUniqueStrings([
+    reviewSearchIdentity,
+    cleanVisibleIdentity,
+    product,
+  ], 6);
 
   const verifyCandidate = (
     candidate: ProductCandidate | ExactProductCandidate,
@@ -1552,23 +1577,34 @@ async function runExactProductAgent({
       break;
     }
 
-    if (round > 0) verifierRetryCount += 1;
+    const queryPool =
+      round === 0
+        ? initialSearchQueries
+        : retrySearchQueries.length
+          ? retrySearchQueries
+          : initialSearchQueries;
+    const primaryQuery = takeNextAgentQuery(queryPool, usedSearchQueries);
+    if (!primaryQuery) break;
+
+    if (round > 0) {
+      verifierRetryCount += 1;
+    }
     exactSearchAttemptCount += 1;
 
-    const roundQueries =
-      round === 0
-        ? mergeUniqueStrings([
-            reviewSearchIdentity,
-            cleanVisibleIdentity,
-            product,
-            ...retrySearchQueries.slice(0, 2),
-          ], 6)
-        : retrySearchQueries.slice(0, 6);
     const remainingCandidateSlots = Math.max(1, maxCandidates - checkedCandidateUrls.size);
     const candidatesThisRound =
       round === 0
-        ? Math.min(3, remainingCandidateSlots)
+        ? Math.min(2, remainingCandidateSlots)
         : Math.min(2, remainingCandidateSlots);
+
+    console.log("[ReviewIntel DEBUG exactProductAgentRound]", {
+      round: round + 1,
+      primaryQuery,
+      exactSearchAttemptCount,
+      verifierRetryCount,
+      remainingMs,
+      candidatesThisRound,
+    });
 
     const searchResult = await findExactProductCandidates({
       productName: product,
@@ -1577,15 +1613,17 @@ async function runExactProductAgent({
       price: toOptionalNumber(input.price),
       rating: toOptionalNumber(input.rating),
       reviewCount: toOptionalNumber(input.reviewCount),
-      searchQueries: roundQueries,
+      searchQueries: [primaryQuery],
       maxCandidates: candidatesThisRound,
       timeoutMs: Math.max(1000, Math.min(remainingMs, perAttemptTimeoutMs)),
+      appendProductQuery: false,
+      searchRoundLabel: round === 0 ? "initial_exact_product_search" : `verifier_retry_${round}`,
     });
 
     if (searchResult.timedOut) exactSearchTimedOut = true;
     sourcesChecked.push(...searchResult.sourcesChecked, ...searchResult.candidates.map((candidate) => candidate.url || ""));
     sourceLinks.push(...searchResult.sourceLinks);
-    notes.push(...searchResult.notes);
+    notes.push(`Agent round ${round + 1} query: ${primaryQuery}`, ...searchResult.notes);
     retrySearchQueries = mergeUniqueStrings([
       ...retrySearchQueries,
       ...searchResult.queries,

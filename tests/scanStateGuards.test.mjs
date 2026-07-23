@@ -46,8 +46,11 @@ test("exact product search uses candidate collection instead of one guessed URL"
 
   assert.match(exactSearch, /export async function findExactProductCandidates/);
   assert.match(exactSearch, /"candidates": \[/);
-  assert.match(exactSearch, /Return 3 to \$\{maxCandidates\} candidates when possible/);
+  assert.match(exactSearch, /candidateCountInstruction/);
+  assert.match(exactSearch, /Return up to \$\{maxCandidates\} candidates/);
   assert.match(exactSearch, /searchQueries/);
+  assert.match(exactSearch, /appendProductQuery/);
+  assert.match(exactSearch, /Primary search query to run first/);
   assert.match(exactSearch, /AbortController/);
 });
 
@@ -59,8 +62,13 @@ test("review evidence runs a bounded verifier retry loop before collection", () 
   assert.match(evidence, /const maxRetryRounds = 2/);
   assert.match(evidence, /REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS \|\| 18000/);
   assert.match(evidence, /const perAttemptTimeoutMs = 5500/);
+  assert.match(evidence, /takeNextAgentQuery/);
+  assert.match(evidence, /usedSearchQueries/);
   assert.match(evidence, /const candidatesThisRound =/);
-  assert.match(evidence, /Math\.min\(3, remainingCandidateSlots\)/);
+  assert.match(evidence, /Math\.min\(2, remainingCandidateSlots\)/);
+  assert.match(evidence, /\[ReviewIntel DEBUG exactProductAgentRound\]/);
+  assert.match(evidence, /searchQueries: \[primaryQuery\]/);
+  assert.match(evidence, /appendProductQuery: false/);
   assert.match(evidence, /findExactProductCandidates/);
   assert.match(evidence, /\[ReviewIntel DEBUG exactProductAgent\]/);
   assert.match(evidence, /productVerifierResult\.canCollectReviews/);

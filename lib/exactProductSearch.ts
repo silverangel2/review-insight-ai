@@ -9,7 +9,8 @@ type ExactProductSearchInput = {
   searchQueries?: string[];
   maxCandidates?: number;
   timeoutMs?: number;
-
+  appendProductQuery?: boolean;
+  searchRoundLabel?: string;
 };
 
 export type ExactProductCandidate = {
@@ -326,20 +327,33 @@ export async function findExactProductCandidates(
 
   const storeTarget = storeSearchTarget(input.store);
   const maxCandidates = Math.max(1, Math.min(input.maxCandidates || 5, 5));
+  const candidateCountInstruction =
+    maxCandidates >= 3 ? `Return 3 to ${maxCandidates} candidates when possible` : `Return up to ${maxCandidates} candidates`;
   const timeoutMs = Math.max(3000, Math.min(input.timeoutMs || 5500, 6000));
+  const providedSearchQueries = Array.isArray(input.searchQueries) ? input.searchQueries : [];
+  const appendProductQuery = input.appendProductQuery !== false || providedSearchQueries.length === 0;
   const searchQueries = Array.from(
     new Set(
       [
-        ...(Array.isArray(input.searchQueries) ? input.searchQueries : []),
-        product,
+        ...providedSearchQueries,
+        ...(appendProductQuery ? [product] : []),
       ]
         .map(cleanSearchQuery)
         .filter((query) => query.length >= 3)
     )
   ).slice(0, 6);
+  const primarySearchQuery = searchQueries[0] || product;
 
   const prompt = `
 You are ReviewIntel's fast exact-product search retrieval tool.
+
+Agent search round:
+${input.searchRoundLabel || "candidate_search"}
+
+Run this as one search action, not as a final research report.
+
+Primary search query to run first:
+"${primarySearchQuery}"
 
 Find up to ${maxCandidates} possible public product page candidates for:
 "${product}"
@@ -397,7 +411,8 @@ JSON shape:
 }
 
 Rules:
-- Return 3 to ${maxCandidates} candidates when possible, not just one URL.
+- Use the primary search query first. Do not replace it with a broader generic query.
+- ${candidateCountInstruction}, not just one URL when more than one exact candidate is available.
 - If you find a listing with visible rating/review count, include them.
 - If only search snippets are available, include values only if visible in evidence.
 - If not confident it is the same product, confidence must be low or none.
