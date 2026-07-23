@@ -513,6 +513,141 @@ Rules:
   }
 }
 
+
+function cleanExactSearchQuery(value: unknown) {
+  const raw = String(value || "")
+    .replace(/amazon\s+s\b/gi, "Amazon")
+    .replace(/\bcolor\s+amazon\b/gi, "Amazon")
+    .replace(/\bamazon\s+amazon\.ca\b/gi, "Amazon.ca")
+    .replace(/\bamazon\.ca\s+amazon\.ca\b/gi, "Amazon.ca")
+    .replace(/\bup\s+5000mah\b/gi, "5000mAh")
+    .replace(/\bup\s+gray\b/gi, "Gray")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const seen = new Set<string>();
+  const words: string[] = [];
+
+  for (const word of raw.split(/\s+/).filter(Boolean)) {
+    const key = word.toLowerCase();
+    if (seen.has(key) && !/^"?.*"$/.test(word)) continue;
+    seen.add(key);
+    words.push(word);
+  }
+
+  return words
+    .join(" ")
+    .replace(/\bAmazon Amazon\.ca\b/gi, "Amazon.ca")
+    .replace(/\bAmazon\.ca Amazon\b/gi, "Amazon.ca")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractUrlsFromText(value: unknown) {
+  const text = String(value || "");
+  const matches = text.match(/https?:\/\/[^\s"'<>),]+/gi) || [];
+  return Array.from(new Set(matches.map((url) => url.replace(/[)\].,;]+$/g, ""))));
+}
+
+function candidateDomainFromUrl(url: string | null | undefined) {
+  try {
+    return new URL(String(url || "")).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function normalizeExactCandidate(input: unknown, source = "exact-search") {
+  if (!input || typeof input !== "object") return null;
+
+  const item = input as Record<string, unknown>;
+
+  const url =
+    typeof item.url === "string"
+      ? item.url
+      : typeof item.href === "string"
+        ? item.href
+        : typeof item.link === "string"
+          ? item.link
+          : typeof item.exactListingUrl === "string"
+            ? item.exactListingUrl
+            : null;
+
+  const title =
+    typeof item.title === "string"
+      ? item.title
+      : typeof item.label === "string"
+        ? item.label
+        : typeof item.exactListingTitle === "string"
+          ? item.exactListingTitle
+          : null;
+
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+
+  const domain =
+    typeof item.domain === "string" && item.domain.trim()
+      ? item.domain
+      : candidateDomainFromUrl(url);
+
+  const store =
+    typeof item.store === "string" && item.store.trim()
+      ? item.store
+      : domain;
+
+  return {
+    url,
+    title: title || url,
+    domain,
+    store,
+    price: item.price ?? null,
+    rating: item.rating ?? null,
+    reviewCount: item.reviewCount ?? null,
+    source: typeof item.source === "string" ? item.source : source,
+    notes: Array.isArray(item.notes) ? item.notes.map(String) : [],
+  };
+}
+
+function collectRealExactCandidates(parsed: unknown, rawText: unknown, source = "exact-search") {
+  const root = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  const candidates: ReturnType<typeof normalizeExactCandidate>[] = [];
+
+  const arrays = [
+    root.candidates,
+    root.candidateListings,
+    root.sourceLinks,
+    root.sources,
+    root.links,
+    root.results,
+  ];
+
+  for (const arr of arrays) {
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
+      const candidate = normalizeExactCandidate(item, source);
+      if (candidate) candidates.push(candidate);
+    }
+  }
+
+  const single = normalizeExactCandidate(root, source);
+  if (single) candidates.push(single);
+
+  for (const url of extractUrlsFromText(rawText)) {
+    const candidate = normalizeExactCandidate({ url, title: url, source }, source);
+    if (candidate) candidates.push(candidate);
+  }
+
+  const seen = new Set<string>();
+  return candidates
+    .filter((candidate): candidate is NonNullable<typeof candidate> => {
+      if (!candidate) return false;
+      const key = String(candidate.url || "").toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
+}
+
 export async function findExactProductListing(
   input: ExactProductSearchInput
 ): Promise<ExactProductSearchResult> {
