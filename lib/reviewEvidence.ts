@@ -1904,10 +1904,18 @@ export async function collectAndAnalyzeReviewEvidence(
     : null;
 
   const exactListingAccepted = Boolean(listingUrlForReviewCollector);
-  const collectorSourceAccepted = Boolean(exactListingAccepted && listingUrlForReviewCollector);
-  const collectorSourceRejectedReason = collectorSourceAccepted
-    ? null
-    : exactListingRejectedReason || "Written review collection requires a confirmed exact listing.";
+
+  // Exact listing is preferred, but identity-verified public written reviews
+  // are also valid review-intelligence evidence.
+  let collectorSourceAccepted = Boolean(
+    exactListingAccepted && listingUrlForReviewCollector
+  );
+
+  let collectorSourceRejectedReason: string | null =
+    collectorSourceAccepted
+      ? null
+      : exactListingRejectedReason ||
+        "No accepted written-review source was available yet.";
 
   const marketplaceReviewCountForCollector =
     !listingRejectedForCollection &&
@@ -1940,16 +1948,32 @@ export async function collectAndAnalyzeReviewEvidence(
       ? "Native retrieval was not needed because the listing collector already found written review text."
       : "Native retrieval was not attempted.";
 
-  if (collectorSourceAccepted && collectedWrittenReviews.reviewsCollected < 3) {
+  const recoveryIdentityTokens = meaningfulTitleTokens(
+    [input.brand, input.model, input.productName]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  const hasSpecificRecoveryIdentity =
+    Boolean(String(input.brand || "").trim()) &&
+    recoveryIdentityTokens.length >= 4 &&
+    String(input.productName || "").trim().length >= 18;
+
+  if (
+    collectedWrittenReviews.reviewsCollected < 3 &&
+    (collectorSourceAccepted || hasSpecificRecoveryIdentity)
+  ) {
     nativeReviewRetrieval = await runNativeReviewRetrieval({
-      productTitle: listingEvidenceForCollection?.exactListingTitle || input.productName,
+      productTitle:
+        listingEvidenceForCollection?.exactListingTitle ||
+        input.productName,
       brand: input.brand,
       model: input.model,
       store: input.store,
-      listingUrl: listingUrlForReviewCollector,
+      listingUrl: listingUrlForReviewCollector || undefined,
       sourceLinks: listingEvidenceForCollection?.sourceLinks,
-      maxQueries: 8,
-      maxPages: 12,
+      maxQueries: collectorSourceAccepted ? 8 : 12,
+      maxPages: collectorSourceAccepted ? 12 : 18,
       maxSnippets: 80,
     });
 
@@ -1966,11 +1990,24 @@ export async function collectAndAnalyzeReviewEvidence(
         80
       );
 
-      collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
-        reviews: combinedReviews,
-        coverageNote: `${collectedWrittenReviews.coverageNote} ${nativeReviewRetrieval.coverageNote}`,
-        fallbackUrlsTried: nativeReviewRetrieval.sourcesChecked,
-      });
+      collectedWrittenReviews = reviewCollectorResultWith(
+        collectedWrittenReviews,
+        {
+          reviews: combinedReviews,
+          coverageNote:
+            `${collectedWrittenReviews.coverageNote} ` +
+            `${nativeReviewRetrieval.coverageNote}`,
+          fallbackUrlsTried: nativeReviewRetrieval.sourcesChecked,
+        }
+      );
+
+      // Accept identity-based recovery only after it returns actual written
+      // review bodies for the specific product identity.
+      collectorSourceAccepted = combinedReviews.length > 0;
+
+      if (collectorSourceAccepted) {
+        collectorSourceRejectedReason = null;
+      }
     } else {
       collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
         coverageNote: `${collectedWrittenReviews.coverageNote} ${nativeReviewRetrieval.coverageNote}`,
@@ -1978,8 +2015,10 @@ export async function collectAndAnalyzeReviewEvidence(
       });
     }
   } else if (!collectorSourceAccepted) {
-    nativeRetrievalNote =
-      collectorSourceRejectedReason || "Native retrieval skipped because no accepted exact product source was available.";
+    nativeRetrievalNote = hasSpecificRecoveryIdentity
+      ? collectorSourceRejectedReason ||
+        "Identity-based public review recovery did not return written review bodies."
+      : "Native retrieval skipped because the screenshot identity was not specific enough to safely match public reviews.";
   }
 
   const hasCollectedWrittenReviewEvidence =

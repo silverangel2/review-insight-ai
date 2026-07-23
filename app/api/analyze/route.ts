@@ -2057,7 +2057,11 @@ function buildReviewEvidenceShopperResult(input: {
   const rawExactListingUrl = String(listingEvidence?.exactListingUrl || listingEvidence?.url || "").trim();
   const exactListingAccepted = evidence.exactListingAccepted === true && Boolean(rawExactListingUrl);
   const exactListingRejectedReason = String(evidence.exactListingRejectedReason || "").trim() || null;
-  const collectorSourceAccepted = exactListingAccepted && evidence.collectorSourceAccepted === true;
+  // Written reviews may come from an exact listing or from identity-verified
+  // public review recovery. Do not erase recovered review bodies when the
+  // exact-listing search timed out or returned no URL.
+  const collectorSourceAccepted =
+    evidence.collectorSourceAccepted === true;
   const collectorSourceRejectedReason =
     String(evidence.collectorSourceRejectedReason || "").trim() ||
     (!collectorSourceAccepted
