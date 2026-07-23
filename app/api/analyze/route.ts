@@ -1926,7 +1926,7 @@ function computeVerdictConfidenceAudit(input: {
   // It gets credit if it calculated a Buy Score from real review evidence,
   // OR if it correctly withheld the Buy Score because review evidence was not enough.
   const hasEnoughReviewCoverage =
-    commentsAnalyzed >= 15 ||
+    commentsAnalyzed >= 5 ||
     (marketplaceReviewCount > 0 && commentsAnalyzed >= Math.min(30, Math.ceil(marketplaceReviewCount * 0.08)));
 
   const scoreCalculationScore =

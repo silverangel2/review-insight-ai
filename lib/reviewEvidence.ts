@@ -2282,6 +2282,26 @@ export async function collectAndAnalyzeReviewEvidence(
     firecrawlRecoveryNote,
   });
 
+  const verifiedCollectedReviewCount = productVerifierResult.canCollectReviews
+    ? Math.max(0, Number(collectedWrittenReviews.reviewsCollected || 0))
+    : 0;
+
+  const hasVerifiedWrittenReviewEvidence = verifiedCollectedReviewCount >= 5;
+
+  const verifiedMarketplaceReviewCount =
+    typeof marketplaceReviewCountForCollector === "number" && marketplaceReviewCountForCollector > 0
+      ? marketplaceReviewCountForCollector
+      : 0;
+
+  const verifiedReviewCoverageRatio =
+    verifiedMarketplaceReviewCount > 0
+      ? verifiedCollectedReviewCount / verifiedMarketplaceReviewCount
+      : verifiedCollectedReviewCount > 0
+        ? 1
+        : 0;
+
+
+
   if (!collectorSourceAccepted) {
     const insufficientEvidence = recoveryEvidenceFromLocalRetrieval(
       collectorSourceRejectedReason ||
@@ -3226,7 +3246,7 @@ Return ONLY valid JSON with the same shape as the first pass:
         ...finalEvidence,
         finalDecisionSource: "reviewEvidenceRecoveryFailed",
         decisionStatus: "review_evidence_not_found",
-        evidenceStrength: "none" as const,
+        evidenceStrength: collectorReviewsCollected > 0 ? "limited" : "none" as const,
         reviewIntelligenceMode: "listing_metadata" as const,
         reviewIntelligenceSignals: 0,
         commentsAnalyzed: hasCollectedWrittenReviewEvidence ? finalEvidence.commentsAnalyzed : 0,
@@ -3237,7 +3257,7 @@ Return ONLY valid JSON with the same shape as the first pass:
             ? localAttemptedSources
             : [reviewSearchIdentity || product || "native review retrieval attempted"],
         sourceLinks: finalEvidence.sourceLinks,
-        reviewCoverageRatio: 0,
+        reviewCoverageRatio: verifiedReviewCoverageRatio,
         collectorHasWrittenReviews: false,
         overallImpact: "",
         buyAssessment: "",
