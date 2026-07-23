@@ -560,14 +560,32 @@ Rules:
       maxCandidates
     );
 
+    const realCandidates = collectRealExactCandidates(
+      parsed,
+      [
+        JSON.stringify(parsed),
+        sourceLinks.map((link) => `${link.label} ${link.url}`).join(" "),
+      ].join("\n"),
+      "exact-product-search"
+    ).slice(0, maxCandidates);
+
+    const finalCandidates = realCandidates.length > 0
+      ? realCandidates
+      : candidates.filter((candidate) => candidate?.url && /^https?:\/\//i.test(candidate.url));
+
     return {
-      candidates,
-      queries: searchQueries,
+      candidates: finalCandidates,
+      queries: searchQueries.map((query) => cleanExactSearchQuery(query)),
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? parsed.sourcesChecked.map(String).slice(0, 12)
-        : candidates.map((candidate) => String(candidate.url || "")).filter(Boolean),
+        : finalCandidates.map((candidate) => String(candidate.url || "")).filter(Boolean),
       sourceLinks,
-      notes: Array.isArray(parsed.notes) ? parsed.notes.map(String).slice(0, 8) : [],
+      notes: [
+        ...(Array.isArray(parsed.notes) ? parsed.notes.map(String).slice(0, 8) : []),
+        finalCandidates.length === 0
+          ? "No real product candidate URLs were parsed from exact product search."
+          : `Parsed ${finalCandidates.length} real product candidate URL(s).`,
+      ],
       elapsedMs: Date.now() - startedAt,
       timedOut: false,
       attemptCount: 1,
@@ -628,6 +646,15 @@ function candidateDomainFromUrl(url: string | null | undefined) {
   }
 }
 
+function exactCandidateNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function normalizeExactCandidate(input: unknown, source = "exact-search") {
   if (!input || typeof input !== "object") return null;
 
@@ -670,9 +697,9 @@ function normalizeExactCandidate(input: unknown, source = "exact-search") {
     title: title || url,
     domain,
     store,
-    price: item.price ?? null,
-    rating: item.rating ?? null,
-    reviewCount: item.reviewCount ?? null,
+    price: exactCandidateNumber(item.price),
+    rating: exactCandidateNumber(item.rating),
+    reviewCount: exactCandidateNumber(item.reviewCount),
     source: typeof item.source === "string" ? item.source : source,
     notes: Array.isArray(item.notes) ? item.notes.map(String) : [],
   };
