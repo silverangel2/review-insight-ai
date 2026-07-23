@@ -161,13 +161,13 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
             : "";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/50 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/95">
-      <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex shrink-0 items-center gap-3 whitespace-nowrap">
+    <header className="reviewintel-site-header sticky top-0 z-50 border-b border-white/50 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/95">
+      <div className="mx-auto flex min-h-[64px] max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:min-h-[68px] sm:gap-3 sm:px-6 lg:px-8">
+        <Link href="/" className="reviewintel-site-brand flex min-w-0 shrink-0 items-center gap-2 whitespace-nowrap sm:gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] text-sm font-black text-white shadow-soft">
             RI
           </span>
-          <span className="bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] bg-clip-text text-lg font-black tracking-tight text-transparent dark:from-white dark:via-cyan-100 dark:to-amber">
+          <span className="reviewintel-site-header-brand-text bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] bg-clip-text text-base font-black tracking-tight text-transparent dark:from-white dark:via-cyan-100 dark:to-amber sm:text-lg">
             ReviewIntel
           </span>
         </Link>
@@ -184,8 +184,8 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
           ))}
         </nav>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 whitespace-nowrap">
-          <span className="inline-flex"><LanguageSwitcher compact initialLocale={locale} /></span>
+        <div className="reviewintel-site-header-actions flex min-w-0 shrink-0 items-center justify-end gap-1.5 whitespace-nowrap sm:gap-2">
+          <span className="inline-flex min-w-0"><LanguageSwitcher compact initialLocale={locale} /></span>
           {authenticatedAccount ? (
             <Link
               href="/account"

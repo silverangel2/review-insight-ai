@@ -10875,6 +10875,122 @@ html[data-layout-mode="mobile"] [class*="reviewintel-route-account"] [data-accou
   line-height: 1.25rem !important;
 }
 
+/* Responsive stabilization for the active app shell. */
+main,
+section,
+article,
+aside,
+form,
+.dashboard-shell-main,
+.dashboard-shell-content,
+.dashboard-shell-sidebar {
+  min-width: 0;
+}
+
+.reviewintel-site-header,
+.reviewintel-site-header > div,
+.reviewintel-site-brand,
+.reviewintel-site-header-actions {
+  max-width: 100%;
+}
+
+.reviewintel-site-header :is(a, button, label, select) {
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .reviewintel-site-header > div {
+    width: 100%;
+    min-height: 4rem;
+  }
+
+  .reviewintel-site-header .reviewintel-site-header-actions label {
+    padding-left: 0.55rem !important;
+    padding-right: 0.55rem !important;
+  }
+
+  .reviewintel-site-header .reviewintel-site-header-actions select {
+    max-width: 5.85rem !important;
+  }
+
+  .dashboard-shell-main {
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 0.85rem !important;
+    padding: 0.9rem !important;
+  }
+
+  .dashboard-shell-sidebar,
+  .dashboard-shell-page-title {
+    border-radius: 1.1rem !important;
+    padding: 1rem !important;
+  }
+
+  .dashboard-shell-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .dashboard-shell-nav a {
+    padding: 0.75rem 0.8rem !important;
+    border-radius: 0.9rem !important;
+    white-space: normal !important;
+  }
+
+  .reviewintel-home-main,
+  .reviewintel-home-main section,
+  .reviewintel-home-main article,
+  .reviewintel-home-main div {
+    max-width: 100% !important;
+  }
+
+  .home-premium-payoff,
+  .home-premium-audience {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  .home-premium-payoff-grid,
+  .home-premium-audience-grid {
+    width: 100% !important;
+    gap: 1rem !important;
+  }
+
+  .home-instruction-video-frame {
+    width: min(100%, 26rem) !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .home-instruction-video-frame :is(img, video) {
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .reviewintel-site-header-brand-text {
+    display: none !important;
+  }
+
+  .reviewintel-site-header .reviewintel-site-header-actions {
+    gap: 0.35rem !important;
+  }
+
+  .reviewintel-site-header .reviewintel-site-header-actions select {
+    max-width: 4.9rem !important;
+  }
+
+  .reviewintel-site-header .reviewintel-site-header-actions button,
+  .reviewintel-site-header .reviewintel-site-header-actions a {
+    padding-left: 0.65rem !important;
+    padding-right: 0.65rem !important;
+  }
+}
+
 @media (max-width: 640px) {
   html[data-layout-mode="auto"] [class*="reviewintel-route-account"] [data-account-profile] {
     padding: 0.9rem !important;

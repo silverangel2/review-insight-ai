@@ -30,44 +30,6 @@ export default async function LandingPage() {
     t("sellerWins.exportReport")
   ];
 
-  const mobileScanCards = [
-    {
-      eyebrow: t("heroCards.identityEyebrow"),
-      title: t("heroCards.identityTitle"),
-      body: t("heroCards.identityLabel"),
-      tone: "from-white/90 to-cyan-50/88",
-    },
-    {
-      eyebrow: t("heroCards.evidenceEyebrow"),
-      title: t("heroCards.evidenceTitle"),
-      body: t("buyerWins.complaint"),
-      tone: "from-cyan-50/92 to-white/88",
-    },
-    {
-      eyebrow: t("heroCards.auditEyebrow"),
-      title: t("buyerWins.fakeRisk"),
-      body: t("heroCards.auditBody"),
-      tone: "from-white/92 to-amber-50/86",
-    },
-    {
-      eyebrow: t("shopperMode"),
-      title: t("fastShoppingVerdict"),
-      body: t("buyerWins.verdict"),
-      tone: "from-teal-50/92 to-white/88",
-    },
-  ];
-
-const mobileShopCarouselItems = [
-  { name: "Amazon", emoji: "🛒", tone: "from-orange-100 to-amber-50" },
-  { name: "Walmart", emoji: "⭐", tone: "from-sky-100 to-blue-50" },
-  { name: "Temu", emoji: "🧡", tone: "from-orange-100 to-red-50" },
-  { name: "TikTok Shop", emoji: "🎵", tone: "from-fuchsia-100 to-cyan-50" },
-  { name: "Etsy", emoji: "🎁", tone: "from-amber-100 to-rose-50" },
-  { name: "Shopify", emoji: "🛍️", tone: "from-emerald-100 to-lime-50" },
-  { name: "eBay", emoji: "💎", tone: "from-indigo-100 to-yellow-50" },
-];
-
-
   return (
     <>
     <main className="reviewintel-home-main bg-[linear-gradient(135deg,#a8eee8_0%,#e7fbff_34%,#c7e2ff_66%,#fff0c9_100%)] text-ink">
@@ -312,7 +274,10 @@ const mobileShopCarouselItems = [
               padding-top: 2rem !important;
               padding-bottom: 2rem !important;
             }
-            .home-premium-audience,
+            .home-premium-audience {
+              padding-top: 2rem !important;
+              padding-bottom: 2rem !important;
+            }
 
             .home-mobile-rainbow-light {
               background:
@@ -374,11 +339,14 @@ const mobileShopCarouselItems = [
             }
             .home-mobile-scan-carousel {
               display: flex !important;
-              width: 100vw !important;
-              max-width: 100vw !important;
+              width: 100% !important;
+              max-width: 100% !important;
               flex-direction: row !important;
               flex-wrap: nowrap !important;
               justify-content: flex-start !important;
+              overflow-x: auto !important;
+              padding-left: .75rem !important;
+              padding-right: .75rem !important;
               scroll-behavior: smooth !important;
               scroll-snap-type: x mandatory !important;
               -webkit-overflow-scrolling: touch !important;
@@ -488,7 +456,7 @@ const mobileShopCarouselItems = [
 
       <PlatformLogoOrbit initialLocale={locale} />
 
-      <section className="home-premium-payoff h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
+      <section className="home-premium-payoff min-h-[100svh] snap-start overflow-visible bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-10 text-ink sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
           <div>
             <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
@@ -503,7 +471,7 @@ const mobileShopCarouselItems = [
         </div>
       </section>
 
-      <section className="home-premium-audience h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10">
+      <section className="home-premium-audience min-h-[100svh] snap-start overflow-visible bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-10 text-ink sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-10">
         <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
           <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
             <Badge tone="good">{t("shopperMode")}</Badge>

@@ -52,8 +52,8 @@ export function DashboardShell({
       data-dashboard-fullwidth={fullWidth ? "true" : "false"}
       className={
         fullWidth
-          ? "dashboard-shell-main mx-auto grid w-full max-w-none gap-6 px-4 py-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:px-6"
-          : "dashboard-shell-main mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[260px_minmax(0,1fr)]"
+          ? "dashboard-shell-main mx-auto grid w-full max-w-[96rem] gap-5 px-4 py-6 sm:gap-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:px-8"
+          : "dashboard-shell-main mx-auto grid w-full max-w-7xl gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8 lg:grid-cols-[260px_minmax(0,1fr)]"
       }
     >
       <aside className="dashboard-shell-sidebar rounded-2xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
