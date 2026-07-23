@@ -146,6 +146,28 @@ function normalizeEvidenceProductKey(input: ReviewEvidenceInput) {
     .join(" ");
 }
 
+
+function uniqueSearchWordsFromText(value: unknown, limit = 42) {
+  const seen = new Set<string>();
+  const words: string[] = [];
+
+  for (const word of String(value || "")
+    .replace(/amazon'?s choice/gi, " ")
+    .replace(/https?:\/\/[^\s]+/g, " ")
+    .replace(/[^a-z0-9.%+-]+/gi, " ")
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)) {
+    const key = word.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    words.push(word);
+    if (words.length >= limit) break;
+  }
+
+  return words.join(" ").replace(/\s+/g, " ").trim();
+}
+
 function uniqueIdentityTokens(values: unknown[], limit = 28) {
   const seen = new Set<string>();
   const tokens: string[] = [];
@@ -1273,7 +1295,7 @@ export async function collectAndAnalyzeReviewEvidence(
   }
 
   const product = uniqueIdentityTokens([input.brand, input.productName, input.model], 30);
-  const reviewSearchIdentity = uniqueIdentityTokens([
+  const cleanVisibleIdentity = uniqueSearchWordsFromText([
     input.store,
     input.brand,
     input.productName,
@@ -1281,6 +1303,11 @@ export async function collectAndAnalyzeReviewEvidence(
     input.price ? `$${input.price}` : "",
     input.rating ? `${input.rating} stars` : "",
     input.reviewCount ? `${input.reviewCount} reviews` : "",
+  ].filter(Boolean).join(" "));
+
+  const reviewSearchIdentity = uniqueIdentityTokens([
+    input.store,
+    cleanVisibleIdentity,
   ], 36);
 
   if (!product || product.length < 3) {
