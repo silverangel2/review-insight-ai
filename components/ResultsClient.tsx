@@ -1951,8 +1951,15 @@ export function ResultsClient() {
           isReviewEvidenceV2History(item)
         );
 
+        // Never discard a completed account analysis just because an older
+        // format detector or stale browser scan ID does not recognize it.
+        const availableAnalyses =
+          reviewEvidenceAnalyses.length > 0
+            ? reviewEvidenceAnalyses
+            : analyses;
+
         const latest = selectedHistoryId
-          ? reviewEvidenceAnalyses.find((item: Record<string, unknown>) => {
+          ? availableAnalyses.find((item: Record<string, unknown>) => {
               const analysisJson =
                 item.analysis_json && typeof item.analysis_json === "object"
                   ? (item.analysis_json as Record<string, unknown>)
@@ -1964,10 +1971,10 @@ export function ResultsClient() {
                 String(analysisJson.serverId ?? "") === selectedHistoryId ||
                 String(analysisJson.compareId ?? "") === selectedHistoryId
               );
-            }) ?? reviewEvidenceAnalyses[0] ?? null
+            }) ?? availableAnalyses[0] ?? null
           : parsed
             ? null
-            : reviewEvidenceAnalyses[0] ?? null;
+            : availableAnalyses[0] ?? null;
 
         const stored = latest?.analysis_json && typeof latest.analysis_json === "object"
           ? (latest.analysis_json as Record<string, unknown>)
@@ -2010,13 +2017,10 @@ export function ResultsClient() {
       // An old active scan ID must never blank a newer valid result.
       // The analysis API and account history are the source of truth.
       const parsedScanId = scanIdFromAnalyzeResponse(parsed);
-      if (
-        activeScanId &&
-        parsedScanId &&
-        parsedScanId !== activeScanId &&
-        String((parsed as Record<string, unknown>).resultSource || "") !== "history"
-      ) {
-        console.warn("Ignoring stale active scan ID", {
+      // A stale local scan ID must never prevent a completed analysis
+      // from rendering. The newest API/account result is authoritative.
+      if (activeScanId && parsedScanId && parsedScanId !== activeScanId) {
+        console.warn("Using completed analysis despite stale scan ID", {
           activeScanId,
           parsedScanId,
         });
