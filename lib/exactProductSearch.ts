@@ -469,6 +469,134 @@ async function fetchAmazonSearchCandidates(query: string, maxCandidates = 4, tim
   }
 }
 
+
+function decodeSearchRedirectUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    const target = parsed.searchParams.get("u") || parsed.searchParams.get("url");
+    return target && /^https?:\/\//i.test(target) ? target : url;
+  } catch {
+    return url;
+  }
+}
+
+function isLikelyProductUrl(url: string) {
+  const lower = url.toLowerCase();
+  return (
+    /^https?:\/\//i.test(url) &&
+    (
+      /amazon\.ca\/(?:.*\/)?(?:dp|gp\/product)\/[a-z0-9]{10}/i.test(lower) ||
+      /walmart\.(?:ca|com)\/.*(?:ip|product)/i.test(lower) ||
+      /bestbuy\.ca\/.*\/product/i.test(lower) ||
+      /costco\.ca\/.*\.product\./i.test(lower)
+    )
+  );
+}
+
+function normalizeProductCandidateUrl(url: string) {
+  const decoded = decodeSearchRedirectUrl(url).replace(/&amp;/g, "&");
+
+  const amazon = decoded.match(/https?:\/\/(?:www\.)?amazon\.ca\/(?:[^"'<> ]*\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+  if (amazon?.[1]) return `https://www.amazon.ca/dp/${amazon[1].toUpperCase()}`;
+
+  return decoded.split("#")[0];
+}
+
+function titleNearUrl(html: string, index: number) {
+  const chunk = html.slice(Math.max(0, index - 900), Math.min(html.length, index + 1200));
+  const h2 = chunk.match(/<h2[^>]*>([\s\S]{8,500}?)<\/h2>/i)?.[1];
+  const title = h2
+    ? h2.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim()
+    : null;
+  return title || null;
+}
+
+async function fetchFastProductUrlCandidates(queries: string[], maxCandidates = 5, timeoutMs = 4500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const cleanQueries = Array.from(new Set(
+      queries
+        .map((query) => cleanExactSearchQuery(query))
+        .filter(Boolean)
+        .slice(0, 4)
+    ));
+
+    const searches = cleanQueries.map(async (query) => {
+      const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+      try {
+        const response = await fetch(searchUrl, {
+          signal: controller.signal,
+          headers: {
+            "user-agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "accept-language": "en-CA,en;q=0.9",
+          },
+        });
+
+        if (!response.ok) return [];
+
+        const html = await response.text();
+        const out: Array<{
+          url: string;
+          title: string;
+          domain: string | null;
+          store: string | null;
+          price: null;
+          rating: null;
+          reviewCount: null;
+          source: string;
+          notes: string[];
+        }> = [];
+
+        const hrefPattern = /href="([^"]+)"/gi;
+        let match: RegExpExecArray | null;
+
+        while ((match = hrefPattern.exec(html)) && out.length < maxCandidates) {
+          const rawUrl = match[1];
+          const url = normalizeProductCandidateUrl(rawUrl);
+
+          if (!isLikelyProductUrl(url)) continue;
+
+          const domain = hostForUrl(url);
+          out.push({
+            url,
+            title: titleNearUrl(html, match.index) || url,
+            domain,
+            store: domain,
+            price: null,
+            rating: null,
+            reviewCount: null,
+            source: "fast-search-fallback",
+            notes: [`Parsed from fast search query: ${query}`],
+          });
+        }
+
+        return out;
+      } catch {
+        return [];
+      }
+    });
+
+    const settled = await Promise.allSettled(searches);
+    const candidates = settled.flatMap((result) =>
+      result.status === "fulfilled" ? result.value : []
+    );
+
+    const seen = new Set<string>();
+    return candidates.filter((candidate) => {
+      const key = candidate.url.toLowerCase().replace(/[?#].*$/, "");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, maxCandidates);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function findExactProductCandidates(
   input: ExactProductSearchInput
 ): Promise<ExactProductCandidateSearchResult> {
@@ -666,16 +794,25 @@ Rules:
       "exact-product-search"
     ).slice(0, maxCandidates);
 
+    const fastFallbackCandidates =
+      realCandidates.length === 0
+        ? await fetchFastProductUrlCandidates(searchQueries, maxCandidates)
+        : [];
+
     const amazonFallbackCandidates =
-      realCandidates.length === 0 && /amazon\.ca/i.test(searchQueries.join(" "))
+      realCandidates.length === 0 &&
+      fastFallbackCandidates.length === 0 &&
+      /amazon\.ca/i.test(searchQueries.join(" "))
         ? await fetchAmazonSearchCandidates(searchQueries[0], maxCandidates)
         : [];
 
     const finalCandidates = realCandidates.length > 0
       ? realCandidates
-      : amazonFallbackCandidates.length > 0
-        ? amazonFallbackCandidates
-        : candidates.filter((candidate) => candidate?.url && /^https?:\/\//i.test(candidate.url));
+      : fastFallbackCandidates.length > 0
+        ? fastFallbackCandidates
+        : amazonFallbackCandidates.length > 0
+          ? amazonFallbackCandidates
+          : candidates.filter((candidate) => candidate?.url && /^https?:\/\//i.test(candidate.url));
 
     return {
       candidates: finalCandidates,
@@ -686,11 +823,13 @@ Rules:
       sourceLinks,
       notes: [
         ...(Array.isArray(parsed.notes) ? parsed.notes.map(String).slice(0, 8) : []),
-        amazonFallbackCandidates.length > 0
-          ? `Parsed ${amazonFallbackCandidates.length} Amazon.ca candidate URL(s) from direct search fallback.`
-          : finalCandidates.length === 0
-            ? "No real product candidate URLs were parsed from exact product search."
-            : `Parsed ${finalCandidates.length} real product candidate URL(s).`,
+        fastFallbackCandidates.length > 0
+          ? `Parsed ${fastFallbackCandidates.length} product candidate URL(s) from fast search fallback.`
+          : amazonFallbackCandidates.length > 0
+            ? `Parsed ${amazonFallbackCandidates.length} Amazon.ca candidate URL(s) from direct search fallback.`
+            : finalCandidates.length === 0
+              ? "No real product candidate URLs were parsed from exact product search."
+              : `Parsed ${finalCandidates.length} real product candidate URL(s).`,
       ],
       elapsedMs: Date.now() - startedAt,
       timedOut: false,
