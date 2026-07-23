@@ -516,7 +516,7 @@ function SideInput({
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.3em] text-teal dark:text-cyan-200">{displayCodeForResult({ productName: `Product ${side.label}` }, `Product ${side.label}`)}</p>
-          <h2 className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-ink">{compareCopy(readStoredLocale()).uploadOrPaste}</h2>
+          <h2 className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-white">{compareCopy(readStoredLocale()).uploadOrPaste}</h2>
         </div>
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal text-base font-black text-white shadow-soft sm:text-lg">
           {side.label}
@@ -544,17 +544,17 @@ function SideInput({
       </label>
 
       <div className="mt-4">
-        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 sm:text-xs sm:tracking-[0.2em]">{compareCopy(readStoredLocale()).productLinkOptional}</label>
+        <label className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-700 sm:text-xs sm:tracking-[0.2em] dark:text-slate-100">{compareCopy(readStoredLocale()).productLinkOptional}</label>
         <input
           value={side.link}
           disabled={disabled}
           onChange={(event) => onChangeLink(event.target.value)}
           placeholder="https://..."
-          className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink shadow-soft dark:border-white/10 dark:bg-slate-900 dark:text-ink outline-none transition placeholder:text-slate-700 focus:border-teal"
+          className="mt-2 w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink shadow-soft outline-none transition placeholder:text-slate-700 focus:border-teal dark:border-white/10 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-400"
         />
       </div>
 
-      <div className="mt-4 rounded-2xl border border-line bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-700 dark:text-slate-100">
+      <div className="mt-4 rounded-2xl border border-line bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-100">
         {hasInput ? compareCopy(readStoredLocale()).readyToCompare : compareCopy(readStoredLocale()).addScreenshotOrLink}
       </div>
     </div>
@@ -751,9 +751,9 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-700">{compareCopy(readStoredLocale()).productLabel(label)}</p>
-          <h3 className="mt-1 text-xl font-black text-ink dark:text-ink">{productTitle(result, compareCopy(readStoredLocale()).productLabel(label))}</h3>
-          <p className="mt-1 text-xs font-semibold text-slate-700 sm:text-sm dark:text-slate-700">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-700 dark:text-slate-300">{compareCopy(readStoredLocale()).productLabel(label)}</p>
+          <h3 className="mt-1 text-xl font-black text-ink dark:text-white">{productTitle(result, compareCopy(readStoredLocale()).productLabel(label))}</h3>
+          <p className="mt-1 text-xs font-semibold text-slate-700 sm:text-sm dark:text-slate-300">
             {[result.product?.store, result.product?.price, result.product?.rating ? `${result.product.rating} ${compareCopy(readStoredLocale()).ratingLabel}` : ""]
               .filter(Boolean)
               .join(" • ") || compareCopy(readStoredLocale()).productDetailsChecked}
@@ -774,22 +774,22 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900">
-          <p className="text-xs text-slate-700">{compareCopy(readStoredLocale()).buyScore}</p>
-          <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-ink">{Math.round(result.productScore || 0)}/100</p>
+          <p className="text-xs text-slate-700 dark:text-slate-300">{compareCopy(readStoredLocale()).buyScore}</p>
+          <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-white">{Math.round(result.productScore || 0)}/100</p>
         </div>
         <div className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900">
-          <p className="text-xs text-slate-700">{compareCopy(readStoredLocale()).reviewTrust}</p>
-          <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-ink">{Math.round(result.reviewAuthenticity?.score || 0)}% signs</p>
+          <p className="text-xs text-slate-700 dark:text-slate-300">{compareCopy(readStoredLocale()).reviewTrust}</p>
+          <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-white">{Math.round(result.reviewAuthenticity?.score || 0)}% signs</p>
         </div>
       </div>
 
       <div className="mt-4">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">{compareCopy(readStoredLocale()).topConcern}</p>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700 dark:text-slate-300">{compareCopy(readStoredLocale()).topConcern}</p>
         <ul className="mt-2 space-y-2 text-sm text-slate-700 dark:text-slate-100">
           {(result.topComplaints || []).slice(0, 3).map((item, index) => (
-            <li key={index} className="rounded-xl bg-slate-50 px-3 py-2 text-slate-700 dark:bg-white dark:text-slate-100">• {item}</li>
+            <li key={index} className="rounded-xl bg-slate-50 px-3 py-2 text-slate-700 dark:bg-white/10 dark:text-slate-100">• {item}</li>
           ))}
-          {!result.topComplaints?.length && <li className="rounded-xl bg-slate-50 px-3 py-2 text-slate-700 dark:bg-white dark:text-slate-100">{compareCopy(readStoredLocale()).noConcern}</li>}
+          {!result.topComplaints?.length && <li className="rounded-xl bg-slate-50 px-3 py-2 text-slate-700 dark:bg-white/10 dark:text-slate-100">{compareCopy(readStoredLocale()).noConcern}</li>}
         </ul>
       </div>
 
@@ -1308,10 +1308,10 @@ export function CompareForm() {
   const confidenceValue = comparison?.confidence ?? (directSubstitutes ? Math.min(92, 62 + scoreGap) : 88);
 
   return (
-    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-ink">
+    <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/analyze" className="rounded-full border border-line bg-white px-3 py-2 text-xs font-bold text-ink shadow-soft transition hover:border-teal dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-ink sm:px-4 sm:text-sm">
+          <Link href="/analyze" className="rounded-full border border-line bg-white px-3 py-2 text-xs font-bold text-ink shadow-soft transition hover:border-teal dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white sm:px-4 sm:text-sm">
             ← Analyze One Product
           </Link>
           <span className="rounded-full border border-line bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-teal shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-cyan-200 sm:px-4 sm:text-xs sm:tracking-[0.2em]">
@@ -1322,10 +1322,10 @@ export function CompareForm() {
         {!showResults && (
         <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-teal sm:text-sm sm:tracking-[0.3em] dark:text-cyan-200">{copy.reviewIntelCompare}</p>
-          <h1 className="mt-4 text-3xl font-black tracking-tight text-ink sm:text-6xl dark:text-ink">
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-ink sm:text-6xl dark:text-white">
             {copy.compareProductsTitle}
           </h1>
-          <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-700 sm:text-lg dark:text-slate-700">
+          <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-700 sm:text-lg dark:text-slate-100">
             {copy.compareIntro}
           </p>
 
@@ -1354,7 +1354,7 @@ export function CompareForm() {
             type="button"
             disabled={!canCompare || isLoading}
             onClick={compareProducts}
-            className="mt-6 min-h-14 w-full rounded-2xl bg-ink px-5 py-4 text-base font-black text-white shadow-glow transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-700 sm:min-h-16 sm:rounded-3xl sm:px-8 sm:py-5 sm:text-xl dark:bg-white dark:text-ink dark:disabled:bg-white/20 dark:disabled:text-ink/40"
+            className="mt-6 min-h-14 w-full rounded-2xl bg-ink px-5 py-4 text-base font-black text-white shadow-glow transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-700 sm:min-h-16 sm:rounded-3xl sm:px-8 sm:py-5 sm:text-xl dark:bg-white dark:text-ink dark:disabled:bg-white/20 dark:disabled:text-white/60"
           >
             {isLoading ? copy.comparing : copy.compareButton}
           </button>
@@ -1454,7 +1454,7 @@ export function CompareForm() {
                   setComparison(null);
                   setError("");
                 }}
-                className="mt-5 rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-teal dark:border-white/10 dark:bg-white/5 dark:text-ink"
+                className="mt-5 rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-teal dark:border-white/10 dark:bg-white/5 dark:text-white"
               >
                 {copy.compareAnother}
               </button>

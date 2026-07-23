@@ -291,7 +291,7 @@ export function AdminSEOManager() {
               <button
                 type="button"
                 onClick={resetDraft}
-                className="rounded-xl border border-teal/40 bg-white px-4 py-2 text-sm font-black text-teal transition hover:border-teal dark:bg-gradient-to-r from-sky-600 to-teal-500"
+                className="rounded-xl border border-teal/40 bg-white px-4 py-2 text-sm font-black text-teal transition hover:border-teal dark:border-white/30 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white dark:hover:bg-white/15"
               >
                 Reset this page
               </button>

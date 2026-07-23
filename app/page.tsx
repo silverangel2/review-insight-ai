@@ -420,10 +420,10 @@ export default async function LandingPage() {
 
             <div className="reviewintel-home-card-stage relative z-10 grid min-h-[620px] grid-cols-1 grid-rows-[auto_auto_auto_auto_auto] gap-4 p-5 sm:grid-cols-2 sm:grid-rows-[auto_auto_auto] md:min-h-[690px] md:gap-5 md:p-8">
               <article className="ri-home-card self-start rounded-[2rem] bg-[#11182a] p-5 text-white shadow-[0_30px_90px_rgba(4,10,24,0.42)] ring-1 ring-white/10 [--ri-end:-1deg] [--ri-rot:-24deg] [--ri-x:-340px] [--ri-y:210px]">
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-900">{t("heroCards.identityEyebrow")}</p>
-                <p className="mt-3 text-sm font-black text-slate-700">{t("heroCards.identityLabel")}</p>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-200">{t("heroCards.identityEyebrow")}</p>
+                <p className="mt-3 text-sm font-black text-white/70">{t("heroCards.identityLabel")}</p>
                 <p className="mt-3 text-4xl font-black leading-tight md:text-5xl reviewintel-flip-card" style={{ animationDelay: "0.4s" }}>{t("heroCards.identityTitle")}</p>
-                <p className="mt-4 text-sm font-black leading-6 text-cyan-900 md:text-base">{t("heroCards.identityBody")}</p>
+                <p className="mt-4 text-sm font-black leading-6 text-cyan-100 md:text-base">{t("heroCards.identityBody")}</p>
               </article>
 
               <article className="ri-home-card self-start rounded-[2rem] border border-white/70 bg-white/88 p-5 shadow-[0_26px_90px_rgba(12,36,68,0.24)] backdrop-blur-lg [--ri-end:2deg] [--ri-rot:24deg] [--ri-x:340px] [--ri-y:-180px]" style={{ animationDelay: "120ms" }}>
@@ -433,7 +433,7 @@ export default async function LandingPage() {
               </article>
 
               <article className="ri-home-card row-start-auto self-center rounded-3xl border border-white/18 bg-[#19243a]/86 p-5 text-white shadow-[0_24px_80px_rgba(4,10,24,0.3)] backdrop-blur-lg [--ri-end:-2deg] [--ri-rot:-26deg] [--ri-x:-300px] [--ri-y:230px] sm:row-start-2" style={{ animationDelay: "240ms" }}>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-900">{t("heroCards.shopperEyebrow")}</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">{t("heroCards.shopperEyebrow")}</p>
                 <p className="mt-3 text-base font-black leading-6 text-white">{t("heroCards.shopperBody")}</p>
               </article>
 
@@ -446,7 +446,7 @@ export default async function LandingPage() {
               </article>
 
               <article className="ri-home-card row-start-auto max-w-[430px] justify-self-stretch self-end rounded-3xl border border-white/18 bg-[#11182a]/86 p-5 text-white shadow-[0_24px_80px_rgba(4,10,24,0.3)] backdrop-blur-lg [--ri-end:2deg] [--ri-rot:26deg] [--ri-x:320px] [--ri-y:220px] sm:col-span-2 sm:row-start-3 sm:justify-self-end" style={{ animationDelay: "480ms" }}>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-900">{t("heroCards.sellerEyebrow")}</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">{t("heroCards.sellerEyebrow")}</p>
                 <p className="mt-3 text-base font-black leading-6 text-white">{t("heroCards.sellerBody")}</p>
               </article>
             </div>
