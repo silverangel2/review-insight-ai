@@ -57,10 +57,16 @@ test("review evidence runs a bounded verifier retry loop before collection", () 
   assert.match(evidence, /async function runExactProductAgent/);
   assert.match(evidence, /const maxCandidates = 5/);
   assert.match(evidence, /const maxRetryRounds = 2/);
+  assert.match(evidence, /REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS \|\| 18000/);
+  assert.match(evidence, /const perAttemptTimeoutMs = 5500/);
+  assert.match(evidence, /const candidatesThisRound =/);
+  assert.match(evidence, /Math\.min\(3, remainingCandidateSlots\)/);
   assert.match(evidence, /findExactProductCandidates/);
   assert.match(evidence, /\[ReviewIntel DEBUG exactProductAgent\]/);
   assert.match(evidence, /productVerifierResult\.canCollectReviews/);
   assert.match(evidence, /verifiedListingUrlForCollection/);
+  assert.doesNotMatch(evidence, /!retrySearchQueries\.length \|\| exactSearchTimedOut\) break/);
+  assert.match(evidence, /const listingRejectedForCollection = !listingUrlForReviewCollector/);
 });
 
 test("exact product verifier treats other stores as strict fallback sources", () => {
@@ -69,4 +75,14 @@ test("exact product verifier treats other stores as strict fallback sources", ()
   assert.match(verifier, /preferredStoreMismatch/);
   assert.match(verifier, /const requiredTermCoverage = preferredStoreMismatch \? 0\.82 : 0\.55/);
   assert.match(verifier, /strict exact-product fallback checks/);
+  assert.match(verifier, /function cleanRetryQuery/);
+  assert.match(verifier, /Amazon\\s\+s/);
+});
+
+test("better picks does not auto-run during initial scan result load", () => {
+  const panel = source("components/BetterPicksPanel.tsx");
+
+  assert.match(panel, /autoLoad = false/);
+  assert.match(panel, /window\.setTimeout/);
+  assert.match(panel, /1800/);
 });

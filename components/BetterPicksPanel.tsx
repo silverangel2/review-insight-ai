@@ -256,7 +256,7 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
 export function BetterPicksPanel({
   result,
   compact = false,
-  autoLoad = true,
+  autoLoad = false,
   affiliatePlacement = "results",
 }: {
   result: ResultRecord;
@@ -371,7 +371,11 @@ export function BetterPicksPanel({
   useEffect(() => {
     if (!autoLoad || !productName) return;
 
-    void findBetterPicks({ useCache: true });
+    const timer = window.setTimeout(() => {
+      void findBetterPicks({ useCache: true });
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [affiliatePlacement, autoLoad, productName, requestKey]);
 

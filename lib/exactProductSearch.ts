@@ -195,6 +195,29 @@ function uniqueIdentityTokens(values: unknown[], limit = 36) {
   return tokens.join(" ").replace(/\s+/g, " ").trim();
 }
 
+function cleanSearchQuery(value: unknown) {
+  const parts =
+    String(value || "")
+      .replace(/\bAmazon\s+s\b/gi, "Amazon")
+      .replace(/\bAmazon's\b/gi, "Amazon")
+      .replace(/\s+/g, " ")
+      .trim()
+      .match(/"[^"]+"|site:\S+|\S+/g) || [];
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+
+  for (const part of parts) {
+    const key = part.replace(/^"|"$/g, "").toLowerCase();
+    if (!key || key === "s") continue;
+    if (cleaned.length && cleaned[cleaned.length - 1].replace(/^"|"$/g, "").toLowerCase() === key) continue;
+    if (!key.startsWith("site:") && seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(part);
+  }
+
+  return cleaned.join(" ").replace(/\s+/g, " ").trim();
+}
+
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
@@ -303,14 +326,14 @@ export async function findExactProductCandidates(
 
   const storeTarget = storeSearchTarget(input.store);
   const maxCandidates = Math.max(1, Math.min(input.maxCandidates || 5, 5));
-  const timeoutMs = Math.max(3000, Math.min(input.timeoutMs || 12000, 30000));
+  const timeoutMs = Math.max(3000, Math.min(input.timeoutMs || 5500, 6000));
   const searchQueries = Array.from(
     new Set(
       [
         ...(Array.isArray(input.searchQueries) ? input.searchQueries : []),
         product,
       ]
-        .map((query) => String(query || "").replace(/\s+/g, " ").trim())
+        .map(cleanSearchQuery)
         .filter((query) => query.length >= 3)
     )
   ).slice(0, 6);

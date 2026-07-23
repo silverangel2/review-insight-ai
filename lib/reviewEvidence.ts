@@ -1434,14 +1434,15 @@ async function runExactProductAgent({
   rememberedEvidence: ReviewEvidenceResult | null;
 }): Promise<ExactProductAgentResult> {
   const startedAt = Date.now();
-  const configuredTimeoutMs = Number(process.env.REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS || 30000);
+  const configuredTimeoutMs = Number(process.env.REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS || 18000);
   const timeoutMs = Math.max(
     5000,
-    Math.min(Number.isFinite(configuredTimeoutMs) ? configuredTimeoutMs : 30000, 30000)
+    Math.min(Number.isFinite(configuredTimeoutMs) ? configuredTimeoutMs : 18000, 18000)
   );
   const deadline = startedAt + timeoutMs;
   const maxCandidates = 5;
   const maxRetryRounds = 2;
+  const perAttemptTimeoutMs = 5500;
   const job: ProductSearchJob = {
     scanId: reviewSearchIdentity || cleanVisibleIdentity || input.productName || "unknown-scan",
     store: input.store,
@@ -1563,6 +1564,11 @@ async function runExactProductAgent({
             ...retrySearchQueries.slice(0, 2),
           ], 6)
         : retrySearchQueries.slice(0, 6);
+    const remainingCandidateSlots = Math.max(1, maxCandidates - checkedCandidateUrls.size);
+    const candidatesThisRound =
+      round === 0
+        ? Math.min(3, remainingCandidateSlots)
+        : Math.min(2, remainingCandidateSlots);
 
     const searchResult = await findExactProductCandidates({
       productName: product,
@@ -1572,14 +1578,18 @@ async function runExactProductAgent({
       rating: toOptionalNumber(input.rating),
       reviewCount: toOptionalNumber(input.reviewCount),
       searchQueries: roundQueries,
-      maxCandidates: Math.max(1, maxCandidates - checkedCandidateUrls.size),
-      timeoutMs: Math.max(1000, Math.min(remainingMs, 12000)),
+      maxCandidates: candidatesThisRound,
+      timeoutMs: Math.max(1000, Math.min(remainingMs, perAttemptTimeoutMs)),
     });
 
     if (searchResult.timedOut) exactSearchTimedOut = true;
     sourcesChecked.push(...searchResult.sourcesChecked, ...searchResult.candidates.map((candidate) => candidate.url || ""));
     sourceLinks.push(...searchResult.sourceLinks);
     notes.push(...searchResult.notes);
+    retrySearchQueries = mergeUniqueStrings([
+      ...retrySearchQueries,
+      ...searchResult.queries,
+    ], 8);
 
     for (const candidate of searchResult.candidates) {
       const verified = verifyCandidate(candidate, round === 0 ? "initial exact search" : "retry exact search");
@@ -1601,7 +1611,7 @@ async function runExactProductAgent({
       if (checkedCandidateUrls.size >= maxCandidates) break;
     }
 
-    if (!retrySearchQueries.length || exactSearchTimedOut) break;
+    if (!retrySearchQueries.length || Date.now() >= deadline - 1000) break;
   }
 
   const result: ExactProductAgentResult = {
@@ -1793,29 +1803,28 @@ export async function collectAndAnalyzeReviewEvidence(
   const collectionNotesText = Array.isArray(listingEvidenceForCollection?.notes)
     ? listingEvidenceForCollection.notes.join(" ").toLowerCase()
     : "";
-  const listingRejectedForCollection =
+  const listingRejectedByEvidence =
     listingEvidenceForCollection?.confidence === "low" &&
     /similar product|missing distinctive|rejected returned listing|requested product appears/.test(
       collectionNotesText
     );
-  const exactListingRejectedReason = listingRejectedForCollection
-    ? collectionNotesText ||
-      "Matched listing was rejected because it did not confidently match the scanned product."
-    : !listingEvidenceForCollection?.exactListingUrl
-      ? productVerifierResult.verifierReasons.join(" ") ||
-        "No exact listing URL was accepted for written review collection."
-      : null;
 
   const verifiedListingUrlForCollection = productVerifierResult.canCollectReviews
     ? productVerifierResult.verifiedListingUrl
     : null;
 
   const listingUrlForReviewCollector =
-    !listingRejectedForCollection &&
+    !listingRejectedByEvidence &&
     typeof verifiedListingUrlForCollection === "string" &&
     verifiedListingUrlForCollection.trim()
       ? verifiedListingUrlForCollection
       : null;
+  const listingRejectedForCollection = !listingUrlForReviewCollector;
+  const exactListingRejectedReason = listingRejectedForCollection
+    ? collectionNotesText ||
+      productVerifierResult.verifierReasons.join(" ") ||
+      "No exact listing URL was accepted for written review collection."
+    : null;
 
   const exactListingAccepted = Boolean(listingUrlForReviewCollector);
   const collectorSourceAccepted = Boolean(exactListingAccepted && listingUrlForReviewCollector);

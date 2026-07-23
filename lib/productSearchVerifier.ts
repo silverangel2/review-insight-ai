@@ -129,6 +129,29 @@ function importantTerms(job: ProductSearchJob) {
   return Array.from(terms).slice(0, 18);
 }
 
+function cleanRetryQuery(value: unknown) {
+  const parts =
+    String(value || "")
+      .replace(/\bAmazon\s+s\b/gi, "Amazon")
+      .replace(/\bAmazon's\b/gi, "Amazon")
+      .replace(/\s+/g, " ")
+      .trim()
+      .match(/"[^"]+"|site:\S+|\S+/g) || [];
+  const seen = new Set<string>();
+  const cleaned: string[] = [];
+
+  for (const part of parts) {
+    const key = part.replace(/^"|"$/g, "").toLowerCase();
+    if (!key || key === "s") continue;
+    if (cleaned.length && cleaned[cleaned.length - 1].replace(/^"|"$/g, "").toLowerCase() === key) continue;
+    if (!key.startsWith("site:") && seen.has(key)) continue;
+    seen.add(key);
+    cleaned.push(part);
+  }
+
+  return cleaned.join(" ").replace(/\s+/g, " ").trim();
+}
+
 export function buildProductRetryQueries(job: ProductSearchJob, reason?: string) {
   const brand = String(job.brand || "").trim();
   const name = String(job.productName || "").trim();
@@ -157,7 +180,7 @@ export function buildProductRetryQueries(job: ProductSearchJob, reason?: string)
   return Array.from(
     new Set(
       queries
-        .map((q) => q.replace(/\s+/g, " ").trim())
+        .map(cleanRetryQuery)
         .filter((q) => q.length > 8)
     )
   ).slice(0, 8);
