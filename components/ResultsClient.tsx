@@ -18,6 +18,19 @@ import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCor
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
 
+
+function displayShopperVerdict(value: unknown) {
+  const verdict = String(value || "").trim().toUpperCase();
+
+  if (verdict === "BUY") return "VERIFIED BUY";
+  if (verdict === "CONSIDER") return "REVIEW FIRST";
+  if (verdict === "AVOID") return "AVOID";
+  if (verdict === "REVIEW EVIDENCE NOT ENOUGH") return "NOT SCORED";
+
+  return verdict || "NOT SCORED";
+}
+
+
 type ProductLike = {
   title?: string;
   name?: string;
