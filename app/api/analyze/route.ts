@@ -1967,15 +1967,35 @@ function computeVerdictConfidenceAudit(input: {
       verdictRatificationScore
   );
 
-  // Hard caps: if RI did not actually read written reviews, confidence must stay low.
+  // Hard caps: confidence must reflect both the number of written reviews
+  // actually analyzed and their coverage of the marketplace review population.
   if (commentsAnalyzed <= 0) {
     verdictConfidence = Math.min(verdictConfidence, 40);
   } else if (commentsAnalyzed < 8) {
     verdictConfidence = Math.min(verdictConfidence, 55);
   } else if (commentsAnalyzed < 15) {
-    verdictConfidence = Math.min(verdictConfidence, 70);
+    verdictConfidence = Math.min(verdictConfidence, 65);
   } else if (commentsAnalyzed < 25) {
-    verdictConfidence = Math.min(verdictConfidence, 82);
+    verdictConfidence = Math.min(verdictConfidence, 72);
+  } else if (reviewCoverageRatio < 0.05) {
+    verdictConfidence = Math.min(verdictConfidence, 68);
+  } else if (reviewCoverageRatio < 0.10) {
+    verdictConfidence = Math.min(verdictConfidence, 75);
+  } else if (reviewCoverageRatio < 0.20) {
+    verdictConfidence = Math.min(verdictConfidence, 85);
+  }
+
+  const exactListingConfidence = String(
+    input.exactListingConfirmed || ""
+  ).toLowerCase();
+
+  if (exactListingConfidence === "medium") {
+    verdictConfidence = Math.min(verdictConfidence, 80);
+  } else if (
+    exactListingConfidence === "low" ||
+    exactListingConfidence === "false"
+  ) {
+    verdictConfidence = Math.min(verdictConfidence, 55);
   }
 
   return {
@@ -2356,16 +2376,44 @@ function buildReviewEvidenceShopperResult(input: {
   const attemptedSourcesChecked = Array.isArray(evidence.sourcesChecked)
     ? uniqueTextArray(evidence.sourcesChecked.map(String), 16)
     : [];
-  const sourcesUsed = noPublicReviewEvidence ? [] : uniqueTextArray(
-    [
-      ...sourceLinksForResult.map((item) =>
-        String(item.domain || item.label || item.url || "").trim()
-      ),
-      ...attemptedSourcesChecked,
-      exactListingUrl ? new URL(exactListingUrl).hostname.replace(/^www\./, "") : "",
-    ],
-    8
-  );
+  const meaningfulSourceValues = [
+    ...sourceLinksForResult.map((item) =>
+      String(item.url || item.domain || item.label || "").trim()
+    ),
+    ...attemptedSourcesChecked,
+    exactListingUrl || "",
+  ]
+    .filter(Boolean)
+    .filter((source) => {
+      const value = String(source).toLowerCase();
+
+      if (
+        value.includes("getreviewintel.com") ||
+        value.includes("m.media-amazon.com") ||
+        /\.(?:jpg|jpeg|png|webp|gif|svg)(?:\?|$)/i.test(value)
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((source) => {
+      try {
+        const url = new URL(String(source));
+        return `${url.hostname.replace(/^www\./, "")}${url.pathname}`
+          .replace(/\/$/, "");
+      } catch {
+        return String(source)
+          .replace(/^https?:\/\//i, "")
+          .replace(/^www\./i, "")
+          .replace(/[?#].*$/, "")
+          .replace(/\/$/, "");
+      }
+    });
+
+  const sourcesUsed = noPublicReviewEvidence
+    ? []
+    : uniqueTextArray(meaningfulSourceValues, 8);
   const researchQuality = {
     evidenceLevel: noPublicReviewEvidence
       ? "screenshot_only"
@@ -2375,11 +2423,7 @@ function buildReviewEvidenceShopperResult(input: {
         ? "limited"
         : "screenshot_only",
     exactProductMatch: exactListingAccepted,
-    sourceCount: Math.max(
-      sourcesUsed.length,
-      attemptedSourcesChecked.length,
-      exactListingUrl ? 1 : 0
-    ),
+    sourceCount: sourcesUsed.length,
     citationCount: noPublicReviewEvidence ? 0 : sourceLinksForResult.length,
     notes: [
       noPublicReviewEvidence

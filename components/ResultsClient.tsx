@@ -25,7 +25,12 @@ function displayShopperVerdict(value: unknown) {
   if (verdict === "BUY") return "VERIFIED BUY";
   if (verdict === "CONSIDER") return "REVIEW FIRST";
   if (verdict === "AVOID") return "AVOID";
-  if (verdict === "REVIEW EVIDENCE NOT ENOUGH") return "NOT SCORED";
+  if (
+    verdict === "REVIEW EVIDENCE NOT ENOUGH" ||
+    verdict === "NOT SCORED"
+  ) {
+    return "NOT SCORED";
+  }
 
   return verdict || "NOT SCORED";
 }
@@ -1566,7 +1571,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Evidence strength" value={zeroReviewEvidence ? "None" : evidenceStrength || "Not enough"} />
         <ToolProofPill label="Exact listing" value={exactListingAccepted ? exactConfidence || "Accepted" : "Rejected/not exact"} />
         <ToolProofPill label="Collector source" value={collectorSourceAccepted ? "Accepted" : "Rejected"} />
-        <ToolProofPill label="Verdict" value={verdict || "Not scored"} />
+        <ToolProofPill label="Verdict" value={displayShopperVerdict(verdict || "Not scored")} />
         <ToolProofPill label="Buy score" value={zeroReviewEvidence ? "Not scored" : buyScore !== null ? `${buyScore}/10` : "Not scored"} />
         <ToolProofPill label="Verdict confidence" value={zeroReviewEvidence ? "Insufficient evidence" : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : exactConfidence === "high" ? "Limited" : "Needs exact listing"} />
         <ToolProofPill label="AI-like risk" value={zeroReviewEvidence ? "Not scored" : aiLikeScore !== null ? `${aiLikeScore}%` : "Not scored"} />
