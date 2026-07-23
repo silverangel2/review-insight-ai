@@ -2233,24 +2233,57 @@ function buildReviewEvidenceShopperResult(input: {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
-    if (complaintThemes.length >= 3 && complaintThemes.length > praiseThemes.length) {
-      verdict = "AVOID";
-      buyScore = 3;
-      valueForMoney = "Risky";
-      bottomLine =
-        "ReviewIntel found usable review evidence with repeated complaint themes. Avoid unless the seller, return policy, or newer reviews clearly reduce the risk.";
-    } else if (praiseThemes.length >= 2 && complaintThemes.length === 0) {
+    // Score from AI-extracted written-review themes only.
+    // Do not use marketplace star rating or public review count to create a buying score.
+    // Do not force fixed 3 / 6 / 8 results.
+    const praiseCount = praiseThemes.length;
+    const complaintCount = complaintThemes.length;
+
+    const seriousComplaintCount = complaintThemes.filter((theme) =>
+      /broken|stopped|does not work|doesn't work|not working|defect|damaged|refund|return|waste|unsafe|danger|fire|burn|leak|smell|toxic|rash|missing|poor quality|cheap|fake|scam/i.test(
+        String(theme || "")
+      )
+    ).length;
+
+    const genericPraiseCount = praiseThemes.filter((theme) =>
+      /good|great|nice|love|excellent|perfect|amazing/i.test(String(theme || "")) &&
+      !/because|battery|quality|durable|works|performance|fit|size|price|value|shipping|material|comfort|easy|fast|quiet|strong/i.test(
+        String(theme || "")
+      )
+    ).length;
+
+    const specificPraiseCount = Math.max(0, praiseCount - genericPraiseCount);
+
+    let calculatedBuyScore =
+      5 +
+      Math.min(3, specificPraiseCount * 0.7) -
+      Math.min(4, complaintCount * 0.55 + seriousComplaintCount * 0.9);
+
+    if (praiseCount > complaintCount * 2 && seriousComplaintCount === 0) {
+      calculatedBuyScore += 0.6;
+    }
+
+    if (complaintCount > praiseCount || seriousComplaintCount >= 2) {
+      calculatedBuyScore -= 0.8;
+    }
+
+    buyScore = Math.max(1, Math.min(10, Math.round(calculatedBuyScore)));
+
+    if (buyScore >= 8 && seriousComplaintCount === 0 && specificPraiseCount >= 3) {
       verdict = "BUY";
-      buyScore = 8;
       valueForMoney = "Good";
       bottomLine =
-        "ReviewIntel found usable review evidence with repeated positive buyer themes and no repeated complaint pattern in the collected evidence.";
+        "ReviewIntel read the collected written reviews and found repeated specific buyer praise with no dominant serious complaint pattern.";
+    } else if (buyScore <= 4 || seriousComplaintCount >= 3 || complaintCount > praiseCount) {
+      verdict = "AVOID";
+      valueForMoney = "Risky";
+      bottomLine =
+        "ReviewIntel read the collected written reviews and found repeated complaint patterns that outweigh the positive signals.";
     } else {
       verdict = "CONSIDER";
-      buyScore = 6;
       valueForMoney = "Fair";
       bottomLine =
-        "ReviewIntel found usable review evidence, but the signals are mixed or not strong enough for a confident Buy.";
+        "ReviewIntel read the collected written reviews and found mixed buyer signals. Review the repeated complaints before buying.";
     }
   } else if (hasVerifiedListingMetadata) {
     finalDecisionSource = "verifiedListingMetadata";
