@@ -287,6 +287,93 @@ Rules:
   }
 }
 
+
+function htmlDecodeLight(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractProductEvidenceFromHtml(html: string) {
+  const title =
+    html.match(/<span[^>]+id=["']productTitle["'][^>]*>([\s\S]{5,500}?)<\/span>/i)?.[1] ||
+    html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']{5,500})["']/i)?.[1] ||
+    html.match(/<title[^>]*>([\s\S]{5,500}?)<\/title>/i)?.[1] ||
+    null;
+
+  const cleanTitle = title
+    ? htmlDecodeLight(title.replace(/<[^>]+>/g, " ").replace(/\s*:\s*Amazon\.ca.*$/i, ""))
+    : null;
+
+  const ratingText =
+    html.match(/([0-5](?:\.\d)?)\s+out of\s+5\s+stars/i)?.[1] ||
+    html.match(/"ratingValue"\s*:\s*"?([0-5](?:\.\d)?)"?/i)?.[1] ||
+    null;
+
+  const reviewText =
+    html.match(/([\d,]+)\s+(?:ratings?|reviews?)/i)?.[1] ||
+    html.match(/"reviewCount"\s*:\s*"?([\d,]+)"?/i)?.[1] ||
+    null;
+
+  const rating = ratingText ? Number(ratingText) : null;
+  const reviewCount = reviewText ? Number(reviewText.replace(/,/g, "")) : null;
+
+  return {
+    title: cleanTitle,
+    rating: Number.isFinite(rating) && rating && rating > 0 ? rating : null,
+    reviewCount: Number.isFinite(reviewCount) && reviewCount && reviewCount > 0 ? reviewCount : null,
+  };
+}
+
+async function enrichRetrievedProductCandidate(candidate: RetrievedProductUrl, timeoutMs = 2500): Promise<RetrievedProductUrl & {
+  rating?: number | null;
+  reviewCount?: number | null;
+}> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(candidate.url, {
+      signal: controller.signal,
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-CA,en;q=0.9",
+      },
+    });
+
+    if (!response.ok) return candidate;
+
+    const html = await response.text();
+    const evidence = extractProductEvidenceFromHtml(html);
+
+    return {
+      ...candidate,
+      title: evidence.title || candidate.title,
+      ...(evidence.rating ? { rating: evidence.rating } : {}),
+      ...(evidence.reviewCount ? { reviewCount: evidence.reviewCount } : {}),
+      notes: [
+        ...candidate.notes,
+        evidence.title
+          ? "Enriched candidate from product page HTML."
+          : "Product page opened but title evidence was limited.",
+      ],
+    };
+  } catch {
+    return {
+      ...candidate,
+      notes: [...candidate.notes, "Product page enrichment failed or timed out."],
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function retrieveProductUrls(input: ProductUrlRetrievalInput) {
   const timeoutMs = input.timeoutMs || 9000;
   const maxCandidates = input.maxCandidates || 6;
@@ -315,11 +402,15 @@ export async function retrieveProductUrls(input: ProductUrlRetrievalInput) {
     return true;
   }).slice(0, maxCandidates);
 
+  const enriched = await Promise.all(
+    unique.map((candidate) => enrichRetrievedProductCandidate(candidate, 2200))
+  );
+
   return {
-    candidates: unique,
+    candidates: enriched,
     queries,
     elapsedMs: Date.now() - startedAt,
     timedOut: Date.now() - startedAt >= timeoutMs,
-    sourceCount: unique.length,
+    sourceCount: enriched.length,
   };
 }

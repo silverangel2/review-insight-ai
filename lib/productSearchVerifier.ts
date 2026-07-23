@@ -55,7 +55,7 @@ function normalize(value: unknown) {
 
 function numberFrom(value: unknown) {
   const n = Number(String(value || "").replace(/[^0-9.]/g, ""));
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function domainFromUrl(url: string | null | undefined) {
