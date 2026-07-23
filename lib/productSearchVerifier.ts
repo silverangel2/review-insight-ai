@@ -78,21 +78,53 @@ function storeDomain(store: unknown) {
   return s;
 }
 
+const COLOR_WORDS = new Set([
+  "black",
+  "white",
+  "gray",
+  "grey",
+  "pink",
+  "blue",
+  "green",
+  "red",
+  "purple",
+  "yellow",
+  "orange",
+  "silver",
+  "gold",
+  "beige",
+  "brown",
+  "navy",
+  "cream",
+  "clear",
+]);
+
+function colorsIn(value: unknown) {
+  const colors = new Set<string>();
+  for (const word of normalize(value).split(/\s+/)) {
+    const color = word === "grey" ? "gray" : word;
+    if (COLOR_WORDS.has(color)) colors.add(color);
+  }
+  return colors;
+}
+
 function importantTerms(job: ProductSearchJob) {
   const text = normalize([job.brand, job.productName, job.productKey].filter(Boolean).join(" "));
   const terms = new Set<string>();
 
   for (const term of text.split(/\s+/)) {
     if (term.length < 3) continue;
-    if (["the", "and", "for", "with", "from", "portable", "rechargeable"].includes(term)) continue;
+    if (["the", "and", "for", "with", "from", "portable", "rechargeable", "amazon", "walmart"].includes(term)) continue;
     terms.add(term);
   }
 
-  if (/5000\s*mah/i.test(String(job.productName || ""))) terms.add("5000mah");
-  if (/gray|grey/i.test(String(job.productName || ""))) terms.add("gray");
-  if (/pink/i.test(String(job.productName || ""))) terms.add("pink");
-  if (/28\s*hours/i.test(String(job.productName || ""))) terms.add("28");
-  if (/5\s*speed/i.test(String(job.productName || ""))) terms.add("speed");
+  const rawText = [job.productName, job.productKey].filter(Boolean).join(" ");
+  for (const match of rawText.matchAll(/\b\d+(?:\.\d+)?\s*(?:mah|ml|oz|inch|inches|cm|mm|w|v|gb|tb|pack|pcs|piece|speed|hours?)\b/gi)) {
+    terms.add(match[0].replace(/\s+/g, ""));
+  }
+  for (const match of rawText.matchAll(/\b[A-Z0-9]{4,}(?:-[A-Z0-9]+)?\b/g)) {
+    terms.add(match[0].toLowerCase());
+  }
 
   return Array.from(terms).slice(0, 18);
 }
@@ -103,14 +135,19 @@ export function buildProductRetryQueries(job: ProductSearchJob, reason?: string)
   const store = String(job.store || "").trim() || "Amazon.ca";
   const rating = job.rating ? `${job.rating} stars` : "";
   const reviews = job.reviewCount ? `${job.reviewCount} reviews` : "";
-  const color = /gray|grey/i.test(name) ? "Gray" : String(job.color || "").trim();
+  const color =
+    String(job.color || "").trim() ||
+    (name.match(/\b(black|white|gray|grey|pink|blue|green|red|purple|yellow|orange|silver|gold|beige|brown|navy|cream|clear)\b/i)?.[1] || "");
+  const important = importantTerms(job).slice(0, 8);
+  const quotedImportant = important.slice(0, 5).map((term) => `"${term}"`).join(" ");
+  const siteTarget = storeDomain(store) || store.toLowerCase();
 
   const queries = [
     `${brand} ${name} ${store}`,
+    `${brand} ${important.join(" ")} ${color} ${store}`,
     `${brand} ${color} ${rating} ${reviews} ${store}`,
-    `${brand} 5000mAh Gray 28 Hours 5 Speed ${store}`,
-    `"${brand}" "5000mAh" "Gray" "${job.reviewCount || ""} reviews" "${store}"`,
-    `site:${store.toLowerCase()} ${brand} 5000mAh Gray Mini Handheld Fan`,
+    `"${brand}" ${quotedImportant} "${store}"`,
+    `site:${siteTarget} ${brand} ${important.join(" ")}`,
   ];
 
   if (reason) {
@@ -133,6 +170,7 @@ export function verifyProductCandidate(job: ProductSearchJob, candidate: Product
   const candidateUrl = candidate.url || null;
   const candidateDomain = domainFromUrl(candidateUrl);
   const expectedDomain = storeDomain(job.store);
+  const preferredStoreMismatch = Boolean(expectedDomain && candidateDomain && !candidateDomain.includes(expectedDomain));
 
   if (!candidateUrl || /\/s\?|search|keyword|category|browse/i.test(candidateUrl)) {
     return {
@@ -148,27 +186,19 @@ export function verifyProductCandidate(job: ProductSearchJob, candidate: Product
     };
   }
 
-  if (expectedDomain && !candidateDomain.includes(expectedDomain)) {
-    return {
-      verifierStatus: "rejected_wrong_store",
-      verifierConfidence: 0,
-      verifierReasons: [`Expected ${expectedDomain}, but candidate domain is ${candidateDomain || "missing"}.`],
-      verifiedListingUrl: null,
-      rejectedListingUrl: candidateUrl,
-      rejectedListingTitle: candidate.title || null,
-      retrySearchQueries: buildProductRetryQueries(job, "correct store"),
-      canCollectReviews: false,
-      canScoreProduct: false,
-    };
-  }
-
-  const requestedGray = /\bgray\b|\bgrey\b/i.test(jobText);
-  const candidatePink = /\bpink\b/i.test(candidateText);
+  const requestedColors = colorsIn(jobText);
+  const candidateColors = colorsIn(candidateText);
   const requested5000 = /5000\s*mah|5000mah/i.test(jobText);
   const candidate5000 = /5000\s*mah|5000mah/i.test(candidateText);
 
-  if (requestedGray && candidatePink) {
-    reasons.push("Requested Gray but candidate appears to be Pink.");
+  if (requestedColors.size > 0 && candidateColors.size > 0) {
+    const hasRequestedColor = Array.from(requestedColors).some((color) => candidateColors.has(color));
+    const hasDifferentColor = Array.from(candidateColors).some((color) => !requestedColors.has(color));
+    if (!hasRequestedColor && hasDifferentColor) {
+      reasons.push(
+        `Requested color/variant ${Array.from(requestedColors).join(", ")}, but candidate appears to be ${Array.from(candidateColors).join(", ")}.`
+      );
+    }
   }
 
   if (requested5000 && !candidate5000) {
@@ -177,13 +207,19 @@ export function verifyProductCandidate(job: ProductSearchJob, candidate: Product
 
   const requestedRating = numberFrom(job.rating);
   const candidateRating = numberFrom(candidate.rating);
-  if (requestedRating !== null && candidateRating !== null && Math.abs(requestedRating - candidateRating) > 0.15) {
+  if (
+    !preferredStoreMismatch &&
+    requestedRating !== null &&
+    candidateRating !== null &&
+    Math.abs(requestedRating - candidateRating) > 0.15
+  ) {
     reasons.push(`Requested rating ${requestedRating}, but candidate rating is ${candidateRating}.`);
   }
 
   const requestedReviews = numberFrom(job.reviewCount);
   const candidateReviews = numberFrom(candidate.reviewCount);
   if (
+    !preferredStoreMismatch &&
     requestedReviews !== null &&
     candidateReviews !== null &&
     requestedReviews > 0 &&
@@ -195,15 +231,22 @@ export function verifyProductCandidate(job: ProductSearchJob, candidate: Product
   const terms = importantTerms(job);
   const matchedTerms = terms.filter((term) => candidateText.includes(term));
   const termCoverage = terms.length ? matchedTerms.length / terms.length : 0;
+  const requiredTermCoverage = preferredStoreMismatch ? 0.82 : 0.55;
 
-  if (termCoverage < 0.55) {
+  if (termCoverage < requiredTermCoverage) {
     reasons.push(
       `Candidate is missing distinctive requested terms. Matched ${matchedTerms.length}/${terms.length}: ${matchedTerms.join(", ")}.`
     );
   }
 
+  if (preferredStoreMismatch && termCoverage < 0.82) {
+    reasons.push(
+      `Preferred store was ${expectedDomain}, but candidate domain is ${candidateDomain || "missing"} and exact-product term coverage is not strong enough for fallback.`
+    );
+  }
+
   if (reasons.length > 0) {
-    const variantProblem = reasons.some((r) => /gray|pink|5000mah/i.test(r));
+    const variantProblem = reasons.some((r) => /color\/variant|5000mah/i.test(r));
     const ratingProblem = reasons.some((r) => /rating|review count/i.test(r));
 
     return {
@@ -226,7 +269,11 @@ export function verifyProductCandidate(job: ProductSearchJob, candidate: Product
   return {
     verifierStatus: "verified_exact_match",
     verifierConfidence: Math.max(75, Math.round(termCoverage * 100)),
-    verifierReasons: ["Candidate passed store, variant, rating/review-count, and distinctive-term checks."],
+    verifierReasons: [
+      preferredStoreMismatch
+        ? "Candidate is outside the preferred store, but passed strict exact-product fallback checks."
+        : "Candidate passed store, variant, rating/review-count, and distinctive-term checks.",
+    ],
     verifiedListingUrl: candidateUrl,
     rejectedListingUrl: null,
     rejectedListingTitle: null,

@@ -40,3 +40,33 @@ test("rejected exact listings cannot collect unrelated written reviews", () => {
   assert.match(evidence, /return insufficientEvidence;/);
   assert.match(evidence, /hasVariantMismatch \|\|\s*\(hasRatingMismatch && hasReviewCountMismatch\)/);
 });
+
+test("exact product search uses candidate collection instead of one guessed URL", () => {
+  const exactSearch = source("lib/exactProductSearch.ts");
+
+  assert.match(exactSearch, /export async function findExactProductCandidates/);
+  assert.match(exactSearch, /"candidates": \[/);
+  assert.match(exactSearch, /Return 3 to \$\{maxCandidates\} candidates when possible/);
+  assert.match(exactSearch, /searchQueries/);
+  assert.match(exactSearch, /AbortController/);
+});
+
+test("review evidence runs a bounded verifier retry loop before collection", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(evidence, /async function runExactProductAgent/);
+  assert.match(evidence, /const maxCandidates = 5/);
+  assert.match(evidence, /const maxRetryRounds = 2/);
+  assert.match(evidence, /findExactProductCandidates/);
+  assert.match(evidence, /\[ReviewIntel DEBUG exactProductAgent\]/);
+  assert.match(evidence, /productVerifierResult\.canCollectReviews/);
+  assert.match(evidence, /verifiedListingUrlForCollection/);
+});
+
+test("exact product verifier treats other stores as strict fallback sources", () => {
+  const verifier = source("lib/productSearchVerifier.ts");
+
+  assert.match(verifier, /preferredStoreMismatch/);
+  assert.match(verifier, /const requiredTermCoverage = preferredStoreMismatch \? 0\.82 : 0\.55/);
+  assert.match(verifier, /strict exact-product fallback checks/);
+});

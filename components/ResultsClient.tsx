@@ -1419,21 +1419,12 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     getToolProofBoolean(reviewEvidence, "exactListingAccepted") ??
     getToolProofBoolean(reviewIntelTrace || {}, "exactListingAccepted") ??
     false;
-  const exactListingRejectedReason =
-    getToolProofString(raw, "exactListingRejectedReason") ||
-    getToolProofString(reviewEvidence, "exactListingRejectedReason") ||
-    getToolProofString(reviewIntelTrace || {}, "exactListingRejectedReason");
   const collectorSourceAccepted =
     getToolProofBoolean(raw, "collectorSourceAccepted") ??
     getToolProofBoolean(reviewEvidence, "collectorSourceAccepted") ??
     getToolProofBoolean(reviewCollector, "collectorSourceAccepted") ??
     getToolProofBoolean(reviewIntelTrace || {}, "collectorSourceAccepted") ??
     false;
-  const collectorSourceRejectedReason =
-    getToolProofString(raw, "collectorSourceRejectedReason") ||
-    getToolProofString(reviewEvidence, "collectorSourceRejectedReason") ||
-    getToolProofString(reviewCollector, "collectorSourceRejectedReason") ||
-    getToolProofString(reviewIntelTrace || {}, "collectorSourceRejectedReason");
 
   const sourcesChecked = getToolProofArray(reviewEvidence, "sourcesChecked");
   const commentsAnalyzed = getToolProofNumber(reviewEvidence, "commentsAnalyzed");

@@ -6,7 +6,33 @@ type ExactProductSearchInput = {
   price?: number;
   rating?: number | null;
   reviewCount?: number | null;
+  searchQueries?: string[];
+  maxCandidates?: number;
+  timeoutMs?: number;
 
+};
+
+export type ExactProductCandidate = {
+  url: string | null;
+  title: string | null;
+  store: string | null;
+  domain: string | null;
+  price: number | null;
+  rating: number | null;
+  reviewCount: number | null;
+  source: string | null;
+  notes: string[];
+};
+
+export type ExactProductCandidateSearchResult = {
+  candidates: ExactProductCandidate[];
+  queries: string[];
+  sourcesChecked: string[];
+  sourceLinks: Array<{ label: string; url: string; domain?: string }>;
+  notes: string[];
+  elapsedMs: number;
+  timedOut: boolean;
+  attemptCount: number;
 };
 
 export type ExactProductSearchResult = {
@@ -46,19 +72,37 @@ function cleanJsonText(text: string) {
 }
 
 function clampRating(value: unknown) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  if (value < 0 || value > 5) return null;
-  return Math.round(value * 10) / 10;
+  const rating =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.replace(/[^0-9.]/g, ""))
+        : NaN;
+  if (!Number.isFinite(rating)) return null;
+  if (rating < 0 || rating > 5) return null;
+  return Math.round(rating * 10) / 10;
 }
 
 function parsePositiveNumber(value: unknown) {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
-  return Math.round(value * 100) / 100;
+  const number =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.replace(/[^0-9.]/g, ""))
+        : NaN;
+  if (!Number.isFinite(number) || number < 0) return null;
+  return Math.round(number * 100) / 100;
 }
 
 function parsePositiveInteger(value: unknown) {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
-  return Math.round(value);
+  const number =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.replace(/[^0-9.]/g, ""))
+        : NaN;
+  if (!Number.isFinite(number) || number < 0) return null;
+  return Math.round(number);
 }
 
 
@@ -95,13 +139,6 @@ function urlHostMatchesAcceptedDomain(url: string | null, acceptedDomain: string
   }
 }
 
-function parseConfidence(value: unknown): ExactProductSearchResult["confidence"] {
-  if (value === "high" || value === "medium" || value === "low" || value === "none") {
-    return value;
-  }
-  return "none";
-}
-
 function readSourceLinks(value: unknown): Array<{ label: string; url: string; domain?: string }> {
   if (!Array.isArray(value)) return [];
 
@@ -122,19 +159,16 @@ function readSourceLinks(value: unknown): Array<{ label: string; url: string; do
   return links;
 }
 
-function isProductCandidateUrl(url: string) {
-  return !/\/search|\/browse|\/category|\/brand(\/|$)|\/c\/|\/s(?:[/?#]|$)|[?&]k=|[?&]node=/i.test(url);
+function hostForUrl(url: string | null | undefined) {
+  try {
+    return new URL(String(url || "")).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
 }
 
-function firstAcceptedSourceLink(
-  links: Array<{ label: string; url: string; domain?: string }>,
-  acceptedDomain: string | null
-) {
-  return links.find((link) => {
-    if (!urlHostMatchesAcceptedDomain(link.url, acceptedDomain)) return false;
-    if (!isProductCandidateUrl(link.url)) return false;
-    return true;
-  }) || null;
+function isProductCandidateUrl(url: string) {
+  return !/\/search|\/browse|\/category|\/brand(\/|$)|\/c\/|\/s(?:[/?#]|$)|[?&]k=|[?&]node=/i.test(url);
 }
 
 function uniqueIdentityTokens(values: unknown[], limit = 36) {
@@ -161,13 +195,97 @@ function uniqueIdentityTokens(values: unknown[], limit = 36) {
   return tokens.join(" ").replace(/\s+/g, " ").trim();
 }
 
-export async function findExactProductListing(
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function readCandidate(value: unknown): ExactProductCandidate | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const url =
+    cleanString(record.url) ||
+    cleanString(record.exactListingUrl) ||
+    cleanString(record.link);
+
+  if (!url || !isProductCandidateUrl(url)) return null;
+
+  return {
+    url,
+    title:
+      cleanString(record.title) ||
+      cleanString(record.exactListingTitle) ||
+      cleanString(record.label) ||
+      null,
+    store: cleanString(record.store) || cleanString(record.domain) || hostForUrl(url),
+    domain: cleanString(record.domain) || hostForUrl(url),
+    price: parsePositiveNumber(record.price),
+    rating: clampRating(record.rating),
+    reviewCount: parsePositiveInteger(record.reviewCount),
+    source: cleanString(record.source) || "exact-product-search",
+    notes: Array.isArray(record.notes)
+      ? record.notes.map(String).filter(Boolean).slice(0, 6)
+      : [],
+  };
+}
+
+function fallbackCandidatesFromLinks(
+  links: Array<{ label: string; url: string; domain?: string }>
+): ExactProductCandidate[] {
+  return links
+    .map((link) =>
+      readCandidate({
+        url: link.url,
+        title: link.label,
+        domain: link.domain,
+        source: "sourceLinks",
+      })
+    )
+    .filter((candidate): candidate is ExactProductCandidate => Boolean(candidate));
+}
+
+function dedupeCandidates(candidates: ExactProductCandidate[], limit: number) {
+  const seen = new Set<string>();
+  const out: ExactProductCandidate[] = [];
+
+  for (const candidate of candidates) {
+    const url = String(candidate.url || "").trim();
+    if (!url) continue;
+    const key = url.toLowerCase().replace(/[?#].*$/, "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(candidate);
+    if (out.length >= limit) break;
+  }
+
+  return out;
+}
+
+function emptyCandidateSearchResult(
+  reason: string,
+  startedAt: number,
+  queries: string[] = [],
+  timedOut = false
+): ExactProductCandidateSearchResult {
+  return {
+    candidates: [],
+    queries,
+    sourcesChecked: [],
+    sourceLinks: [],
+    notes: [reason],
+    elapsedMs: Date.now() - startedAt,
+    timedOut,
+    attemptCount: 1,
+  };
+}
+
+export async function findExactProductCandidates(
   input: ExactProductSearchInput
-): Promise<ExactProductSearchResult> {
+): Promise<ExactProductCandidateSearchResult> {
+  const startedAt = Date.now();
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    return emptyExactResult("OPENAI_API_KEY is missing.");
+    return emptyCandidateSearchResult("OPENAI_API_KEY is missing.", startedAt);
   }
 
   const product = uniqueIdentityTokens([
@@ -180,19 +298,34 @@ export async function findExactProductListing(
   ], 36);
 
   if (!product || product.length < 3) {
-    return emptyExactResult("Product identity was not clear enough for exact listing search.");
+    return emptyCandidateSearchResult("Product identity was not clear enough for exact listing search.", startedAt);
   }
 
   const storeTarget = storeSearchTarget(input.store);
+  const maxCandidates = Math.max(1, Math.min(input.maxCandidates || 5, 5));
+  const timeoutMs = Math.max(3000, Math.min(input.timeoutMs || 12000, 30000));
+  const searchQueries = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(input.searchQueries) ? input.searchQueries : []),
+        product,
+      ]
+        .map((query) => String(query || "").replace(/\s+/g, " ").trim())
+        .filter((query) => query.length >= 3)
+    )
+  ).slice(0, 6);
 
   const prompt = `
-You are ReviewIntel's exact product listing finder.
+You are ReviewIntel's fast exact-product search retrieval tool.
 
-Find the most likely exact public product listing for:
+Find up to ${maxCandidates} possible public product page candidates for:
 "${product}"
 
 Preferred store targeting:
 ${storeTarget || "No specific store target. Search broadly."}
+
+Search queries to use:
+${JSON.stringify(searchQueries, null, 2)}
 
 Known screenshot/listing clues:
 - Store: ${input.store || "not provided"}
@@ -200,7 +333,7 @@ Known screenshot/listing clues:
 - Rating: ${input.rating ?? "not provided"}
 - Review count: ${input.reviewCount ?? "not provided"}
 
-Use these clues as identity signals. Prefer listings where title, store, price, rating, and review count match. Do not invent missing rating or review count.
+Use these clues as identity signals. Prefer listings where title, store, price, rating, variant/color/capacity, and review count match. Do not invent missing rating or review count.
 
 Priority:
 1. Exact store listing if store is known, especially Amazon, Walmart, Best Buy, Costco, Sephora, Temu, Target.
@@ -216,13 +349,19 @@ Return ONLY valid JSON. No markdown.
 
 JSON shape:
 {
-  "exactListingUrl": null,
-  "exactListingTitle": null,
-  "store": null,
-  "price": null,
-  "rating": null,
-  "reviewCount": null,
-  "confidence": "none | low | medium | high",
+  "candidates": [
+    {
+      "url": "https://example.com/product-page",
+      "title": "visible product page title",
+      "store": "Amazon.ca",
+      "domain": "amazon.ca",
+      "price": null,
+      "rating": null,
+      "reviewCount": null,
+      "source": "web search result, marketplace, source link, etc",
+      "notes": ["short visible clue"]
+    }
+  ],
   "sourcesChecked": [],
   "notes": [],
   "sourceLinks": [
@@ -235,11 +374,15 @@ JSON shape:
 }
 
 Rules:
-- If you find Walmart listing with visible rating/review count, include them.
+- Return 3 to ${maxCandidates} candidates when possible, not just one URL.
+- If you find a listing with visible rating/review count, include them.
 - If only search snippets are available, include values only if visible in evidence.
 - If not confident it is the same product, confidence must be low or none.
 - Do not guess rating or review count.
 `;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -254,11 +397,16 @@ Rules:
         input: prompt,
         temperature: 0.1,
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      return emptyExactResult(`Exact listing search failed: ${response.status} ${errorText.slice(0, 180)}`);
+      return emptyCandidateSearchResult(
+        `Exact listing search failed: ${response.status} ${errorText.slice(0, 180)}`,
+        startedAt,
+        searchQueries
+      );
     }
 
     const data = (await response.json()) as {
@@ -275,77 +423,93 @@ Rules:
       "";
 
     if (!outputText.trim()) {
-      return emptyExactResult("Exact listing search returned no usable result.");
+      return emptyCandidateSearchResult("Exact listing search returned no usable result.", startedAt, searchQueries);
     }
 
     const parsed = JSON.parse(cleanJsonText(outputText)) as Record<string, unknown>;
 
-    const acceptedDomain = acceptedExactDomainForStore(input.store);
     const sourceLinks = readSourceLinks(parsed.sourceLinks);
-    const acceptedSourceLink = firstAcceptedSourceLink(sourceLinks, acceptedDomain);
-
-    const parsedExactListingUrl =
-      typeof parsed.exactListingUrl === "string" && parsed.exactListingUrl.trim()
-        ? parsed.exactListingUrl.trim()
-        : "";
-    const exactListingUrl =
-      parsedExactListingUrl && isProductCandidateUrl(parsedExactListingUrl)
-        ? parsedExactListingUrl
-        : acceptedSourceLink?.url || null;
-
-    if (!urlHostMatchesAcceptedDomain(exactListingUrl, acceptedDomain)) {
-      return {
-        exactListingUrl: null,
-        exactListingTitle:
-          typeof parsed.exactListingTitle === "string" && parsed.exactListingTitle.trim()
-            ? parsed.exactListingTitle.trim()
-            : null,
-        store:
-          typeof parsed.store === "string" && parsed.store.trim()
-            ? parsed.store.trim()
-            : null,
-        price: null,
-        rating: null,
-        reviewCount: null,
-        confidence: "low",
-        sourcesChecked: Array.isArray(parsed.sourcesChecked)
-          ? parsed.sourcesChecked.map(String).slice(0, 12)
-          : exactListingUrl
-            ? [exactListingUrl]
-            : [],
-        sourceLinks,
-        notes: [
-          `Rejected returned listing because requested store requires ${acceptedDomain}, but the returned URL was ${exactListingUrl || "missing"}.`,
-          "ReviewIntel did not use this as exact product evidence.",
-        ],
-      };
-    }
-
-    const confidence = parseConfidence(parsed.confidence);
+    const rawCandidates = Array.isArray(parsed.candidates)
+      ? parsed.candidates
+      : parsed.exactListingUrl || parsed.url
+        ? [parsed]
+        : [];
+    const candidates = dedupeCandidates(
+      [
+        ...rawCandidates
+          .map(readCandidate)
+          .filter((candidate): candidate is ExactProductCandidate => Boolean(candidate)),
+        ...fallbackCandidatesFromLinks(sourceLinks),
+      ],
+      maxCandidates
+    );
 
     return {
-      exactListingUrl,
-      exactListingTitle:
-        typeof parsed.exactListingTitle === "string" && parsed.exactListingTitle.trim()
-          ? parsed.exactListingTitle.trim()
-          : acceptedSourceLink?.label || null,
-      store:
-        typeof parsed.store === "string" && parsed.store.trim()
-          ? parsed.store.trim()
-          : null,
-      price: parsePositiveNumber(parsed.price),
-      rating: clampRating(parsed.rating),
-      reviewCount: parsePositiveInteger(parsed.reviewCount),
-      confidence: confidence === "none" && exactListingUrl ? "medium" : confidence,
+      candidates,
+      queries: searchQueries,
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? parsed.sourcesChecked.map(String).slice(0, 12)
-        : [],
+        : candidates.map((candidate) => String(candidate.url || "")).filter(Boolean),
       sourceLinks,
       notes: Array.isArray(parsed.notes) ? parsed.notes.map(String).slice(0, 8) : [],
+      elapsedMs: Date.now() - startedAt,
+      timedOut: false,
+      attemptCount: 1,
     };
   } catch (error: unknown) {
-    return emptyExactResult(
-      error instanceof Error ? error.message : "Exact listing search failed."
+    return emptyCandidateSearchResult(
+      error instanceof Error ? error.message : "Exact listing search failed.",
+      startedAt,
+      searchQueries,
+      error instanceof Error && error.name === "AbortError"
     );
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+export async function findExactProductListing(
+  input: ExactProductSearchInput
+): Promise<ExactProductSearchResult> {
+  const searchResult = await findExactProductCandidates({
+    ...input,
+    maxCandidates: Math.max(1, Math.min(input.maxCandidates || 3, 5)),
+  });
+  const acceptedDomain = acceptedExactDomainForStore(input.store);
+  const candidate =
+    searchResult.candidates.find((item) => urlHostMatchesAcceptedDomain(item.url, acceptedDomain)) ||
+    searchResult.candidates[0] ||
+    null;
+
+  if (!candidate) {
+    return {
+      ...emptyExactResult(searchResult.notes[0] || "Exact listing search returned no product candidates."),
+      sourcesChecked: searchResult.sourcesChecked,
+      sourceLinks: searchResult.sourceLinks,
+    };
+  }
+
+  const confidence = candidate.url && urlHostMatchesAcceptedDomain(candidate.url, acceptedDomain)
+    ? "medium"
+    : "low";
+
+  return {
+    exactListingUrl: confidence === "low" ? null : candidate.url,
+    exactListingTitle: candidate.title,
+    store: candidate.store || candidate.domain,
+    price: candidate.price,
+    rating: candidate.rating,
+    reviewCount: candidate.reviewCount,
+    confidence,
+    sourcesChecked: searchResult.sourcesChecked.length
+      ? searchResult.sourcesChecked
+      : candidate.url
+        ? [candidate.url]
+        : [],
+    sourceLinks: searchResult.sourceLinks,
+    notes: [
+      ...searchResult.notes,
+      ...(candidate.notes || []),
+    ].slice(0, 10),
+  };
 }

@@ -22,7 +22,11 @@ function firstPositiveNumber(...values: unknown[]): number | null {
 import { normalizeSourceLinks } from "@/lib/reviewToolHelpers";
 import { createClient } from "@supabase/supabase-js";
 import { localeLabel, normalizeLocale } from "@/lib/i18n";
-import { findExactProductListing, type ExactProductSearchResult } from "@/lib/exactProductSearch";
+import {
+  findExactProductCandidates,
+  type ExactProductCandidate,
+  type ExactProductSearchResult,
+} from "@/lib/exactProductSearch";
 import { runFirecrawlFallback } from "@/lib/firecrawlFallback";
 import {
   runNativeReviewRetrieval,
@@ -32,6 +36,9 @@ import {
 import {
   verifyProductCandidate,
   buildProductRetryQueries,
+  type ProductCandidate,
+  type ProductSearchJob,
+  type ProductVerifierResult,
 } from "./productSearchVerifier";
 import {
   collectWrittenReviewsFromListing,
@@ -61,6 +68,16 @@ export type ReviewEvidenceResult = {
   collectorSourceAccepted?: boolean;
   collectorSourceRejectedReason?: string | null;
   resultSource?: "analyze" | "recommendations" | "history";
+  exactSearchAttemptCount?: number;
+  exactSearchElapsedMs?: number;
+  exactSearchTimedOut?: boolean;
+  verifierRetryCount?: number;
+  verifierStatus?: string | null;
+  verifierReasons?: string[];
+  retrySearchQueries?: string[];
+  verifiedListingUrl?: string | null;
+  rejectedListingUrls?: string[];
+  canCollectReviews?: boolean;
   sourcesChecked: string[];
   reviewsFound: number;
   marketplaceReviewCount?: number | null;
@@ -1284,6 +1301,345 @@ function reviewEvidenceNeedsAutomaticRecovery(evidence: ReviewEvidenceResult | n
   return reviewsCollected <= 0 && commentsAnalyzed <= 0 && reviewEvidenceSignalCount(evidence) <= 0;
 }
 
+type ExactProductAgentResult = {
+  listingEvidence: ExactProductSearchResult;
+  verifierResult: ProductVerifierResult;
+  exactSearchAttemptCount: number;
+  exactSearchElapsedMs: number;
+  exactSearchTimedOut: boolean;
+  verifierRetryCount: number;
+  verifierStatus: string;
+  verifierReasons: string[];
+  retrySearchQueries: string[];
+  verifiedListingUrl: string | null;
+  rejectedListingUrls: string[];
+  canCollectReviews: boolean;
+};
+
+function defaultVerifierResult(job: ProductSearchJob, reason: string): ProductVerifierResult {
+  return {
+    verifierStatus: "possible_match_needs_more_search",
+    verifierConfidence: 0,
+    verifierReasons: [reason],
+    verifiedListingUrl: null,
+    rejectedListingUrl: null,
+    rejectedListingTitle: null,
+    retrySearchQueries: buildProductRetryQueries(job, reason),
+    canCollectReviews: false,
+    canScoreProduct: false,
+  };
+}
+
+function productCandidateFromEvidence(
+  evidence: ReviewEvidenceResult | null | undefined
+): ProductCandidate | null {
+  const listing = evidence?.listingEvidence;
+  if (!listing?.exactListingUrl) return null;
+
+  return {
+    url: listing.exactListingUrl,
+    title: listing.exactListingTitle || null,
+    store: listing.store || null,
+    price: listing.price,
+    rating: listing.rating,
+    reviewCount: listing.reviewCount,
+    source: "verifiedSourceMemory",
+    notes: [
+      "Recent verified source memory matched the current product identity.",
+      ...(Array.isArray(listing.notes) ? listing.notes : []),
+    ].slice(0, 6),
+  };
+}
+
+function exactListingFromCandidate(
+  candidate: ProductCandidate | ExactProductCandidate,
+  verifierResult: ProductVerifierResult,
+  sourcesChecked: string[],
+  sourceLinks: Array<{ label: string; url: string; domain?: string }>,
+  notes: string[]
+): ExactProductSearchResult {
+  const confidence =
+    verifierResult.verifierConfidence >= 90
+      ? "high"
+      : verifierResult.verifierConfidence >= 65
+        ? "medium"
+        : "low";
+
+  return {
+    exactListingUrl: verifierResult.verifiedListingUrl,
+    exactListingTitle: candidate.title || null,
+    store: candidate.store || candidate.domain || null,
+    price: toOptionalNumber(candidate.price) ?? null,
+    rating: toOptionalNumber(candidate.rating) ?? null,
+    reviewCount: toOptionalNumber(candidate.reviewCount) ?? null,
+    confidence,
+    sourcesChecked,
+    sourceLinks,
+    notes: [
+      ...notes,
+      ...(Array.isArray(candidate.notes) ? candidate.notes : []),
+      ...verifierResult.verifierReasons,
+    ].filter(Boolean).slice(0, 12),
+  };
+}
+
+function emptyAgentListing(
+  input: ReviewEvidenceInput,
+  sourcesChecked: string[],
+  sourceLinks: Array<{ label: string; url: string; domain?: string }>,
+  notes: string[]
+): ExactProductSearchResult {
+  return {
+    exactListingUrl: null,
+    exactListingTitle: null,
+    store: input.store || null,
+    price: null,
+    rating: null,
+    reviewCount: null,
+    confidence: "low",
+    sourcesChecked,
+    sourceLinks,
+    notes: notes.length ? notes.slice(0, 12) : ["No verified exact product listing was found within the fast retry limit."],
+  };
+}
+
+function mergeUniqueStrings(values: unknown[], limit = 24) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const value of values) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+    if (out.length >= limit) break;
+  }
+
+  return out;
+}
+
+async function runExactProductAgent({
+  input,
+  product,
+  reviewSearchIdentity,
+  cleanVisibleIdentity,
+  rememberedEvidence,
+}: {
+  input: ReviewEvidenceInput;
+  product: string;
+  reviewSearchIdentity: string;
+  cleanVisibleIdentity: string;
+  rememberedEvidence: ReviewEvidenceResult | null;
+}): Promise<ExactProductAgentResult> {
+  const startedAt = Date.now();
+  const configuredTimeoutMs = Number(process.env.REVIEWINTEL_EXACT_SEARCH_TIMEOUT_MS || 30000);
+  const timeoutMs = Math.max(
+    5000,
+    Math.min(Number.isFinite(configuredTimeoutMs) ? configuredTimeoutMs : 30000, 30000)
+  );
+  const deadline = startedAt + timeoutMs;
+  const maxCandidates = 5;
+  const maxRetryRounds = 2;
+  const job: ProductSearchJob = {
+    scanId: reviewSearchIdentity || cleanVisibleIdentity || input.productName || "unknown-scan",
+    store: input.store,
+    brand: input.brand,
+    productName: input.productName,
+    productKey: reviewSearchIdentity || cleanVisibleIdentity || product,
+    price: input.price,
+    rating: input.rating,
+    reviewCount: input.reviewCount,
+  };
+
+  let exactSearchAttemptCount = 0;
+  let exactSearchTimedOut = false;
+  let verifierRetryCount = 0;
+  let verifierResult = defaultVerifierResult(job, "No exact product candidate has been verified yet.");
+  let verifierReasons: string[] = [];
+  let retrySearchQueries = buildProductRetryQueries(job);
+  const rejectedListingUrls: string[] = [];
+  const sourcesChecked: string[] = [];
+  const sourceLinks: Array<{ label: string; url: string; domain?: string }> = [];
+  const notes: string[] = [];
+  const checkedCandidateUrls = new Set<string>();
+
+  const verifyCandidate = (
+    candidate: ProductCandidate | ExactProductCandidate,
+    sourceLabel: string
+  ): ExactProductAgentResult | null => {
+    const candidateUrl = String(candidate.url || "").trim();
+    if (!candidateUrl) return null;
+    const dedupeKey = candidateUrl.toLowerCase().replace(/[?#].*$/, "");
+    if (checkedCandidateUrls.has(dedupeKey)) return null;
+    checkedCandidateUrls.add(dedupeKey);
+
+    const result = verifyProductCandidate(job, {
+      ...candidate,
+      source: candidate.source || sourceLabel,
+    });
+    verifierResult = result;
+    verifierReasons = mergeUniqueStrings([...verifierReasons, ...result.verifierReasons], 16);
+    retrySearchQueries = mergeUniqueStrings([...result.retrySearchQueries, ...retrySearchQueries], 8);
+
+    if (result.canCollectReviews && result.verifiedListingUrl) {
+      const listingEvidence = exactListingFromCandidate(
+        candidate,
+        result,
+        mergeUniqueStrings([...sourcesChecked, result.verifiedListingUrl, candidateUrl], 40),
+        normalizeSourceLinks([
+          ...sourceLinks,
+          {
+            label: candidate.title || "Verified exact product listing",
+            url: result.verifiedListingUrl,
+            domain: candidate.domain || candidate.store || undefined,
+          },
+        ]),
+        mergeUniqueStrings([...notes, `${sourceLabel} verified exact product candidate.`], 12)
+      );
+
+      return {
+        listingEvidence,
+        verifierResult: result,
+        exactSearchAttemptCount,
+        exactSearchElapsedMs: Date.now() - startedAt,
+        exactSearchTimedOut,
+        verifierRetryCount,
+        verifierStatus: result.verifierStatus,
+        verifierReasons: result.verifierReasons,
+        retrySearchQueries,
+        verifiedListingUrl: result.verifiedListingUrl,
+        rejectedListingUrls,
+        canCollectReviews: true,
+      };
+    }
+
+    if (result.rejectedListingUrl) rejectedListingUrls.push(result.rejectedListingUrl);
+    return null;
+  };
+
+  const rememberedCandidate =
+    rememberedEvidence && reviewEvidenceMatchesExactIdentity(rememberedEvidence, input)
+      ? productCandidateFromEvidence(rememberedEvidence)
+      : null;
+
+  if (rememberedCandidate) {
+    const rememberedResult = verifyCandidate(rememberedCandidate, "verified source memory");
+    if (rememberedResult) {
+      console.log("[ReviewIntel DEBUG exactProductAgent]", {
+        exactSearchAttemptCount: rememberedResult.exactSearchAttemptCount,
+        exactSearchElapsedMs: rememberedResult.exactSearchElapsedMs,
+        exactSearchTimedOut: rememberedResult.exactSearchTimedOut,
+        verifierRetryCount: rememberedResult.verifierRetryCount,
+        verifierStatus: rememberedResult.verifierStatus,
+        verifierReasons: rememberedResult.verifierReasons,
+        retrySearchQueries: rememberedResult.retrySearchQueries,
+        verifiedListingUrl: rememberedResult.verifiedListingUrl,
+        rejectedListingUrls: rememberedResult.rejectedListingUrls,
+        canCollectReviews: rememberedResult.canCollectReviews,
+      });
+      return rememberedResult;
+    }
+  }
+
+  for (let round = 0; round <= maxRetryRounds; round += 1) {
+    if (checkedCandidateUrls.size >= maxCandidates) break;
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 1000) {
+      exactSearchTimedOut = true;
+      break;
+    }
+
+    if (round > 0) verifierRetryCount += 1;
+    exactSearchAttemptCount += 1;
+
+    const roundQueries =
+      round === 0
+        ? mergeUniqueStrings([
+            reviewSearchIdentity,
+            cleanVisibleIdentity,
+            product,
+            ...retrySearchQueries.slice(0, 2),
+          ], 6)
+        : retrySearchQueries.slice(0, 6);
+
+    const searchResult = await findExactProductCandidates({
+      productName: product,
+      brand: input.brand,
+      store: input.store || undefined,
+      price: toOptionalNumber(input.price),
+      rating: toOptionalNumber(input.rating),
+      reviewCount: toOptionalNumber(input.reviewCount),
+      searchQueries: roundQueries,
+      maxCandidates: Math.max(1, maxCandidates - checkedCandidateUrls.size),
+      timeoutMs: Math.max(1000, Math.min(remainingMs, 12000)),
+    });
+
+    if (searchResult.timedOut) exactSearchTimedOut = true;
+    sourcesChecked.push(...searchResult.sourcesChecked, ...searchResult.candidates.map((candidate) => candidate.url || ""));
+    sourceLinks.push(...searchResult.sourceLinks);
+    notes.push(...searchResult.notes);
+
+    for (const candidate of searchResult.candidates) {
+      const verified = verifyCandidate(candidate, round === 0 ? "initial exact search" : "retry exact search");
+      if (verified) {
+        console.log("[ReviewIntel DEBUG exactProductAgent]", {
+          exactSearchAttemptCount: verified.exactSearchAttemptCount,
+          exactSearchElapsedMs: verified.exactSearchElapsedMs,
+          exactSearchTimedOut: verified.exactSearchTimedOut,
+          verifierRetryCount: verified.verifierRetryCount,
+          verifierStatus: verified.verifierStatus,
+          verifierReasons: verified.verifierReasons,
+          retrySearchQueries: verified.retrySearchQueries,
+          verifiedListingUrl: verified.verifiedListingUrl,
+          rejectedListingUrls: verified.rejectedListingUrls,
+          canCollectReviews: verified.canCollectReviews,
+        });
+        return verified;
+      }
+      if (checkedCandidateUrls.size >= maxCandidates) break;
+    }
+
+    if (!retrySearchQueries.length || exactSearchTimedOut) break;
+  }
+
+  const result: ExactProductAgentResult = {
+    listingEvidence: emptyAgentListing(
+      input,
+      mergeUniqueStrings(sourcesChecked, 40),
+      normalizeSourceLinks(sourceLinks),
+      mergeUniqueStrings([...notes, ...verifierReasons], 12)
+    ),
+    verifierResult,
+    exactSearchAttemptCount,
+    exactSearchElapsedMs: Date.now() - startedAt,
+    exactSearchTimedOut,
+    verifierRetryCount,
+    verifierStatus: verifierResult.verifierStatus,
+    verifierReasons,
+    retrySearchQueries,
+    verifiedListingUrl: null,
+    rejectedListingUrls: mergeUniqueStrings(rejectedListingUrls, 12),
+    canCollectReviews: false,
+  };
+
+  console.log("[ReviewIntel DEBUG exactProductAgent]", {
+    exactSearchAttemptCount: result.exactSearchAttemptCount,
+    exactSearchElapsedMs: result.exactSearchElapsedMs,
+    exactSearchTimedOut: result.exactSearchTimedOut,
+    verifierRetryCount: result.verifierRetryCount,
+    verifierStatus: result.verifierStatus,
+    verifierReasons: result.verifierReasons,
+    retrySearchQueries: result.retrySearchQueries,
+    verifiedListingUrl: result.verifiedListingUrl,
+    rejectedListingUrls: result.rejectedListingUrls,
+    canCollectReviews: result.canCollectReviews,
+  });
+
+  return result;
+}
+
 export async function collectAndAnalyzeReviewEvidence(
   input: ReviewEvidenceInput
 ): Promise<ReviewEvidenceResult> {
@@ -1366,17 +1722,24 @@ export async function collectAndAnalyzeReviewEvidence(
     });
   }
 
-  const rawListingEvidence = await findExactProductListing({
-    productName: product,
-    brand: input.brand,
-    store: input.store || undefined,
-    price: toOptionalNumber(input.price),
-    rating: toOptionalNumber(input.rating),
-    reviewCount: toOptionalNumber(input.reviewCount),
+  const exactProductAgent = await runExactProductAgent({
+    input,
+    product,
+    reviewSearchIdentity,
+    cleanVisibleIdentity,
+    rememberedEvidence,
   });
+  const rawListingEvidence = exactProductAgent.listingEvidence;
+  const productVerifierResult = exactProductAgent.verifierResult;
 
   console.log("[ReviewIntel DEBUG exactListingSearch]", {
     reviewSearchIdentity,
+    exactSearchAttemptCount: exactProductAgent.exactSearchAttemptCount,
+    exactSearchElapsedMs: exactProductAgent.exactSearchElapsedMs,
+    exactSearchTimedOut: exactProductAgent.exactSearchTimedOut,
+    verifierRetryCount: exactProductAgent.verifierRetryCount,
+    verifierStatus: exactProductAgent.verifierStatus,
+    verifierReasons: exactProductAgent.verifierReasons,
     exactListingUrl: rawListingEvidence.exactListingUrl,
     exactListingTitle: rawListingEvidence.exactListingTitle,
     store: rawListingEvidence.store,
@@ -1439,57 +1802,9 @@ export async function collectAndAnalyzeReviewEvidence(
     ? collectionNotesText ||
       "Matched listing was rejected because it did not confidently match the scanned product."
     : !listingEvidenceForCollection?.exactListingUrl
-      ? "No exact listing URL was accepted for written review collection."
+      ? productVerifierResult.verifierReasons.join(" ") ||
+        "No exact listing URL was accepted for written review collection."
       : null;
-
-
-  const verifierScanId = reviewSearchIdentity || cleanVisibleIdentity || input.productName || "unknown-scan";
-
-  const productVerifierResult = listingEvidenceForCollection?.exactListingUrl
-    ? verifyProductCandidate(
-        {
-          scanId: verifierScanId,
-          store: input.store,
-          brand: input.brand,
-          productName: input.productName,
-          productKey: reviewSearchIdentity,
-          price: input.price,
-          rating: input.rating,
-          reviewCount: input.reviewCount,
-        },
-        {
-          url: listingEvidenceForCollection.exactListingUrl,
-          title: listingEvidenceForCollection.exactListingTitle || null,
-          store: listingEvidenceForCollection.store || input.store || null,
-          price: listingEvidenceForCollection.price || null,
-          rating: listingEvidenceForCollection.rating || null,
-          reviewCount: listingEvidenceForCollection.reviewCount || null,
-          source: "exactListingSearch",
-          notes: Array.isArray(listingEvidenceForCollection.notes)
-            ? listingEvidenceForCollection.notes
-            : [],
-        }
-      )
-    : {
-        verifierStatus: "possible_match_needs_more_search" as const,
-        verifierConfidence: 0,
-        verifierReasons: ["No exact listing URL was found for verification."],
-        verifiedListingUrl: null,
-        rejectedListingUrl: null,
-        rejectedListingTitle: null,
-        retrySearchQueries: buildProductRetryQueries({
-          scanId: verifierScanId,
-          store: input.store,
-          brand: input.brand,
-          productName: input.productName,
-          productKey: reviewSearchIdentity,
-          price: input.price,
-          rating: input.rating,
-          reviewCount: input.reviewCount,
-        }),
-        canCollectReviews: false,
-        canScoreProduct: false,
-      };
 
   const verifiedListingUrlForCollection = productVerifierResult.canCollectReviews
     ? productVerifierResult.verifiedListingUrl
@@ -1774,6 +2089,16 @@ export async function collectAndAnalyzeReviewEvidence(
       exactListingRejectedReason,
       collectorSourceAccepted,
       collectorSourceRejectedReason,
+      exactSearchAttemptCount: exactProductAgent.exactSearchAttemptCount,
+      exactSearchElapsedMs: exactProductAgent.exactSearchElapsedMs,
+      exactSearchTimedOut: exactProductAgent.exactSearchTimedOut,
+      verifierRetryCount: exactProductAgent.verifierRetryCount,
+      verifierStatus: exactProductAgent.verifierStatus,
+      verifierReasons: exactProductAgent.verifierReasons,
+      retrySearchQueries: exactProductAgent.retrySearchQueries,
+      verifiedListingUrl: exactProductAgent.verifiedListingUrl,
+      rejectedListingUrls: exactProductAgent.rejectedListingUrls,
+      canCollectReviews: exactProductAgent.canCollectReviews,
       detectedProductKey: normalizeEvidenceProductKey(input),
       resultSource: "analyze",
       reviewsFound: Number(
@@ -1852,6 +2177,16 @@ export async function collectAndAnalyzeReviewEvidence(
     exactListingRejectedReason,
     collectorSourceAccepted,
     collectorSourceRejectedReason,
+    exactSearchAttemptCount: exactProductAgent.exactSearchAttemptCount,
+    exactSearchElapsedMs: exactProductAgent.exactSearchElapsedMs,
+    exactSearchTimedOut: exactProductAgent.exactSearchTimedOut,
+    verifierRetryCount: exactProductAgent.verifierRetryCount,
+    verifierStatus: exactProductAgent.verifierStatus,
+    verifierReasons: exactProductAgent.verifierReasons,
+    retrySearchQueries: exactProductAgent.retrySearchQueries,
+    verifiedListingUrl: exactProductAgent.verifiedListingUrl,
+    rejectedListingUrls: exactProductAgent.rejectedListingUrls,
+    canCollectReviews: exactProductAgent.canCollectReviews,
     listingEvidenceForCollectionConfidence: listingEvidenceForCollection?.confidence,
     listingEvidenceForCollectionNotes: listingEvidenceForCollection?.notes,
     extractor: collectedWrittenReviews.extractor,
@@ -2643,6 +2978,16 @@ Return ONLY valid JSON with the same shape as the first pass:
       exactListingRejectedReason,
       collectorSourceAccepted,
       collectorSourceRejectedReason,
+      exactSearchAttemptCount: exactProductAgent.exactSearchAttemptCount,
+      exactSearchElapsedMs: exactProductAgent.exactSearchElapsedMs,
+      exactSearchTimedOut: exactProductAgent.exactSearchTimedOut,
+      verifierRetryCount: exactProductAgent.verifierRetryCount,
+      verifierStatus: exactProductAgent.verifierStatus,
+      verifierReasons: exactProductAgent.verifierReasons,
+      retrySearchQueries: exactProductAgent.retrySearchQueries,
+      verifiedListingUrl: exactProductAgent.verifiedListingUrl,
+      rejectedListingUrls: exactProductAgent.rejectedListingUrls,
+      canCollectReviews: exactProductAgent.canCollectReviews,
       resultSource: "analyze",
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
