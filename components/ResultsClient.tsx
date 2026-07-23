@@ -1967,9 +1967,7 @@ export function ResultsClient() {
             }) ?? reviewEvidenceAnalyses[0] ?? null
           : parsed
             ? null
-            : activeScanId
-              ? null
-              : reviewEvidenceAnalyses[0] ?? null;
+            : reviewEvidenceAnalyses[0] ?? null;
 
         const stored = latest?.analysis_json && typeof latest.analysis_json === "object"
           ? (latest.analysis_json as Record<string, unknown>)
@@ -2009,9 +2007,19 @@ export function ResultsClient() {
 
       if (!parsed) return;
 
-      if (activeScanId && scanIdFromAnalyzeResponse(parsed) !== activeScanId) {
-        if (!cancelled) setResult(null);
-        return;
+      // An old active scan ID must never blank a newer valid result.
+      // The analysis API and account history are the source of truth.
+      const parsedScanId = scanIdFromAnalyzeResponse(parsed);
+      if (
+        activeScanId &&
+        parsedScanId &&
+        parsedScanId !== activeScanId &&
+        String((parsed as Record<string, unknown>).resultSource || "") !== "history"
+      ) {
+        console.warn("Ignoring stale active scan ID", {
+          activeScanId,
+          parsedScanId,
+        });
       }
 
       if (isImpossibleCachedShopperResult(parsed)) {
