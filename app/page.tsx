@@ -486,11 +486,7 @@ const mobileShopCarouselItems = [
         </div>
       </section>
 
-      <div className="hidden sm:block">
-        <div className="hidden sm:block">
-        <PlatformLogoOrbit initialLocale={locale} />
-      </div>
-      </div>
+      <PlatformLogoOrbit initialLocale={locale} />
 
       <section className="home-premium-payoff h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-8 text-ink sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-12">
         <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
@@ -554,19 +550,6 @@ const mobileShopCarouselItems = [
         </div>
       </section>
       <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
-
-      <section className="home-mobile-advert-loop h-[100svh] min-h-[100svh] snap-start snap-always overflow-hidden bg-[linear-gradient(180deg,#fff7ed_0%,#f8fbff_100%)] px-5 py-8 text-ink sm:hidden">
-        <div className="mx-auto flex h-full max-w-md flex-col justify-center">
-          <div className="mb-4">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-ocean">Sponsored</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight">Deals from our partners</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              Affiliate banners may earn ReviewIntel commission. Verdicts stay independent.
-            </p>
-          </div>
-          <AdSlot placement="mobile_homepage" compact />
-        </div>
-      </section>
     
       <section className="home-premium-ad-section hidden mx-auto max-w-6xl px-6 pb-12 sm:block">
         <AdSlot placement="homepage_mid" />
