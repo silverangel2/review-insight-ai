@@ -398,7 +398,7 @@ function attachLanguageMeta<T extends JsonRecord>(
   return {
     ...result,
     scanId,
-    detectedProductKey,
+    detectedProductKey: cleanDetectedProductKey(detectedProductKey),
     resultSource,
     meta: {
       ...asRecord(result.meta),
@@ -406,7 +406,7 @@ function attachLanguageMeta<T extends JsonRecord>(
       locale: normalizedLocaleCode(locale),
       outputLanguage,
       scanId,
-      detectedProductKey,
+      detectedProductKey: cleanDetectedProductKey(detectedProductKey),
       resultSource,
       researchQuality: asRecord(result.researchQuality),
       generatedAt: new Date().toISOString()
@@ -1765,7 +1765,7 @@ async function researchAndVerdict(
 
   console.log("[ReviewIntel DEBUG reviewEvidence]", {
     scanId,
-    detectedProductKey,
+    detectedProductKey: cleanDetectedProductKey(detectedProductKey),
     exactListingUrl: reviewEvidence?.listingEvidence?.exactListingUrl,
     exactListingTitle: reviewEvidence?.listingEvidence?.exactListingTitle,
     store: reviewEvidence?.listingEvidence?.store,
@@ -1784,7 +1784,7 @@ async function researchAndVerdict(
     reviewAuthenticity,
     rawRecord,
     scanId,
-    detectedProductKey,
+    detectedProductKey: cleanDetectedProductKey(detectedProductKey),
   });
 }
 
@@ -1995,6 +1995,28 @@ function computeVerdictConfidenceAudit(input: {
   };
 }
 
+
+
+function cleanDetectedProductKey(value: unknown) {
+  const seen = new Set<string>();
+  const words: string[] = [];
+
+  for (const rawWord of String(value || "")
+    .toLowerCase()
+    .replace(/amazon'?s choice/g, " ")
+    .replace(/https?:\/\/[^\s]+/g, " ")
+    .replace(/[^a-z0-9.%+-]+/g, " ")
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)) {
+    if (seen.has(rawWord)) continue;
+    seen.add(rawWord);
+    words.push(rawWord);
+    if (words.length >= 52) break;
+  }
+
+  return words.join(" ").replace(/\s+/g, " ").trim();
+}
 
 function buildReviewEvidenceShopperResult(input: {
   vision: Record<string, unknown>;
@@ -2364,7 +2386,7 @@ function buildReviewEvidenceShopperResult(input: {
 
     analysisVersion: "review-evidence-v2",
     scanId: input.scanId || null,
-    detectedProductKey: input.detectedProductKey || stableProductKey,
+    detectedProductKey: cleanDetectedProductKey(input.detectedProductKey || stableProductKey),
     exactListingAccepted,
     exactListingRejectedReason,
     collectorSourceAccepted,
@@ -2375,7 +2397,7 @@ function buildReviewEvidenceShopperResult(input: {
       mode: "shopper",
       source: "review-evidence-v2",
       scanId: input.scanId || null,
-      detectedProductKey: input.detectedProductKey || stableProductKey,
+      detectedProductKey: cleanDetectedProductKey(input.detectedProductKey || stableProductKey),
       resultSource: "analyze",
     },
 
@@ -2425,7 +2447,7 @@ function buildReviewEvidenceShopperResult(input: {
 
     reviewIntelTrace: {
       scanId: input.scanId || null,
-      detectedProductKey: input.detectedProductKey || stableProductKey,
+      detectedProductKey: cleanDetectedProductKey(input.detectedProductKey || stableProductKey),
       screenshotIdentity: {
         title: String(vision.name || vision.title || vision.category || "").trim(),
         brand: String(vision.brand || "").trim(),
@@ -2762,12 +2784,12 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         await recordCompletedScan(
-          attachLanguageMeta(fallbackResult, locale, outputLanguage, scanId, detectedProductKey, "analyze")
+          attachLanguageMeta(fallbackResult, locale, outputLanguage, scanId, cleanDetectedProductKey(detectedProductKey), "analyze")
         )
       );
     }
 
-    const productKey = detectedProductKey || createStableProductKey(vision, productLink);
+    const productKey = cleanDetectedProductKey(detectedProductKey || createStableProductKey(vision, productLink));
 
     const memory = await getProductMemory(productKey);
     void memory;
@@ -2810,7 +2832,7 @@ export async function POST(request: Request) {
               ? error.message
             : "We could not analyze this product. Please try a clearer screenshot or paste the product link.",
           scanId,
-          detectedProductKey,
+          detectedProductKey: cleanDetectedProductKey(detectedProductKey),
           resultSource: "analyze"
       },
       { status: 500 }
