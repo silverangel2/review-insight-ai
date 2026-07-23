@@ -977,7 +977,7 @@ function ShopperCompareDetail({ result }: { result: AnalyzeResponse }) {
 
       <div className="mt-5 rounded-[1.5rem] border border-ocean/15 bg-gradient-to-br from-ocean/8 via-white to-cyan-50 p-5 dark:border-cyan-300/20 dark:from-cyan-300/10 dark:via-slate-950 dark:to-slate-900">
         <p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-ocean dark:text-cyan-300">{copy.recommendation}</p>
-        <h3 className="mt-2 text-xl font-semibold leading-snug text-ink dark:text-white">{verdict}</h3>
+        <h3 className="mt-2 text-xl font-semibold leading-snug text-ink dark:text-white">{displayShopperVerdict(verdict)}</h3>
         <p className="mt-3 text-sm font-normal leading-6 text-slate-700 dark:text-slate-200">{whyWinner}</p>
       </div>
 
