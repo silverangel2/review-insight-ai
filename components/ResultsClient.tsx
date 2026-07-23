@@ -1571,9 +1571,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 
       {zeroReviewEvidence ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-          ReviewIntel could not access enough accepted exact-product written review evidence for this product. Buy Score and AI-like review risk are not scored.
-          {exactListingRejectedReason ? ` Exact listing gate: ${exactListingRejectedReason.slice(0, 220)}` : ""}
-          {collectorSourceRejectedReason ? ` Collector gate: ${collectorSourceRejectedReason.slice(0, 220)}` : ""}
+          ReviewIntel could not verify enough exact-product written review evidence, so Buy Score and AI-like review risk were not scored.
         </div>
       ) : null}
 
