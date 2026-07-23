@@ -601,6 +601,8 @@ export async function findExactProductCandidates(
   input: ExactProductSearchInput
 ): Promise<ExactProductCandidateSearchResult> {
   const startedAt = Date.now();
+
+
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
@@ -637,6 +639,25 @@ export async function findExactProductCandidates(
         .filter((query) => query.length >= 3)
     )
   ).slice(0, 6);
+
+  const fastInitialCandidates = await fetchFastProductUrlCandidates(searchQueries, maxCandidates, 4500).catch(() => []);
+  if (fastInitialCandidates.length > 0) {
+    return {
+      candidates: fastInitialCandidates,
+      queries: searchQueries.map((query) => cleanExactSearchQuery(query)),
+      sourcesChecked: fastInitialCandidates.map((candidate) => candidate.url),
+      sourceLinks: fastInitialCandidates.map((candidate) => ({
+        label: candidate.title || candidate.url,
+        url: candidate.url,
+        ...(candidate.domain ? { domain: candidate.domain } : {}),
+      })),
+      notes: [`Parsed ${fastInitialCandidates.length} product candidate URL(s) from fast search before GPT exact search.`],
+      elapsedMs: Date.now() - startedAt,
+      timedOut: false,
+      attemptCount: 1,
+    };
+  }
+
   const primarySearchQuery = searchQueries[0] || product;
 
   const prompt = `
