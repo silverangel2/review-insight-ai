@@ -2260,6 +2260,115 @@ export function ResultsClient() {
     }
   }, []);
 
+  // Final server-authoritative recovery:
+  // when browser cache, scan IDs, or old result-format checks fail,
+  // load the newest completed account analysis directly from the server.
+  useEffect(() => {
+    let cancelled = false;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const account = getClientAccount();
+        if (!account?.email || account.plan === "free_buyer") return;
+
+        const params = new URLSearchParams({
+          email: account.email,
+          plan: account.plan,
+          role: account.role,
+        });
+
+        const response = await fetch(
+          `/api/account/analyses?${params.toString()}`,
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        const analyses = Array.isArray(payload?.analyses)
+          ? payload.analyses
+          : [];
+
+        const latest = [...analyses]
+          .sort(
+            (a, b) =>
+              new Date(String(b?.created_at || 0)).getTime() -
+              new Date(String(a?.created_at || 0)).getTime()
+          )
+          .find(
+            (item) =>
+              item?.analysis_json &&
+              typeof item.analysis_json === "object"
+          );
+
+        if (!latest || cancelled) return;
+
+        const stored = latest.analysis_json as Record<string, unknown>;
+        const restored =
+          stored.result && typeof stored.result === "object"
+            ? (stored.result as Record<string, unknown>)
+            : stored;
+
+        const restoredAnalysis =
+          restored.analysis && typeof restored.analysis === "object"
+            ? restored.analysis
+            : restored;
+
+        const serverResult = {
+          ...restored,
+          analysis: restoredAnalysis as AnalyzeResponse["analysis"],
+          resultSource: "history",
+          analysisId: latest.id,
+          createdAt: latest.created_at,
+          meta: {
+            ...(
+              restored.meta && typeof restored.meta === "object"
+                ? restored.meta
+                : {}
+            ),
+            audience:
+              restored.meta &&
+              typeof restored.meta === "object" &&
+              "audience" in restored.meta
+                ? String(
+                    (restored.meta as Record<string, unknown>).audience ||
+                    "buyer"
+                  )
+                : "buyer",
+          },
+        } as unknown as AnalyzeResponse;
+
+        let finalResult = serverResult;
+
+        try {
+          finalResult = reconcileResponse(serverResult);
+        } catch (reconcileError) {
+          console.warn(
+            "Using raw completed server analysis after reconciliation failed",
+            reconcileError
+          );
+        }
+
+        saveLatestResult(finalResult, account);
+
+        if (!cancelled) {
+          setResult(finalResult);
+          setAccountPlan(account.plan);
+        }
+      } catch (error) {
+        console.error(
+          "Server-authoritative result recovery failed",
+          error
+        );
+      }
+    }, 800);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   if (!result) {
     return (
       <>
