@@ -259,6 +259,69 @@ function readCandidate(value: unknown): ExactProductCandidate | null {
   };
 }
 
+
+
+function dedupeSourceLinks(links: Array<{ label: string; url: string; domain?: string }>) {
+  const seen = new Set<string>();
+  const out: Array<{ label: string; url: string; domain?: string }> = [];
+
+  for (const link of links) {
+    if (!link.url || !/^https?:\/\//i.test(link.url)) continue;
+    const key = link.url.toLowerCase().replace(/[?#].*$/, "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(link);
+  }
+
+  return out.slice(0, 8);
+}
+
+function readSourceLinksFromResponseAnnotations(
+  output: Array<{ content?: Array<{ annotations?: Array<Record<string, unknown>>; text?: string }> }> | undefined
+) {
+  const links: Array<{ label: string; url: string; domain?: string }> = [];
+
+  for (const item of output || []) {
+    for (const content of item.content || []) {
+      for (const annotation of content.annotations || []) {
+        const url =
+          typeof annotation.url === "string"
+            ? annotation.url
+            : typeof annotation.uri === "string"
+              ? annotation.uri
+              : typeof annotation.href === "string"
+                ? annotation.href
+                : null;
+
+        if (!url || !/^https?:\/\//i.test(url)) continue;
+
+        const label =
+          typeof annotation.title === "string" && annotation.title.trim()
+            ? annotation.title
+            : typeof annotation.text === "string" && annotation.text.trim()
+              ? annotation.text
+              : url;
+
+        const domain = hostForUrl(url);
+
+        links.push({
+          label,
+          url,
+          ...(domain ? { domain } : {}),
+        });
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  return links.filter((link) => {
+    const key = link.url.toLowerCase().replace(/[?#].*$/, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function fallbackCandidatesFromLinks(
   links: Array<{ label: string; url: string; domain?: string }>
 ): ExactProductCandidate[] {
@@ -456,7 +519,12 @@ Rules:
 
     const data = (await response.json()) as {
       output_text?: string;
-      output?: Array<{ content?: Array<{ text?: string }> }>;
+      output?: Array<{
+        content?: Array<{
+          text?: string;
+          annotations?: Array<Record<string, unknown>>;
+        }>;
+      }>;
     };
 
     const outputText =
@@ -473,7 +541,10 @@ Rules:
 
     const parsed = JSON.parse(cleanJsonText(outputText)) as Record<string, unknown>;
 
-    const sourceLinks = readSourceLinks(parsed.sourceLinks);
+    const sourceLinks = dedupeSourceLinks([
+      ...readSourceLinks(parsed.sourceLinks),
+      ...readSourceLinksFromResponseAnnotations(data.output),
+    ]);
     const rawCandidates = Array.isArray(parsed.candidates)
       ? parsed.candidates
       : parsed.exactListingUrl || parsed.url
