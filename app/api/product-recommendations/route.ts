@@ -120,6 +120,90 @@ async function extractOpenGraphImage(url: string) {
   }
 }
 
+
+function amazonSearchUrlForRecommendation(title: string, marketplace = "amazon.ca") {
+  const host = marketplace.includes("amazon.com") ? "www.amazon.com" : "www.amazon.ca";
+  const query = encodeURIComponent(title.replace(/\s+/g, " ").trim());
+  return `https://${host}/s?k=${query}`;
+}
+
+function normalizeRecommendationUrls(
+  items: Awaited<ReturnType<typeof attachAffiliateUrl>>[],
+  marketplace = "amazon.ca",
+): Awaited<ReturnType<typeof attachAffiliateUrl>>[] {
+  const seenUrls = new Set<string>();
+  const seenTitles = new Set<string>();
+  const normalized = [];
+
+  for (const item of items) {
+    const title = item.title || "Amazon product recommendation";
+    const titleKey = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (seenTitles.has(titleKey)) continue;
+
+    const url = item.url || amazonSearchUrlForRecommendation(title, marketplace);
+
+    const looksPlaceholder =
+      /B09N1X1X1X|B07Z5Y5Y5Y/i.test(url) ||
+      seenUrls.has(url);
+
+    const safeUrl = looksPlaceholder
+      ? amazonSearchUrlForRecommendation(title, marketplace)
+      : url;
+
+    if (seenUrls.has(safeUrl)) continue;
+
+    seenTitles.add(titleKey);
+    seenUrls.add(safeUrl);
+
+    normalized.push(
+      attachAffiliateUrl({
+        ...item,
+        url: safeUrl,
+      }),
+    );
+
+    if (normalized.length >= 3) break;
+  }
+
+  const fallbackTitles = [
+    `${marketplace.includes("amazon.com") ? "" : ""}${items[0]?.title || "PDRN exosome serum"}`,
+    "PDRN exosome serum Korean skincare",
+    "reedle shot serum PDRN exosome",
+    "Korean spicule serum pore care",
+  ];
+
+  for (const title of fallbackTitles) {
+    if (normalized.length >= 3) break;
+
+    const cleanTitle = title.replace(/\s+/g, " ").trim();
+    const titleKey = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!cleanTitle || seenTitles.has(titleKey)) continue;
+
+    const safeUrl = amazonSearchUrlForRecommendation(cleanTitle, marketplace);
+    if (seenUrls.has(safeUrl)) continue;
+
+    seenTitles.add(titleKey);
+    seenUrls.add(safeUrl);
+
+    normalized.push(
+      attachAffiliateUrl({
+        title: cleanTitle,
+        store: marketplace.includes("amazon.com") ? "Amazon.com" : "Amazon.ca",
+        url: safeUrl,
+        imageUrl: null,
+        rating: null,
+        reviewCount: null,
+        price: null,
+        badge: normalized.length === 0 ? "Primary Pick" : normalized.length === 1 ? "Better Value" : "Stronger Quality",
+        whyBetter: "Search-based Amazon recommendation link generated because a unique verified product URL was not available.",
+        aiLikeRisk: "Not scored",
+      }),
+    );
+  }
+
+  return normalized.slice(0, 3);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -322,7 +406,7 @@ JSON format:
         amazonReady: Boolean(getAmazonAssociateTag()),
       },
       disclosure: getAffiliateDisclosure(),
-      recommendations,
+      recommendations: normalizeRecommendationUrls(recommendations),
     });
   } catch (error: unknown) {
     return NextResponse.json(
