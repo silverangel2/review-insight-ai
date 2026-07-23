@@ -1903,7 +1903,7 @@ export async function collectAndAnalyzeReviewEvidence(
       "No exact listing URL was accepted for written review collection."
     : null;
 
-  const exactListingAccepted = Boolean(listingUrlForReviewCollector);
+  let exactListingAccepted = Boolean(listingUrlForReviewCollector);
 
   // Exact listing is preferred, but identity-verified public written reviews
   // are also valid review-intelligence evidence.
@@ -2006,6 +2006,10 @@ export async function collectAndAnalyzeReviewEvidence(
       collectorSourceAccepted = combinedReviews.length > 0;
 
       if (collectorSourceAccepted) {
+        // Recovered review bodies matched the screenshot product identity.
+        // A missing listing URL or timed-out listing search must not overturn
+        // that successful exact-product recovery.
+        exactListingAccepted = true;
         collectorSourceRejectedReason = null;
       }
     } else {
@@ -2210,6 +2214,7 @@ export async function collectAndAnalyzeReviewEvidence(
       sourcesChecked,
       sourceLinks: collectorSourceAccepted ? localSourceLinks : [],
       listingEvidence: localDisplayListingEvidence,
+      exactListingConfirmed: collectorSourceAccepted && commentsAnalyzed > 0,
       exactListingAccepted,
       exactListingRejectedReason,
       collectorSourceAccepted,
@@ -2223,7 +2228,7 @@ export async function collectAndAnalyzeReviewEvidence(
       retrySearchQueries: exactProductAgent.retrySearchQueries,
       verifiedListingUrl: exactProductAgent.verifiedListingUrl,
       rejectedListingUrls: exactProductAgent.rejectedListingUrls,
-      canCollectReviews: exactProductAgent.canCollectReviews,
+      canCollectReviews: collectorSourceAccepted,
       detectedProductKey: normalizeEvidenceProductKey(input),
       resultSource: "analyze",
       reviewsFound: Number(
@@ -2321,9 +2326,14 @@ export async function collectAndAnalyzeReviewEvidence(
     firecrawlRecoveryNote,
   });
 
-  const verifiedCollectedReviewCount = productVerifierResult.canCollectReviews
-    ? Math.max(0, Number(collectedWrittenReviews.reviewsCollected || 0))
-    : 0;
+  const verifiedCollectedReviewCount =
+    collectorSourceAccepted
+      ? Math.max(
+          0,
+          Number(collectedWrittenReviews.reviewsCollected || 0),
+          collectedWrittenReviews.reviews.length
+        )
+      : 0;
 
   const hasVerifiedWrittenReviewEvidence = verifiedCollectedReviewCount >= 5;
 
@@ -2905,13 +2915,24 @@ Return ONLY valid JSON with the same shape as the first pass:
       listingNotes.includes("similar listing") ||
       listingNotes.includes("downgraded");
 
+    const recoveredExactProductConfirmed = Boolean(
+      collectorSourceAccepted &&
+      Math.max(
+        Number(collectedWrittenReviews.reviewsCollected || 0),
+        collectedWrittenReviews.reviews.length
+      ) > 0
+    );
+
     const exactListingConfirmed = Boolean(
-      !listingIsUnconfirmed &&
+      recoveredExactProductConfirmed ||
+      (
+        !listingIsUnconfirmed &&
         normalizedListingEvidence?.exactListingUrl &&
         (
           normalizedListingEvidence.confidence === "high" ||
           normalizedListingEvidence.confidence === "medium"
         )
+      )
     );
 
 
@@ -3132,7 +3153,7 @@ Return ONLY valid JSON with the same shape as the first pass:
       retrySearchQueries: exactProductAgent.retrySearchQueries,
       verifiedListingUrl: exactProductAgent.verifiedListingUrl,
       rejectedListingUrls: exactProductAgent.rejectedListingUrls,
-      canCollectReviews: exactProductAgent.canCollectReviews,
+      canCollectReviews: collectorSourceAccepted,
       resultSource: "analyze",
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
