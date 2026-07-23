@@ -2253,99 +2253,96 @@ function buildReviewEvidenceShopperResult(input: {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
-    // Score from AI-extracted written-review themes only.
-    // Do not use marketplace star rating or public review count to create a buying score.
-    // Do not force fixed 3 / 6 / 8 results.
-    const praiseCount = praiseThemes.length;
-    const complaintCount = complaintThemes.length;
+    // Derive the shopper score from the collected written-review evidence.
+    // Marketplace rating and public review count are context only and never
+    // create or boost this score.
+    const evidenceWeight = (item: unknown) => {
+      if (!item || typeof item !== "object") return 1;
+      const record = item as Record<string, unknown>;
+      const candidates = [
+        record.count,
+        record.mentions,
+        record.frequency,
+        record.reviewCount,
+        record.review_count,
+        record.occurrences,
+      ];
+      const value = candidates
+        .map(Number)
+        .find((candidate) => Number.isFinite(candidate) && candidate > 0);
+      return Math.max(1, Math.min(12, value || 1));
+    };
 
-    const seriousComplaintCount = complaintThemes.filter((theme) =>
-      /broken|stopped|does not work|doesn't work|not working|defect|damaged|refund|return|waste|unsafe|danger|fire|burn|leak|smell|toxic|rash|missing|poor quality|cheap|fake|scam/i.test(
-        String(theme || "")
-      )
-    ).length;
+    const positiveWeight =
+      repeatedPraises.reduce((total, item) => total + evidenceWeight(item), 0) +
+      Math.min(4, productPros.length) * 0.75;
+    const negativeWeight =
+      repeatedComplaints.reduce((total, item) => total + evidenceWeight(item), 0) +
+      Math.min(4, productCons.length) * 0.75;
 
-    const genericPraiseCount = praiseThemes.filter((theme) =>
-      /good|great|nice|love|excellent|perfect|amazing/i.test(String(theme || "")) &&
-      !/because|battery|quality|durable|works|performance|fit|size|price|value|shipping|material|comfort|easy|fast|quiet|strong/i.test(
-        String(theme || "")
-      )
-    ).length;
+    const seriousComplaintWeight = repeatedComplaints.reduce((total, item) => {
+      const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
+      const text = String(record.theme || record.summary || record.text || "");
+      return /broken|stopped|does not work|doesn't work|not working|defect|unsafe|danger|fire|burn|leak|toxic|injury|refund|return/i.test(text)
+        ? total + evidenceWeight(item)
+        : total;
+    }, 0);
 
-    const specificPraiseCount = Math.max(0, praiseCount - genericPraiseCount);
+    const totalSignalWeight = positiveWeight + negativeWeight;
+    const positiveShare = totalSignalWeight > 0 ? positiveWeight / totalSignalWeight : 0.5;
 
-    let calculatedBuyScore =
-      5 +
-      Math.min(3, specificPraiseCount * 0.7) -
-      Math.min(4, complaintCount * 0.55 + seriousComplaintCount * 0.9);
+    // Map the balance of actual written-review signals onto the full 1-10
+    // range. This avoids the previous artificial neutral starting score of 5.
+    let calculatedBuyScore = 1 + positiveShare * 9;
 
-    if (praiseCount > complaintCount * 2 && seriousComplaintCount === 0) {
-      calculatedBuyScore += 0.6;
-    }
+    // Repeated serious failures should matter more than ordinary dislikes.
+    if (seriousComplaintWeight >= 3) calculatedBuyScore -= 1.25;
+    else if (seriousComplaintWeight > 0) calculatedBuyScore -= 0.4;
 
-    if (complaintCount > praiseCount || seriousComplaintCount >= 2) {
-      calculatedBuyScore -= 0.8;
-    }
+    // Require enough written-review coverage for the strongest score band.
+    if (commentsAnalyzed < 5) calculatedBuyScore = Math.min(calculatedBuyScore, 6);
+    else if (commentsAnalyzed < 15) calculatedBuyScore = Math.min(calculatedBuyScore, 8);
 
     buyScore = Math.max(1, Math.min(10, Math.round(calculatedBuyScore)));
 
-    if (buyScore >= 8 && seriousComplaintCount === 0 && specificPraiseCount >= 3) {
+    if (
+      buyScore >= 7 &&
+      positiveWeight > negativeWeight &&
+      seriousComplaintWeight < 3
+    ) {
       verdict = "BUY";
-      valueForMoney = "Good";
+      valueForMoney = buyScore >= 9 ? "Excellent" : "Good";
       bottomLine =
-        "ReviewIntel read the collected written reviews and found repeated specific buyer praise with no dominant serious complaint pattern.";
-    } else if (buyScore <= 4 || seriousComplaintCount >= 3 || complaintCount > praiseCount) {
+        "ReviewIntel read the collected written reviews and found that repeated buyer strengths clearly outweigh the complaint signals.";
+    } else if (
+      buyScore <= 4 ||
+      negativeWeight > positiveWeight ||
+      seriousComplaintWeight >= 5
+    ) {
       verdict = "AVOID";
       valueForMoney = "Risky";
       bottomLine =
-        "ReviewIntel read the collected written reviews and found repeated complaint patterns that outweigh the positive signals.";
+        "ReviewIntel read the collected written reviews and found that repeated complaints outweigh the positive buyer signals.";
     } else {
       verdict = "CONSIDER";
       valueForMoney = "Fair";
       bottomLine =
-        "ReviewIntel read the collected written reviews and found mixed buyer signals. Review the repeated complaints before buying.";
+        "ReviewIntel read the collected written reviews and found meaningful strengths alongside complaint signals that should be checked before buying.";
     }
-  } else if (hasVerifiedListingMetadata) {
-    finalDecisionSource = "verifiedListingMetadata";
-    decisionStatus = "verified_listing_metadata";
-
-    const reviewVolumeBoost =
-      marketplaceReviewCount >= 1000
-        ? 1
-        : marketplaceReviewCount >= 250
-          ? 0.75
-          : marketplaceReviewCount >= 75
-            ? 0.5
-            : 0.25;
-    buyScore = Math.max(
-      1,
-      Math.min(8, Math.round((listingRatingForMetadataScore / 5) * 7 + reviewVolumeBoost))
-    );
-    verdict =
-      listingRatingForMetadataScore >= 4.2 && marketplaceReviewCount >= 75
-        ? "CONSIDER"
-        : listingRatingForMetadataScore < 3.7
-          ? "AVOID"
-          : "CONSIDER";
-    valueForMoney = buyScore >= 7 ? "Fair" : buyScore <= 4 ? "Risky" : "Unknown";
-    bottomLine =
-      "ReviewIntel confirmed the online listing rating and public review volume. Direct written review bodies were limited, so this is a cautious score with lower confidence.";
-  } else if (hasLimitedReviewEvidence) {
-    verdict = "CONSIDER";
-    decisionStatus = "limited_review_evidence";
-    finalDecisionSource = "limitedReviewEvidence";
-    buyScore = marketplaceReviewCount >= 75 ? 5 : 4;
-    valueForMoney = price ? "Unknown" : "Unknown";
-    bottomLine =
-      "ReviewIntel found limited exact-product review intelligence. Treat this as a cautious score and check the latest low-star reviews before buying.";
-  } else if (hasRecognizedProductEvidence) {
-    verdict = "CONSIDER";
-    decisionStatus = "identity_only_provisional";
-    finalDecisionSource = "identityOnlyProvisional";
-    buyScore = 4;
+  } else if (
+    hasVerifiedListingMetadata ||
+    hasLimitedReviewEvidence ||
+    hasRecognizedProductEvidence
+  ) {
+    // Listing stars, public review volume, and screenshot identity are useful
+    // context, but they are not substitutes for written review bodies.
+    verdict = "REVIEW EVIDENCE NOT ENOUGH";
+    decisionStatus = "not_enough_written_review_evidence";
+    finalDecisionSource = "reviewEvidenceNotEnough";
+    buyScore = null;
     valueForMoney = "Unknown";
     bottomLine =
-      "ReviewIntel identified the product from the screenshot, but could not verify enough online review evidence. This is a cautious provisional score, not a full review-based verdict.";
+      "ReviewIntel identified the product or listing, but did not collect enough readable written reviews to calculate a trustworthy Buy Score.";
   }
 
   const verdictConfidenceAudit = computeVerdictConfidenceAudit({

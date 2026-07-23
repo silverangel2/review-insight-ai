@@ -130,6 +130,8 @@ function amazonSearchUrlForRecommendation(title: string, marketplace = "amazon.c
 function normalizeRecommendationUrls(
   items: Awaited<ReturnType<typeof attachAffiliateUrl>>[],
   marketplace = "amazon.ca",
+  fallbackProductName = "",
+  fallbackBrand = "",
 ): Awaited<ReturnType<typeof attachAffiliateUrl>>[] {
   const seenUrls = new Set<string>();
   const seenTitles = new Set<string>();
@@ -165,11 +167,21 @@ function normalizeRecommendationUrls(
     if (normalized.length >= 3) break;
   }
 
+  const baseProductName = String(
+    fallbackProductName || items[0]?.title || "Amazon product alternative"
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+  const baseBrand = String(fallbackBrand || "").replace(/\s+/g, " ").trim();
+
+  // Always provide useful Amazon alternatives. When a unique verified product
+  // page is unavailable, return honest Amazon search links based on the actual
+  // scanned product instead of unrelated or hard-coded product names.
   const fallbackTitles = [
-    `${marketplace.includes("amazon.com") ? "" : ""}${items[0]?.title || "PDRN exosome serum"}`,
-    "PDRN exosome serum Korean skincare",
-    "reedle shot serum PDRN exosome",
-    "Korean spicule serum pore care",
+    [baseBrand, baseProductName, "alternative"].filter(Boolean).join(" "),
+    [baseProductName, "best rated"].filter(Boolean).join(" "),
+    [baseProductName, "better value"].filter(Boolean).join(" "),
+    [baseProductName, "premium quality"].filter(Boolean).join(" "),
   ];
 
   for (const title of fallbackTitles) {
@@ -415,7 +427,12 @@ JSON format:
         amazonReady: Boolean(getAmazonAssociateTag()),
       },
       disclosure: getAffiliateDisclosure(),
-      recommendations: normalizeRecommendationUrls(recommendations),
+      recommendations: normalizeRecommendationUrls(
+        recommendations,
+        "amazon.ca",
+        productName,
+        brand,
+      ),
     });
   } catch (error: unknown) {
     return NextResponse.json(

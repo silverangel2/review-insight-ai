@@ -381,13 +381,6 @@ export function BetterPicksPanel({
 
   if (affiliateDisabled) return null;
 
-  // Auto-loaded recommendation panels should disappear when Amazon
-  // returns no genuine alternatives. Keep the manual version visible
-  // so its search button can still be used.
-  if (autoLoad && !loading && picks.length === 0 && !error) {
-    return null;
-  }
-
   return (
     <section className={`${compact ? "mt-3 rounded-2xl p-3" : "mt-6 rounded-[2rem] p-5"} border border-emerald-200 bg-emerald-50 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

@@ -1020,7 +1020,9 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const shopper = shopperProductFromResult(result, locale);
   const verdict = {
     ...shopperVerdictStyle[shopper.verdict],
-    ...copy.verdicts[shopper.verdict]
+    ...copy.verdicts[shopper.verdict],
+    // Never expose the internal CONSIDER enum in shopper-facing UI.
+    answer: displayShopperVerdict(shopper.verdict)
   };
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
   const rawResultForVerdict = result as Record<string, unknown>;
@@ -1388,7 +1390,7 @@ function governedVerdictFromSource(source: Record<string, unknown>) {
       source.finalVerdict ||
       source.verdict ||
       source.recommendation ||
-      "CONSIDER"
+      "REVIEW EVIDENCE NOT ENOUGH"
   ).toUpperCase();
 }
 
