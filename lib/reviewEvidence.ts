@@ -2167,8 +2167,14 @@ Return ONLY valid JSON with the same shape as the first pass:
     );
 
 
-    const collectorReviewsCollected = collectedWrittenReviews.reviewsCollected || 0;
-    const collectorHasWrittenReviews = collectorReviewsCollected > 0;
+    const collectorReviewsCollected = Math.max(
+      collectedWrittenReviews.reviewsCollected || 0,
+      collectedWrittenReviews.reviews.length,
+    );
+    const collectorHasWrittenReviews =
+      collectorReviewsCollected > 0 ||
+      collectedWrittenReviews.collectorHasWrittenReviews ||
+      collectedWrittenReviews.reviews.length > 0;
 
     const marketplaceReviewCount = firstPositiveNumber(
       normalizedListingEvidence?.reviewCount,
