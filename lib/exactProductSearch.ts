@@ -1,4 +1,5 @@
 import { storeSearchTarget } from "@/lib/reviewToolHelpers";
+import { retrieveProductUrls } from "./productUrlRetrieval";
 type ExactProductSearchInput = {
   productName: string;
   brand?: string;
@@ -639,6 +640,57 @@ export async function findExactProductCandidates(
         .filter((query) => query.length >= 3)
     )
   ).slice(0, 6);
+
+  const retrievalFirst = await retrieveProductUrls({
+    store: input.store,
+    brand: input.brand,
+    productName: input.productName,
+    productKey: product,
+    rating: input.rating,
+    reviewCount: input.reviewCount,
+    maxCandidates,
+    timeoutMs: 8500,
+  }).catch(() => null);
+
+  if (retrievalFirst?.candidates?.length) {
+    console.log("[ReviewIntel DEBUG productUrlRetrieval]", {
+      queries: retrievalFirst.queries,
+      elapsedMs: retrievalFirst.elapsedMs,
+      timedOut: retrievalFirst.timedOut,
+      candidateCount: retrievalFirst.candidates.length,
+      candidateUrls: retrievalFirst.candidates.map((candidate) => candidate.url),
+      candidateSources: retrievalFirst.candidates.map((candidate) => candidate.source),
+    });
+
+    return {
+      candidates: retrievalFirst.candidates.map((candidate) => ({
+        url: candidate.url,
+        title: candidate.title,
+        domain: candidate.domain,
+        store: candidate.domain,
+        price: null,
+        rating: null,
+        reviewCount: null,
+        source: candidate.source,
+        notes: candidate.notes,
+      })),
+      queries: retrievalFirst.queries,
+      sourcesChecked: retrievalFirst.candidates.map((candidate) => candidate.url),
+      sourceLinks: retrievalFirst.candidates.map((candidate) => ({
+        label: candidate.title,
+        url: candidate.url,
+        domain: candidate.domain,
+      })),
+      notes: [
+        `Retrieved ${retrievalFirst.candidates.length} real product URL candidate(s) before GPT exact search.`,
+      ],
+      elapsedMs: retrievalFirst.elapsedMs,
+      timedOut: retrievalFirst.timedOut,
+      attemptCount: 1,
+    };
+  }
+
+
 
   const fastInitialCandidates = await fetchFastProductUrlCandidates(searchQueries, maxCandidates, 4500).catch(() => []);
   if (fastInitialCandidates.length > 0) {
