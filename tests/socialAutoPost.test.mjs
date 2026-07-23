@@ -454,6 +454,12 @@ test("Facebook explicit Reel skips safely when the selected source image is insi
 
     assert.equal(result.media, null);
     assert.equal(result.metadata.freshFacebookReel.fallback, "none");
+    assert.equal(result.metadata.freshFacebookReel.requiresVideo, true);
+    assert.equal(result.metadata.freshFacebookReel.blockedDirectImageUpload, true);
+    assert.equal(result.metadata.freshFacebookReel.generated_mp4_id, null);
+    assert.equal(result.metadata.freshFacebookReel.public_url, null);
+    assert.equal(Array.isArray(result.metadata.freshFacebookReel.hashtags), true);
+    assert.equal(result.metadata.freshFacebookReel.hashtags.length, 0);
     assert.match(result.metadata.freshFacebookReel.error, /cooldown/);
   } finally {
     cleanup();

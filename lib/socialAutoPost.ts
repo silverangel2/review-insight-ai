@@ -754,6 +754,33 @@ type FacebookMediaResolution = {
   } | null;
 };
 
+function freshFacebookReelFailureMetadata(error: unknown, fallback: "none" | "image") {
+  return {
+    ok: false,
+    fallback,
+    requiresVideo: fallback === "none",
+    blockedDirectImageUpload: fallback === "none",
+    skipped: fallback === "none",
+    skipped_reason:
+      fallback === "none"
+        ? "SOCIAL_AUTOPOST_FACEBOOK_FORMAT=reel requires a freshly generated public MP4."
+        : null,
+    source_image_id: null,
+    source_image_url: null,
+    generated_mp4_id: null,
+    generated_mp4_url: null,
+    public_url: null,
+    website_url: null,
+    website_short_url: null,
+    affiliate_url: null,
+    affiliate_short_url: null,
+    music_audio_track: null,
+    caption: null,
+    hashtags: [],
+    error: errorMessage(error, "Fresh Facebook Reel generation failed."),
+  };
+}
+
 let codexSocialLibraryCache: string[] | null = null;
 
 function codexSocialLibraryPaths() {
@@ -1598,13 +1625,7 @@ async function resolveFacebookMediaForFormat(
       return {
         media: null,
         metadata: {
-          freshFacebookReel: {
-            ok: false,
-            fallback: "none",
-            requiresVideo: true,
-            blockedDirectImageUpload: true,
-            error: errorMessage(error, "Fresh Facebook Reel generation failed."),
-          },
+          freshFacebookReel: freshFacebookReelFailureMetadata(error, "none"),
         },
       };
     }
@@ -1620,11 +1641,7 @@ async function resolveFacebookMediaForFormat(
     return {
       media: await pickFacebookImageFallback(topic, queue),
       metadata: {
-        freshFacebookReel: {
-          ok: false,
-          fallback: "image",
-          error: errorMessage(error, "Fresh Facebook Reel generation failed."),
-        },
+        freshFacebookReel: freshFacebookReelFailureMetadata(error, "image"),
       },
     };
   }
