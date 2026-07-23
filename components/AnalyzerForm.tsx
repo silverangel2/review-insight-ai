@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { isAccountProfileComplete, profileCompletionMissingFields } from "@/lib/account";
 import { accountHeaders, getClientAccount, saveQuota } from "@/lib/clientAccount";
-import { saveLatestPreview, saveLatestResult, clearLatestResult } from "@/lib/resultStorage";
+import { saveLatestPreview, saveLatestResult, clearLatestResult, setActiveScanId } from "@/lib/resultStorage";
 import { incrementStoredScanTally } from "@/lib/clientAccount";
 
 const SCAN_PROGRESS_STEPS = [
@@ -17,6 +17,14 @@ const SCAN_PROGRESS_STEPS = [
   "Comparing with fresh product memory",
   "Building the final verdict",
 ];
+
+function createClientScanId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `scan_${crypto.randomUUID()}`;
+  }
+
+  return `scan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
 
 
 function analyzerFormCopy(locale: string) {
@@ -218,8 +226,11 @@ export default function AnalyzerForm() {
       return;
     }
 
+    const scanId = createClientScanId();
+
     try {
       clearLatestResult();
+      setActiveScanId(scanId);
       if (typeof window !== "undefined") {
         window.sessionStorage.removeItem("reviewintel_selected_history_id");
         window.localStorage.removeItem("reviewintel_selected_history_id");
@@ -238,6 +249,7 @@ export default function AnalyzerForm() {
       formData.append("image", image);
       formData.append("productLink", productLink);
       formData.append("locale", readStoredLocale());
+      formData.append("scanId", scanId);
 
       const response = await fetch("/api/analyze", {
         method: "POST",
@@ -253,9 +265,13 @@ export default function AnalyzerForm() {
       }
       if (data?.quota) saveQuota(data.quota);
 
+      if (data?.scanId !== scanId) {
+        throw new Error("This scan finished out of order. Please run the scan again.");
+      }
+
       try {
         const account = getClientAccount();
-        saveLatestResult(data, account);
+        saveLatestResult({ ...data, resultSource: "analyze" }, account);
         incrementStoredScanTally();
         saveLatestPreview(previewDataUrl || preview);
         window.sessionStorage.removeItem("reviewintel_latest_result");

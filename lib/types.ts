@@ -158,6 +158,13 @@ export type ProductComparisonInput = {
 };
 
 export type AnalyzeResponse = {
+  scanId?: string | null;
+  detectedProductKey?: string | null;
+  exactListingAccepted?: boolean;
+  exactListingRejectedReason?: string | null;
+  collectorSourceAccepted?: boolean;
+  collectorSourceRejectedReason?: string | null;
+  resultSource?: "analyze" | "recommendations" | "history";
   analysis: ReviewAnalysis;
   meta: {
     mode: "openai" | "local-fallback";
@@ -175,5 +182,8 @@ export type AnalyzeResponse = {
     model_review_chars?: number;
     rating_breakdown?: Record<"1" | "2" | "3" | "4" | "5", number>;
     analysis_id?: string;
+    scanId?: string | null;
+    detectedProductKey?: string | null;
+    resultSource?: "analyze" | "recommendations" | "history";
   };
 };

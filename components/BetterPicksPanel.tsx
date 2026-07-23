@@ -53,8 +53,13 @@ function getVerdict(result: ResultRecord) {
   ).toUpperCase();
 }
 
-function cacheKeyFor(productName: string, verdict: string, locale: string) {
-  return `reviewintel_better_picks:${locale}:${productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 90)}:${verdict}`;
+function getScanId(result: ResultRecord) {
+  const meta = getRecord(result.meta);
+  return getString(result.scanId) || getString(meta.scanId);
+}
+
+function cacheKeyFor(productName: string, verdict: string, locale: string, scanId: string) {
+  return `reviewintel_better_picks:${scanId || "no-scan"}:${locale}:${productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 90)}:${verdict}`;
 }
 
 async function amazonAffiliateIsVisible(placement: AffiliatePartnerPlacement) {
@@ -271,8 +276,9 @@ export function BetterPicksPanel({
 
   const productName = useMemo(() => getProductName(result || {}), [result]);
   const verdict = useMemo(() => getVerdict(result || {}), [result]);
+  const scanId = useMemo(() => getScanId(result || {}), [result]);
   const panelCopy = copyForVerdict(verdict, locale);
-  const requestKey = useMemo(() => cacheKeyFor(productName, verdict, locale), [productName, verdict, locale]);
+  const requestKey = useMemo(() => cacheKeyFor(productName, verdict, locale, scanId), [productName, verdict, locale, scanId]);
 
   useEffect(() => {
     setLocale(readStoredLocale());
@@ -296,6 +302,10 @@ export function BetterPicksPanel({
     if (cached && options?.useCache) {
       try {
         const parsed = JSON.parse(cached);
+        if (getString(parsed?.scanId) && getString(parsed.scanId) !== scanId) {
+          window.sessionStorage.removeItem(requestKey);
+          return;
+        }
         if (Array.isArray(parsed?.recommendations)) setPicks(parsed.recommendations);
         if (typeof parsed?.disclosure === "string") setDisclosure(parsed.disclosure);
         return;
@@ -315,6 +325,7 @@ export function BetterPicksPanel({
         body: JSON.stringify({
           productName,
           result,
+          scanId,
           locale,
           affiliatePlacement,
         }),
@@ -327,6 +338,7 @@ export function BetterPicksPanel({
       }
 
       if (data.affiliateDisabled) {
+        if (data.scanId && scanId && data.scanId !== scanId) return;
         setAffiliateDisabled(true);
         setPicks([]);
         setError("");
@@ -335,6 +347,7 @@ export function BetterPicksPanel({
       }
 
       setAffiliateDisabled(false);
+      if (data.scanId && scanId && data.scanId !== scanId) return;
       const nextPicks = Array.isArray(data.recommendations) ? data.recommendations : [];
       setPicks(nextPicks);
       setDisclosure(data.disclosure || disclosure);
@@ -344,6 +357,7 @@ export function BetterPicksPanel({
         JSON.stringify({
           recommendations: nextPicks,
           disclosure: data.disclosure || disclosure,
+          scanId,
           savedAt: new Date().toISOString(),
         })
       );

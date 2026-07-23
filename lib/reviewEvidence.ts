@@ -50,6 +50,12 @@ type ReviewEvidenceInput = {
 export type ReviewEvidenceResult = {
   locale?: string;
   outputLanguage?: string;
+  detectedProductKey?: string | null;
+  exactListingAccepted?: boolean;
+  exactListingRejectedReason?: string | null;
+  collectorSourceAccepted?: boolean;
+  collectorSourceRejectedReason?: string | null;
+  resultSource?: "analyze" | "recommendations" | "history";
   sourcesChecked: string[];
   reviewsFound: number;
   marketplaceReviewCount?: number | null;
@@ -59,6 +65,8 @@ export type ReviewEvidenceResult = {
     extractor?: string;
     reviewsCollected: number;
     collectorHasWrittenReviews?: boolean;
+    collectorSourceAccepted?: boolean;
+    collectorSourceRejectedReason?: string | null;
     coverageNote: string;
     fallbackUrlsTried?: string[];
   };
@@ -128,17 +136,38 @@ function getReviewEvidenceSupabaseClient() {
 }
 
 function normalizeEvidenceProductKey(input: ReviewEvidenceInput) {
-  return [input.brand, input.productName, input.model]
-    .filter(Boolean)
-    .join(" ")
+  return uniqueIdentityTokens([input.brand, input.productName, input.model], 14)
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\b(with|and|for|the|a|an|set|bag|bags|suitcase|spinner|wheels|lock|lightweight|travel|women|men)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .split(" ")
     .slice(0, 10)
     .join(" ");
+}
+
+function uniqueIdentityTokens(values: unknown[], limit = 28) {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const value of values) {
+    const words = String(value || "")
+      .replace(/https?:\/\/[^\s]+/g, " ")
+      .replace(/[^a-z0-9.%+-]+/gi, " ")
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean);
+
+    for (const word of words) {
+      const key = word.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tokens.push(word);
+      if (tokens.length >= limit) return tokens.join(" ");
+    }
+  }
+
+  return tokens.join(" ").replace(/\s+/g, " ").trim();
 }
 
 function isFreshEvidence(updatedAt: unknown) {
@@ -396,15 +425,44 @@ const GENERIC_PRODUCT_TOKENS = new Set([
   "mens",
   "men",
   "shown",
-  "color",
-  "blue",
-  "black",
-  "pink",
   "travel",
   "traveling",
   "travelling",
   "front",
 ]);
+
+const PRODUCT_COLOR_TOKENS = new Set([
+  "black",
+  "white",
+  "gray",
+  "grey",
+  "pink",
+  "blue",
+  "green",
+  "red",
+  "purple",
+  "yellow",
+  "orange",
+  "silver",
+  "gold",
+  "beige",
+  "brown",
+  "navy",
+  "cream",
+  "clear",
+]);
+
+function extractRequestedColors(value: unknown) {
+  const text = String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ");
+  const found = new Set<string>();
+
+  for (const token of text.split(/\s+/)) {
+    const normalized = token === "grey" ? "gray" : token;
+    if (PRODUCT_COLOR_TOKENS.has(normalized)) found.add(normalized);
+  }
+
+  return found;
+}
 
 function meaningfulTitleTokens(value: unknown) {
   return Array.from(
@@ -461,8 +519,13 @@ function listingMatchesRequestedSignals(
   const notes = Array.isArray(listingEvidence.notes) ? listingEvidence.notes : [];
   const mismatchNotes: string[] = [];
   const titleMatch = titleIdentityMatch(input, listingEvidence);
+  const requestedColors = extractRequestedColors([input.productName, input.brand, input.model].filter(Boolean).join(" "));
+  const listingColors = extractRequestedColors(listingEvidence.exactListingTitle || "");
 
   let mismatchCount = 0;
+  let hasVariantMismatch = false;
+  let hasRatingMismatch = false;
+  let hasReviewCountMismatch = false;
 
   if (!titleMatch.acceptable) {
     mismatchCount += 2;
@@ -471,11 +534,25 @@ function listingMatchesRequestedSignals(
     );
   }
 
+  if (requestedColors.size > 0 && listingColors.size > 0) {
+    const hasRequestedColor = Array.from(requestedColors).some((color) => listingColors.has(color));
+    const hasDifferentColor = Array.from(listingColors).some((color) => !requestedColors.has(color));
+
+    if (!hasRequestedColor && hasDifferentColor) {
+      hasVariantMismatch = true;
+      mismatchCount += 2;
+      mismatchNotes.push(
+        `Requested color/variant ${Array.from(requestedColors).join(", ")}, but matched listing appears to be ${Array.from(listingColors).join(", ")}.`
+      );
+    }
+  }
+
   if (
     typeof signals.requestedRating === "number" &&
     typeof listingEvidence.rating === "number" &&
     Math.abs(signals.requestedRating - listingEvidence.rating) > 0.15
   ) {
+    hasRatingMismatch = true;
     mismatchCount += 1;
     mismatchNotes.push(
       `Requested rating ${signals.requestedRating}, but matched listing rating is ${listingEvidence.rating}.`
@@ -490,6 +567,7 @@ function listingMatchesRequestedSignals(
     const tolerance = Math.max(20, signals.requestedReviewCount * 0.2);
 
     if (diff > tolerance) {
+      hasReviewCountMismatch = true;
       mismatchCount += 1;
       mismatchNotes.push(
         `Requested review count ${signals.requestedReviewCount}, but matched listing review count is ${listingEvidence.reviewCount}.`
@@ -522,7 +600,10 @@ function listingMatchesRequestedSignals(
     return listingEvidence;
   }
 
-  const shouldRejectAsSimilar = !titleMatch.strong && mismatchCount >= 2;
+  const shouldRejectAsSimilar =
+    hasVariantMismatch ||
+    (hasRatingMismatch && hasReviewCountMismatch) ||
+    (!titleMatch.strong && mismatchCount >= 2);
 
   return {
     ...listingEvidence,
@@ -996,6 +1077,25 @@ function reviewEvidenceMatchesRequestedStore(
   }
 }
 
+function reviewEvidenceMatchesExactIdentity(
+  evidence: ReviewEvidenceResult | null,
+  input: ReviewEvidenceInput
+): boolean {
+  if (!evidence?.listingEvidence?.exactListingUrl) return false;
+
+  const checked = listingMatchesRequestedSignals(
+    normalizeListingEvidenceNumbers(evidence.listingEvidence),
+    input
+  );
+  const notesText = Array.isArray(checked?.notes) ? checked.notes.join(" ").toLowerCase() : "";
+
+  return Boolean(
+    checked?.exactListingUrl &&
+      checked.confidence !== "low" &&
+      !/similar product|missing distinctive|rejected returned listing|requested product appears|downgraded/.test(notesText)
+  );
+}
+
 function parsedEvidenceSignalCount(value: Record<string, unknown>) {
   return Math.max(
     Array.isArray(value.reviewSnippets) ? value.reviewSnippets.length : 0,
@@ -1172,12 +1272,8 @@ export async function collectAndAnalyzeReviewEvidence(
     };
   }
 
-  const product = [input.brand, input.productName, input.model]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const reviewSearchIdentity = [
+  const product = uniqueIdentityTokens([input.brand, input.productName, input.model], 30);
+  const reviewSearchIdentity = uniqueIdentityTokens([
     input.store,
     input.brand,
     input.productName,
@@ -1185,11 +1281,7 @@ export async function collectAndAnalyzeReviewEvidence(
     input.price ? `$${input.price}` : "",
     input.rating ? `${input.rating} stars` : "",
     input.reviewCount ? `${input.reviewCount} reviews` : "",
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  ], 36);
 
   if (!product || product.length < 3) {
     return {
@@ -1203,6 +1295,7 @@ export async function collectAndAnalyzeReviewEvidence(
   if (
     rememberedEvidence &&
     reviewEvidenceMatchesRequestedStore(rememberedEvidence, input) &&
+    reviewEvidenceMatchesExactIdentity(rememberedEvidence, input) &&
     !reviewEvidenceNeedsAutomaticRecovery(rememberedEvidence)
   ) {
     return rememberedEvidence;
@@ -1211,12 +1304,25 @@ export async function collectAndAnalyzeReviewEvidence(
   if (
     rememberedEvidence &&
     reviewEvidenceMatchesRequestedStore(rememberedEvidence, input) &&
+    reviewEvidenceMatchesExactIdentity(rememberedEvidence, input) &&
     reviewEvidenceNeedsAutomaticRecovery(rememberedEvidence)
   ) {
     console.log("[ReviewIntel DEBUG memory rejected]", {
       inputStore: input.store,
       rememberedExactListingUrl: rememberedEvidence.listingEvidence?.exactListingUrl,
       reason: "Remembered evidence had zero review signals, so automatic recovery will run again.",
+    });
+  }
+
+  if (
+    rememberedEvidence &&
+    reviewEvidenceMatchesRequestedStore(rememberedEvidence, input) &&
+    !reviewEvidenceMatchesExactIdentity(rememberedEvidence, input)
+  ) {
+    console.log("[ReviewIntel DEBUG memory rejected]", {
+      inputStore: input.store,
+      rememberedExactListingUrl: rememberedEvidence.listingEvidence?.exactListingUrl,
+      reason: "Remembered evidence did not pass exact-product identity checks for this scan.",
     });
   }
 
@@ -1297,6 +1403,12 @@ export async function collectAndAnalyzeReviewEvidence(
     /similar product|missing distinctive|rejected returned listing|requested product appears/.test(
       collectionNotesText
     );
+  const exactListingRejectedReason = listingRejectedForCollection
+    ? collectionNotesText ||
+      "Matched listing was rejected because it did not confidently match the scanned product."
+    : !listingEvidenceForCollection?.exactListingUrl
+      ? "No exact listing URL was accepted for written review collection."
+      : null;
 
   const listingUrlForReviewCollector =
     !listingRejectedForCollection &&
@@ -1304,6 +1416,11 @@ export async function collectAndAnalyzeReviewEvidence(
     listingEvidenceForCollection.exactListingUrl.trim()
       ? listingEvidenceForCollection.exactListingUrl
       : null;
+  const exactListingAccepted = Boolean(listingUrlForReviewCollector);
+  const collectorSourceAccepted = Boolean(exactListingAccepted && listingUrlForReviewCollector);
+  const collectorSourceRejectedReason = collectorSourceAccepted
+    ? null
+    : exactListingRejectedReason || "Written review collection requires a confirmed exact listing.";
 
   const marketplaceReviewCountForCollector =
     !listingRejectedForCollection &&
@@ -1326,7 +1443,7 @@ export async function collectAndAnalyzeReviewEvidence(
         reviewsCollected: 0,
         collectorHasWrittenReviews: false,
         reviews: [],
-        coverageNote: "No exact listing URL was available for written review collection.",
+        coverageNote: collectorSourceRejectedReason || "No exact listing URL was available for written review collection.",
         fallbackUrlsTried: [],
       };
 
@@ -1336,7 +1453,7 @@ export async function collectAndAnalyzeReviewEvidence(
       ? "Native retrieval was not needed because the listing collector already found written review text."
       : "Native retrieval was not attempted.";
 
-  if (collectedWrittenReviews.reviewsCollected < 3) {
+  if (collectorSourceAccepted && collectedWrittenReviews.reviewsCollected < 3) {
     nativeReviewRetrieval = await runNativeReviewRetrieval({
       productTitle: listingEvidenceForCollection?.exactListingTitle || input.productName,
       brand: input.brand,
@@ -1373,12 +1490,18 @@ export async function collectAndAnalyzeReviewEvidence(
         fallbackUrlsTried: nativeReviewRetrieval.sourcesChecked,
       });
     }
+  } else if (!collectorSourceAccepted) {
+    nativeRetrievalNote =
+      collectorSourceRejectedReason || "Native retrieval skipped because no accepted exact product source was available.";
   }
 
   const hasCollectedWrittenReviewEvidence =
-    collectedWrittenReviews.reviews.length > 0 ||
-    collectedWrittenReviews.reviewsCollected > 0 ||
-    collectedWrittenReviews.collectorHasWrittenReviews;
+    collectorSourceAccepted &&
+    (
+      collectedWrittenReviews.reviews.length > 0 ||
+      collectedWrittenReviews.reviewsCollected > 0 ||
+      collectedWrittenReviews.collectorHasWrittenReviews
+    );
 
   let firecrawlRecoveryNote = "Firecrawl fallback was not needed.";
   const firecrawlLastResortAllowed = Boolean(
@@ -1480,7 +1603,7 @@ export async function collectAndAnalyzeReviewEvidence(
       : []),
   ]);
 
-  const localDisplayListingEvidence = applyObservedScreenshotSignalsToListing(
+  const normalizedLocalDisplayListingEvidence = applyObservedScreenshotSignalsToListing(
     normalizeListingConfidence(
       listingDomainMatchesRequestedStore(
         listingMatchesRequestedSignals(
@@ -1493,9 +1616,44 @@ export async function collectAndAnalyzeReviewEvidence(
     ) ?? null,
     input
   );
+  const localDisplayListingEvidence = collectorSourceAccepted
+    ? normalizedLocalDisplayListingEvidence
+    : normalizedLocalDisplayListingEvidence
+      ? {
+          ...normalizedLocalDisplayListingEvidence,
+          exactListingUrl: null,
+          exactListingTitle: null,
+          price: toOptionalNumber(input.price) ?? null,
+          rating: toOptionalNumber(input.rating) ?? null,
+          reviewCount: toOptionalNumber(input.reviewCount) ?? null,
+          confidence: "low" as const,
+          notes: [
+            ...(Array.isArray(normalizedLocalDisplayListingEvidence.notes)
+              ? normalizedLocalDisplayListingEvidence.notes
+              : []),
+            collectorSourceRejectedReason ||
+              "Rejected listing was kept only as diagnostic metadata, not review evidence.",
+          ],
+        }
+      : {
+          exactListingUrl: null,
+          exactListingTitle: null,
+          store: input.store || null,
+          price: toOptionalNumber(input.price) ?? null,
+          rating: toOptionalNumber(input.rating) ?? null,
+          reviewCount: toOptionalNumber(input.reviewCount) ?? null,
+          confidence: "low" as const,
+          sourcesChecked: localAttemptedSources,
+          sourceLinks: [],
+          notes: [
+            collectorSourceRejectedReason ||
+              "No accepted exact listing was available for written review collection.",
+          ],
+        };
 
   const recoveryEvidenceFromLocalRetrieval = (reason: string): ReviewEvidenceResult => {
-    const reviewSnippets = collectedWrittenReviews.reviews
+    const reviewSnippets = collectorSourceAccepted
+      ? collectedWrittenReviews.reviews
       .map((review) => ({
         source: review.source || collectedWrittenReviews.extractor || "Native public review retrieval",
         snippet: review.body,
@@ -1512,7 +1670,8 @@ export async function collectAndAnalyzeReviewEvidence(
           : "marketplace review",
       }))
       .filter((item) => item.snippet.trim().length >= 12)
-      .slice(0, 40);
+      .slice(0, 40)
+      : [];
     const commentsAnalyzed = reviewSnippets.length;
     const sourcesChecked = localAttemptedSources.length
       ? localAttemptedSources
@@ -1523,17 +1682,23 @@ export async function collectAndAnalyzeReviewEvidence(
       locale: requestedLocale,
       outputLanguage,
       sourcesChecked,
-      sourceLinks: localSourceLinks,
+      sourceLinks: collectorSourceAccepted ? localSourceLinks : [],
       listingEvidence: localDisplayListingEvidence,
+      exactListingAccepted,
+      exactListingRejectedReason,
+      collectorSourceAccepted,
+      collectorSourceRejectedReason,
+      detectedProductKey: normalizeEvidenceProductKey(input),
+      resultSource: "analyze",
       reviewsFound: Number(
         firstPositiveNumber(
-          listingEvidenceForCollection?.reviewCount,
+          localDisplayListingEvidence?.reviewCount,
           input.reviewCount,
           commentsAnalyzed
         ) || commentsAnalyzed
       ),
       marketplaceReviewCount: firstPositiveNumber(
-        listingEvidenceForCollection?.reviewCount,
+        localDisplayListingEvidence?.reviewCount,
         input.reviewCount
       ),
       reviewCollector: {
@@ -1542,6 +1707,8 @@ export async function collectAndAnalyzeReviewEvidence(
         extractor: collectedWrittenReviews.extractor,
         reviewsCollected: commentsAnalyzed,
         collectorHasWrittenReviews: commentsAnalyzed > 0,
+        collectorSourceAccepted,
+        collectorSourceRejectedReason,
         coverageNote: collectedWrittenReviews.coverageNote,
         fallbackUrlsTried: collectedWrittenReviews.fallbackUrlsTried,
       },
@@ -1595,6 +1762,10 @@ export async function collectAndAnalyzeReviewEvidence(
     listingUrlForReviewCollector,
     marketplaceReviewCountForCollector,
     listingRejectedForCollection,
+    exactListingAccepted,
+    exactListingRejectedReason,
+    collectorSourceAccepted,
+    collectorSourceRejectedReason,
     listingEvidenceForCollectionConfidence: listingEvidenceForCollection?.confidence,
     listingEvidenceForCollectionNotes: listingEvidenceForCollection?.notes,
     extractor: collectedWrittenReviews.extractor,
@@ -1603,6 +1774,17 @@ export async function collectAndAnalyzeReviewEvidence(
     coverageNote: collectedWrittenReviews.coverageNote,
     firecrawlRecoveryNote,
   });
+
+  if (!collectorSourceAccepted) {
+    const insufficientEvidence = recoveryEvidenceFromLocalRetrieval(
+      collectorSourceRejectedReason ||
+        "ReviewIntel rejected the matched listing, so written review collection was skipped."
+    );
+
+    await saveReviewEvidenceToMemory(input, insufficientEvidence);
+
+    return insufficientEvidence;
+  }
 
   const prompt = `
 Collected written reviews from exact listing:
@@ -2370,6 +2552,12 @@ Return ONLY valid JSON with the same shape as the first pass:
     const finalEvidence = cleanFinalReviewEvidence({
       locale: requestedLocale,
       outputLanguage,
+      detectedProductKey: normalizeEvidenceProductKey(input),
+      exactListingAccepted,
+      exactListingRejectedReason,
+      collectorSourceAccepted,
+      collectorSourceRejectedReason,
+      resultSource: "analyze",
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
             ...localAttemptedSources,
@@ -2410,6 +2598,8 @@ Return ONLY valid JSON with the same shape as the first pass:
         extractor: collectedWrittenReviews.extractor,
         reviewsCollected: Math.max(collectorReviewsCollected, reviewSnippets.length),
         collectorHasWrittenReviews,
+        collectorSourceAccepted,
+        collectorSourceRejectedReason,
         coverageNote: collectedWrittenReviews.coverageNote,
         fallbackUrlsTried: collectedWrittenReviews.fallbackUrlsTried,
       },

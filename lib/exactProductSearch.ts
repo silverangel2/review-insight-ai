@@ -122,15 +122,43 @@ function readSourceLinks(value: unknown): Array<{ label: string; url: string; do
   return links;
 }
 
+function isProductCandidateUrl(url: string) {
+  return !/\/search|\/browse|\/category|\/brand(\/|$)|\/c\/|\/s(?:[/?#]|$)|[?&]k=|[?&]node=/i.test(url);
+}
+
 function firstAcceptedSourceLink(
   links: Array<{ label: string; url: string; domain?: string }>,
   acceptedDomain: string | null
 ) {
   return links.find((link) => {
     if (!urlHostMatchesAcceptedDomain(link.url, acceptedDomain)) return false;
-    if (/\/search|\/browse|\/category|\/brand(\/|$)|\/c\//i.test(link.url)) return false;
+    if (!isProductCandidateUrl(link.url)) return false;
     return true;
-  }) || links.find((link) => urlHostMatchesAcceptedDomain(link.url, acceptedDomain)) || null;
+  }) || null;
+}
+
+function uniqueIdentityTokens(values: unknown[], limit = 36) {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const value of values) {
+    const words = String(value || "")
+      .replace(/https?:\/\/[^\s]+/g, " ")
+      .replace(/[^a-z0-9.%+-]+/gi, " ")
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean);
+
+    for (const word of words) {
+      const key = word.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tokens.push(word);
+      if (tokens.length >= limit) return tokens.join(" ");
+    }
+  }
+
+  return tokens.join(" ").replace(/\s+/g, " ").trim();
 }
 
 export async function findExactProductListing(
@@ -142,18 +170,14 @@ export async function findExactProductListing(
     return emptyExactResult("OPENAI_API_KEY is missing.");
   }
 
-  const product = [
+  const product = uniqueIdentityTokens([
     input.store,
     input.brand,
     input.productName,
     input.price ? `$${input.price}` : "",
     input.rating ? `${input.rating} rating` : "",
     input.reviewCount ? `${input.reviewCount} reviews` : "",
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  ], 36);
 
   if (!product || product.length < 3) {
     return emptyExactResult("Product identity was not clear enough for exact listing search.");
@@ -184,6 +208,9 @@ Priority:
 3. Avoid broad category pages.
 4. Avoid unrelated products.
 5. Do not invent URLs, ratings, review counts, or prices.
+6. For Amazon, do not accept a different color/variant/ASIN as exact evidence.
+7. If the screenshot says Gray but the candidate is Pink, or the rating/review count differs materially, return low or none.
+8. Marketplace search pages, browse pages, category pages, and keyword-result URLs are never exact product listings.
 
 Return ONLY valid JSON. No markdown.
 
@@ -257,9 +284,13 @@ Rules:
     const sourceLinks = readSourceLinks(parsed.sourceLinks);
     const acceptedSourceLink = firstAcceptedSourceLink(sourceLinks, acceptedDomain);
 
-    const exactListingUrl =
+    const parsedExactListingUrl =
       typeof parsed.exactListingUrl === "string" && parsed.exactListingUrl.trim()
         ? parsed.exactListingUrl.trim()
+        : "";
+    const exactListingUrl =
+      parsedExactListingUrl && isProductCandidateUrl(parsedExactListingUrl)
+        ? parsedExactListingUrl
         : acceptedSourceLink?.url || null;
 
     if (!urlHostMatchesAcceptedDomain(exactListingUrl, acceptedDomain)) {

@@ -12,7 +12,7 @@ import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { canAccessSellerAnalytics } from "@/lib/account";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
 import { getUiTextTranslation, normalizeLocale, readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
-import { clearLatestResult, readLatestPreview, readLatestResult, saveLatestResult } from "@/lib/resultStorage";
+import { clearLatestResult, readActiveScanId, readLatestPreview, readLatestResult, saveLatestResult } from "@/lib/resultStorage";
 import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
@@ -502,6 +502,12 @@ function optionalVerdictFromBuyer(value: unknown): ShopperVerdict | null {
 function localeFromResult(result: AnalyzeResponse): ReviewIntelLocale {
   const source = result as AnalyzeResponse & { meta?: { locale?: unknown } };
   return normalizeLocale(readStoredLocale() || source.meta?.locale);
+}
+
+function scanIdFromAnalyzeResponse(result: AnalyzeResponse | null | undefined) {
+  const record = result && typeof result === "object" ? (result as Record<string, unknown>) : {};
+  const meta = record.meta && typeof record.meta === "object" ? (record.meta as Record<string, unknown>) : {};
+  return String(record.scanId || meta.scanId || "").trim();
 }
 
 function localizedValueLabel(locale: ReviewIntelLocale, value: string) {
@@ -1395,6 +1401,39 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     getToolProofString(raw, "productKey") ||
     getToolProofString(analysis || {}, "stableProductKey") ||
     getToolProofString(analysis || {}, "productKey");
+  const scanId =
+    getToolProofString(raw, "scanId") ||
+    getToolProofString(getToolProofRecord(raw, "meta"), "scanId") ||
+    getToolProofString(reviewIntelTrace || {}, "scanId");
+  const detectedProductKey =
+    getToolProofString(raw, "detectedProductKey") ||
+    getToolProofString(getToolProofRecord(raw, "meta"), "detectedProductKey") ||
+    getToolProofString(reviewEvidence, "detectedProductKey") ||
+    getToolProofString(reviewIntelTrace || {}, "detectedProductKey");
+  const resultSource =
+    getToolProofString(raw, "resultSource") ||
+    getToolProofString(getToolProofRecord(raw, "meta"), "resultSource") ||
+    "analyze";
+  const exactListingAccepted =
+    getToolProofBoolean(raw, "exactListingAccepted") ??
+    getToolProofBoolean(reviewEvidence, "exactListingAccepted") ??
+    getToolProofBoolean(reviewIntelTrace || {}, "exactListingAccepted") ??
+    false;
+  const exactListingRejectedReason =
+    getToolProofString(raw, "exactListingRejectedReason") ||
+    getToolProofString(reviewEvidence, "exactListingRejectedReason") ||
+    getToolProofString(reviewIntelTrace || {}, "exactListingRejectedReason");
+  const collectorSourceAccepted =
+    getToolProofBoolean(raw, "collectorSourceAccepted") ??
+    getToolProofBoolean(reviewEvidence, "collectorSourceAccepted") ??
+    getToolProofBoolean(reviewCollector, "collectorSourceAccepted") ??
+    getToolProofBoolean(reviewIntelTrace || {}, "collectorSourceAccepted") ??
+    false;
+  const collectorSourceRejectedReason =
+    getToolProofString(raw, "collectorSourceRejectedReason") ||
+    getToolProofString(reviewEvidence, "collectorSourceRejectedReason") ||
+    getToolProofString(reviewCollector, "collectorSourceRejectedReason") ||
+    getToolProofString(reviewIntelTrace || {}, "collectorSourceRejectedReason");
 
   const sourcesChecked = getToolProofArray(reviewEvidence, "sourcesChecked");
   const commentsAnalyzed = getToolProofNumber(reviewEvidence, "commentsAnalyzed");
@@ -1424,6 +1463,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
   const aiLikeScore = getToolProofNumber(reviewAuthenticity, "score");
   const exactConfidence = getToolProofString(listingEvidence, "confidence");
   const zeroReviewEvidence =
+    !collectorSourceAccepted ||
     (reviewsCollected ?? 0) <= 0 &&
     (commentsAnalyzed ?? 0) <= 0 &&
     sourcesChecked.length === 0 &&
@@ -1492,6 +1532,9 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <ToolProofPill label="Store" value={store || "Not confirmed"} />
+        <ToolProofPill label="Scan ID" value={scanId ? scanId.slice(0, 18) : "Missing"} />
+        <ToolProofPill label="Result source" value={resultSource || "analyze"} />
+        <ToolProofPill label="Product key" value={detectedProductKey ? "Stamped" : "Missing"} />
         <ToolProofPill label="Brand" value={brand || "Not confirmed"} />
         <ToolProofPill label="Price" value={price !== null ? `$${price}` : null} />
         <ToolProofPill label="Stable key" value={stableProductKey ? "Matched" : "New/unknown"} />
@@ -1517,7 +1560,8 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         />
         <ToolProofPill label="Evidence signals" value={reviewIntelligenceSignals ?? 0} />
         <ToolProofPill label="Evidence strength" value={zeroReviewEvidence ? "None" : evidenceStrength || "Not enough"} />
-        <ToolProofPill label="Exact listing" value={exactConfidence || "Not confirmed"} />
+        <ToolProofPill label="Exact listing" value={exactListingAccepted ? exactConfidence || "Accepted" : "Rejected/not exact"} />
+        <ToolProofPill label="Collector source" value={collectorSourceAccepted ? "Accepted" : "Rejected"} />
         <ToolProofPill label="Verdict" value={verdict || "Not scored"} />
         <ToolProofPill label="Buy score" value={zeroReviewEvidence ? "Not scored" : buyScore !== null ? `${buyScore}/10` : "Not scored"} />
         <ToolProofPill label="Verdict confidence" value={zeroReviewEvidence ? "Insufficient evidence" : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : exactConfidence === "high" ? "Limited" : "Needs exact listing"} />
@@ -1527,7 +1571,9 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 
       {zeroReviewEvidence ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-          ReviewIntel could not access enough public review evidence for this product. Buy Score and AI-like review risk are not scored.
+          ReviewIntel could not access enough accepted exact-product written review evidence for this product. Buy Score and AI-like review risk are not scored.
+          {exactListingRejectedReason ? ` Exact listing gate: ${exactListingRejectedReason.slice(0, 220)}` : ""}
+          {collectorSourceRejectedReason ? ` Collector gate: ${collectorSourceRejectedReason.slice(0, 220)}` : ""}
         </div>
       ) : null}
 
@@ -1839,7 +1885,15 @@ export function ResultsClient() {
       const account = getClientAccount();
       setAccountPlan(account?.plan ?? null);
       setPreview(readLatestPreview());
-      let parsed: AnalyzeResponse | null = readLatestResult(account);
+      const selectedHistoryId =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("history")
+          : null;
+      const activeScanId = selectedHistoryId ? "" : readActiveScanId();
+      let parsed: AnalyzeResponse | null = readLatestResult(
+        account,
+        activeScanId ? { scanId: activeScanId } : { allowAnyScan: Boolean(selectedHistoryId) }
+      );
 
       if (account?.email && account.plan !== "free_buyer") {
         const params = new URLSearchParams({
@@ -1888,11 +1942,6 @@ export function ResultsClient() {
           isReviewEvidenceV2History(item)
         );
 
-        const selectedHistoryId =
-          typeof window !== "undefined"
-            ? new URLSearchParams(window.location.search).get("history")
-            : null;
-
         const latest = selectedHistoryId
           ? reviewEvidenceAnalyses.find((item: Record<string, unknown>) => {
               const analysisJson =
@@ -1909,7 +1958,9 @@ export function ResultsClient() {
             }) ?? reviewEvidenceAnalyses[0] ?? null
           : parsed
             ? null
-            : reviewEvidenceAnalyses[0] ?? null;
+            : activeScanId
+              ? null
+              : reviewEvidenceAnalyses[0] ?? null;
 
         const stored = latest?.analysis_json && typeof latest.analysis_json === "object"
           ? (latest.analysis_json as Record<string, unknown>)
@@ -1919,6 +1970,7 @@ export function ResultsClient() {
         if (restored && typeof restored === "object") {
           const serverParsed = {
             ...(restored as AnalyzeResponse),
+            resultSource: selectedHistoryId ? "history" : "history",
             analysisId: latest?.id,
             createdAt: latest?.created_at
           } as AnalyzeResponse;
@@ -1932,16 +1984,26 @@ export function ResultsClient() {
 
           if (!parsed || serverIsCompare || serverTime >= localTime) {
             parsed = serverParsed;
-            saveLatestResult(serverParsed, account);
+            if (selectedHistoryId || !activeScanId) {
+              saveLatestResult(serverParsed, account);
+            }
           }
         }
       }
 
       if (!parsed) {
-        parsed = readLatestResult(account);
+        parsed = readLatestResult(
+          account,
+          activeScanId ? { scanId: activeScanId } : { allowAnyScan: Boolean(selectedHistoryId) }
+        );
       }
 
       if (!parsed) return;
+
+      if (activeScanId && scanIdFromAnalyzeResponse(parsed) !== activeScanId) {
+        if (!cancelled) setResult(null);
+        return;
+      }
 
       if (isImpossibleCachedShopperResult(parsed)) {
         clearLatestResult();

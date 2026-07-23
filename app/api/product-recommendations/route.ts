@@ -209,6 +209,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const bodyRecord = asRecord(body);
     const result = asRecord(bodyRecord.result);
+    const resultMeta = asRecord(result.meta);
+    const scanId =
+      getString(bodyRecord.scanId) ||
+      getString(result.scanId) ||
+      getString(resultMeta.scanId);
     const productIdentity = asRecord(result.productIdentity);
     const productIdentitySnake = asRecord(result.product_identity);
     const locale = normalizeLocale(bodyRecord.locale);
@@ -230,6 +235,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         shopperOnly: true,
+        scanId,
+        resultSource: "recommendations",
         locale,
         outputLanguage,
         affiliateDisabled: true,
@@ -399,6 +406,8 @@ JSON format:
     return NextResponse.json({
       ok: true,
       shopperOnly: true,
+      scanId,
+      resultSource: "recommendations",
       locale,
       outputLanguage,
       affiliateReady: Boolean(getAmazonAssociateTag()),

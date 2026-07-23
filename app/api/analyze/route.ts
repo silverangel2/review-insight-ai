@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { readAccountSession } from "@/lib/accountSession";
@@ -80,6 +81,30 @@ function uniqueTextArray(values: string[], limit: number) {
   }
 
   return clean;
+}
+
+function uniqueIdentityText(values: string[], tokenLimit = 24) {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const value of values) {
+    const words = String(value || "")
+      .replace(/https?:\/\/[^\s]+/g, " ")
+      .replace(/[^a-z0-9.%+-]+/gi, " ")
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter(Boolean);
+
+    for (const word of words) {
+      const normalized = word.toLowerCase();
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      tokens.push(word);
+      if (tokens.length >= tokenLimit) return tokens.join(" ");
+    }
+  }
+
+  return tokens.join(" ").replace(/\s+/g, " ").trim();
 }
 
 const BUYER_INSIGHT_STOP_WORDS = new Set([
@@ -353,14 +378,36 @@ function localizedAnalyzeText(locale: string) {
   return copy[value] ?? copy.en;
 }
 
-function attachLanguageMeta<T extends JsonRecord>(result: T, locale: string, outputLanguage: string) {
+function createAnalyzeScanId() {
+  return `scan_${Date.now().toString(36)}_${randomUUID().slice(0, 12)}`;
+}
+
+function sanitizeScanId(value: unknown) {
+  const text = String(value || "").trim();
+  return /^[a-z0-9_-]{8,80}$/i.test(text) ? text : "";
+}
+
+function attachLanguageMeta<T extends JsonRecord>(
+  result: T,
+  locale: string,
+  outputLanguage: string,
+  scanId: string,
+  detectedProductKey: string,
+  resultSource: "analyze" | "recommendations" | "history" = "analyze"
+) {
   return {
     ...result,
+    scanId,
+    detectedProductKey,
+    resultSource,
     meta: {
       ...asRecord(result.meta),
       audience: "buyer",
       locale: normalizedLocaleCode(locale),
       outputLanguage,
+      scanId,
+      detectedProductKey,
+      resultSource,
       researchQuality: asRecord(result.researchQuality),
       generatedAt: new Date().toISOString()
     }
@@ -1547,26 +1594,30 @@ Important:
   return normalizeVision(raw);
 }
 
-async function researchAndVerdict(vision: VisionFacts, productLink: string, outputLanguage = "English", locale = "en") {
+async function researchAndVerdict(
+  vision: VisionFacts,
+  productLink: string,
+  outputLanguage = "English",
+  locale = "en",
+  scanId = "",
+  detectedProductKey = ""
+) {
   // The shopper verdict is now owned by reviewEvidence-v2 only. Keeping the old
   // broad web verdict here made scans slower and could leak stale screenshot-only
   // research state into the final UI.
   const raw: JsonRecord = {};
 
-  const productForReviewEvidence = uniqueTextArray(
-    [
+  const productForReviewEvidence = uniqueIdentityText(
+    uniqueTextArray([
       vision.normalizedSearchQuery,
       vision.brand,
       vision.name,
       vision.category,
       ...vision.visibleFeatures,
       ...vision.visibleBadges,
-    ].filter(Boolean),
-    16
-  )
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+    ].filter(Boolean), 18),
+    28
+  );
 
   console.log("[ReviewIntel DEBUG vision]", {
     name: vision.name,
@@ -1713,6 +1764,8 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
         };
 
   console.log("[ReviewIntel DEBUG reviewEvidence]", {
+    scanId,
+    detectedProductKey,
     exactListingUrl: reviewEvidence?.listingEvidence?.exactListingUrl,
     exactListingTitle: reviewEvidence?.listingEvidence?.exactListingTitle,
     store: reviewEvidence?.listingEvidence?.store,
@@ -1721,6 +1774,8 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
     reviewsFound: reviewEvidence?.reviewsFound,
     evidenceStrength: reviewEvidence?.evidenceStrength,
     exactListingConfirmed: reviewEvidence?.exactListingConfirmed,
+    exactListingAccepted: reviewEvidence?.exactListingAccepted,
+    collectorSourceAccepted: reviewEvidence?.collectorSourceAccepted,
   });
 
   return buildReviewEvidenceShopperResult({
@@ -1728,6 +1783,8 @@ async function researchAndVerdict(vision: VisionFacts, productLink: string, outp
     reviewEvidence: reviewEvidence as unknown as Record<string, unknown>,
     reviewAuthenticity,
     rawRecord,
+    scanId,
+    detectedProductKey,
   });
 }
 
@@ -1944,6 +2001,8 @@ function buildReviewEvidenceShopperResult(input: {
   reviewEvidence: Record<string, unknown>;
   reviewAuthenticity: unknown;
   rawRecord?: Record<string, unknown>;
+  scanId?: string;
+  detectedProductKey?: string;
 }) {
   const vision = input.vision || {};
   const evidence = input.reviewEvidence || {};
@@ -1953,11 +2012,22 @@ function buildReviewEvidenceShopperResult(input: {
     evidence.listingEvidence && typeof evidence.listingEvidence === "object"
       ? (evidence.listingEvidence as Record<string, unknown>)
       : null;
+  const rawExactListingUrl = String(listingEvidence?.exactListingUrl || listingEvidence?.url || "").trim();
+  const exactListingAccepted = evidence.exactListingAccepted === true && Boolean(rawExactListingUrl);
+  const exactListingRejectedReason = String(evidence.exactListingRejectedReason || "").trim() || null;
+  const collectorSourceAccepted = exactListingAccepted && evidence.collectorSourceAccepted === true;
+  const collectorSourceRejectedReason =
+    String(evidence.collectorSourceRejectedReason || "").trim() ||
+    (!collectorSourceAccepted
+      ? exactListingRejectedReason || "Written review collection was not tied to an accepted exact product source."
+      : null);
 
   const productName = String(
-    listingEvidence?.exactListingTitle ||
-      listingEvidence?.title ||
-      listingEvidence?.name ||
+    (exactListingAccepted
+      ? listingEvidence?.exactListingTitle ||
+        listingEvidence?.title ||
+        listingEvidence?.name
+      : "") ||
       vision.name ||
       vision.title ||
       vision.category ||
@@ -1967,7 +2037,7 @@ function buildReviewEvidenceShopperResult(input: {
   const brand = String(vision.brand || listingEvidence?.brand || "").trim();
   const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
   const price = String(vision.price || listingEvidence?.price || "").trim();
-  const exactListingUrl = String(listingEvidence?.exactListingUrl || listingEvidence?.url || "").trim();
+  const exactListingUrl = exactListingAccepted ? rawExactListingUrl : "";
   const stableProductKey = createProductKey([
     exactListingUrl,
     store,
@@ -1975,15 +2045,15 @@ function buildReviewEvidenceShopperResult(input: {
     productName,
   ]);
 
-  const reviewSnippets = Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
-  const repeatedPraises = Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
-  const repeatedComplaints = Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints : [];
-  const aiPatternSignals = Array.isArray(evidence.aiPatternSignals) ? evidence.aiPatternSignals.map(String).filter(Boolean) : [];
-  const buyerExperienceSignals = Array.isArray(evidence.buyerExperienceSignals) ? evidence.buyerExperienceSignals.map(String).filter(Boolean) : [];
-  const productPros = Array.isArray(evidence.productPros) ? evidence.productPros.map(String).filter(Boolean) : [];
-  const productCons = Array.isArray(evidence.productCons) ? evidence.productCons.map(String).filter(Boolean) : [];
-  const overallImpact = String(evidence.overallImpact || "").trim();
-  const buyAssessment = String(evidence.buyAssessment || "").trim();
+  const reviewSnippets = collectorSourceAccepted && Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
+  const repeatedPraises = collectorSourceAccepted && Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
+  const repeatedComplaints = collectorSourceAccepted && Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints : [];
+  const aiPatternSignals = collectorSourceAccepted && Array.isArray(evidence.aiPatternSignals) ? evidence.aiPatternSignals.map(String).filter(Boolean) : [];
+  const buyerExperienceSignals = collectorSourceAccepted && Array.isArray(evidence.buyerExperienceSignals) ? evidence.buyerExperienceSignals.map(String).filter(Boolean) : [];
+  const productPros = collectorSourceAccepted && Array.isArray(evidence.productPros) ? evidence.productPros.map(String).filter(Boolean) : [];
+  const productCons = collectorSourceAccepted && Array.isArray(evidence.productCons) ? evidence.productCons.map(String).filter(Boolean) : [];
+  const overallImpact = collectorSourceAccepted ? String(evidence.overallImpact || "").trim() : "";
+  const buyAssessment = collectorSourceAccepted ? String(evidence.buyAssessment || "").trim() : "";
 
   const reviewsFound = Number(evidence.reviewsFound || 0);
   const marketplaceReviewCount = Number(evidence.marketplaceReviewCount || evidence.reviewsFound || 0);
@@ -1995,18 +2065,19 @@ function buildReviewEvidenceShopperResult(input: {
       ? (evidence.reviewCollector as Record<string, unknown>)
       : null;
 
-  const collectorReviewsCollected =
-    typeof reviewCollector?.reviewsCollected === "number"
+  const collectorReviewsCollected = collectorSourceAccepted
+    ? typeof reviewCollector?.reviewsCollected === "number"
       ? Number(reviewCollector.reviewsCollected)
       : typeof evidence.reviewsCollected === "number"
         ? Number(evidence.reviewsCollected)
-        : 0;
+        : 0
+    : 0;
   const collectorHasWrittenReviews =
-    typeof reviewCollector?.collectorHasWrittenReviews === "boolean"
+    collectorSourceAccepted && typeof reviewCollector?.collectorHasWrittenReviews === "boolean"
       ? reviewCollector.collectorHasWrittenReviews
-      : typeof evidence.collectorHasWrittenReviews === "boolean"
+      : collectorSourceAccepted && typeof evidence.collectorHasWrittenReviews === "boolean"
         ? evidence.collectorHasWrittenReviews
-        : collectorReviewsCollected > 0;
+        : collectorSourceAccepted && collectorReviewsCollected > 0;
 
   // commentsAnalyzed must be grounded in actual written review text.
   // Never allow the AI to copy marketplaceReviewCount/reviewsFound and pretend all reviews were analyzed.
@@ -2056,6 +2127,7 @@ function buildReviewEvidenceShopperResult(input: {
   })();
 
   const hasVerifiedListingMetadata =
+    collectorSourceAccepted &&
     Boolean(exactListingUrl) &&
     typeof listingRatingForMetadataScore === "number" &&
     listingRatingForMetadataScore > 0 &&
@@ -2071,11 +2143,12 @@ function buildReviewEvidenceShopperResult(input: {
   // If RI found the product/review count but only reached thin review intelligence,
   // it must stay cautious and transparent, but it should still provide a useful score.
   const hasLimitedReviewEvidence =
-    marketplaceReviewCount > 0 ||
-    reviewsFound > 0 ||
-    hasReadableReviewEvidence ||
-    evidenceStrength === "weak" ||
-    evidenceStrength === "limited";
+    collectorSourceAccepted &&
+    (
+      hasReadableReviewEvidence ||
+      evidenceStrength === "weak" ||
+      evidenceStrength === "limited"
+    );
 
   const evidenceReviewSignalCount = Math.max(
     reviewSnippets.length,
@@ -2083,7 +2156,7 @@ function buildReviewEvidenceShopperResult(input: {
     productPros.length + productCons.length,
     buyerExperienceSignals.length,
     aiPatternSignals.length,
-    typeof evidence.reviewIntelligenceSignals === "number" && Number.isFinite(evidence.reviewIntelligenceSignals)
+    collectorSourceAccepted && typeof evidence.reviewIntelligenceSignals === "number" && Number.isFinite(evidence.reviewIntelligenceSignals)
       ? Number(evidence.reviewIntelligenceSignals)
       : 0
   );
@@ -2246,7 +2319,7 @@ function buildReviewEvidenceShopperResult(input: {
       : hasLimitedReviewEvidence || exactListingUrl || hasRecognizedProductEvidence
         ? "limited"
         : "screenshot_only",
-    exactProductMatch: Boolean(exactListingUrl || hasRecognizedProductEvidence),
+    exactProductMatch: exactListingAccepted,
     sourceCount: Math.max(
       sourcesUsed.length,
       attemptedSourcesChecked.length,
@@ -2290,10 +2363,20 @@ function buildReviewEvidenceShopperResult(input: {
     ...rawRecord,
 
     analysisVersion: "review-evidence-v2",
+    scanId: input.scanId || null,
+    detectedProductKey: input.detectedProductKey || stableProductKey,
+    exactListingAccepted,
+    exactListingRejectedReason,
+    collectorSourceAccepted,
+    collectorSourceRejectedReason,
+    resultSource: "analyze",
     meta: {
       audience: "buyer",
       mode: "shopper",
       source: "review-evidence-v2",
+      scanId: input.scanId || null,
+      detectedProductKey: input.detectedProductKey || stableProductKey,
+      resultSource: "analyze",
     },
 
     productName,
@@ -2341,6 +2424,8 @@ function buildReviewEvidenceShopperResult(input: {
     sourcesUsed,
 
     reviewIntelTrace: {
+      scanId: input.scanId || null,
+      detectedProductKey: input.detectedProductKey || stableProductKey,
       screenshotIdentity: {
         title: String(vision.name || vision.title || vision.category || "").trim(),
         brand: String(vision.brand || "").trim(),
@@ -2350,6 +2435,10 @@ function buildReviewEvidenceShopperResult(input: {
       exactListingEvidence: listingEvidence,
       reviewEvidence: {
         exactListingUrl: exactListingUrl || null,
+        exactListingAccepted,
+        exactListingRejectedReason,
+        collectorSourceAccepted,
+        collectorSourceRejectedReason,
         marketplaceReviewCount,
         reviewsFound,
         reviewsCollected: collectorReviewsCollected,
@@ -2413,6 +2502,10 @@ function buildReviewEvidenceShopperResult(input: {
 
 
 export async function POST(request: Request) {
+  const serverScanId = createAnalyzeScanId();
+  let scanId = serverScanId;
+  let detectedProductKey = "";
+
   try {
     const limit = await rateLimitRequest(request, {
       key: "analyze_api",
@@ -2459,7 +2552,7 @@ export async function POST(request: Request) {
 
     if (role === "guest") {
       return NextResponse.json(
-        { error: "Please log in before analyzing a product." },
+        { error: "Please log in before analyzing a product.", scanId, resultSource: "analyze" },
         { status: 401 }
       );
     }
@@ -2477,7 +2570,7 @@ export async function POST(request: Request) {
     if (isShopperFree) {
       if (!email) {
         return NextResponse.json(
-          { error: "Please log in again before analyzing a product." },
+          { error: "Please log in again before analyzing a product.", scanId, resultSource: "analyze" },
           { status: 401 }
         );
       }
@@ -2491,7 +2584,9 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error: "We could not verify your daily scan allowance. Please try again.",
-            code: "QUOTA_UNAVAILABLE"
+            code: "QUOTA_UNAVAILABLE",
+            scanId,
+            resultSource: "analyze"
           },
           { status: 503 }
         );
@@ -2505,7 +2600,9 @@ export async function POST(request: Request) {
             upgradeRequired: true,
             upgradeUrl: "/pricing?plan=shopper_premium",
             cta: "Try Premium",
-            quota
+            quota,
+            scanId,
+            resultSource: "analyze"
           },
           { status: 429 }
         );
@@ -2558,6 +2655,7 @@ export async function POST(request: Request) {
     };
 
     const formData = await request.formData();
+    scanId = sanitizeScanId(formData.get("scanId")) || serverScanId;
     const file = formData.get("image");
     const productLink = String(formData.get("productLink") || "").trim();
     const locale = normalizedLocaleCode(String(formData.get("locale") || readCookie("reviewintel_locale") || "en").trim());
@@ -2568,21 +2666,22 @@ export async function POST(request: Request) {
     if (securityResponse) return securityResponse;
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Please upload a product screenshot." }, { status: 400 });
+      return NextResponse.json({ error: "Please upload a product screenshot.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
     if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Please upload an image file." }, { status: 400 });
+      return NextResponse.json({ error: "Please upload an image file.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
     if (file.size > 8 * 1024 * 1024) {
-      return NextResponse.json({ error: "Image is too large. Please upload a screenshot under 8MB." }, { status: 400 });
+      return NextResponse.json({ error: "Image is too large. Please upload a screenshot under 8MB.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const imageDataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
 
     const vision = await extractScreenshotFacts(imageDataUrl);
+    detectedProductKey = createStableProductKey(vision, productLink);
 
     const hasVisibleProductIdentity =
       Boolean(vision.name) ||
@@ -2661,21 +2760,28 @@ export async function POST(request: Request) {
           },
         }};
 
-      return NextResponse.json(await recordCompletedScan(attachLanguageMeta(fallbackResult, locale, outputLanguage)));
+      return NextResponse.json(
+        await recordCompletedScan(
+          attachLanguageMeta(fallbackResult, locale, outputLanguage, scanId, detectedProductKey, "analyze")
+        )
+      );
     }
 
-    const productKey = createStableProductKey(vision, productLink);
+    const productKey = detectedProductKey || createStableProductKey(vision, productLink);
 
     const memory = await getProductMemory(productKey);
     void memory;
 
-    const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale);
+    const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale, scanId, productKey);
 
     // Shopper v2: do not re-score, normalize, or apply old product memory after the review-evidence result is built.
     const result = attachLanguageMeta(
       freshResult,
       locale,
       outputLanguage,
+      scanId,
+      productKey,
+      "analyze",
     );
 
     // Shopper v2 is built only from review evidence.
@@ -2699,10 +2805,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "We could not analyze this product. Please try a clearer screenshot or paste the product link."
+          error:
+            error instanceof Error
+              ? error.message
+            : "We could not analyze this product. Please try a clearer screenshot or paste the product link.",
+          scanId,
+          detectedProductKey,
+          resultSource: "analyze"
       },
       { status: 500 }
     );
