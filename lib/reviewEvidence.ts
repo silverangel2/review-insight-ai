@@ -3295,10 +3295,58 @@ Return ONLY valid JSON with the same shape as the first pass:
       },
     });
 
+    // Final evidence-preservation guard:
+    // Never allow verified, collected written review bodies to be erased by a
+    // later parser/cleanup mismatch or by the insufficient-evidence fallback.
+    const preservedCollectedReviewCount = Math.max(
+      collectorReviewsCollected,
+      reviewSnippets.length,
+      Number(finalEvidence.reviewsCollected ?? 0),
+      Number(finalEvidence.reviewCollector?.reviewsCollected ?? 0),
+    );
+
+    const preservedCommentsAnalyzed =
+      preservedCollectedReviewCount > 0
+        ? Math.max(
+            actualCommentsAnalyzed,
+            reviewSnippets.length,
+            Number(finalEvidence.commentsAnalyzed ?? 0),
+          )
+        : actualCommentsAnalyzed;
+
+    const preservedCollectorHasWrittenReviews =
+      collectorHasWrittenReviews ||
+      preservedCollectedReviewCount > 0 ||
+      reviewSnippets.length > 0;
+
+    if (preservedCollectorHasWrittenReviews) {
+      finalEvidence.reviewsCollected = preservedCollectedReviewCount;
+      finalEvidence.commentsAnalyzed = preservedCommentsAnalyzed;
+      finalEvidence.collectorHasWrittenReviews = true;
+      finalEvidence.reviewIntelligenceMode = "written_reviews";
+      finalEvidence.reviewCollector = {
+        attempted: finalEvidence.reviewCollector?.attempted ?? true,
+        sourceUrl: finalEvidence.reviewCollector?.sourceUrl ?? null,
+        extractor: finalEvidence.reviewCollector?.extractor,
+        reviewsCollected: preservedCollectedReviewCount,
+        collectorHasWrittenReviews: true,
+        collectorSourceAccepted:
+          finalEvidence.reviewCollector?.collectorSourceAccepted ??
+          preservedCollectedReviewCount > 0,
+        collectorSourceRejectedReason:
+          finalEvidence.reviewCollector?.collectorSourceRejectedReason ?? null,
+        coverageNote:
+          finalEvidence.reviewCollector?.coverageNote ??
+          "Collected written review evidence was preserved for analysis.",
+        fallbackUrlsTried:
+          finalEvidence.reviewCollector?.fallbackUrlsTried ?? [],
+      };
+    }
+
     const zeroWrittenReviewEvidence =
-      actualCommentsAnalyzed <= 0 &&
-      collectorReviewsCollected <= 0 &&
-      !collectorHasWrittenReviews &&
+      preservedCommentsAnalyzed <= 0 &&
+      preservedCollectedReviewCount <= 0 &&
+      !preservedCollectorHasWrittenReviews &&
       !hasReviewIntelligenceEvidence;
 
     if (zeroWrittenReviewEvidence) {
@@ -3306,11 +3354,11 @@ Return ONLY valid JSON with the same shape as the first pass:
         ...finalEvidence,
         finalDecisionSource: "reviewEvidenceRecoveryFailed",
         decisionStatus: "review_evidence_not_found",
-        evidenceStrength: collectorReviewsCollected > 0 ? "limited" : "none" as const,
+        evidenceStrength: preservedCollectedReviewCount > 0 ? "limited" : "none" as const,
         reviewIntelligenceMode: "listing_metadata" as const,
         reviewIntelligenceSignals: 0,
-        commentsAnalyzed: hasCollectedWrittenReviewEvidence ? finalEvidence.commentsAnalyzed : 0,
-        reviewsCollected: hasCollectedWrittenReviewEvidence ? finalEvidence.reviewsCollected : 0,
+        commentsAnalyzed: preservedCollectorHasWrittenReviews ? preservedCommentsAnalyzed : 0,
+        reviewsCollected: preservedCollectorHasWrittenReviews ? preservedCollectedReviewCount : 0,
         sourcesChecked: finalEvidence.sourcesChecked.length
           ? finalEvidence.sourcesChecked
           : localAttemptedSources.length
@@ -3318,10 +3366,10 @@ Return ONLY valid JSON with the same shape as the first pass:
             : [reviewSearchIdentity || product || "native review retrieval attempted"],
         sourceLinks: finalEvidence.sourceLinks,
         reviewCoverageRatio: verifiedReviewCoverageRatio,
-        collectorHasWrittenReviews: false,
+        collectorHasWrittenReviews: preservedCollectorHasWrittenReviews,
         overallImpact: "",
         buyAssessment: "",
-        reviewSnippets: hasCollectedWrittenReviewEvidence ? finalEvidence.reviewSnippets : [],
+        reviewSnippets: preservedCollectorHasWrittenReviews ? finalEvidence.reviewSnippets : [],
         repeatedPraises: [],
         repeatedComplaints: [],
         aiPatternSignals: [],
