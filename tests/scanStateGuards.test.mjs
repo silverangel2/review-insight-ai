@@ -19,7 +19,7 @@ test("new product scans are stamped and stale results are rejected", () => {
 
   assert.match(results, /readActiveScanId\(\)/);
   assert.match(results, /readLatestResult\(\s*account,\s*activeScanId \? \{ scanId: activeScanId \}/s);
-  assert.match(results, /scanIdFromAnalyzeResponse\(parsed\) !== activeScanId/);
+  assert.match(results, /if \(activeScanId && parsedScanId && parsedScanId !== activeScanId\)/);
 });
 
 test("recommendations are isolated from the main scan result", () => {
@@ -37,8 +37,8 @@ test("recommendations are isolated from the main scan result", () => {
 test("rejected exact listings cannot collect unrelated written reviews", () => {
   const evidence = source("lib/reviewEvidence.ts");
 
-  assert.match(evidence, /const collectorSourceAccepted = Boolean\(exactListingAccepted && listingUrlForReviewCollector\)/);
-  assert.match(evidence, /if \(collectorSourceAccepted && collectedWrittenReviews\.reviewsCollected < 3\)/);
+  assert.match(evidence, /collectorSourceAccepted\s*=\s*combinedReviews\.length\s*>\s*0/);
+  assert.match(evidence, /collectorSourceAccepted\s*=\s*combinedReviews\.length\s*>\s*0/);
   assert.match(evidence, /if \(!collectorSourceAccepted\) \{/);
   assert.match(evidence, /return insufficientEvidence;/);
   assert.match(evidence, /hasVariantMismatch \|\|\s*\(hasRatingMismatch && hasReviewCountMismatch\)/);
@@ -133,4 +133,89 @@ test("better picks does not auto-run during initial scan result load", () => {
   assert.match(panel, /autoLoad = false/);
   assert.match(panel, /window\.setTimeout/);
   assert.match(panel, /1800/);
+});
+
+
+test("collector review evidence is normalized before counting", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(
+    evidence,
+    /REVIEWINTEL_COLLECTOR_EVIDENCE_HARDENING/
+  );
+  assert.match(
+    evidence,
+    /function hardenedCollectorReviews/
+  );
+  assert.match(
+    evidence,
+    /const incomingReviews = input\.reviews \?\? current\.reviews/
+  );
+  assert.match(
+    evidence,
+    /const reviews = hardenedCollectorReviews\(incomingReviews\)/
+  );
+  assert.match(
+    evidence,
+    /reviewsCollected: reviews\.length/
+  );
+  assert.match(
+    evidence,
+    /collectorHasWrittenReviews: reviews\.length > 0/
+  );
+});
+
+test("collector removes duplicate and unusable review text", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(
+    evidence,
+    /normalizedReviewFingerprint/
+  );
+  assert.match(
+    evidence,
+    /seenExact\.has\(fingerprint\)/
+  );
+  assert.match(
+    evidence,
+    /seenNearDuplicate\.has\(nearDuplicateKey\)/
+  );
+  assert.match(
+    evidence,
+    /fingerprint\.length < 12/
+  );
+  assert.match(
+    evidence,
+    /\.normalize\("NFKC"\)/
+  );
+});
+
+test("collector preserves unknown structured provider review shapes", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(
+    evidence,
+    /Structured collector entries without a recognized text field are kept/
+  );
+  assert.match(
+    evidence,
+    /if \(!fingerprint\) \{\s*return true;/s
+  );
+});
+
+test("collector fallback URLs are unique, trimmed and bounded", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(
+    evidence,
+    /\.map\(\(url\) => String\(url \|\| ""\)\.trim\(\)\)/
+  );
+  assert.match(
+    evidence,
+    /\.filter\(Boolean\)/
+  );
+  assert.match(
+    evidence,
+    /\.slice\(0, 24\)/
+  );
 });

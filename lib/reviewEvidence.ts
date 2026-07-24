@@ -1176,6 +1176,97 @@ function evidenceStrengthForCount(count: number): ReviewEvidenceResult["evidence
   return "none";
 }
 
+// REVIEWINTEL_COLLECTOR_EVIDENCE_HARDENING
+// Normalize review text only for validation and deduplication. The original
+// review object remains unchanged so downstream analysis keeps all metadata.
+function reviewEvidenceText(review: unknown): string {
+  if (typeof review === "string") {
+    return review;
+  }
+
+  if (!review || typeof review !== "object") {
+    return "";
+  }
+
+  const candidate = review as Record<string, unknown>;
+
+  const possibleText = [
+    candidate.text,
+    candidate.body,
+    candidate.content,
+    candidate.review,
+    candidate.reviewText,
+    candidate.comment,
+    candidate.snippet,
+    candidate.title,
+  ];
+
+  return possibleText
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .trim();
+}
+
+function normalizedReviewFingerprint(review: unknown): string {
+  return reviewEvidenceText(review)
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\bverified purchase\b/g, " ")
+    .replace(/\bhelpful\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1000);
+}
+
+function hardenedCollectorReviews(
+  reviews: ReviewCollectorResult["reviews"]
+): ReviewCollectorResult["reviews"] {
+  const seenExact = new Set<string>();
+  const seenNearDuplicate = new Set<string>();
+
+  return reviews.filter((review) => {
+    const fingerprint = normalizedReviewFingerprint(review);
+
+    // Structured collector entries without a recognized text field are kept.
+    // They may use a provider-specific shape needed by downstream analysis.
+    if (!fingerprint) {
+      return true;
+    }
+
+    // Reject entries that are only labels, stars or extremely short fragments.
+    if (fingerprint.length < 12) {
+      return false;
+    }
+
+    if (seenExact.has(fingerprint)) {
+      return false;
+    }
+
+    seenExact.add(fingerprint);
+
+    // Catch syndicated copies that differ only in trailing metadata.
+    const nearDuplicateKey = fingerprint
+      .split(" ")
+      .slice(0, 80)
+      .join(" ");
+
+    if (
+      nearDuplicateKey.length >= 80 &&
+      seenNearDuplicate.has(nearDuplicateKey)
+    ) {
+      return false;
+    }
+
+    if (nearDuplicateKey.length >= 80) {
+      seenNearDuplicate.add(nearDuplicateKey);
+    }
+
+    return true;
+  }) as ReviewCollectorResult["reviews"];
+}
+
 function reviewCollectorResultWith(
   current: ReviewCollectorResult,
   input: {
@@ -1184,7 +1275,19 @@ function reviewCollectorResultWith(
     fallbackUrlsTried?: string[];
   }
 ): ReviewCollectorResult {
-  const reviews = input.reviews || current.reviews;
+  const incomingReviews = input.reviews ?? current.reviews;
+  const reviews = hardenedCollectorReviews(incomingReviews);
+
+  const fallbackUrlsTried = Array.from(
+    new Set(
+      [
+        ...(current.fallbackUrlsTried || []),
+        ...(input.fallbackUrlsTried || []),
+      ]
+        .map((url) => String(url || "").trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 24);
 
   return {
     ...current,
@@ -1193,12 +1296,7 @@ function reviewCollectorResultWith(
     reviewsCollected: reviews.length,
     collectorHasWrittenReviews: reviews.length > 0,
     coverageNote: input.coverageNote || current.coverageNote,
-    fallbackUrlsTried: Array.from(
-      new Set([
-        ...(current.fallbackUrlsTried || []),
-        ...(input.fallbackUrlsTried || []),
-      ])
-    ).slice(0, 24),
+    fallbackUrlsTried,
   };
 }
 
