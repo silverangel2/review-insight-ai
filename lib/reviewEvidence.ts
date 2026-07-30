@@ -1176,6 +1176,96 @@ function evidenceStrengthForCount(count: number): ReviewEvidenceResult["evidence
   return "none";
 }
 
+// REVIEWINTEL_COLLECTOR_EVIDENCE_HARDENING
+// Normalize review text only for validation and deduplication. The original
+// review object remains unchanged so downstream analysis keeps all metadata.
+function reviewEvidenceText(review: unknown): string {
+  if (typeof review === "string") {
+    return review;
+  }
+
+  if (!review || typeof review !== "object") {
+    return "";
+  }
+
+  const candidate = review as Record<string, unknown>;
+  const possibleText = [
+    candidate.text,
+    candidate.body,
+    candidate.content,
+    candidate.review,
+    candidate.reviewText,
+    candidate.comment,
+    candidate.snippet,
+    candidate.title,
+  ];
+
+  return possibleText
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .trim();
+}
+
+function normalizedReviewFingerprint(review: unknown): string {
+  return reviewEvidenceText(review)
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\bverified purchase\b/g, " ")
+    .replace(/\bhelpful\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1000);
+}
+
+function hardenedCollectorReviews(
+  reviews: ReviewCollectorResult["reviews"]
+): ReviewCollectorResult["reviews"] {
+  const seenExact = new Set<string>();
+  const seenNearDuplicate = new Set<string>();
+
+  return reviews.filter((review) => {
+    const fingerprint = normalizedReviewFingerprint(review);
+
+    // Structured collector entries without a recognized text field are kept.
+    // They may use a provider-specific shape needed by downstream analysis.
+    if (!fingerprint) {
+      return true;
+    }
+
+    // Reject entries that are only labels, stars or extremely short fragments.
+    if (fingerprint.length < 12) {
+      return false;
+    }
+
+    if (seenExact.has(fingerprint)) {
+      return false;
+    }
+
+    seenExact.add(fingerprint);
+
+    // Catch syndicated copies that differ only in trailing metadata.
+    const nearDuplicateKey = fingerprint
+      .split(" ")
+      .slice(0, 80)
+      .join(" ");
+
+    if (
+      nearDuplicateKey.length >= 80 &&
+      seenNearDuplicate.has(nearDuplicateKey)
+    ) {
+      return false;
+    }
+
+    if (nearDuplicateKey.length >= 80) {
+      seenNearDuplicate.add(nearDuplicateKey);
+    }
+
+    return true;
+  }) as ReviewCollectorResult["reviews"];
+}
+
 function reviewCollectorResultWith(
   current: ReviewCollectorResult,
   input: {
@@ -1184,7 +1274,18 @@ function reviewCollectorResultWith(
     fallbackUrlsTried?: string[];
   }
 ): ReviewCollectorResult {
-  const reviews = input.reviews || current.reviews;
+  const incomingReviews = input.reviews ?? current.reviews;
+  const reviews = hardenedCollectorReviews(incomingReviews);
+  const fallbackUrlsTried = Array.from(
+    new Set(
+      [
+        ...(current.fallbackUrlsTried || []),
+        ...(input.fallbackUrlsTried || []),
+      ]
+        .map((url) => String(url || "").trim())
+        .filter(Boolean)
+    )
+  ).slice(0, 24);
 
   return {
     ...current,
@@ -1193,12 +1294,7 @@ function reviewCollectorResultWith(
     reviewsCollected: reviews.length,
     collectorHasWrittenReviews: reviews.length > 0,
     coverageNote: input.coverageNote || current.coverageNote,
-    fallbackUrlsTried: Array.from(
-      new Set([
-        ...(current.fallbackUrlsTried || []),
-        ...(input.fallbackUrlsTried || []),
-      ])
-    ).slice(0, 24),
+    fallbackUrlsTried,
   };
 }
 
@@ -2003,7 +2099,7 @@ export async function collectAndAnalyzeReviewEvidence(
 
       // Accept identity-based recovery only after it returns actual written
       // review bodies for the specific product identity.
-      collectorSourceAccepted = combinedReviews.length > 0;
+      collectorSourceAccepted = collectedWrittenReviews.reviewsCollected > 0;
 
       if (collectorSourceAccepted) {
         // Recovered review bodies matched the screenshot product identity.
@@ -2335,8 +2431,6 @@ export async function collectAndAnalyzeReviewEvidence(
         )
       : 0;
 
-  const hasVerifiedWrittenReviewEvidence = verifiedCollectedReviewCount >= 5;
-
   const verifiedMarketplaceReviewCount =
     typeof marketplaceReviewCountForCollector === "number" && marketplaceReviewCountForCollector > 0
       ? marketplaceReviewCountForCollector
@@ -2631,7 +2725,7 @@ Scoring rules:
       },
       body: JSON.stringify({
         model: process.env.OPENAI_REVIEW_SEARCH_MODEL || "gpt-4.1-mini",
-        tools: [{ type: "web_search" }],
+        tools: [{ type: "web_search", search_context_size: "low" }],
         input: prompt,
         temperature: 0.2,
       }),
@@ -2660,12 +2754,12 @@ Scoring rules:
     let parsed = safeParseReviewEvidenceJson(outputText);
 
     const reliableSignalTarget = Math.max(
-      12,
-      Math.min(Number(process.env.REVIEWINTEL_RELIABLE_SIGNAL_TARGET || 35), 50)
+      8,
+      Math.min(Number(process.env.REVIEWINTEL_RELIABLE_SIGNAL_TARGET || 20), 30)
     );
     const maxDeepSearchPasses = Math.max(
       1,
-      Math.min(Number(process.env.REVIEWINTEL_DEEP_SEARCH_PASSES || 5), 5)
+      Math.min(Number(process.env.REVIEWINTEL_DEEP_SEARCH_PASSES || 2), 3)
     );
 
     for (
@@ -2796,7 +2890,7 @@ Return ONLY valid JSON with the same shape as the first pass:
           },
           body: JSON.stringify({
             model: process.env.OPENAI_REVIEW_DEEP_SEARCH_MODEL || process.env.OPENAI_REVIEW_SEARCH_MODEL || "gpt-4.1",
-            tools: [{ type: "web_search" }],
+            tools: [{ type: "web_search", search_context_size: "low" }],
             input: deepPrompt,
             temperature: 0.1,
           }),
@@ -3295,10 +3389,58 @@ Return ONLY valid JSON with the same shape as the first pass:
       },
     });
 
+    // Final evidence-preservation guard:
+    // Never allow verified, collected written review bodies to be erased by a
+    // later parser/cleanup mismatch or by the insufficient-evidence fallback.
+    const preservedCollectedReviewCount = Math.max(
+      collectorReviewsCollected,
+      reviewSnippets.length,
+      Number(finalEvidence.reviewsCollected ?? 0),
+      Number(finalEvidence.reviewCollector?.reviewsCollected ?? 0),
+    );
+
+    const preservedCommentsAnalyzed =
+      preservedCollectedReviewCount > 0
+        ? Math.max(
+            actualCommentsAnalyzed,
+            reviewSnippets.length,
+            Number(finalEvidence.commentsAnalyzed ?? 0),
+          )
+        : actualCommentsAnalyzed;
+
+    const preservedCollectorHasWrittenReviews =
+      collectorHasWrittenReviews ||
+      preservedCollectedReviewCount > 0 ||
+      reviewSnippets.length > 0;
+
+    if (preservedCollectorHasWrittenReviews) {
+      finalEvidence.reviewsCollected = preservedCollectedReviewCount;
+      finalEvidence.commentsAnalyzed = preservedCommentsAnalyzed;
+      finalEvidence.collectorHasWrittenReviews = true;
+      finalEvidence.reviewIntelligenceMode = "written_reviews";
+      finalEvidence.reviewCollector = {
+        attempted: finalEvidence.reviewCollector?.attempted ?? true,
+        sourceUrl: finalEvidence.reviewCollector?.sourceUrl ?? null,
+        extractor: finalEvidence.reviewCollector?.extractor,
+        reviewsCollected: preservedCollectedReviewCount,
+        collectorHasWrittenReviews: true,
+        collectorSourceAccepted:
+          finalEvidence.reviewCollector?.collectorSourceAccepted ??
+          preservedCollectedReviewCount > 0,
+        collectorSourceRejectedReason:
+          finalEvidence.reviewCollector?.collectorSourceRejectedReason ?? null,
+        coverageNote:
+          finalEvidence.reviewCollector?.coverageNote ??
+          "Collected written review evidence was preserved for analysis.",
+        fallbackUrlsTried:
+          finalEvidence.reviewCollector?.fallbackUrlsTried ?? [],
+      };
+    }
+
     const zeroWrittenReviewEvidence =
-      actualCommentsAnalyzed <= 0 &&
-      collectorReviewsCollected <= 0 &&
-      !collectorHasWrittenReviews &&
+      preservedCommentsAnalyzed <= 0 &&
+      preservedCollectedReviewCount <= 0 &&
+      !preservedCollectorHasWrittenReviews &&
       !hasReviewIntelligenceEvidence;
 
     if (zeroWrittenReviewEvidence) {
@@ -3306,11 +3448,11 @@ Return ONLY valid JSON with the same shape as the first pass:
         ...finalEvidence,
         finalDecisionSource: "reviewEvidenceRecoveryFailed",
         decisionStatus: "review_evidence_not_found",
-        evidenceStrength: collectorReviewsCollected > 0 ? "limited" : "none" as const,
+        evidenceStrength: preservedCollectedReviewCount > 0 ? "limited" : "none" as const,
         reviewIntelligenceMode: "listing_metadata" as const,
         reviewIntelligenceSignals: 0,
-        commentsAnalyzed: hasCollectedWrittenReviewEvidence ? finalEvidence.commentsAnalyzed : 0,
-        reviewsCollected: hasCollectedWrittenReviewEvidence ? finalEvidence.reviewsCollected : 0,
+        commentsAnalyzed: preservedCollectorHasWrittenReviews ? preservedCommentsAnalyzed : 0,
+        reviewsCollected: preservedCollectorHasWrittenReviews ? preservedCollectedReviewCount : 0,
         sourcesChecked: finalEvidence.sourcesChecked.length
           ? finalEvidence.sourcesChecked
           : localAttemptedSources.length
@@ -3318,10 +3460,10 @@ Return ONLY valid JSON with the same shape as the first pass:
             : [reviewSearchIdentity || product || "native review retrieval attempted"],
         sourceLinks: finalEvidence.sourceLinks,
         reviewCoverageRatio: verifiedReviewCoverageRatio,
-        collectorHasWrittenReviews: false,
+        collectorHasWrittenReviews: preservedCollectorHasWrittenReviews,
         overallImpact: "",
         buyAssessment: "",
-        reviewSnippets: hasCollectedWrittenReviewEvidence ? finalEvidence.reviewSnippets : [],
+        reviewSnippets: preservedCollectorHasWrittenReviews ? finalEvidence.reviewSnippets : [],
         repeatedPraises: [],
         repeatedComplaints: [],
         aiPatternSignals: [],
