@@ -16,7 +16,7 @@ import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 180;
 
 type Verdict = "BUY" | "CONSIDER" | "AVOID";
 type JsonRecord = Record<string, unknown>;

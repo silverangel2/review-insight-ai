@@ -49,7 +49,7 @@ test("review evidence scan timeout stays below the production function timeout",
   const analyzerRoute = source("app/api/analyze/route.ts");
 
   assert.match(analyzerRoute, /export const runtime = "nodejs"/);
-  assert.match(analyzerRoute, /export const maxDuration = 90/);
+  assert.match(analyzerRoute, /export const maxDuration = 180/);
   assert.match(analyzerRoute, /const reviewEvidenceTimeoutCeilingMs = Math\.max\(1000, maxDuration \* 1000 - 5000\)/);
   assert.match(analyzerRoute, /REVIEW_EVIDENCE_TIMEOUT_MS \|\| reviewEvidenceTimeoutCeilingMs/);
 });
