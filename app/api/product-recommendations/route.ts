@@ -317,7 +317,7 @@ Rules:
 - Do not recommend random unrelated products.
 - Recommendations must be the same category or a very close substitute.
 - If scanned verdict is BUY: suggest cheaper or better-quality Amazon alternatives, but do not claim the scanned item is bad.
-- If scanned verdict is CONSIDER: suggest cleaner, nicer, or more proven alternatives.
+- If scanned verdict is REVIEW FIRST: suggest cleaner, nicer, or more proven alternatives.
 - If scanned verdict is AVOID: suggest safer replacement products.
 - Only say a product is better if public evidence appears stronger.
 - If evidence is weak, explain that briefly.

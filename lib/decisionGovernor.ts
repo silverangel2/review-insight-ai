@@ -127,7 +127,7 @@ export function governBuyerDecision(input: {
     };
   }
 
-  // Enough review evidence can support a cautious Consider.
+  // Enough review evidence can support a cautious REVIEW FIRST.
   // Listing identity or memory alone cannot trigger this.
   if (
     evidenceBundle.hasEnoughEvidence &&
@@ -136,7 +136,7 @@ export function governBuyerDecision(input: {
     !(aiLikeRisk !== null && aiLikeRisk >= 75)
   ) {
     return {
-      verdict: "CONSIDER",
+      verdict: "REVIEW FIRST",
       buyerConfidence: Math.min(82, Math.max(60, evidenceBundle.evidenceScore)),
       buyScore:
         rating !== null && rating >= 4.5 && reviewCount !== null && reviewCount >= 300
@@ -169,7 +169,7 @@ export function governBuyerDecision(input: {
 
   // Incomplete screenshot is not negative evidence.
   // The app should search/match memory first. If no evidence is found after tools run,
-  // return an honest no-decision state, not fake Consider and not fake Avoid.
+  // return an honest no-decision state, not fake REVIEW FIRST and not fake Avoid.
   if (
     (rating === null || reviewCount === null) &&
     !actualDanger &&

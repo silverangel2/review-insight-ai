@@ -46,13 +46,16 @@ function getProductName(result: ResultRecord) {
 }
 
 function getVerdict(result: ResultRecord) {
-  return (
+  const verdict = (
     getString(result.stableVerdict) ||
     getString(result.finalVerdict) ||
     getString(result.verdict) ||
     getString(result.recommendation) ||
-    "CONSIDER"
+    "REVIEW FIRST"
   ).toUpperCase();
+
+  if (verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
+  return verdict;
 }
 
 function getScanId(result: ResultRecord) {
@@ -103,10 +106,10 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
         detail: "The scanned item looks risky, so these are better replacement options from Amazon.",
         button: "Refresh alternatives",
       },
-      consider: {
+      reviewFirst: {
         eyebrow: "Amazon upgrade check",
         title: "Cleaner Amazon options",
-        detail: "For a CONSIDER result, ReviewIntel looks for nicer, more proven Amazon alternatives.",
+        detail: "For a REVIEW FIRST result, ReviewIntel looks for nicer, more proven Amazon alternatives.",
         button: "Refresh picks",
       },
     },
@@ -130,10 +133,10 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
         detail: "L'article scanné semble risqué, alors voici de meilleures options de remplacement sur Amazon.",
         button: "Actualiser",
       },
-      consider: {
+      reviewFirst: {
         eyebrow: "Option Amazon supérieure",
         title: "Options Amazon plus propres",
-        detail: "Pour un résultat CONSIDER, ReviewIntel cherche des alternatives plus fiables et mieux prouvées.",
+        detail: "Pour un résultat REVIEW FIRST, ReviewIntel cherche des alternatives plus fiables et mieux prouvées.",
         button: "Actualiser",
       },
     },
@@ -157,10 +160,10 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
         detail: "El producto escaneado parece riesgoso, así que estas son mejores opciones de reemplazo en Amazon.",
         button: "Actualizar",
       },
-      consider: {
+      reviewFirst: {
         eyebrow: "Mejora en Amazon",
         title: "Opciones Amazon más claras",
-        detail: "Para un resultado CONSIDER, ReviewIntel busca alternativas más probadas y confiables.",
+        detail: "Para un resultado REVIEW FIRST, ReviewIntel busca alternativas más probadas y confiables.",
         button: "Actualizar",
       },
     },
@@ -184,10 +187,10 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
         detail: "扫描商品看起来有风险，所以这里提供更好的 Amazon 替代品。",
         button: "刷新替代品",
       },
-      consider: {
+      reviewFirst: {
         eyebrow: "Amazon 升级检查",
         title: "更可靠的 Amazon 选择",
-        detail: "对于 CONSIDER 结果，ReviewIntel 会寻找更好、更有证据支持的替代品。",
+        detail: "对于 REVIEW FIRST 结果，ReviewIntel 会寻找更好、更有证据支持的替代品。",
         button: "刷新选择",
       },
     },
@@ -211,10 +214,10 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
         detail: "Der gescannte Artikel wirkt riskant, daher sind dies bessere Ersatzoptionen von Amazon.",
         button: "Alternativen aktualisieren",
       },
-      consider: {
+      reviewFirst: {
         eyebrow: "Amazon-Upgrade-Check",
         title: "Klarere Amazon-Optionen",
-        detail: "Bei CONSIDER sucht ReviewIntel nach besser belegten und zuverlässigeren Alternativen.",
+        detail: "Bei REVIEW FIRST sucht ReviewIntel nach besser belegten und zuverlässigeren Alternativen.",
         button: "Auswahl aktualisieren",
       },
     },
@@ -238,16 +241,16 @@ function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
         detail: "स्कैन किया गया आइटम जोखिम भरा लगता है, इसलिए ये बेहतर Amazon विकल्प हैं.",
         button: "विकल्प रीफ्रेश करें",
       },
-      consider: {
+      reviewFirst: {
         eyebrow: "Amazon अपग्रेड चेक",
         title: "बेहतर Amazon विकल्प",
-        detail: "CONSIDER परिणाम के लिए ReviewIntel ज्यादा भरोसेमंद और बेहतर विकल्प खोजता है.",
+        detail: "REVIEW FIRST परिणाम के लिए ReviewIntel ज्यादा भरोसेमंद और बेहतर विकल्प खोजता है.",
         button: "विकल्प रीफ्रेश करें",
       },
     },
   }[locale];
 
-  const variant = verdict === "BUY" ? copy.buy : verdict === "AVOID" ? copy.avoid : copy.consider;
+  const variant = verdict === "BUY" ? copy.buy : verdict === "AVOID" ? copy.avoid : copy.reviewFirst;
 
   return {
     ...copy,

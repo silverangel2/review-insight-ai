@@ -23,7 +23,7 @@ function displayShopperVerdict(value: unknown) {
   const verdict = String(value || "").trim().toUpperCase();
 
   if (verdict === "BUY") return "VERIFIED BUY";
-  if (verdict === "CONSIDER") return "REVIEW FIRST";
+  if (verdict === "REVIEW FIRST" || verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
   if (verdict === "AVOID") return "AVOID";
   if (
     verdict === "REVIEW EVIDENCE NOT ENOUGH" ||
@@ -47,7 +47,7 @@ type ProductLike = {
   reviewCount?: string;
 };
 
-type ShopperVerdict = "BUY" | "CONSIDER" | "AVOID" | "NOT_ENOUGH";
+type ShopperVerdict = "BUY" | "REVIEW FIRST" | "AVOID" | "NOT_ENOUGH";
 type VerdictStyle = { tone: string; soft: string; ring: string };
 type LocalizedVerdictCopy = { answer: string; title: string; message: string };
 
@@ -80,7 +80,7 @@ const shopperVerdictStyle: Record<ShopperVerdict, VerdictStyle> = {
     soft: "bg-emerald-50 border-emerald-200",
     ring: "border-emerald-500"
   },
-  CONSIDER: {
+  "REVIEW FIRST": {
     tone: "text-amber-700",
     soft: "bg-amber-50 border-amber-200",
     ring: "border-amber-500"
@@ -133,7 +133,7 @@ const resultCopy: Record<
   en: {
     verdicts: {
       BUY: { answer: "BUY", title: "This looks worth buying.", message: "The available buying signals are strong enough for a positive decision." },
-      CONSIDER: { answer: "CONSIDER", title: "Compare first before buying.", message: "There are mixed signals. Check alternatives, reviews, and return terms first." },
+      "REVIEW FIRST": { answer: "REVIEW FIRST", title: "Compare first before buying.", message: "There are mixed signals. Check alternatives, reviews, and return terms first." },
       AVOID: { answer: "AVOID", title: "Better to skip this one.", message: "The risk or complaint signals are too weak for a confident buy." },
       NOT_ENOUGH: { answer: "NOT ENOUGH EVIDENCE", title: "Review evidence was not accessible.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
@@ -168,7 +168,7 @@ const resultCopy: Record<
   fr: {
     verdicts: {
       BUY: { answer: "ACHETER", title: "Ce produit semble valoir l’achat.", message: "Les signaux d’achat disponibles sont assez solides pour une décision positive." },
-      CONSIDER: { answer: "CONSIDÉRER", title: "Comparez avant d’acheter.", message: "Les signaux sont mixtes. Vérifiez les alternatives, les avis et les conditions de retour." },
+      "REVIEW FIRST": { answer: "À REVOIR", title: "Comparez avant d’acheter.", message: "Les signaux sont mixtes. Vérifiez les alternatives, les avis et les conditions de retour." },
       AVOID: { answer: "ÉVITER", title: "Mieux vaut passer votre tour.", message: "Les signaux de risque ou de plainte sont trop faibles pour recommander un achat confiant." },
       NOT_ENOUGH: { answer: "PREUVES INSUFFISANTES", title: "Les avis n’étaient pas accessibles.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
@@ -203,7 +203,7 @@ const resultCopy: Record<
   es: {
     verdicts: {
       BUY: { answer: "COMPRAR", title: "Parece que vale la pena comprarlo.", message: "Las señales de compra disponibles son suficientemente fuertes para una decisión positiva." },
-      CONSIDER: { answer: "CONSIDERAR", title: "Compara antes de comprar.", message: "Las señales son mixtas. Revisa alternativas, reseñas y condiciones de devolución." },
+      "REVIEW FIRST": { answer: "REVISAR PRIMERO", title: "Compara antes de comprar.", message: "Las señales son mixtas. Revisa alternativas, reseñas y condiciones de devolución." },
       AVOID: { answer: "EVITAR", title: "Mejor omitir este producto.", message: "Las señales de riesgo o quejas son demasiado débiles para una compra confiada." },
       NOT_ENOUGH: { answer: "EVIDENCIA INSUFICIENTE", title: "No se pudo acceder a las reseñas.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
@@ -238,7 +238,7 @@ const resultCopy: Record<
   zh: {
     verdicts: {
       BUY: { answer: "购买", title: "这个产品看起来值得买。", message: "现有购买信号足够强，可以给出正向购买判断。" },
-      CONSIDER: { answer: "考虑", title: "购买前先比较。", message: "信号有好有坏。请先查看替代品、评论和退货条款。" },
+      "REVIEW FIRST": { answer: "考虑", title: "购买前先比较。", message: "信号有好有坏。请先查看替代品、评论和退货条款。" },
       AVOID: { answer: "避免", title: "最好先跳过这个产品。", message: "风险或投诉信号太弱，不足以支持放心购买。" },
       NOT_ENOUGH: { answer: "证据不足", title: "无法访问足够评论证据。", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
@@ -273,7 +273,7 @@ const resultCopy: Record<
   de: {
     verdicts: {
       BUY: { answer: "KAUFEN", title: "Dieses Produkt wirkt kaufenswert.", message: "Die verfügbaren Kaufsignale sind stark genug für eine positive Entscheidung." },
-      CONSIDER: { answer: "PRÜFEN", title: "Vor dem Kauf vergleichen.", message: "Die Signale sind gemischt. Prüfe Alternativen, Bewertungen und Rückgabebedingungen zuerst." },
+      "REVIEW FIRST": { answer: "PRÜFEN", title: "Vor dem Kauf vergleichen.", message: "Die Signale sind gemischt. Prüfe Alternativen, Bewertungen und Rückgabebedingungen zuerst." },
       AVOID: { answer: "VERMEIDEN", title: "Dieses Produkt besser überspringen.", message: "Die Risiko- oder Beschwerdesignale sind zu schwach für einen sicheren Kauf." },
       NOT_ENOUGH: { answer: "NICHT GENUG BELEGE", title: "Bewertungen waren nicht zugänglich.", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
@@ -308,7 +308,7 @@ const resultCopy: Record<
   hi: {
     verdicts: {
       BUY: { answer: "खरीदें", title: "यह खरीदने लायक लगता है।", message: "उपलब्ध खरीद संकेत सकारात्मक निर्णय के लिए पर्याप्त मजबूत हैं।" },
-      CONSIDER: { answer: "विचार करें", title: "खरीदने से पहले तुलना करें।", message: "संकेत मिले-जुले हैं। पहले विकल्प, समीक्षाएँ और रिटर्न शर्तें जाँचें।" },
+      "REVIEW FIRST": { answer: "विचार करें", title: "खरीदने से पहले तुलना करें।", message: "संकेत मिले-जुले हैं। पहले विकल्प, समीक्षाएँ और रिटर्न शर्तें जाँचें।" },
       AVOID: { answer: "बचें", title: "इसे छोड़ना बेहतर है।", message: "जोखिम या शिकायत संकेत भरोसेमंद खरीद के लिए बहुत कमजोर हैं।" },
       NOT_ENOUGH: { answer: "पर्याप्त प्रमाण नहीं", title: "समीक्षा प्रमाण उपलब्ध नहीं था।", message: "ReviewIntel could not access enough public review evidence for this product." }
     },
@@ -398,7 +398,7 @@ const shopperCompareCopy: Record<ReviewIntelLocale, ShopperCompareCopy> = {
     comparePrefix: "Compare",
     defaultVerdict: "Both products are close, but one may still fit you better.",
     defaultSummary: "ReviewIntel compared both products using review quality, buyer confidence, value, risk signals, and common complaint patterns.",
-    defaultAReason: "Product A may still be worth considering if its features, price, or brand fit your needs better.",
+    defaultAReason: "Product A may still be worth reviewing if its features, price, or brand fit your needs better.",
     defaultBReason: "Product B may be stronger if it has better buyer confidence, cleaner review patterns, or better value.",
     defaultRisk: "Before buying, check repeated complaints, durability issues, return policy, and review authenticity signals.",
     chooseProduct: (winner) => `I would choose Product ${winner}.`
@@ -506,12 +506,13 @@ function verdictFromBuyer(value: unknown): ShopperVerdict {
   if (verdict === "BUY") return "BUY";
   if (verdict === "AVOID") return "AVOID";
   if (verdict.includes("REVIEW EVIDENCE") || verdict.includes("NOT ENOUGH")) return "NOT_ENOUGH";
-  return "CONSIDER";
+  return "REVIEW FIRST";
 }
 
 function optionalVerdictFromBuyer(value: unknown): ShopperVerdict | null {
   const verdict = String(value || "").toUpperCase();
-  if (verdict === "BUY" || verdict === "CONSIDER" || verdict === "MAYBE") return verdict === "BUY" ? "BUY" : "CONSIDER";
+  if (verdict === "BUY") return "BUY";
+  if (verdict === "REVIEW FIRST" || verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
   if (verdict === "AVOID") return "AVOID";
   if (verdict.includes("REVIEW EVIDENCE") || verdict.includes("NOT ENOUGH")) return "NOT_ENOUGH";
   return null;
@@ -1115,7 +1116,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const verdict = {
     ...shopperVerdictStyle[shopper.verdict],
     ...copy.verdicts[shopper.verdict],
-    // Never expose the internal CONSIDER enum in shopper-facing UI.
+    // Never expose obsolete middle-verdict values in shopper-facing UI.
     answer: displayShopperVerdict(shopper.verdict)
   };
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
@@ -2151,7 +2152,7 @@ export function ResultsClient() {
           rating?: string;
           reviewCount?: string;
         };
-        verdict?: "BUY" | "CONSIDER" | "AVOID";
+        verdict?: "BUY" | "REVIEW FIRST" | "AVOID";
         productScore?: number;
         buyingConfidence?: number;
         valueForMoney?: string;
@@ -2245,7 +2246,7 @@ export function ResultsClient() {
                     (source as Record<string, unknown>).stableVerdict ||
                     (source as Record<string, unknown>).finalVerdict ||
                     source.verdict ||
-                    "CONSIDER"
+                    "REVIEW FIRST"
                   ),
               productScore: zeroWrittenReviewEvidence ? null : source.productScore ?? sourceRecord.buyScore ?? sourceRecord.score ?? null,
               buyScore: zeroWrittenReviewEvidence ? null : sourceRecord.buyScore ?? source.productScore ?? sourceRecord.score ?? null,
@@ -2299,7 +2300,7 @@ export function ResultsClient() {
                       (source as Record<string, unknown>).stableVerdict ||
                       (source as Record<string, unknown>).finalVerdict ||
                       source.verdict ||
-                      "CONSIDER"
+                      "REVIEW FIRST"
                     ),
                 score: zeroWrittenReviewEvidence ? null : source.productScore ?? null,
                 buyingConfidence: zeroWrittenReviewEvidence ? null : source.buyingConfidence ?? null,

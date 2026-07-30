@@ -2703,10 +2703,10 @@ Scoring rules:
 - reviewSnippets must contain the evidence used for the assessment.
 - repeatedPraises, repeatedComplaints, aiPatternSignals, buyerExperienceSignals, productPros, and productCons must only be based on reviewSnippets.
 - If marketplaceReviewCount is high but commentsAnalyzed is low, evidenceStrength must remain weak or limited.
-- Do not give a strong Buy from rating or marketplaceReviewCount alone; if exact-product review intelligence is thin, return a cautious Consider/Avoid with low confidence.
+- Do not give a strong Buy from rating or marketplaceReviewCount alone; if exact-product review intelligence is thin, return a cautious REVIEW FIRST/AVOID with low confidence.
 - The final review intelligence must answer: AI-pattern risk, pros, cons, buyer experience, overall impact, and whether this is really a good product to buy.
 - If direct written bodies are blocked, include open-web review intelligence snippets instead of returning an empty result.
-- If commentsAnalyzed is 0 after recovery, return evidenceStrength "none", score null, reviewAuthenticity.score null, and explain that ReviewIntel could not access enough public review evidence. Do not return BUY, CONSIDER, AVOID, or any Buy Score from listing reliability alone.
+- If commentsAnalyzed is 0 after recovery, return evidenceStrength "none", score null, reviewAuthenticity.score null, and explain that ReviewIntel could not access enough public review evidence. Do not return BUY, REVIEW FIRST, AVOID, or any Buy Score from listing reliability alone.
 - commentsAnalyzed 1-4: evidenceStrength = "weak"
 - commentsAnalyzed 5-14: evidenceStrength = "limited"
 - commentsAnalyzed 15-29: evidenceStrength = "usable"
@@ -2843,7 +2843,7 @@ Rules:
 - Return as many distinct reviewSnippets as you can safely verify, up to ${reliableSignalTarget}.
 - Analyze the already collected written reviews above. They are real collector evidence and must not be ignored.
 - commentsAnalyzed must count only exact-product snippets/signals you actually used, never the marketplace total.
-- Product identity, rating, and review count alone are not review evidence. If recovery still finds zero exact-product review/comment/open-web review-intelligence signals, return evidenceStrength "none", score null, reviewAuthenticity.score null, and do not return BUY, CONSIDER, AVOID, or a Buy Score.
+- Product identity, rating, and review count alone are not review evidence. If recovery still finds zero exact-product review/comment/open-web review-intelligence signals, return evidenceStrength "none", score null, reviewAuthenticity.score null, and do not return BUY, REVIEW FIRST, AVOID, or a Buy Score.
 - productPros and productCons must be the strongest distinct buyer factors only. Merge duplicates, avoid repeated wording, and keep each bullet short enough for a shopper result card.
 
 Return ONLY valid JSON with the same shape as the first pass:

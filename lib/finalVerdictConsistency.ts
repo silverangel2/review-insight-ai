@@ -18,13 +18,16 @@ function getNumber(value: unknown) {
 }
 
 function normalizedVerdict(record: AnyRecord) {
-  return (
+  const verdict = (
     getString(record.stableVerdict) ||
     getString(record.finalVerdict) ||
     getString(record.verdict) ||
     getString(record.recommendation) ||
     ""
   ).toUpperCase();
+
+  if (verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
+  return verdict;
 }
 
 export function enforceFinalVerdictConsistency<T>(value: T): T {
@@ -62,8 +65,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
       "Good buy. ReviewIntel found enough positive evidence to support a confident purchase.";
   }
 
-  if (verdict === "CONSIDER") {
-    // CONSIDER cannot show 1-4/10 or Poor. That contradicts the verdict.
+  if (verdict === "REVIEW FIRST") {
+    // REVIEW FIRST cannot show 1-4/10 or Poor. That contradicts the verdict.
     nextScore = Math.min(7, Math.max(nextScore || 6, 6));
     nextConfidence = Math.min(82, Math.max(nextConfidence || 60, 60));
     nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Fair" : nextValue;

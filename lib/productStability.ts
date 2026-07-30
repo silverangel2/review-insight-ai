@@ -358,7 +358,7 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
 
   if (!hasReviewEvidence) {
     return {
-      verdict: "CONSIDER",
+      verdict: "REVIEW FIRST",
       buyerConfidence: 50,
       buyScore: 5,
       valueForMoney: "Needs review evidence",
@@ -375,7 +375,7 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
     (aiLikeScore === null || aiLikeScore < 60)
   ) {
     return {
-      verdict: "CONSIDER",
+      verdict: "REVIEW FIRST",
       buyerConfidence: 60,
       buyScore: 7,
       valueForMoney: "Good",
@@ -418,7 +418,7 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
   }
 
   return {
-    verdict: "CONSIDER",
+    verdict: "REVIEW FIRST",
     buyerConfidence: 60,
     buyScore: 6,
     valueForMoney: "Fair",
@@ -525,6 +525,15 @@ function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function normalizeStoredVerdict(value: unknown) {
+  const verdict = stringOrNull(value)?.toUpperCase();
+
+  if (!verdict) return undefined;
+  if (verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
+
+  return verdict;
+}
+
 function rowToMemory(row: Record<string, unknown>): ProductMemory {
   return {
     productKey: String(row.product_key || ""),
@@ -536,7 +545,7 @@ function rowToMemory(row: Record<string, unknown>): ProductMemory {
     rating: numberOrNull(row.rating) || undefined,
     reviewCount: numberOrNull(row.review_count) || undefined,
     reviewEvidence: (row.review_evidence as ReviewEvidenceLike | null) || null,
-    verdict: stringOrNull(row.last_verdict) || undefined,
+    verdict: normalizeStoredVerdict(row.last_verdict),
     buyerConfidence: numberOrNull(row.buyer_confidence) || undefined,
     buyScore: numberOrNull(row.last_score) || undefined,
     valueForMoney: stringOrNull(row.value_for_money) || undefined,
@@ -578,7 +587,10 @@ async function saveProductMemoryToSupabase(memory: ProductMemory, result: JsonRe
       price: memory.price || null,
       rating: memory.rating || null,
       review_count: memory.reviewCount ? Math.round(memory.reviewCount) : null,
-      last_verdict: memory.verdict || cleanStringFromResult(result, ["verdict", "recommendation"]) || null,
+      last_verdict:
+        normalizeStoredVerdict(memory.verdict) ||
+        normalizeStoredVerdict(cleanStringFromResult(result, ["verdict", "recommendation"])) ||
+        null,
       last_score: memory.buyScore || parseNumber(result.score) || parseNumber(result.buyScore) || null,
       buyer_confidence: memory.buyerConfidence || parseNumber(result.buyerConfidence) || parseNumber(result.confidence) || null,
       value_for_money: memory.valueForMoney || cleanStringFromResult(result, ["valueForMoney", "value"]) || null,

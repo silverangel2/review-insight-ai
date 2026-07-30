@@ -70,7 +70,7 @@ export function humanVerdictRules(input: {
 
   if (!hasReviewVolume && commentsAnalyzed < 5) {
     return {
-      verdict: "CONSIDER",
+      verdict: "REVIEW FIRST",
       confidence: 50,
       score: 5,
       value: "Needs review evidence",
@@ -104,7 +104,7 @@ export function humanVerdictRules(input: {
     (aiLikeRisk === null || aiLikeRisk < 60)
   ) {
     return {
-      verdict: "CONSIDER",
+      verdict: "REVIEW FIRST",
       confidence: 64,
       score: 7,
       value: "Good",
@@ -127,7 +127,7 @@ export function humanVerdictRules(input: {
   }
 
   return {
-    verdict: "CONSIDER",
+    verdict: "REVIEW FIRST",
     confidence: 60,
     score: 6,
     value: "Fair",

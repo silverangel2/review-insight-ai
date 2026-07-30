@@ -10,7 +10,7 @@ import { displayCodeForResult } from "@/lib/productDisplay";
 import { readStoredLocale } from "@/lib/i18n";
 import { shortProductName, shortCompareTitle } from "@/lib/productName";
 
-type Verdict = "BUY" | "CONSIDER" | "AVOID";
+type Verdict = "BUY" | "REVIEW FIRST" | "AVOID";
 
 type AnalyzeResult = {
   verdict: Verdict;
@@ -433,7 +433,7 @@ function compareCopy(locale: string) {
 
 function verdictRank(verdict: Verdict) {
   if (verdict === "BUY") return 3;
-  if (verdict === "CONSIDER") return 2;
+  if (verdict === "REVIEW FIRST") return 2;
   return 1;
 }
 
@@ -485,7 +485,7 @@ function pickWinner(a: AnalyzeResult | null, b: AnalyzeResult | null) {
 
 function verdictClass(verdict: Verdict) {
   if (verdict === "BUY") return "border-emerald-300 bg-emerald-50 text-emerald-950";
-  if (verdict === "CONSIDER") return "border-amber-300 bg-amber-50 text-amber-950";
+  if (verdict === "REVIEW FIRST") return "border-amber-300 bg-amber-50 text-amber-950";
   return "border-rose-300 bg-rose-50 text-rose-950";
 }
 
