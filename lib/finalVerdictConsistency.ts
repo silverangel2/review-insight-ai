@@ -66,8 +66,9 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
   }
 
   if (verdict === "REVIEW FIRST") {
-    // REVIEW FIRST cannot show 1-4/10 or Poor. That contradicts the verdict.
-    nextScore = Math.min(7, Math.max(nextScore || 6, 6));
+    // Preserve the score spread from the evidence scorer. Only fill missing
+    // legacy values and cap overly bullish REVIEW FIRST scores.
+    nextScore = nextScore > 0 ? Math.min(8, Math.max(nextScore, 4)) : 6;
     nextConfidence = Math.min(82, Math.max(nextConfidence || 60, 60));
     nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Fair" : nextValue;
     nextBottomLine =

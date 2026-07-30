@@ -14,6 +14,7 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
+import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -2301,74 +2302,33 @@ function buildReviewEvidenceShopperResult(input: {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
-    // Derive the shopper score from the collected written-review evidence.
-    // Marketplace rating and public review count are context only and never
-    // create or boost this score.
-    const evidenceWeight = (item: unknown) => {
-      if (!item || typeof item !== "object") return 1;
-      const record = item as Record<string, unknown>;
-      const candidates = [
-        record.count,
-        record.mentions,
-        record.frequency,
-        record.reviewCount,
-        record.review_count,
-        record.occurrences,
-      ];
-      const value = candidates
-        .map(Number)
-        .find((candidate) => Number.isFinite(candidate) && candidate > 0);
-      return Math.max(1, Math.min(12, value || 1));
-    };
+    // Derive the shopper score from collected written-review evidence.
+    // Summary pros/cons are weak qualitative support; repeated themes,
+    // frequency, severity, evidence strength, and marketplace rating context
+    // determine the score distribution.
+    const scoredEvidence = scoreReviewEvidenceSignals({
+      repeatedPraises,
+      repeatedComplaints,
+      productPros,
+      productCons,
+      buyerExperienceSignals,
+      aiPatternSignals,
+      commentsAnalyzed,
+      marketplaceReviewCount,
+      marketplaceRating: evidence.rating ?? listingEvidence?.rating ?? listingRatingForMetadataScore,
+      evidenceStrength,
+    });
 
-    const positiveWeight =
-      repeatedPraises.reduce((total, item) => total + evidenceWeight(item), 0) +
-      Math.min(4, productPros.length) * 0.75;
-    const negativeWeight =
-      repeatedComplaints.reduce((total, item) => total + evidenceWeight(item), 0) +
-      Math.min(4, productCons.length) * 0.75;
+    buyScore = scoredEvidence.buyScore;
+    verdict = scoredEvidence.verdict;
+    valueForMoney = scoredEvidence.valueForMoney;
 
-    const seriousComplaintWeight = repeatedComplaints.reduce((total, item) => {
-      const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
-      const text = String(record.theme || record.summary || record.text || "");
-      return /broken|stopped|does not work|doesn't work|not working|defect|unsafe|danger|fire|burn|leak|toxic|injury|refund|return/i.test(text)
-        ? total + evidenceWeight(item)
-        : total;
-    }, 0);
-
-    const totalSignalWeight = positiveWeight + negativeWeight;
-    const positiveShare = totalSignalWeight > 0 ? positiveWeight / totalSignalWeight : 0.5;
-
-    // Map the balance of actual written-review signals onto the full 1-10
-    // range. This avoids the previous artificial neutral starting score of 5.
-    let calculatedBuyScore = 1 + positiveShare * 9;
-
-    // Repeated serious failures should matter more than ordinary dislikes.
-    if (seriousComplaintWeight >= 3) calculatedBuyScore -= 1.25;
-    else if (seriousComplaintWeight > 0) calculatedBuyScore -= 0.4;
-
-    // Require enough written-review coverage for the strongest score band.
-    if (commentsAnalyzed < 5) calculatedBuyScore = Math.min(calculatedBuyScore, 6);
-    else if (commentsAnalyzed < 15) calculatedBuyScore = Math.min(calculatedBuyScore, 8);
-
-    buyScore = Math.max(1, Math.min(10, Math.round(calculatedBuyScore)));
-
-    if (
-      buyScore >= 7 &&
-      positiveWeight > negativeWeight &&
-      seriousComplaintWeight < 3
-    ) {
+    if (verdict === "BUY") {
       verdict = "BUY";
-      valueForMoney = buyScore >= 9 ? "Excellent" : "Good";
       bottomLine =
         "ReviewIntel read the collected written reviews and found that repeated buyer strengths clearly outweigh the complaint signals.";
-    } else if (
-      buyScore <= 4 ||
-      negativeWeight > positiveWeight ||
-      seriousComplaintWeight >= 5
-    ) {
+    } else if (verdict === "AVOID") {
       verdict = "AVOID";
-      valueForMoney = "Risky";
       bottomLine =
         "ReviewIntel read the collected written reviews and found that repeated complaints outweigh the positive buyer signals.";
     } else {
