@@ -446,7 +446,6 @@ async function fetchAmazonSearchCandidates(query: string, maxCandidates = 4, tim
       if (!asin || seen.has(asin)) continue;
       seen.add(asin);
 
-      const href = match[1].replace(/&amp;/g, "&");
       const title = amazonTitleFromHtmlAround(html, match.index) || `Amazon.ca product ${asin}`;
 
       candidates.push({

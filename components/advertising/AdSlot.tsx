@@ -59,12 +59,6 @@ function sendAdEvent(type: "impression" | "click", sponsorId: string, placement:
   });
 }
 
-function hourlySeed(placement: string) {
-  const hour = Math.floor(Date.now() / (60 * 60 * 1000));
-  return placement.split("").reduce((total, char) => total + char.charCodeAt(0), hour);
-}
-
-
 function affiliateEventMetadata(ad: SponsorAd, placement: AdPlacement) {
   return {
     source: "affiliate_ad_slot",

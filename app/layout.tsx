@@ -18,7 +18,11 @@ import SessionIdleLogout from "@/components/SessionIdleLogout";
 import { TrafficTracker } from "@/components/TrafficTracker";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000"
+  ),
   title: {
     default: "ReviewIntel | AI Review Intelligence Platform",
     template: "%s | ReviewIntel"
