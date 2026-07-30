@@ -127,6 +127,51 @@ export function governBuyerDecision(input: {
     };
   }
 
+  // Strong marketplace evidence plus positive written evidence should reach Buy.
+  if (
+    evidenceBundle.hasEnoughEvidence &&
+    hasVerifiedReviewEvidence &&
+    rating !== null &&
+    rating >= 4.2 &&
+    reviewCount !== null &&
+    reviewCount >= 100 &&
+    textHasPraise(text) &&
+    !actualDanger &&
+    !Boolean(input.severeComplaints) &&
+    (aiLikeRisk === null || aiLikeRisk < 60)
+  ) {
+    const excellentMarketplaceSignal = rating >= 4.6 && reviewCount >= 300;
+
+    return {
+      verdict: "BUY",
+      buyerConfidence: Math.min(88, Math.max(72, evidenceBundle.evidenceScore)),
+      buyScore: excellentMarketplaceSignal ? 8.8 : 7.4,
+      valueForMoney: excellentMarketplaceSignal ? "Strong" : "Good",
+      bottomLine:
+        "Good buy. The public rating, review volume, and positive written-review evidence outweigh isolated concerns.",
+    };
+  }
+
+  // Excellent rating + strong review count can become Buy when no severe risk is present.
+  if (
+    rating !== null &&
+    rating >= 4.6 &&
+    reviewCount !== null &&
+    reviewCount >= 300 &&
+    !actualDanger &&
+    !Boolean(input.severeComplaints) &&
+    (aiLikeRisk === null || aiLikeRisk < 45)
+  ) {
+    return {
+      verdict: "BUY",
+      buyerConfidence: 84,
+      buyScore: 8,
+      valueForMoney: "Strong",
+      bottomLine:
+        "Good buy. Rating, review volume, and available evidence are strong.",
+    };
+  }
+
   // Enough review evidence can support a cautious Consider.
   // Listing identity or memory alone cannot trigger this.
   if (
@@ -145,25 +190,6 @@ export function governBuyerDecision(input: {
       valueForMoney: "Fair",
       bottomLine:
         "ReviewIntel found usable review evidence, but not enough for a strong Buy. Check repeated complaints, current price, and return policy before purchasing.",
-    };
-  }
-
-  // Excellent rating + strong review count can become Buy.
-  if (
-    rating !== null &&
-    rating >= 4.6 &&
-    reviewCount !== null &&
-    reviewCount >= 300 &&
-    !actualDanger &&
-    (aiLikeRisk === null || aiLikeRisk < 45)
-  ) {
-    return {
-      verdict: "BUY",
-      buyerConfidence: 84,
-      buyScore: 8,
-      valueForMoney: "Strong",
-      bottomLine:
-        "Good buy. Rating, review volume, and available evidence are strong.",
     };
   }
 

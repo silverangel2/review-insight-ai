@@ -14,6 +14,7 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
+import { scoreReviewEvidenceDecision } from "@/lib/reviewEvidenceScoring";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -2131,7 +2132,10 @@ function buildReviewEvidenceShopperResult(input: {
     collectorReviewsCollected,
     reviewSnippets.length,
     repeatedPraises.length,
-    repeatedComplaints.length
+    repeatedComplaints.length,
+    productPros.length + productCons.length,
+    buyerExperienceSignals.length,
+    aiPatternSignals.length
   );
 
   const commentsAnalyzed =
@@ -2142,28 +2146,6 @@ function buildReviewEvidenceShopperResult(input: {
       ? rawCommentsAnalyzed
       : groundedCommentsAnalyzed;
   const evidenceStrength = String(evidence.evidenceStrength || "none").toLowerCase();
-
-  const hasReadableReviewEvidence =
-    reviewSnippets.length > 0 ||
-    repeatedPraises.length > 0 ||
-    repeatedComplaints.length > 0 ||
-    commentsAnalyzed > 0;
-
-  const reviewCoverageRatio =
-    marketplaceReviewCount > 0
-      ? commentsAnalyzed / marketplaceReviewCount
-      : commentsAnalyzed > 0
-        ? commentsAnalyzed / 50
-        : 0;
-
-  // RI can give BUY / CONSIDER / AVOID from exact-product review intelligence.
-  // Direct written review bodies are best; OpenAI web-search review intelligence is allowed
-  // when marketplaces block review bodies, with lower confidence shown in the audit.
-  const hasUsableReviewEvidence =
-    hasReadableReviewEvidence &&
-    commentsAnalyzed >= 3 &&
-    reviewSnippets.length >= 3 &&
-    evidenceStrength !== "none";
 
   const listingRatingForMetadataScore = (() => {
     const value = evidence.rating ?? listingEvidence?.rating ?? vision.rating;
@@ -2186,16 +2168,6 @@ function buildReviewEvidenceShopperResult(input: {
     Boolean(store) ||
     Boolean(price);
 
-  // If RI found the product/review count but only reached thin review intelligence,
-  // it must stay cautious and transparent, but it should still provide a useful score.
-  const hasLimitedReviewEvidence =
-    collectorSourceAccepted &&
-    (
-      hasReadableReviewEvidence ||
-      evidenceStrength === "weak" ||
-      evidenceStrength === "limited"
-    );
-
   const evidenceReviewSignalCount = Math.max(
     reviewSnippets.length,
     repeatedPraises.length + repeatedComplaints.length,
@@ -2206,6 +2178,44 @@ function buildReviewEvidenceShopperResult(input: {
       ? Number(evidence.reviewIntelligenceSignals)
       : 0
   );
+
+  const hasReadableReviewEvidence =
+    evidenceReviewSignalCount > 0 ||
+    reviewSnippets.length > 0 ||
+    repeatedPraises.length > 0 ||
+    repeatedComplaints.length > 0 ||
+    productPros.length > 0 ||
+    productCons.length > 0 ||
+    buyerExperienceSignals.length > 0 ||
+    aiPatternSignals.length > 0 ||
+    commentsAnalyzed > 0;
+
+  const reviewCoverageRatio =
+    marketplaceReviewCount > 0
+      ? commentsAnalyzed / marketplaceReviewCount
+      : commentsAnalyzed > 0
+        ? commentsAnalyzed / 50
+        : 0;
+
+  // RI can give BUY / CONSIDER / AVOID from exact-product review intelligence.
+  // Direct written review bodies are best; OpenAI web-search review intelligence is allowed
+  // when marketplaces block review bodies, with lower confidence shown in the audit.
+  const hasUsableReviewEvidence =
+    hasReadableReviewEvidence &&
+    commentsAnalyzed >= 3 &&
+    evidenceReviewSignalCount >= 3 &&
+    evidenceStrength !== "none";
+
+  // If RI found the product/review count but only reached thin review intelligence,
+  // it must stay cautious and transparent, but it should still provide a useful score.
+  const hasLimitedReviewEvidence =
+    collectorSourceAccepted &&
+    (
+      hasReadableReviewEvidence ||
+      evidenceStrength === "weak" ||
+      evidenceStrength === "limited"
+    );
+
   const noPublicReviewEvidence =
     collectorReviewsCollected <= 0 &&
     commentsAnalyzed <= 0 &&
@@ -2243,6 +2253,7 @@ function buildReviewEvidenceShopperResult(input: {
   let finalDecisionSource = "reviewEvidenceNotEnough";
   let buyScore: number | null = null;
   let valueForMoney = "Unknown";
+  let scoreAudit: Record<string, unknown> | null = null;
   let bottomLine =
     "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
 
@@ -2257,82 +2268,46 @@ function buildReviewEvidenceShopperResult(input: {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
-    // Derive the shopper score from the collected written-review evidence.
-    // Marketplace rating and public review count are context only and never
-    // create or boost this score.
-    const evidenceWeight = (item: unknown) => {
-      if (!item || typeof item !== "object") return 1;
-      const record = item as Record<string, unknown>;
-      const candidates = [
-        record.count,
-        record.mentions,
-        record.frequency,
-        record.reviewCount,
-        record.review_count,
-        record.occurrences,
-      ];
-      const value = candidates
-        .map(Number)
-        .find((candidate) => Number.isFinite(candidate) && candidate > 0);
-      return Math.max(1, Math.min(12, value || 1));
-    };
+    const reviewAuthenticityRecord =
+      input.reviewAuthenticity && typeof input.reviewAuthenticity === "object"
+        ? (input.reviewAuthenticity as Record<string, unknown>)
+        : {};
+    const scoredDecision = scoreReviewEvidenceDecision({
+      rating: listingRatingForMetadataScore,
+      marketplaceReviewCount,
+      commentsAnalyzed,
+      evidenceStrength,
+      reviewSnippets,
+      repeatedPraises,
+      repeatedComplaints,
+      productPros,
+      productCons,
+      buyerExperienceSignals,
+      aiPatternSignals,
+      reviewAuthenticityScore:
+        typeof reviewAuthenticityRecord.score === "number"
+          ? reviewAuthenticityRecord.score
+          : null,
+      suspiciousReviewRisk:
+        typeof reviewAuthenticityRecord.suspiciousReviewRisk === "string"
+          ? reviewAuthenticityRecord.suspiciousReviewRisk
+          : null,
+    });
 
-    const positiveWeight =
-      repeatedPraises.reduce((total, item) => total + evidenceWeight(item), 0) +
-      Math.min(4, productPros.length) * 0.75;
-    const negativeWeight =
-      repeatedComplaints.reduce((total, item) => total + evidenceWeight(item), 0) +
-      Math.min(4, productCons.length) * 0.75;
-
-    const seriousComplaintWeight = repeatedComplaints.reduce((total, item) => {
-      const record = item && typeof item === "object" ? item as Record<string, unknown> : {};
-      const text = String(record.theme || record.summary || record.text || "");
-      return /broken|stopped|does not work|doesn't work|not working|defect|unsafe|danger|fire|burn|leak|toxic|injury|refund|return/i.test(text)
-        ? total + evidenceWeight(item)
-        : total;
-    }, 0);
-
-    const totalSignalWeight = positiveWeight + negativeWeight;
-    const positiveShare = totalSignalWeight > 0 ? positiveWeight / totalSignalWeight : 0.5;
-
-    // Map the balance of actual written-review signals onto the full 1-10
-    // range. This avoids the previous artificial neutral starting score of 5.
-    let calculatedBuyScore = 1 + positiveShare * 9;
-
-    // Repeated serious failures should matter more than ordinary dislikes.
-    if (seriousComplaintWeight >= 3) calculatedBuyScore -= 1.25;
-    else if (seriousComplaintWeight > 0) calculatedBuyScore -= 0.4;
-
-    // Require enough written-review coverage for the strongest score band.
-    if (commentsAnalyzed < 5) calculatedBuyScore = Math.min(calculatedBuyScore, 6);
-    else if (commentsAnalyzed < 15) calculatedBuyScore = Math.min(calculatedBuyScore, 8);
-
-    buyScore = Math.max(1, Math.min(10, Math.round(calculatedBuyScore)));
-
-    if (
-      buyScore >= 7 &&
-      positiveWeight > negativeWeight &&
-      seriousComplaintWeight < 3
-    ) {
-      verdict = "BUY";
-      valueForMoney = buyScore >= 9 ? "Excellent" : "Good";
-      bottomLine =
-        "ReviewIntel read the collected written reviews and found that repeated buyer strengths clearly outweigh the complaint signals.";
-    } else if (
-      buyScore <= 4 ||
-      negativeWeight > positiveWeight ||
-      seriousComplaintWeight >= 5
-    ) {
-      verdict = "AVOID";
-      valueForMoney = "Risky";
-      bottomLine =
-        "ReviewIntel read the collected written reviews and found that repeated complaints outweigh the positive buyer signals.";
+    if (scoredDecision.verdict === "REVIEW EVIDENCE NOT ENOUGH") {
+      verdict = "REVIEW EVIDENCE NOT ENOUGH";
+      decisionStatus = "not_enough_written_review_evidence";
+      finalDecisionSource = "reviewEvidenceNotEnough";
+      buyScore = null;
+      valueForMoney = "Unknown";
     } else {
-      verdict = "CONSIDER";
-      valueForMoney = "Fair";
-      bottomLine =
-        "ReviewIntel read the collected written reviews and found meaningful strengths alongside complaint signals that should be checked before buying.";
+      verdict = scoredDecision.verdict;
+      buyScore = scoredDecision.buyScore;
+      valueForMoney = scoredDecision.valueForMoney;
     }
+
+    bottomLine = scoredDecision.bottomLine;
+    scoreAudit = scoredDecision.audit;
   } else if (
     hasVerifiedListingMetadata ||
     hasLimitedReviewEvidence ||
@@ -2456,6 +2431,7 @@ function buildReviewEvidenceShopperResult(input: {
     groundedCommentsAnalyzed,
     commentsAnalyzed: verdictConfidenceAudit.audit.commentsAnalyzed,
     reviewCoverageRatio: verdictConfidenceAudit.audit.reviewCoverageRatio,
+    scoreAudit,
     reason: verdictConfidenceAudit.audit.reason,
   });
 
@@ -2551,6 +2527,7 @@ function buildReviewEvidenceShopperResult(input: {
         repeatedComplaints: repeatedComplaints.length,
       },
       finalDecisionSource,
+      scoreAudit,
       verdictConfidenceAudit: verdictConfidenceAudit.audit,
     },
 

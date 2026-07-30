@@ -63,8 +63,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
   }
 
   if (verdict === "CONSIDER") {
-    // CONSIDER cannot show 1-4/10 or Poor. That contradicts the verdict.
-    nextScore = Math.min(7, Math.max(nextScore || 6, 6));
+    // Mixed evidence can legitimately sit anywhere in the REVIEW FIRST band.
+    nextScore = Math.min(7, Math.max(nextScore || 5, 4));
     nextConfidence = Math.min(82, Math.max(nextConfidence || 60, 60));
     nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Fair" : nextValue;
     nextBottomLine =
