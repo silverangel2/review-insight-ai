@@ -19,7 +19,8 @@ test("new product scans are stamped and stale results are rejected", () => {
 
   assert.match(results, /readActiveScanId\(\)/);
   assert.match(results, /readLatestResult\(\s*account,\s*activeScanId \? \{ scanId: activeScanId \}/s);
-  assert.match(results, /scanIdFromAnalyzeResponse\(parsed\) !== activeScanId/);
+  assert.match(results, /const parsedScanId = scanIdFromAnalyzeResponse\(parsed\)/);
+  assert.match(results, /if \(activeScanId && parsedScanId && parsedScanId !== activeScanId\)/);
 });
 
 test("recommendations are isolated from the main scan result", () => {
@@ -37,11 +38,20 @@ test("recommendations are isolated from the main scan result", () => {
 test("rejected exact listings cannot collect unrelated written reviews", () => {
   const evidence = source("lib/reviewEvidence.ts");
 
-  assert.match(evidence, /const collectorSourceAccepted = Boolean\(exactListingAccepted && listingUrlForReviewCollector\)/);
-  assert.match(evidence, /if \(collectorSourceAccepted && collectedWrittenReviews\.reviewsCollected < 3\)/);
+  assert.match(evidence, /let collectorSourceAccepted = Boolean\(\s*exactListingAccepted && listingUrlForReviewCollector\s*\)/s);
+  assert.match(evidence, /collectedWrittenReviews\.reviewsCollected < 3 &&\s*\(\s*collectorSourceAccepted \|\| hasSpecificRecoveryIdentity/s);
   assert.match(evidence, /if \(!collectorSourceAccepted\) \{/);
   assert.match(evidence, /return insufficientEvidence;/);
   assert.match(evidence, /hasVariantMismatch \|\|\s*\(hasRatingMismatch && hasReviewCountMismatch\)/);
+});
+
+test("review evidence scan timeout stays below the production function timeout", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /export const runtime = "nodejs"/);
+  assert.match(analyzerRoute, /export const maxDuration = 90/);
+  assert.match(analyzerRoute, /const reviewEvidenceTimeoutCeilingMs = Math\.max\(1000, maxDuration \* 1000 - 5000\)/);
+  assert.match(analyzerRoute, /REVIEW_EVIDENCE_TIMEOUT_MS \|\| reviewEvidenceTimeoutCeilingMs/);
 });
 
 test("exact product search uses candidate collection instead of one guessed URL", () => {

@@ -1642,12 +1642,17 @@ async function researchAndVerdict(
       ? vision.reviewCount
       : undefined;
 
-  const configuredReviewEvidenceTimeoutMs = Number(process.env.REVIEW_EVIDENCE_TIMEOUT_MS || 60000);
+  const reviewEvidenceTimeoutCeilingMs = Math.max(1000, maxDuration * 1000 - 5000);
+  const configuredReviewEvidenceTimeoutMs = Number(
+    process.env.REVIEW_EVIDENCE_TIMEOUT_MS || reviewEvidenceTimeoutCeilingMs
+  );
   const reviewEvidenceTimeoutMs = Math.max(
     1000,
     Math.min(
-      Number.isFinite(configuredReviewEvidenceTimeoutMs) ? configuredReviewEvidenceTimeoutMs : 60000,
-      60000
+      Number.isFinite(configuredReviewEvidenceTimeoutMs)
+        ? configuredReviewEvidenceTimeoutMs
+        : reviewEvidenceTimeoutCeilingMs,
+      reviewEvidenceTimeoutCeilingMs
     )
   );
 
@@ -1741,7 +1746,12 @@ async function researchAndVerdict(
     }),
     new Promise<Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>>((resolve) => {
       setTimeout(() => {
-        resolve(fallbackReviewEvidence("Automatic public review evidence recovery reached the 60 second search limit."));
+        const timeoutSeconds = Math.round(reviewEvidenceTimeoutMs / 1000);
+        resolve(
+          fallbackReviewEvidence(
+            `Automatic public review evidence recovery reached the ${timeoutSeconds} second search limit.`
+          )
+        );
       }, reviewEvidenceTimeoutMs);
     }),
   ]);
