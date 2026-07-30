@@ -13,8 +13,8 @@ const groups = [
   {
     title: "Trust & Legal",
     links: [
-      ["Terms", "/terms"],
-      ["Privacy", "/privacy"],
+      ["Terms of Service", "/terms"],
+      ["Privacy Policy", "/privacy"],
       ["Disclaimer", "/disclaimer"],
       ["Refunds", "/refunds"],
       ["Cookies", "/cookies"],

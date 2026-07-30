@@ -5,7 +5,7 @@ import { getTrustPage } from "@/lib/trustContent";
 const page = getTrustPage("terms")!;
 
 export const metadata: Metadata = {
-  title: "Terms of Use",
+  title: "Terms of Service",
   description: page.summary
 };
 

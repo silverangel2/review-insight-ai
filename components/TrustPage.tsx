@@ -18,9 +18,24 @@ const toneBadge = {
   warning: "bad"
 } as const;
 
+function sectionId(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function bodyParagraphs(body: TrustPageContent["sections"][number]["body"]) {
+  return Array.isArray(body) ? body : [body];
+}
+
 export function TrustPage({ page }: { page: TrustPageContent }) {
   const showContactForm = page.slug === "contact" || page.slug === "billing-support" || page.slug === "account-support" || page.slug === "delete-account";
   const showSubscriptionPanel = page.slug === "manage-subscription";
+  const tocItems = page.sections.map((section) => ({
+    id: sectionId(section.title),
+    title: section.title,
+  }));
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -39,19 +54,43 @@ export function TrustPage({ page }: { page: TrustPageContent }) {
         </div>
       </section>
 
+      {tocItems.length > 3 ? (
+        <section className="mt-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+          <h2 className="text-xl font-black text-ink dark:text-white">Table of contents</h2>
+          <nav className="mt-4" aria-label={`${page.title} sections`}>
+            <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {tocItems.map((item) => (
+                <li key={item.id}>
+                  <a
+                    href={`#${item.id}`}
+                    className="block rounded-xl border border-line bg-mist px-4 py-3 text-sm font-bold leading-5 text-slate-700 transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:text-cyan-200"
+                  >
+                    {item.title}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </section>
+      ) : null}
+
       <section className="mt-6 grid gap-5">
         {page.sections.map((section) => (
-          <article key={section.title} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+          <article id={sectionId(section.title)} key={section.title} className="scroll-mt-28 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h2 className="text-2xl font-black text-ink dark:text-white">{section.title}</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">{section.body}</p>
+            <div className="mt-4 space-y-3">
+              {bodyParagraphs(section.body).map((paragraph) => (
+                <p key={paragraph} className="text-sm leading-7 text-slate-600 dark:text-slate-300">{paragraph}</p>
+              ))}
+            </div>
             {section.items?.length ? (
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <ul className="mt-5 grid gap-3">
                 {section.items.map((item) => (
-                  <div key={item} className="rounded-2xl border border-line bg-mist px-4 py-3 text-sm font-bold leading-6 text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
+                  <li key={item} className="rounded-xl border border-line bg-mist px-4 py-3 text-sm font-bold leading-6 text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200">
                     {item}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : null}
           </article>
         ))}
