@@ -2288,6 +2288,7 @@ function buildReviewEvidenceShopperResult(input: {
   let finalDecisionSource = "reviewEvidenceNotEnough";
   let buyScore: number | null = null;
   let valueForMoney = "Unknown";
+  let scoreAudit: Record<string, unknown> | null = null;
   let bottomLine =
     "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
 
@@ -2302,41 +2303,47 @@ function buildReviewEvidenceShopperResult(input: {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
-    // Derive the shopper score from collected written-review evidence.
-    // Summary pros/cons are weak qualitative support; repeated themes,
-    // frequency, severity, evidence strength, and marketplace rating context
-    // determine the score distribution.
+    const reviewAuthenticityRecord =
+      input.reviewAuthenticity && typeof input.reviewAuthenticity === "object"
+        ? (input.reviewAuthenticity as Record<string, unknown>)
+        : {};
     const scoredEvidence = scoreReviewEvidenceSignals({
+      rating: listingRatingForMetadataScore,
+      marketplaceRating: evidence.rating ?? listingEvidence?.rating ?? listingRatingForMetadataScore,
+      marketplaceReviewCount,
+      commentsAnalyzed,
+      evidenceStrength,
+      reviewSnippets,
       repeatedPraises,
       repeatedComplaints,
       productPros,
       productCons,
       buyerExperienceSignals,
       aiPatternSignals,
-      commentsAnalyzed,
-      marketplaceReviewCount,
-      marketplaceRating: evidence.rating ?? listingEvidence?.rating ?? listingRatingForMetadataScore,
-      evidenceStrength,
+      reviewAuthenticityScore:
+        typeof reviewAuthenticityRecord.score === "number"
+          ? reviewAuthenticityRecord.score
+          : null,
+      suspiciousReviewRisk:
+        typeof reviewAuthenticityRecord.suspiciousReviewRisk === "string"
+          ? reviewAuthenticityRecord.suspiciousReviewRisk
+          : null,
     });
 
-    buyScore = scoredEvidence.buyScore;
-    verdict = scoredEvidence.verdict;
-    valueForMoney = scoredEvidence.valueForMoney;
-
-    if (verdict === "BUY") {
-      verdict = "BUY";
-      bottomLine =
-        "ReviewIntel read the collected written reviews and found that repeated buyer strengths clearly outweigh the complaint signals.";
-    } else if (verdict === "AVOID") {
-      verdict = "AVOID";
-      bottomLine =
-        "ReviewIntel read the collected written reviews and found that repeated complaints outweigh the positive buyer signals.";
+    if (scoredEvidence.verdict === "REVIEW EVIDENCE NOT ENOUGH") {
+      verdict = "REVIEW EVIDENCE NOT ENOUGH";
+      decisionStatus = "not_enough_written_review_evidence";
+      finalDecisionSource = "reviewEvidenceNotEnough";
+      buyScore = null;
+      valueForMoney = "Unknown";
     } else {
-      verdict = "REVIEW FIRST";
-      valueForMoney = "Fair";
-      bottomLine =
-        "ReviewIntel read the collected written reviews and found meaningful strengths alongside complaint signals that should be checked before buying.";
+      verdict = scoredEvidence.verdict;
+      buyScore = scoredEvidence.buyScore;
+      valueForMoney = scoredEvidence.valueForMoney;
     }
+
+    bottomLine = scoredEvidence.bottomLine;
+    scoreAudit = scoredEvidence.audit;
   } else if (
     hasVerifiedListingMetadata ||
     hasLimitedReviewEvidence ||
@@ -2461,6 +2468,7 @@ function buildReviewEvidenceShopperResult(input: {
     groundedCommentsAnalyzed,
     commentsAnalyzed: verdictConfidenceAudit.audit.commentsAnalyzed,
     reviewCoverageRatio: verdictConfidenceAudit.audit.reviewCoverageRatio,
+    scoreAudit,
     reason: verdictConfidenceAudit.audit.reason,
   });
 
@@ -2556,6 +2564,7 @@ function buildReviewEvidenceShopperResult(input: {
         repeatedComplaints: repeatedComplaints.length,
       },
       finalDecisionSource,
+      scoreAudit,
       verdictConfidenceAudit: verdictConfidenceAudit.audit,
     },
 

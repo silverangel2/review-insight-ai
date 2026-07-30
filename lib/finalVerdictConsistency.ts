@@ -66,9 +66,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
   }
 
   if (verdict === "REVIEW FIRST") {
-    // Preserve the score spread from the evidence scorer. Only fill missing
-    // legacy values and cap overly bullish REVIEW FIRST scores.
-    nextScore = nextScore > 0 ? Math.min(8, Math.max(nextScore, 4)) : 6;
+    // Mixed evidence can legitimately sit anywhere in the REVIEW FIRST band.
+    nextScore = nextScore > 0 ? Math.min(7, Math.max(nextScore, 4)) : 5;
     nextConfidence = Math.min(82, Math.max(nextConfidence || 60, 60));
     nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Fair" : nextValue;
     nextBottomLine =
