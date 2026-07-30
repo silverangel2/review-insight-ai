@@ -501,6 +501,22 @@ function formatBuyScore(value: number | null) {
   return `${Math.max(1, Math.min(10, score))}/10`;
 }
 
+function formatReviewCountDisplay(value: number | string | null | undefined) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value.toLocaleString("en-US");
+  }
+
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const parsed = Number(text.replace(/[^0-9.]/g, ""));
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed.toLocaleString("en-US");
+  }
+
+  return text;
+}
+
 function verdictFromBuyer(value: unknown): ShopperVerdict {
   const verdict = String(value || "").toUpperCase();
   if (verdict === "BUY") return "BUY";
@@ -1163,9 +1179,9 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
   const visibleRating = evidenceRating ? `${evidenceRating}/5` : shopper.product.rating || copy.notShown;
   const visibleReviews = evidenceReviewCount
-    ? `${evidenceReviewCount} reviews from current listing`
+    ? `Total marketplace reviews: ${formatReviewCountDisplay(evidenceReviewCount)}`
     : shopper.product.reviewCount
-      ? `${shopper.product.reviewCount} ${copy.reviews}`
+      ? `Total marketplace reviews: ${formatReviewCountDisplay(shopper.product.reviewCount)}`
       : copy.reviewCountNotShown;
 
   // Do not use mapped shopper fallback scores here.
@@ -1596,6 +1612,8 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
   const reviewCount =
     getToolProofNumber(productIdentity, "reviewCount") ??
     getToolProofNumber(listingEvidence, "reviewCount");
+  const totalMarketplaceReviews = marketplaceReviewCount ?? reviewCount;
+  const reviewsAnalyzedByReviewIntel = commentsAnalyzed ?? reviewsCollected ?? 0;
 
   const exactListingUrl = getToolProofString(listingEvidence, "exactListingUrl");
   const exactListingTitle = getToolProofString(listingEvidence, "exactListingTitle");
@@ -1645,10 +1663,9 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Price" value={price !== null ? `$${price}` : null} />
         <ToolProofPill label="Stable key" value={stableProductKey ? "Matched" : "New/unknown"} />
         <ToolProofPill label="Rating" value={rating !== null ? `${rating}/5` : null} />
-        <ToolProofPill label="Marketplace reviews" value={marketplaceReviewCount ?? reviewCount} />
-        <ToolProofPill label="Reviews collected" value={reviewsCollected ?? 0} />
+        <ToolProofPill label="Total marketplace reviews" value={totalMarketplaceReviews} />
+        <ToolProofPill label="Reviews analyzed by ReviewIntel" value={reviewsAnalyzedByReviewIntel} />
         <ToolProofPill label="Sources checked" value={sourcesChecked.length} />
-        <ToolProofPill label="Comments analyzed" value={commentsAnalyzed ?? 0} />
         <ToolProofPill label="Coverage ratio" value={formatCoverageRatio(reviewCoverageRatio)} />
         <ToolProofPill
           label="Evidence mode"

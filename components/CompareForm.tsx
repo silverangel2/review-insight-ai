@@ -627,15 +627,28 @@ function getCompareProof(result: AnalyzeResult) {
     proofString(analysis, "stableProductKey") ||
     proofString(analysis, "productKey");
 
+  const totalMarketplaceReviews =
+    proofNumber(raw, "marketplaceReviewCount") ??
+    proofNumber(reviewEvidence, "marketplaceReviewCount") ??
+    proofNumber(listingEvidence, "reviewCount") ??
+    proofNumber(reviewEvidence, "reviewsFound") ??
+    proofNumber(productIdentity, "reviewCount");
+
+  const reviewsAnalyzedByReviewIntel =
+    proofNumber(raw, "commentsAnalyzed") ??
+    proofNumber(reviewEvidence, "commentsAnalyzed") ??
+    proofNumber(raw, "reviewsCollected") ??
+    proofNumber(reviewEvidence, "reviewsCollected");
+
   return {
     stableKey,
     store: proofString(productIdentity, "store") || proofString(listingEvidence, "store"),
     brand: proofString(productIdentity, "brand"),
     price: proofNumber(productIdentity, "price") ?? proofNumber(listingEvidence, "price"),
     rating: proofNumber(productIdentity, "rating") ?? proofNumber(listingEvidence, "rating"),
-    reviewCount: proofNumber(productIdentity, "reviewCount") ?? proofNumber(listingEvidence, "reviewCount"),
+    totalMarketplaceReviews,
     sourcesChecked: proofArray(reviewEvidence, "sourcesChecked"),
-    commentsAnalyzed: proofNumber(reviewEvidence, "commentsAnalyzed") ?? proofNumber(reviewEvidence, "reviewsFound"),
+    reviewsAnalyzedByReviewIntel,
     evidenceStrength: proofString(reviewEvidence, "evidenceStrength"),
     exactListingConfidence: proofString(listingEvidence, "confidence"),
     aiLikeRisk: proofNumber(reviewAuthenticity, "score"),
@@ -670,9 +683,9 @@ function ProductCompareToolProof({ label, result }: { label: string; result: Ana
         <CompareProofPill label="Brand" value={proof.brand || "Not confirmed"} />
         <CompareProofPill label="Price" value={proof.price !== null ? `$${proof.price}` : null} />
         <CompareProofPill label="Rating" value={proof.rating !== null ? `${proof.rating}/5` : null} />
-        <CompareProofPill label="Review count" value={proof.reviewCount} />
+        <CompareProofPill label="Total marketplace reviews" value={proof.totalMarketplaceReviews} />
         <CompareProofPill label="Sources checked" value={proof.sourcesChecked.length} />
-        <CompareProofPill label="Comments analyzed" value={proof.commentsAnalyzed} />
+        <CompareProofPill label="Reviews analyzed by ReviewIntel" value={proof.reviewsAnalyzedByReviewIntel} />
         <CompareProofPill label="Evidence strength" value={proof.evidenceStrength || "Not enough"} />
         <CompareProofPill label="Exact listing" value={proof.exactListingConfidence || "Not confirmed"} />
         <CompareProofPill label="AI-like risk" value={proof.aiLikeRisk !== null ? `${proof.aiLikeRisk}%` : "Not scored"} />
@@ -703,8 +716,14 @@ function ShopperCompareToolProof({ productA, productB }: { productA: AnalyzeResu
   const a = getCompareProof(productA);
   const b = getCompareProof(productB);
 
-  const aEvidenceScore = a.sourcesChecked.length * 3 + (a.commentsAnalyzed || 0) + (a.reviewCount || 0) / 100;
-  const bEvidenceScore = b.sourcesChecked.length * 3 + (b.commentsAnalyzed || 0) + (b.reviewCount || 0) / 100;
+  const aEvidenceScore =
+    a.sourcesChecked.length * 3 +
+    (a.reviewsAnalyzedByReviewIntel || 0) +
+    (a.totalMarketplaceReviews || 0) / 100;
+  const bEvidenceScore =
+    b.sourcesChecked.length * 3 +
+    (b.reviewsAnalyzedByReviewIntel || 0) +
+    (b.totalMarketplaceReviews || 0) / 100;
 
   const evidenceAdvantage =
     Math.abs(aEvidenceScore - bEvidenceScore) < 2
