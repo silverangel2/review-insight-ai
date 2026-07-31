@@ -11,6 +11,13 @@ import {
 } from "@/lib/adConfig";
 import { readAdSettings } from "@/lib/adSettingsStore";
 import { localeLabel, normalizeLocale } from "@/lib/i18n";
+import {
+  callOpenAiWebSearchResponse,
+  createOpenAiWebSearchContext,
+  describeOpenAiWebSearchSkip,
+  getOpenAiWebSearchDiagnostics,
+  OPENAI_WEB_SEARCH_TOOL,
+} from "@/lib/openAiWebSearch";
 
 function safeJsonParse(text: string) {
   try {
@@ -281,12 +288,6 @@ export async function POST(req: NextRequest) {
       getString(result.finalVerdict) ||
       getString(result.recommendation);
 
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json({ ok: false, error: "Missing OPENAI_API_KEY." }, { status: 500 });
-    }
-
     if (!productName) {
       return NextResponse.json({ ok: false, error: "Missing product name." }, { status: 400 });
     }
@@ -343,32 +344,56 @@ JSON format:
 }
 `;
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_REVIEW_SEARCH_MODEL || "gpt-4.1-mini",
-        tools: [{ type: "web_search" }],
-        input: prompt,
-        temperature: 0.1,
-      }),
+    const openAiWebSearchContext = createOpenAiWebSearchContext({ maxCalls: 1 });
+    const response = await callOpenAiWebSearchResponse<{
+      output_text?: string;
+      output?: Array<{ content?: Array<{ text?: string }> }>;
+    }>({
+      model: process.env.OPENAI_REVIEW_SEARCH_MODEL,
+      toolType: OPENAI_WEB_SEARCH_TOOL,
+      searchContextSize: "low",
+      input: prompt,
+      temperature: 0.1,
+      context: openAiWebSearchContext,
+      purpose: "product-recommendations",
+      dedupeKey: `product-recommendations:${scanId || ""}:${productName}:${brand}:${verdict}`,
     });
 
     if (!response.ok) {
-      const text = await response.text().catch(() => "");
+      if (response.skipped) {
+        return NextResponse.json({
+          ok: true,
+          shopperOnly: true,
+          scanId,
+          resultSource: "recommendations",
+          locale,
+          outputLanguage,
+          affiliateReady: Boolean(getAmazonAssociateTag()),
+          affiliateProviders: {
+            amazonReady: Boolean(getAmazonAssociateTag()),
+          },
+          disclosure: getAffiliateDisclosure(),
+          recommendations: normalizeRecommendationUrls([], "amazon.ca", productName, brand),
+          openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
+          recommendationSearchNote: describeOpenAiWebSearchSkip(response),
+        });
+      }
+
       return NextResponse.json(
-        { ok: false, error: `Recommendation search failed: ${response.status} ${text.slice(0, 180)}` },
+        {
+          ok: false,
+          error: `Recommendation search failed: ${response.status || "network"} ${(response.error || "").slice(0, 180)}`,
+          openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
+        },
         { status: 500 }
       );
     }
 
-    const data = await response.json();
+    const data = response.data;
     const output =
-      data.output_text ||
-      data.output
+      response.outputText ||
+      data?.output_text ||
+      data?.output
         ?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content || [])
         ?.map((content: { text?: string }) => content.text || "")
         ?.join("\n") ||
@@ -427,6 +452,7 @@ JSON format:
         amazonReady: Boolean(getAmazonAssociateTag()),
       },
       disclosure: getAffiliateDisclosure(),
+      openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
       recommendations: normalizeRecommendationUrls(
         recommendations,
         "amazon.ca",

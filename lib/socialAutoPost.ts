@@ -2669,7 +2669,7 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
 type __ReviewIntelSocialMediaSourceMode = "codex_library" | "uploaded" | "mixed";
 
 function __riSocialMediaSourceMode(): __ReviewIntelSocialMediaSourceMode {
-  const value = (process.env.SOCIAL_AUTOPOST_MEDIA_SOURCE || "codex_library")
+  const value = (process.env.SOCIAL_AUTOPOST_MEDIA_SOURCE || "mixed")
     .trim()
     .toLowerCase();
 
@@ -2682,6 +2682,10 @@ function __riSocialMediaSourceMode(): __ReviewIntelSocialMediaSourceMode {
 
 function __riShouldForceCodexMediaTable(tableName: string): boolean {
   const table = tableName.toLowerCase();
+
+  if (table === "admin_social_media") {
+    return false;
+  }
 
   if (
     table === "social_media_assets" ||
@@ -2841,4 +2845,7 @@ export async function runSocialAutoPost(
 export const __socialAutoPostTest = {
   probePublicMediaUrl,
   resolveFacebookMediaForFormat,
+  postToFacebookReel,
+  sourceMode: __riSocialMediaSourceMode,
+  shouldForceCodexMediaTable: __riShouldForceCodexMediaTable,
 };

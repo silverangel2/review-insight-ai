@@ -404,6 +404,56 @@ test("media probe falls back to a range GET when HEAD is unsupported", async () 
   }
 });
 
+test("Facebook Reel publisher uses video_reels start upload and finish phases", async () => {
+  const calls = [];
+  const { api, cleanup } = loadSocialAutoPost(async (input, init = {}) => {
+    const url = String(input);
+    const bodyText = init.body?.toString?.() || "";
+    calls.push({ url, method: init.method || "GET", headers: init.headers || {}, body: bodyText });
+
+    if (url.includes("/video_reels") && bodyText.includes("upload_phase=start")) {
+      return jsonResponse({
+        video_id: "fb-video-1",
+        upload_url: "https://rupload.facebook.com/video-upload/v25.0/fb-video-1",
+      });
+    }
+
+    if (url.includes("rupload.facebook.com/video-upload")) {
+      assert.equal(init.headers.Authorization, "OAuth page-token-test");
+      assert.equal(init.headers.file_url, "https://cdn.example.test/fresh-reel.mp4");
+      return jsonResponse({ success: true });
+    }
+
+    if (url.includes("/video_reels") && bodyText.includes("upload_phase=finish")) {
+      assert.match(bodyText, /video_state=PUBLISHED/);
+      assert.match(bodyText, /description=ReviewIntel/);
+      return jsonResponse({ success: true, post_id: "fb-post-1" });
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  });
+
+  try {
+    const result = await api.postToFacebookReel({
+      graphVersion: "v25.0",
+      pageId: "page-id-test",
+      pageToken: "page-token-test",
+      caption: "ReviewIntel Reel caption",
+      mediaUrl: "https://cdn.example.test/fresh-reel.mp4",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.externalPostId, "fb-post-1");
+    assert.equal(result.metadata.facebookReel.posted_as, "reel");
+    assert.deepEqual(
+      calls.map((call) => call.url.includes("rupload") ? "upload" : new URL(call.url).pathname),
+      ["/v25.0/page-id-test/video_reels", "upload", "/v25.0/page-id-test/video_reels"],
+    );
+  } finally {
+    cleanup();
+  }
+});
+
 test("Facebook explicit Reel skips safely when the selected source image is inside cooldown", async () => {
   const image = {
     id: "recent-source-image",
@@ -461,6 +511,30 @@ test("Facebook explicit Reel skips safely when the selected source image is insi
     assert.equal(Array.isArray(result.metadata.freshFacebookReel.hashtags), true);
     assert.equal(result.metadata.freshFacebookReel.hashtags.length, 0);
     assert.match(result.metadata.freshFacebookReel.error, /cooldown/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("Codex media guard does not hide uploaded admin social media from fresh Reel generation", async () => {
+  const { api, cleanup } = loadSocialAutoPost(async () => jsonResponse([]));
+
+  try {
+    assert.equal(api.sourceMode(), "codex_library");
+    assert.equal(api.shouldForceCodexMediaTable("admin_social_media"), false);
+    assert.equal(api.shouldForceCodexMediaTable("social_media_library"), true);
+  } finally {
+    cleanup();
+  }
+});
+
+test("social media source mode defaults to mixed so uploaded media can line up first", async () => {
+  const { api, cleanup } = loadSocialAutoPost(async () => jsonResponse([]), {
+    SOCIAL_AUTOPOST_MEDIA_SOURCE: "",
+  });
+
+  try {
+    assert.equal(api.sourceMode(), "mixed");
   } finally {
     cleanup();
   }

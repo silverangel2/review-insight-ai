@@ -27,16 +27,6 @@ import {
   type ExactProductCandidate,
   type ExactProductSearchResult,
 } from "@/lib/exactProductSearch";
-import {
-  callOpenAiResponseWithoutWebSearch,
-  callOpenAiWebSearchResponse,
-  createOpenAiWebSearchContext,
-  describeOpenAiWebSearchSkip,
-  getOpenAiWebSearchDiagnostics,
-  OPENAI_WEB_SEARCH_TOOL,
-  type OpenAiWebSearchContext,
-  type OpenAiWebSearchDiagnostics,
-} from "@/lib/openAiWebSearch";
 import { runFirecrawlFallback } from "@/lib/firecrawlFallback";
 import {
   runNativeReviewRetrieval,
@@ -52,7 +42,6 @@ import {
 } from "./productSearchVerifier";
 import {
   collectWrittenReviewsFromListing,
-  collectWrittenReviewsFromUrls,
   formatCollectedReviewsForPrompt,
   type ReviewCollectorResult,
 } from "@/lib/reviewCollector";
@@ -150,7 +139,6 @@ export type ReviewEvidenceResult = {
       reason: string;
     }>;
   };
-  openAiWebSearchDiagnostics?: OpenAiWebSearchDiagnostics;
 };
 
 
@@ -899,248 +887,6 @@ function safeParseReviewEvidenceJson(text: string) {
   }
 }
 
-function normalizeDiscoveredReviewUrl(value: unknown): string | null {
-  const raw = String(value || "")
-    .replace(/&amp;/g, "&")
-    .replace(/[)\].,;'"<>]+$/g, "")
-    .trim();
-
-  if (!/^https?:\/\//i.test(raw)) return null;
-
-  try {
-    const parsed = new URL(raw);
-    if (!/^https?:$/i.test(parsed.protocol)) return null;
-
-    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
-    if (
-      [
-        "google.com",
-        "bing.com",
-        "duckduckgo.com",
-        "search.yahoo.com",
-        "openai.com",
-      ].some((blocked) => host === blocked || host.endsWith(`.${blocked}`))
-    ) {
-      return null;
-    }
-
-    parsed.hash = "";
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
-
-function collectUrlValuesFromUnknown(value: unknown, output: string[]) {
-  if (!value) return;
-
-  if (typeof value === "string") {
-    const normalized = normalizeDiscoveredReviewUrl(value);
-    if (normalized) output.push(normalized);
-    for (const match of value.match(/https?:\/\/[^\s"'<>]+/gi) || []) {
-      const url = normalizeDiscoveredReviewUrl(match);
-      if (url) output.push(url);
-    }
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) collectUrlValuesFromUnknown(item, output);
-    return;
-  }
-
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    for (const key of ["url", "href", "link", "sourceUrl", "source_url"]) {
-      collectUrlValuesFromUnknown(record[key], output);
-    }
-    for (const key of [
-      "candidateReviewUrls",
-      "candidate_review_urls",
-      "reviewUrls",
-      "review_urls",
-      "urls",
-      "sources",
-      "sourceLinks",
-      "links",
-      "annotations",
-    ]) {
-      collectUrlValuesFromUnknown(record[key], output);
-    }
-  }
-}
-
-function reviewUrlCandidatesFromOpenAiResponse(text: string, data: unknown) {
-  const urls: string[] = [];
-  collectUrlValuesFromUnknown(data, urls);
-
-  try {
-    collectUrlValuesFromUnknown(JSON.parse(extractJsonObjectText(text)), urls);
-  } catch {
-    collectUrlValuesFromUnknown(text, urls);
-  }
-
-  const seen = new Set<string>();
-  return urls
-    .map(normalizeDiscoveredReviewUrl)
-    .filter((url): url is string => Boolean(url))
-    .filter((url) => {
-      const key = url.toLowerCase().replace(/[?#].*$/, "");
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 8);
-}
-
-function sourceLinkForUrl(url: string) {
-  let domain: string | undefined;
-  try {
-    domain = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
-  } catch {
-    domain = undefined;
-  }
-
-  return {
-    label: domain || url.replace(/^https?:\/\//i, "").slice(0, 80),
-    url,
-    ...(domain ? { domain } : {}),
-  };
-}
-
-async function discoverReviewUrlsWithOpenAi({
-  input,
-  product,
-  reviewSearchIdentity,
-  checkedListingUrl,
-  checkedListingId,
-  checkedListingTitle,
-  checkedShortTitle,
-  nativeRetrievalNote,
-  firecrawlRecoveryNote,
-  context,
-  evidenceSatisfied,
-}: {
-  input: ReviewEvidenceInput;
-  product: string;
-  reviewSearchIdentity: string;
-  checkedListingUrl: string;
-  checkedListingId: string;
-  checkedListingTitle: string;
-  checkedShortTitle: string;
-  nativeRetrievalNote: string;
-  firecrawlRecoveryNote: string;
-  context: OpenAiWebSearchContext;
-  evidenceSatisfied: () => boolean;
-}): Promise<{
-  urls: string[];
-  note: string;
-  sourceLinks: Array<{ label: string; url: string; domain?: string }>;
-  usedWebSearch: boolean;
-}> {
-  const prompt = `
-You are ReviewIntel's last-resort review URL discovery step.
-
-Native retrieval, marketplace retrieval, and existing scraper/Firecrawl paths have already run, but written review evidence is still thin.
-
-Return only candidate public URLs that ReviewIntel's own scraper should fetch next. Do not analyze reviews. Do not summarize reviews. Do not score authenticity. Do not include product verdicts.
-
-Exact product target:
-${JSON.stringify(
-  {
-    store: input.store || null,
-    brand: input.brand || null,
-    title: input.productName || null,
-    model: input.model || null,
-    price: input.price ?? null,
-    rating: input.rating ?? null,
-    reviewCount: input.reviewCount ?? null,
-    searchIdentity: reviewSearchIdentity || product,
-  },
-  null,
-  2
-)}
-
-Already checked listing seeds:
-${JSON.stringify(
-  {
-    exactListingUrl: checkedListingUrl || null,
-    exactListingId: checkedListingId || null,
-    exactListingTitle: checkedListingTitle || null,
-    shorterTitleQuery: checkedShortTitle || null,
-  },
-  null,
-  2
-)}
-
-Prior retrieval notes:
-${JSON.stringify(
-  {
-    nativeRetrieval: nativeRetrievalNote,
-    firecrawl: firecrawlRecoveryNote,
-  },
-  null,
-  2
-)}
-
-Find the best candidate URLs likely to contain written buyer reviews, public Q&A, exact-product discussion, forum/Reddit comments, YouTube review/transcript pages, manufacturer review pages, syndicated review pages, or same-product marketplace review pages.
-
-Rules:
-- Return URLs only for the same exact product, not similar products.
-- Prefer pages with accessible written buyer-review text.
-- Avoid search-result pages, category pages, home pages, login pages, ads, and private/protected sources.
-- Do not invent URLs.
-- Return at most 8 URLs.
-
-Return ONLY valid JSON:
-{
-  "candidateReviewUrls": [
-    {
-      "url": "https://example.com/exact-product-review-page",
-      "label": "short source label",
-      "reason": "why this page is likely to contain exact-product written reviews"
-    }
-  ]
-}
-`.trim();
-
-  const response = await callOpenAiWebSearchResponse<{
-    output_text?: string;
-    output?: Array<{ content?: Array<{ text?: string }> }>;
-  }>({
-    model: process.env.OPENAI_REVIEW_URL_DISCOVERY_MODEL || process.env.OPENAI_REVIEW_SEARCH_MODEL,
-    toolType: OPENAI_WEB_SEARCH_TOOL,
-    searchContextSize: "low",
-    input: prompt,
-    temperature: 0,
-    context,
-    purpose: "last-resort-review-url-discovery",
-    dedupeKey: `last-resort-review-url-discovery:${reviewSearchIdentity || product}`,
-    evidenceSatisfied,
-  });
-
-  if (!response.ok) {
-    return {
-      urls: [],
-      note: response.skipped
-        ? describeOpenAiWebSearchSkip(response)
-        : `OpenAI review URL discovery failed: ${response.status || "network"} ${(response.error || "").slice(0, 180)}`,
-      sourceLinks: [],
-      usedWebSearch: response.usedWebSearch,
-    };
-  }
-
-  const urls = reviewUrlCandidatesFromOpenAiResponse(response.outputText, response.data);
-  return {
-    urls,
-    note: urls.length
-      ? `OpenAI Web Search last-resort discovery returned ${urls.length} candidate review URL(s); ReviewIntel scraped those URLs with its own collector.`
-      : "OpenAI Web Search last-resort discovery returned no candidate review URLs.",
-    sourceLinks: urls.map(sourceLinkForUrl),
-    usedWebSearch: response.usedWebSearch,
-  };
-}
-
 
 
 function applyObservedScreenshotSignalsToListing(
@@ -1394,6 +1140,18 @@ function reviewEvidenceMatchesExactIdentity(
   );
 }
 
+function parsedEvidenceSignalCount(value: Record<string, unknown>) {
+  return Math.max(
+    Array.isArray(value.reviewSnippets) ? value.reviewSnippets.length : 0,
+    Array.isArray(value.repeatedPraises) ? value.repeatedPraises.length : 0,
+    Array.isArray(value.repeatedComplaints) ? value.repeatedComplaints.length : 0,
+    Array.isArray(value.productPros) ? value.productPros.length : 0,
+    Array.isArray(value.productCons) ? value.productCons.length : 0,
+    Array.isArray(value.buyerExperienceSignals) ? value.buyerExperienceSignals.length : 0,
+    Array.isArray(value.aiPatternSignals) ? value.aiPatternSignals.length : 0
+  );
+}
+
 function mergeUnknownArrays<T = unknown>(left: unknown, right: unknown, limit: number): T[] {
   const merged = [...(Array.isArray(left) ? left : []), ...(Array.isArray(right) ? right : [])];
   const seen = new Set<string>();
@@ -1418,96 +1176,6 @@ function evidenceStrengthForCount(count: number): ReviewEvidenceResult["evidence
   return "none";
 }
 
-// REVIEWINTEL_COLLECTOR_EVIDENCE_HARDENING
-// Normalize review text only for validation and deduplication. The original
-// review object remains unchanged so downstream analysis keeps all metadata.
-function reviewEvidenceText(review: unknown): string {
-  if (typeof review === "string") {
-    return review;
-  }
-
-  if (!review || typeof review !== "object") {
-    return "";
-  }
-
-  const candidate = review as Record<string, unknown>;
-  const possibleText = [
-    candidate.text,
-    candidate.body,
-    candidate.content,
-    candidate.review,
-    candidate.reviewText,
-    candidate.comment,
-    candidate.snippet,
-    candidate.title,
-  ];
-
-  return possibleText
-    .filter((value): value is string => typeof value === "string")
-    .join(" ")
-    .trim();
-}
-
-function normalizedReviewFingerprint(review: unknown): string {
-  return reviewEvidenceText(review)
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/https?:\/\/\S+/g, " ")
-    .replace(/\bverified purchase\b/g, " ")
-    .replace(/\bhelpful\b/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 1000);
-}
-
-function hardenedCollectorReviews(
-  reviews: ReviewCollectorResult["reviews"]
-): ReviewCollectorResult["reviews"] {
-  const seenExact = new Set<string>();
-  const seenNearDuplicate = new Set<string>();
-
-  return reviews.filter((review) => {
-    const fingerprint = normalizedReviewFingerprint(review);
-
-    // Structured collector entries without a recognized text field are kept.
-    // They may use a provider-specific shape needed by downstream analysis.
-    if (!fingerprint) {
-      return true;
-    }
-
-    // Reject entries that are only labels, stars or extremely short fragments.
-    if (fingerprint.length < 12) {
-      return false;
-    }
-
-    if (seenExact.has(fingerprint)) {
-      return false;
-    }
-
-    seenExact.add(fingerprint);
-
-    // Catch syndicated copies that differ only in trailing metadata.
-    const nearDuplicateKey = fingerprint
-      .split(" ")
-      .slice(0, 80)
-      .join(" ");
-
-    if (
-      nearDuplicateKey.length >= 80 &&
-      seenNearDuplicate.has(nearDuplicateKey)
-    ) {
-      return false;
-    }
-
-    if (nearDuplicateKey.length >= 80) {
-      seenNearDuplicate.add(nearDuplicateKey);
-    }
-
-    return true;
-  }) as ReviewCollectorResult["reviews"];
-}
-
 function reviewCollectorResultWith(
   current: ReviewCollectorResult,
   input: {
@@ -1516,18 +1184,7 @@ function reviewCollectorResultWith(
     fallbackUrlsTried?: string[];
   }
 ): ReviewCollectorResult {
-  const incomingReviews = input.reviews ?? current.reviews;
-  const reviews = hardenedCollectorReviews(incomingReviews);
-  const fallbackUrlsTried = Array.from(
-    new Set(
-      [
-        ...(current.fallbackUrlsTried || []),
-        ...(input.fallbackUrlsTried || []),
-      ]
-        .map((url) => String(url || "").trim())
-        .filter(Boolean)
-    )
-  ).slice(0, 24);
+  const reviews = input.reviews || current.reviews;
 
   return {
     ...current,
@@ -1536,7 +1193,75 @@ function reviewCollectorResultWith(
     reviewsCollected: reviews.length,
     collectorHasWrittenReviews: reviews.length > 0,
     coverageNote: input.coverageNote || current.coverageNote,
-    fallbackUrlsTried,
+    fallbackUrlsTried: Array.from(
+      new Set([
+        ...(current.fallbackUrlsTried || []),
+        ...(input.fallbackUrlsTried || []),
+      ])
+    ).slice(0, 24),
+  };
+}
+
+function mergeParsedReviewEvidence(primary: Record<string, unknown>, secondary: Record<string, unknown>) {
+  const primaryAuth =
+    primary.reviewAuthenticity && typeof primary.reviewAuthenticity === "object"
+      ? (primary.reviewAuthenticity as Record<string, unknown>)
+      : {};
+  const secondaryAuth =
+    secondary.reviewAuthenticity && typeof secondary.reviewAuthenticity === "object"
+      ? (secondary.reviewAuthenticity as Record<string, unknown>)
+      : {};
+
+  return {
+    ...primary,
+    sourcesChecked: mergeUnknownArrays<string>(primary.sourcesChecked, secondary.sourcesChecked, 16),
+    sourceLinks: mergeUnknownArrays<Record<string, unknown>>(primary.sourceLinks, secondary.sourceLinks, 12),
+    sourceNotes: mergeUnknownArrays<string>(primary.sourceNotes, secondary.sourceNotes, 12),
+    reviewSnippets: mergeUnknownArrays<Record<string, unknown>>(primary.reviewSnippets, secondary.reviewSnippets, 40),
+    repeatedPraises: mergeUnknownArrays<Record<string, unknown>>(primary.repeatedPraises, secondary.repeatedPraises, 16),
+    repeatedComplaints: mergeUnknownArrays<Record<string, unknown>>(primary.repeatedComplaints, secondary.repeatedComplaints, 16),
+    aiPatternSignals: mergeUnknownArrays<string>(primary.aiPatternSignals, secondary.aiPatternSignals, 16),
+    buyerExperienceSignals: mergeUnknownArrays<string>(primary.buyerExperienceSignals, secondary.buyerExperienceSignals, 20),
+    productPros: mergeUnknownArrays<string>(primary.productPros, secondary.productPros, 20),
+    productCons: mergeUnknownArrays<string>(primary.productCons, secondary.productCons, 20),
+    marketplaceReviewCount:
+      toOptionalNumber(primary.marketplaceReviewCount) ??
+      toOptionalNumber(secondary.marketplaceReviewCount) ??
+      toOptionalNumber(primary.reviewsFound) ??
+      toOptionalNumber(secondary.reviewsFound) ??
+      null,
+    reviewsFound:
+      toOptionalNumber(primary.reviewsFound) ??
+      toOptionalNumber(secondary.reviewsFound) ??
+      toOptionalNumber(primary.marketplaceReviewCount) ??
+      toOptionalNumber(secondary.marketplaceReviewCount) ??
+      0,
+    evidenceStrength:
+      String(primary.evidenceStrength || "") === "strong" || String(secondary.evidenceStrength || "") === "strong"
+        ? "strong"
+        : String(primary.evidenceStrength || "") === "usable" || String(secondary.evidenceStrength || "") === "usable"
+          ? "usable"
+          : String(primary.evidenceStrength || "") === "limited" || String(secondary.evidenceStrength || "") === "limited"
+            ? "limited"
+            : String(primary.evidenceStrength || secondary.evidenceStrength || "weak"),
+    overallImpact: String(primary.overallImpact || secondary.overallImpact || ""),
+    buyAssessment: String(primary.buyAssessment || secondary.buyAssessment || ""),
+    reviewAuthenticity: {
+      ...secondaryAuth,
+      ...primaryAuth,
+      reasons: mergeUnknownArrays<string>(primaryAuth.reasons, secondaryAuth.reasons, 8),
+      suspiciousComments: mergeUnknownArrays<Record<string, unknown>>(
+        primaryAuth.suspiciousComments,
+        secondaryAuth.suspiciousComments,
+        8
+      ),
+      score:
+        typeof primaryAuth.score === "number"
+          ? primaryAuth.score
+          : typeof secondaryAuth.score === "number"
+            ? secondaryAuth.score
+            : null,
+    },
   };
 }
 
@@ -2007,7 +1732,15 @@ export async function collectAndAnalyzeReviewEvidence(
 ): Promise<ReviewEvidenceResult> {
   const requestedLocale = normalizeLocale(input.locale || "en");
   const outputLanguage = String(input.outputLanguage || localeLabel(requestedLocale) || "English");
-  const openAiWebSearchContext = createOpenAiWebSearchContext({ maxCalls: 1 });
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return {
+      ...emptyEvidence("OPENAI_API_KEY is missing, so ReviewIntel could not search review evidence."),
+      locale: requestedLocale,
+      outputLanguage,
+    };
+  }
 
   const product = uniqueIdentityTokens([input.brand, input.productName, input.model], 30);
   const cleanVisibleIdentity = uniqueSearchWordsFromText([
@@ -2030,7 +1763,6 @@ export async function collectAndAnalyzeReviewEvidence(
       ...emptyEvidence("Product name was not clear enough to search reviews."),
       locale: requestedLocale,
       outputLanguage,
-      openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
     };
   }
 
@@ -2041,10 +1773,7 @@ export async function collectAndAnalyzeReviewEvidence(
     reviewEvidenceMatchesExactIdentity(rememberedEvidence, input) &&
     !reviewEvidenceNeedsAutomaticRecovery(rememberedEvidence)
   ) {
-    return {
-      ...rememberedEvidence,
-      openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
-    };
+    return rememberedEvidence;
   }
 
   if (
@@ -2078,33 +1807,6 @@ export async function collectAndAnalyzeReviewEvidence(
       rememberedExactListingUrl: rememberedEvidence.listingEvidence?.exactListingUrl,
       reason: "Remembered evidence host does not match requested store.",
     });
-  }
-
-  const recoveryIdentityTokens = meaningfulTitleTokens(
-    [input.brand, input.model, input.productName]
-      .filter(Boolean)
-      .join(" ")
-  );
-
-  const hasSpecificRecoveryIdentity =
-    Boolean(String(input.brand || "").trim()) &&
-    recoveryIdentityTokens.length >= 4 &&
-    String(input.productName || "").trim().length >= 18;
-
-  let nativeReviewRetrieval: NativeReviewRetrievalResult | null = null;
-  let nativeRetrievalNote = "Native retrieval was not attempted.";
-
-  if (product.length >= 3) {
-    nativeReviewRetrieval = await runNativeReviewRetrieval({
-      productTitle: input.productName || product,
-      brand: input.brand,
-      model: input.model,
-      store: input.store,
-      maxQueries: hasSpecificRecoveryIdentity ? 12 : 8,
-      maxPages: hasSpecificRecoveryIdentity ? 18 : 12,
-      maxSnippets: 80,
-    });
-    nativeRetrievalNote = nativeReviewRetrieval.coverageNote;
   }
 
   const exactProductAgent = await runExactProductAgent({
@@ -2240,11 +1942,43 @@ export async function collectAndAnalyzeReviewEvidence(
         fallbackUrlsTried: [],
       };
 
+  let nativeReviewRetrieval: NativeReviewRetrievalResult | null = null;
+  let nativeRetrievalNote =
+    collectedWrittenReviews.reviewsCollected >= 3
+      ? "Native retrieval was not needed because the listing collector already found written review text."
+      : "Native retrieval was not attempted.";
+
+  const recoveryIdentityTokens = meaningfulTitleTokens(
+    [input.brand, input.model, input.productName]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  const hasSpecificRecoveryIdentity =
+    Boolean(String(input.brand || "").trim()) &&
+    recoveryIdentityTokens.length >= 4 &&
+    String(input.productName || "").trim().length >= 18;
+
   if (
-    nativeReviewRetrieval &&
     collectedWrittenReviews.reviewsCollected < 3 &&
     (collectorSourceAccepted || hasSpecificRecoveryIdentity)
   ) {
+    nativeReviewRetrieval = await runNativeReviewRetrieval({
+      productTitle:
+        listingEvidenceForCollection?.exactListingTitle ||
+        input.productName,
+      brand: input.brand,
+      model: input.model,
+      store: input.store,
+      listingUrl: listingUrlForReviewCollector || undefined,
+      sourceLinks: listingEvidenceForCollection?.sourceLinks,
+      maxQueries: collectorSourceAccepted ? 8 : 12,
+      maxPages: collectorSourceAccepted ? 12 : 18,
+      maxSnippets: 80,
+    });
+
+    nativeRetrievalNote = nativeReviewRetrieval.coverageNote;
+
     if (nativeReviewRetrieval.reviewsCollected > 0) {
       const nativeReviews = nativeReviewRetrieval.reviews.map((review) => ({
         ...review,
@@ -2267,14 +2001,16 @@ export async function collectAndAnalyzeReviewEvidence(
         }
       );
 
-      if (collectedWrittenReviews.reviewsCollected > 0) {
-        collectorSourceAccepted = true;
-        if (hasSpecificRecoveryIdentity || exactListingAccepted) {
-          // Recovered review bodies matched the specific screenshot product
-          // identity or supplement an already accepted marketplace source.
-          exactListingAccepted = true;
-          collectorSourceRejectedReason = null;
-        }
+      // Accept identity-based recovery only after it returns actual written
+      // review bodies for the specific product identity.
+      collectorSourceAccepted = combinedReviews.length > 0;
+
+      if (collectorSourceAccepted) {
+        // Recovered review bodies matched the screenshot product identity.
+        // A missing listing URL or timed-out listing search must not overturn
+        // that successful exact-product recovery.
+        exactListingAccepted = true;
+        collectorSourceRejectedReason = null;
       }
     } else {
       collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
@@ -2289,7 +2025,13 @@ export async function collectAndAnalyzeReviewEvidence(
       : "Native retrieval skipped because the screenshot identity was not specific enough to safely match public reviews.";
   }
 
-  let hasCollectedWrittenReviewEvidence = false;
+  const hasCollectedWrittenReviewEvidence =
+    collectorSourceAccepted &&
+    (
+      collectedWrittenReviews.reviews.length > 0 ||
+      collectedWrittenReviews.reviewsCollected > 0 ||
+      collectedWrittenReviews.collectorHasWrittenReviews
+    );
 
   let firecrawlRecoveryNote = "Firecrawl fallback was not needed.";
   const firecrawlLastResortAllowed = Boolean(
@@ -2362,94 +2104,6 @@ export async function collectAndAnalyzeReviewEvidence(
     }
   }
 
-  const checkedListingUrl = String(listingEvidenceForCollection?.exactListingUrl || "").trim();
-  const checkedListingTitle = String(listingEvidenceForCollection?.exactListingTitle || input.productName || "").trim();
-  const checkedListingId =
-    checkedListingUrl.match(/\/([A-Z0-9]{8,})(?:[/?#]|$)/i)?.[1] || "";
-  const checkedShortTitle = checkedListingTitle
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 10)
-    .join(" ");
-
-  const reliableSignalTarget = Math.max(
-    8,
-    Math.min(Number(process.env.REVIEWINTEL_RELIABLE_SIGNAL_TARGET || 20), 30)
-  );
-  const collectedWrittenReviewCount = () => Math.max(
-    Number(collectedWrittenReviews.reviewsCollected || 0),
-    collectedWrittenReviews.reviews.length
-  );
-
-  let openAiReviewUrlDiscoveryNote =
-    "OpenAI Web Search URL discovery was not needed because written evidence was sufficient.";
-  let usedOpenAiReviewUrlDiscovery = false;
-  let openAiDiscoveredReviewUrls: string[] = [];
-  let openAiReviewUrlDiscoveryLinks: Array<{ label: string; url: string; domain?: string }> = [];
-
-  if (collectedWrittenReviewCount() < reliableSignalTarget) {
-    const discovery = await discoverReviewUrlsWithOpenAi({
-      input,
-      product,
-      reviewSearchIdentity,
-      checkedListingUrl,
-      checkedListingId,
-      checkedListingTitle,
-      checkedShortTitle,
-      nativeRetrievalNote,
-      firecrawlRecoveryNote,
-      context: openAiWebSearchContext,
-      evidenceSatisfied: () => collectedWrittenReviewCount() >= reliableSignalTarget,
-    });
-
-    openAiReviewUrlDiscoveryNote = discovery.note;
-    usedOpenAiReviewUrlDiscovery = discovery.usedWebSearch && discovery.urls.length > 0;
-    openAiDiscoveredReviewUrls = discovery.urls;
-    openAiReviewUrlDiscoveryLinks = discovery.sourceLinks;
-
-    if (discovery.urls.length > 0) {
-      const discoveredReviews = await collectWrittenReviewsFromUrls({
-        urls: discovery.urls,
-        productName: checkedListingTitle || input.productName,
-        maxReviews: Math.max(10, 80 - collectedWrittenReviewCount()),
-      });
-
-      collectedWrittenReviews = reviewCollectorResultWith(
-        collectedWrittenReviews,
-        {
-          reviews: mergeUnknownArrays<ReviewCollectorResult["reviews"][number]>(
-            collectedWrittenReviews.reviews,
-            discoveredReviews.reviews.map((review) => ({
-              ...review,
-              source: review.source || "OpenAI-discovered review URL scraped by ReviewIntel",
-            })),
-            80
-          ),
-          coverageNote:
-            `${collectedWrittenReviews.coverageNote} ` +
-            `${discovery.note} ${discoveredReviews.coverageNote}`,
-          fallbackUrlsTried: [
-            ...discovery.urls,
-            ...(discoveredReviews.fallbackUrlsTried || []),
-          ],
-        }
-      );
-
-      if (collectedWrittenReviews.reviewsCollected > 0) {
-        collectorSourceAccepted = true;
-        collectorSourceRejectedReason = null;
-      }
-    }
-  }
-
-  hasCollectedWrittenReviewEvidence =
-    collectorSourceAccepted &&
-    (
-      collectedWrittenReviews.reviews.length > 0 ||
-      collectedWrittenReviews.reviewsCollected > 0 ||
-      collectedWrittenReviews.collectorHasWrittenReviews
-    );
-
   const localAttemptedSources = Array.from(
     new Set(
       [
@@ -2457,7 +2111,6 @@ export async function collectAndAnalyzeReviewEvidence(
         listingUrlForReviewCollector,
         ...(collectedWrittenReviews.fallbackUrlsTried || []),
         ...(nativeReviewRetrieval?.sourcesChecked || []),
-        ...openAiDiscoveredReviewUrls,
       ]
         .map((item) => String(item || "").trim())
         .filter(Boolean)
@@ -2469,7 +2122,6 @@ export async function collectAndAnalyzeReviewEvidence(
       ? listingEvidenceForCollection.sourceLinks
       : []),
     ...(nativeReviewRetrieval?.sourceLinks || []),
-    ...openAiReviewUrlDiscoveryLinks,
     ...(listingUrlForReviewCollector
       ? [
           {
@@ -2579,7 +2231,6 @@ export async function collectAndAnalyzeReviewEvidence(
       canCollectReviews: collectorSourceAccepted,
       detectedProductKey: normalizeEvidenceProductKey(input),
       resultSource: "analyze",
-      openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
       reviewsFound: Number(
         firstPositiveNumber(
           localDisplayListingEvidence?.reviewCount,
@@ -2615,7 +2266,6 @@ export async function collectAndAnalyzeReviewEvidence(
         collectedWrittenReviews.coverageNote,
         nativeRetrievalNote,
         firecrawlRecoveryNote,
-        openAiReviewUrlDiscoveryNote,
       ].filter(Boolean),
       reviewAuthenticity: {
         score: null,
@@ -2638,6 +2288,16 @@ export async function collectAndAnalyzeReviewEvidence(
   const collectedWrittenReviewsPrompt = formatCollectedReviewsForPrompt(
     collectedWrittenReviews
   );
+
+  const checkedListingUrl = String(listingEvidenceForCollection?.exactListingUrl || "").trim();
+  const checkedListingTitle = String(listingEvidenceForCollection?.exactListingTitle || input.productName || "").trim();
+  const checkedListingId =
+    checkedListingUrl.match(/\/([A-Z0-9]{8,})(?:[/?#]|$)/i)?.[1] || "";
+  const checkedShortTitle = checkedListingTitle
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 10)
+    .join(" ");
 
   console.log("[ReviewIntel DEBUG reviewCollectorInput]", {
     listingUrlForReviewCollector,
@@ -2664,8 +2324,6 @@ export async function collectAndAnalyzeReviewEvidence(
     collectorHasWrittenReviews: collectedWrittenReviews.collectorHasWrittenReviews,
     coverageNote: collectedWrittenReviews.coverageNote,
     firecrawlRecoveryNote,
-    openAiReviewUrlDiscoveryNote,
-    openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
   });
 
   const verifiedCollectedReviewCount =
@@ -2676,6 +2334,8 @@ export async function collectAndAnalyzeReviewEvidence(
           collectedWrittenReviews.reviews.length
         )
       : 0;
+
+  const hasVerifiedWrittenReviewEvidence = verifiedCollectedReviewCount >= 5;
 
   const verifiedMarketplaceReviewCount =
     typeof marketplaceReviewCountForCollector === "number" && marketplaceReviewCountForCollector > 0
@@ -2702,9 +2362,6 @@ export async function collectAndAnalyzeReviewEvidence(
     return insufficientEvidence;
   }
 
-  const reviewSearchModeInstruction =
-    "Do not use OpenAI Web Search in this analysis pass. Analyze only the written review bodies and source metadata already collected by ReviewIntel above; do not claim additional web searches were performed.";
-
   const prompt = `
 Collected written reviews from exact listing:
 ${collectedWrittenReviewsPrompt}
@@ -2726,7 +2383,7 @@ Language rule:
 - Keep product titles, brand names, marketplace names, source labels, URLs, prices, ratings, and quoted technical terms unchanged.
 
 Task:
-Analyze the collected public review evidence about this product:
+Search the web for public review evidence about this product:
 "${reviewSearchIdentity || product}"
 
 Visible product identity bundle:
@@ -2760,11 +2417,11 @@ Same-product checked listing evidence already collected by ReviewIntel:
 ${JSON.stringify(listingEvidenceForCollection, null, 2)}
 
 Use same-product checked listing evidence as the anchor only when it is medium or high confidence.
-If the checked listing evidence is low confidence or says "similar product", do not use it as the anchor.
+If the checked listing evidence is low confidence or says "similar product", do not use it as the anchor; search again for the exact same product instead.
 If exact listing evidence contains rating or reviewCount, preserve it.
 Do not override it with weaker screenshot-only assumptions.
 
-Evidence intent:
+Search intent:
 - buyer reviews
 - complaints
 - product review comments
@@ -2779,14 +2436,14 @@ Evidence intent:
 
 Important:
 Do not invent reviews.
-${reviewSearchModeInstruction}
+Use OpenAI web search like an analyst: verify the exact product first, then keep searching for review evidence across the public web.
 Zero evidence is not a final result. If reviewsCollected, commentsAnalyzed, sourcesChecked, and review-intelligence signals are all zero, automatically enter evidence recovery instead of returning a normal verdict or score.
 Only analyze buyer statements, public review snippets, complaints, Q&A/user discussions, reputable review-page summaries, or source-visible review intelligence that you can find from search-accessible sources.
-Do not stop at blocked marketplace review bodies when ReviewIntel has collected same-product fallback evidence; use that fallback evidence and return a cautious score.
+Do not stop at blocked marketplace review bodies. If direct review bodies are blocked, continue with open-web review intelligence for the exact same product and return a cautious score.
 The local ReviewIntel collector above is the authority for written review bodies.
 Never pretend marketplace rating or marketplace review count are written review bodies.
 If you use public search/page snippets or reputable review-page summaries because direct bodies are blocked, label them as "open web review intelligence" in reviewSnippets.evidenceType and explain the limitation in sourceNotes.
-If the exact marketplace blocks written reviews, use the same-product fallback sources already collected by ReviewIntel.
+If the exact marketplace blocks written reviews, do not stop. Continue with a same-product review-source fallback from another legitimate source.
 The fallback should prefer actual written buyer review body text from another marketplace listing, manufacturer review page, syndicated review provider, public review API, embedded review app data, forum/user review page, or public review page.
 If actual bodies are still inaccessible, use exact-product public review intelligence from search-accessible snippets/summaries and keep the verdict cautious.
 If you use a fallback source, it must still match the same product by brand, title/model, image/listing context, and product type.
@@ -2796,7 +2453,7 @@ Review acquisition rules:
 2. Extract the public marketplace rating and public marketplace review count when visible.
    Example: if Walmart shows 4.3 stars and 273 reviews, return marketplaceReviewCount: 273.
 3. Then perform a separate review-content drill-down. The goal is to find the written review text inside or about those public reviews.
-4. ReviewIntel's retrieval steps searched specifically for written buyer review content using:
+4. Search specifically for written buyer review content using:
    - exact product title
    - exact product title + reviews
    - exact product title + Amazon.ca
@@ -2831,7 +2488,7 @@ Review acquisition rules:
 8. commentsAnalyzed must equal the number of exact-product review/comment/intelligence signals you analyzed. Do not copy marketplaceReviewCount into commentsAnalyzed.
 9. repeatedPraises, repeatedComplaints, aiPatternSignals, buyerExperienceSignals, productPros, and productCons must be built from reviewSnippets and exact-product open-web signals.
 10. If marketplaceReviewCount is high but commentsAnalyzed is low, clearly say coverage is limited.
-11. If the first listing did not expose written buyer reviews, rely only on same-product fallback review sources already collected by ReviewIntel.
+11. If you find the first listing but cannot access/read written buyer reviews, search another legitimate same-product review source before returning.
 12. Return no score if you cannot find exact-product written reviews, buyer comments, Q&A, Reddit/forum comments, YouTube review snippets/transcripts, public retailer snippets, review blog evidence, or other public review intelligence. Product identity, rating, and review count alone are not enough.
 13. Do not convert rating or public review count alone into a strong Buy. Use them as reliability context and keep confidence limited unless written/open-web review signals are visible.
 14. The analysis must answer from exact-product evidence:
@@ -2966,37 +2623,219 @@ Scoring rules:
 `;
 
   try {
-    const response = await callOpenAiResponseWithoutWebSearch<{
-      output_text?: string;
-      output?: Array<{ content?: Array<{ text?: string }> }>;
-    }>({
-      model: process.env.OPENAI_REVIEW_SEARCH_MODEL,
-      input: prompt,
-      temperature: 0.2,
-      context: openAiWebSearchContext,
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_REVIEW_SEARCH_MODEL || "gpt-4.1-mini",
+        tools: [{ type: "web_search" }],
+        input: prompt,
+        temperature: 0.2,
+      }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
       return recoveryEvidenceFromLocalRetrieval(
-        `OpenAI review analysis failed: ${response.status || "network"} ${(response.error || "").slice(0, 180)}`
+        `OpenAI web review search failed: ${response.status} ${errorText.slice(0, 180)}`
       );
     }
 
-    const data = response.data;
+    const data = await response.json();
 
     const outputText =
-      response.outputText ||
-      data?.output_text ||
-      data?.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content || [])
+      data.output_text ||
+      data.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content || [])
         ?.map((content: { text?: string }) => content.text || "")
         ?.join("\n") ||
       "";
 
     if (!outputText.trim()) {
-      return recoveryEvidenceFromLocalRetrieval("OpenAI review analysis returned no review evidence.");
+      return recoveryEvidenceFromLocalRetrieval("OpenAI web review search returned no review evidence.");
     }
 
-    const parsed = safeParseReviewEvidenceJson(outputText);
+    let parsed = safeParseReviewEvidenceJson(outputText);
+
+    const reliableSignalTarget = Math.max(
+      12,
+      Math.min(Number(process.env.REVIEWINTEL_RELIABLE_SIGNAL_TARGET || 35), 50)
+    );
+    const maxDeepSearchPasses = Math.max(
+      1,
+      Math.min(Number(process.env.REVIEWINTEL_DEEP_SEARCH_PASSES || 5), 5)
+    );
+
+    for (
+      let deepSearchPass = 1;
+      deepSearchPass <= maxDeepSearchPasses && parsedEvidenceSignalCount(parsed) < reliableSignalTarget;
+      deepSearchPass += 1
+    ) {
+      const deepPrompt = `
+You are ReviewIntel's deep public-review intelligence pass.
+
+Language rule:
+- Return every user-facing value in ${outputLanguage}.
+- Keep JSON keys and enum values exactly in English.
+- Keep product titles, brand names, marketplace names, source labels, URLs, prices, and ratings unchanged.
+
+The current scan is too thin for a high-confidence ReviewIntel verdict.
+Work harder with web_search. This is pass ${deepSearchPass} of ${maxDeepSearchPasses}.
+Target: collect up to ${reliableSignalTarget} distinct exact-product review/comment/Q&A/open-web review-intelligence signals.
+Zero evidence is not a final result. If reviewsCollected, commentsAnalyzed, sourcesChecked, and review-intelligence signals are all zero, search harder before returning.
+
+Already collected written reviews from ReviewIntel's marketplace collector:
+${collectedWrittenReviewsPrompt}
+
+Native retrieval recovery:
+${nativeRetrievalNote}
+
+Firecrawl fallback recovery:
+${firecrawlRecoveryNote}
+
+Use these exact-product search seeds before giving up:
+${JSON.stringify(
+  {
+    exactListingUrl: checkedListingUrl || null,
+    exactListingId: checkedListingId || null,
+    exactListingTitle: checkedListingTitle || null,
+    shorterTitleQuery: checkedShortTitle || null,
+  },
+  null,
+  2
+)}
+
+Current first-pass JSON evidence:
+${JSON.stringify(parsed, null, 2)}
+
+Exact product target:
+${JSON.stringify(
+  {
+    requestedStore: input.store || null,
+    requestedBrand: input.brand || null,
+    requestedTitle: input.productName,
+    model: input.model || null,
+    requestedPrice: input.price ?? null,
+    requestedRating: input.rating ?? null,
+    requestedReviewCount: input.reviewCount ?? null,
+    exactListingUrl: listingEvidenceForCollection?.exactListingUrl || null,
+    exactListingTitle: listingEvidenceForCollection?.exactListingTitle || null,
+    listingStore: listingEvidenceForCollection?.store || null,
+    listingConfidence: listingEvidenceForCollection?.confidence || null,
+    listingRating: listingEvidenceForCollection?.rating ?? null,
+    listingReviewCount: listingEvidenceForCollection?.reviewCount ?? null,
+    listingNotes: listingEvidenceForCollection?.notes || [],
+  },
+  null,
+  2
+)}
+
+Search harder. Try exact listing URL searches, exact item/product ID searches, exact phrase searches, quoted shorter-title searches, store-specific review searches, low-star review searches, complaints, Q&A, Reddit/forum discussions, manufacturer pages, other marketplaces with the same exact product, syndicated review providers, and public snippets.
+Mandatory query ladder before giving up: exact product title; exact product title + reviews; exact product title + Amazon.ca; exact product title + Walmart; exact product title + Reddit; exact product title + YouTube review; exact product title + complaints; exact product title + "worth it"; exact product title + "problems"; exact product title + Q&A; exact product title + review blog.
+Specifically try Amazon.ca and Amazon.com, but only use Amazon evidence if it is clearly the same exact product/bundle/size/color/model. If Amazon has only a similar product, put that in sourceNotes and do not use it as evidence.
+Also try Walmart, Best Buy, Costco, Target, manufacturer pages, review provider snippets, Reddit/forum discussions, and public Q&A pages for the exact product.
+If Amazon blocks, continue with other public sites instead of returning empty evidence.
+
+Rules:
+- Do not invent review bodies.
+- Do not bypass private/login/protected pages.
+- Match the same exact product by title, brand, store/domain, image/listing context, model/bundle/size/color, price, rating, and review count where possible.
+- If direct written review bodies are blocked, use exact-product public review intelligence from search-accessible snippets/summaries and label evidenceType as "open web review intelligence".
+- Do not return empty just because the original marketplace blocks review text.
+- Give concrete buyer signals, not generic product-description claims.
+- Prefer many short, distinct exact-product buyer signals over a few long summaries.
+- Return as many distinct reviewSnippets as you can safely verify, up to ${reliableSignalTarget}.
+- Analyze the already collected written reviews above. They are real collector evidence and must not be ignored.
+- commentsAnalyzed must count only exact-product snippets/signals you actually used, never the marketplace total.
+- Product identity, rating, and review count alone are not review evidence. If recovery still finds zero exact-product review/comment/open-web review-intelligence signals, return evidenceStrength "none", score null, reviewAuthenticity.score null, and do not return BUY, CONSIDER, AVOID, or a Buy Score.
+- productPros and productCons must be the strongest distinct buyer factors only. Merge duplicates, avoid repeated wording, and keep each bullet short enough for a shopper result card.
+
+Return ONLY valid JSON with the same shape as the first pass:
+{
+  "sourcesChecked": [],
+  "reviewsFound": 0,
+  "marketplaceReviewCount": null,
+  "commentsAnalyzed": 0,
+  "evidenceStrength": "weak | limited | usable | strong",
+  "aiPatternSignals": [],
+  "buyerExperienceSignals": [],
+  "productPros": [],
+  "productCons": [],
+  "overallImpact": "",
+  "buyAssessment": "",
+  "reviewSnippets": [
+    {
+      "source": "domain or source",
+      "snippet": "specific exact-product buyer/review/Q&A/open-web review-intelligence signal",
+      "sentiment": "positive | mixed | negative",
+      "evidenceType": "marketplace review | buyer comment | forum discussion | third-party review | open web review intelligence"
+    }
+  ],
+  "repeatedPraises": [],
+  "repeatedComplaints": [],
+  "sourceNotes": [],
+  "sourceLinks": [],
+  "reviewAuthenticity": {
+    "score": 0,
+    "label": "Low AI-like review risk",
+    "suspiciousReviewRisk": "Low",
+    "reasons": [],
+    "suspiciousComments": []
+  }
+}
+`.trim();
+
+      try {
+        const deepResponse = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: process.env.OPENAI_REVIEW_DEEP_SEARCH_MODEL || process.env.OPENAI_REVIEW_SEARCH_MODEL || "gpt-4.1",
+            tools: [{ type: "web_search" }],
+            input: deepPrompt,
+            temperature: 0.1,
+          }),
+        });
+
+        if (deepResponse.ok) {
+          const deepData = await deepResponse.json();
+          const deepOutputText =
+            deepData.output_text ||
+            deepData.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content || [])
+              ?.map((content: { text?: string }) => content.text || "")
+              ?.join("\n") ||
+            "";
+
+          if (deepOutputText.trim()) {
+            const deepParsed = safeParseReviewEvidenceJson(deepOutputText);
+            parsed = mergeParsedReviewEvidence(parsed, deepParsed);
+            console.log("[ReviewIntel DEBUG deepReviewSearch]", {
+              pass: deepSearchPass,
+              targetSignals: reliableSignalTarget,
+              beforeSignals: parsedEvidenceSignalCount(safeParseReviewEvidenceJson(outputText)),
+              afterSignals: parsedEvidenceSignalCount(parsed),
+              sourcesChecked: Array.isArray(parsed.sourcesChecked) ? parsed.sourcesChecked.length : 0,
+            });
+          }
+        } else {
+          console.warn(
+            "[ReviewIntel DEBUG deepReviewSearchFailed]",
+            deepResponse.status,
+            (await deepResponse.text().catch(() => "")).slice(0, 180)
+          );
+        }
+      } catch (error) {
+        console.warn(
+          "[ReviewIntel DEBUG deepReviewSearchFailed]",
+          error instanceof Error ? error.message : "Unknown deep review search error"
+        );
+      }
+    }
 
     const parsedScore =
       typeof parsed.reviewAuthenticity?.score === "number"
@@ -3211,28 +3050,25 @@ Scoring rules:
     );
 
     const hasReviewIntelligenceEvidence = reviewIntelligenceSignals > 0;
-    const reviewIntelligenceSourceLabel = usedOpenAiReviewUrlDiscovery
-      ? "ReviewIntel scraped OpenAI-discovered review URLs"
-      : "ReviewIntel native review intelligence";
 
     const synthesizedReviewSnippets =
       reviewSnippetsBase.length >= 3 || !hasReviewIntelligenceEvidence
         ? []
         : [
             ...productPros.slice(0, 2).map((snippet: string) => ({
-              source: reviewIntelligenceSourceLabel,
+              source: "OpenAI web review intelligence",
               snippet,
               sentiment: "positive" as const,
               evidenceType: "open web review intelligence",
             })),
             ...productCons.slice(0, 2).map((snippet: string) => ({
-              source: reviewIntelligenceSourceLabel,
+              source: "OpenAI web review intelligence",
               snippet,
               sentiment: "negative" as const,
               evidenceType: "open web review intelligence",
             })),
             ...buyerExperienceSignals.slice(0, 3).map((snippet: string) => ({
-              source: reviewIntelligenceSourceLabel,
+              source: "OpenAI web review intelligence",
               snippet,
               sentiment: "mixed" as const,
               evidenceType: "open web review intelligence",
@@ -3319,7 +3155,6 @@ Scoring rules:
       rejectedListingUrls: exactProductAgent.rejectedListingUrls,
       canCollectReviews: collectorSourceAccepted,
       resultSource: "analyze",
-      openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? Array.from(new Set([
             ...localAttemptedSources,
@@ -3406,13 +3241,10 @@ Scoring rules:
             collectedWrittenReviews.coverageNote,
             nativeRetrievalNote,
             firecrawlRecoveryNote,
-            openAiReviewUrlDiscoveryNote,
             collectorHasWrittenReviews
               ? `ReviewIntel analyzed ${actualCommentsAnalyzed} written review bodies from the marketplace or a same-product fallback source.`
               : hasReviewIntelligenceEvidence
-                ? usedOpenAiReviewUrlDiscovery
-                  ? `Direct written review bodies were limited, so ReviewIntel used review evidence scraped from one OpenAI-discovered URL set. Signals analyzed: ${actualCommentsAnalyzed}.`
-                  : `Direct written review bodies were limited, so ReviewIntel used collected native review intelligence for the exact product. Signals analyzed: ${actualCommentsAnalyzed}.`
+                ? `Direct written review bodies were limited, so ReviewIntel used OpenAI web-search review intelligence across exact-product public sources. Signals analyzed: ${actualCommentsAnalyzed}.`
                 : "ReviewIntel did not calculate a product verdict because no product review intelligence was collected.",
           ]
         : Array.isArray(parsed.sourceNotes)
@@ -3421,13 +3253,11 @@ Scoring rules:
               collectedWrittenReviews.coverageNote,
               nativeRetrievalNote,
               firecrawlRecoveryNote,
-              openAiReviewUrlDiscoveryNote,
             ]
           : [
               collectedWrittenReviews.coverageNote,
               nativeRetrievalNote,
               firecrawlRecoveryNote,
-              openAiReviewUrlDiscoveryNote,
             ],
       reviewAuthenticity: {
         score: hasReviewIntelligenceEvidence ? score : null,
@@ -3524,7 +3354,6 @@ Scoring rules:
         ...finalEvidence,
         finalDecisionSource: "reviewEvidenceRecoveryFailed",
         decisionStatus: "review_evidence_not_found",
-        openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
         evidenceStrength: preservedCollectedReviewCount > 0 ? "limited" : "none" as const,
         reviewIntelligenceMode: "listing_metadata" as const,
         reviewIntelligenceSignals: 0,
@@ -3571,8 +3400,6 @@ Scoring rules:
 
       return insufficientEvidence;
     }
-
-    finalEvidence.openAiWebSearchDiagnostics = getOpenAiWebSearchDiagnostics(openAiWebSearchContext);
 
     await saveReviewEvidenceToMemory(input, finalEvidence);
 

@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  callOpenAiWebSearchResponse,
+  createOpenAiWebSearchContext,
+  describeOpenAiWebSearchSkip,
+  getOpenAiWebSearchDiagnostics,
+  OPENAI_WEB_SEARCH_TOOL,
+} from "@/lib/openAiWebSearch";
 
 function getSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -47,51 +54,44 @@ async function checkTable(table: string) {
 }
 
 async function checkOpenAIWebSearch() {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    return {
-      ok: false,
-      status: "missing_openai_key",
-      message: "OPENAI_API_KEY is missing.",
-    };
-  }
-
+  const openAiWebSearchContext = createOpenAiWebSearchContext({ maxCalls: 1 });
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_REVIEW_SEARCH_MODEL || "gpt-4.1-mini",
-        tools: [{ type: "web_search" }],
-        input:
-          "Quick tool check. Search for public web evidence that Walmart exists. Return one short sentence only.",
-        temperature: 0,
-      }),
+    const response = await callOpenAiWebSearchResponse({
+      model: process.env.OPENAI_REVIEW_SEARCH_MODEL,
+      toolType: OPENAI_WEB_SEARCH_TOOL,
+      searchContextSize: "low",
+      input:
+        "Quick tool check. Search for public web evidence that Walmart exists. Return one short sentence only.",
+      temperature: 0,
+      context: openAiWebSearchContext,
+      purpose: "admin-review-tools-check",
+      dedupeKey: "admin-review-tools-check:walmart-exists",
     });
 
     if (!response.ok) {
-      const text = await response.text().catch(() => "");
+      const skippedMessage = response.skipped ? describeOpenAiWebSearchSkip(response) : "";
+      const disabled = response.skipReason === "disabled";
+
       return {
-        ok: false,
-        status: "failed",
-        message: `OpenAI web_search failed: ${response.status} ${text.slice(0, 180)}`,
+        ok: disabled,
+        status: disabled ? "disabled" : response.skipReason === "missing_api_key" ? "missing_openai_key" : "failed",
+        message: skippedMessage || `OpenAI Web Search failed: ${response.status || "network"} ${(response.error || "").slice(0, 180)}`,
+        diagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
       };
     }
 
     return {
       ok: true,
       status: "ready",
-      message: "OpenAI web_search tool responded.",
+      message: "OpenAI Web Search tool responded.",
+      diagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
     };
   } catch (error: unknown) {
     return {
       ok: false,
       status: "failed",
-      message: error instanceof Error ? error.message : "OpenAI web_search check failed.",
+      message: error instanceof Error ? error.message : "OpenAI Web Search check failed.",
+      diagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
     };
   }
 }

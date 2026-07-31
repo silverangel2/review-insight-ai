@@ -477,8 +477,11 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Pr
       if (parsed) {
         collectReviewLikeObjects(parsed, url, reviews);
       } else {
+        reviews.push(...collectAmazonHtmlReviews(decoded, url));
+        reviews.push(...collectJsonLdReviews(decoded, url));
         reviews.push(...collectEmbeddedReviewText(decoded, url));
         reviews.push(...collectEmbeddedJsonReviews(decoded, url));
+        reviews.push(...collectSearchResultSnippets(decoded, url));
       }
     } catch {
       // continue trying other discovered review URLs
@@ -700,6 +703,63 @@ async function fetchPublicReviewFallback(input: {
   }
 
   return dedupeReviews(reviews, input.maxReviews);
+}
+
+function normalizeCandidateReviewUrl(value: unknown): string | null {
+  const raw = htmlDecodeLight(String(value || "")).trim();
+  if (!raw) return null;
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+export async function collectWrittenReviewsFromUrls(input: {
+  urls: string[];
+  productName?: string | null;
+  maxReviews?: number;
+}): Promise<ReviewCollectorResult> {
+  const maxReviews = Math.max(10, Math.min(input.maxReviews || 80, 120));
+  const urls = Array.from(
+    new Set(
+      (input.urls || [])
+        .map(normalizeCandidateReviewUrl)
+        .filter((url): url is string => Boolean(url))
+    )
+  ).slice(0, 8);
+
+  if (!urls.length) {
+    return {
+      sourceUrl: null,
+      attempted: false,
+      extractor: "generic",
+      reviews: [],
+      reviewsCollected: 0,
+      collectorHasWrittenReviews: false,
+      coverageNote: "No OpenAI-discovered review URLs were available for ReviewIntel scraping.",
+      fallbackUrlsTried: [],
+    };
+  }
+
+  const reviews = await fetchDiscoveredReviewUrls(urls, maxReviews);
+
+  return {
+    sourceUrl: urls[0],
+    attempted: true,
+    extractor: "generic",
+    reviews,
+    reviewsCollected: reviews.length,
+    collectorHasWrittenReviews: reviews.length > 0,
+    coverageNote: reviews.length
+      ? `ReviewIntel scraped ${reviews.length} written review texts from OpenAI-discovered candidate review URLs.`
+      : `ReviewIntel fetched ${urls.length} OpenAI-discovered candidate review URL(s), but did not extract usable written review text.`,
+    fallbackUrlsTried: urls,
+  };
 }
 
 

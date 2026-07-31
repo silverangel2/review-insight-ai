@@ -76,12 +76,6 @@ function isProductUrl(url: string) {
   );
 }
 
-function urlsFromText(value: unknown) {
-  const text = String(value || "");
-  const urls = text.match(/https?:\/\/[^\s"'<>),]+/gi) || [];
-  return Array.from(new Set(urls.map(normalizeProductUrl).filter(isProductUrl)));
-}
-
 function titleNear(html: string, index: number) {
   const chunk = html.slice(Math.max(0, index - 1200), Math.min(html.length, index + 1800));
   const h2 = chunk.match(/<h2[^>]*>([\s\S]{8,600}?)<\/h2>/i)?.[1];
@@ -210,84 +204,6 @@ async function fetchAmazonCandidates(query: string, timeoutMs: number): Promise<
   }
 }
 
-async function fetchOpenAiWebCandidates(query: string, timeoutMs: number): Promise<RetrievedProductUrl[]> {
-  if (!process.env.OPENAI_API_KEY) return [];
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_SEARCH_MODEL || "gpt-5-mini",
-        tools: [{ type: "web_search_preview", search_context_size: "low" }],
-        input: `Find exact product page URLs only. Query: ${query}
-
-Return JSON only:
-{"candidates":[{"url":"https://...","title":"..."}]}
-
-Rules:
-- Prefer Amazon.ca /dp/ASIN product pages.
-- Do not return search/category pages.
-- Do not invent URLs.
-- Return up to 5 candidates.`,
-      }),
-    });
-
-    if (!response.ok) return [];
-
-    const data = await response.json() as {
-      output_text?: string;
-      output?: Array<{
-        content?: Array<{
-          text?: string;
-          annotations?: Array<Record<string, unknown>>;
-        }>;
-      }>;
-    };
-
-    const text = [
-      data.output_text || "",
-      ...(data.output || []).flatMap((item) =>
-        (item.content || []).flatMap((content) => [
-          content.text || "",
-          ...(content.annotations || []).map((annotation) =>
-            [
-              annotation.url,
-              annotation.uri,
-              annotation.href,
-              annotation.title,
-              annotation.text,
-            ].filter(Boolean).join(" ")
-          ),
-        ])
-      ),
-    ].join("\n");
-
-    const urls = urlsFromText(text);
-
-    return urls.slice(0, 5).map((url) => ({
-      url,
-      title: url,
-      domain: hostForUrl(url),
-      source: "openai-web-search",
-      query,
-      notes: ["Parsed product URL from OpenAI web_search response/annotations."],
-    }));
-  } catch {
-    return [];
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-
 function htmlDecodeLight(value: string) {
   return value
     .replace(/&amp;/g, "&")
@@ -382,10 +298,10 @@ export async function retrieveProductUrls(input: ProductUrlRetrievalInput) {
 
   const perProviderTimeout = Math.max(2500, Math.min(4500, Math.floor(timeoutMs / 2)));
 
-  const tasks = queries.slice(0, 4).flatMap((query) => [
+  const searchedQueries = queries.slice(0, 4);
+  const tasks = searchedQueries.flatMap((query) => [
     fetchBingCandidates(query, perProviderTimeout),
     fetchAmazonCandidates(query, perProviderTimeout),
-    fetchOpenAiWebCandidates(query, perProviderTimeout),
   ]);
 
   const settled = await Promise.allSettled(tasks);

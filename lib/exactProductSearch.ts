@@ -1,4 +1,3 @@
-import { storeSearchTarget } from "@/lib/reviewToolHelpers";
 import { retrieveProductUrls } from "./productUrlRetrieval";
 type ExactProductSearchInput = {
   productName: string;
@@ -65,49 +64,6 @@ function emptyExactResult(reason: string): ExactProductSearchResult {
   };
 }
 
-function cleanJsonText(text: string) {
-  return text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-}
-
-function clampRating(value: unknown) {
-  const rating =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value.replace(/[^0-9.]/g, ""))
-        : NaN;
-  if (!Number.isFinite(rating)) return null;
-  if (rating < 0 || rating > 5) return null;
-  return Math.round(rating * 10) / 10;
-}
-
-function parsePositiveNumber(value: unknown) {
-  const number =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value.replace(/[^0-9.]/g, ""))
-        : NaN;
-  if (!Number.isFinite(number) || number < 0) return null;
-  return Math.round(number * 100) / 100;
-}
-
-function parsePositiveInteger(value: unknown) {
-  const number =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value.replace(/[^0-9.]/g, ""))
-        : NaN;
-  if (!Number.isFinite(number) || number < 0) return null;
-  return Math.round(number);
-}
-
-
 function acceptedExactDomainForStore(store: unknown): string | null {
   const value = String(store || "").toLowerCase();
 
@@ -141,36 +97,12 @@ function urlHostMatchesAcceptedDomain(url: string | null, acceptedDomain: string
   }
 }
 
-function readSourceLinks(value: unknown): Array<{ label: string; url: string; domain?: string }> {
-  if (!Array.isArray(value)) return [];
-
-  const links: Array<{ label: string; url: string; domain?: string }> = [];
-
-  for (const item of value) {
-      if (!item || typeof item !== "object") continue;
-      const record = item as Record<string, unknown>;
-      const url = typeof record.url === "string" ? record.url.trim() : "";
-      if (!url) continue;
-      links.push({
-        label: typeof record.label === "string" ? record.label.trim() : "",
-        url,
-        domain: typeof record.domain === "string" ? record.domain.trim() : undefined,
-      });
-  }
-
-  return links;
-}
-
 function hostForUrl(url: string | null | undefined) {
   try {
     return new URL(String(url || "")).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
     return null;
   }
-}
-
-function isProductCandidateUrl(url: string) {
-  return !/\/search|\/browse|\/category|\/brand(\/|$)|\/c\/|\/s(?:[/?#]|$)|[?&]k=|[?&]node=/i.test(url);
 }
 
 function uniqueIdentityTokens(values: unknown[], limit = 36) {
@@ -223,136 +155,6 @@ function cleanSearchQuery(value: unknown) {
   }
 
   return cleaned.join(" ").replace(/\s+/g, " ").trim();
-}
-
-function cleanString(value: unknown) {
-  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
-}
-
-function readCandidate(value: unknown): ExactProductCandidate | null {
-  if (!value || typeof value !== "object") return null;
-  const record = value as Record<string, unknown>;
-  const url =
-    cleanString(record.url) ||
-    cleanString(record.exactListingUrl) ||
-    cleanString(record.link);
-
-  if (!url) return null;
-
-  return {
-    url,
-    title:
-      cleanString(record.title) ||
-      cleanString(record.exactListingTitle) ||
-      cleanString(record.label) ||
-      null,
-    store: cleanString(record.store) || cleanString(record.domain) || hostForUrl(url),
-    domain: cleanString(record.domain) || hostForUrl(url),
-    price: parsePositiveNumber(record.price),
-    rating: clampRating(record.rating),
-    reviewCount: parsePositiveInteger(record.reviewCount),
-    source: cleanString(record.source) || "exact-product-search",
-    notes: Array.isArray(record.notes)
-      ? record.notes.map(String).filter(Boolean).slice(0, 6)
-      : isProductCandidateUrl(url)
-        ? []
-        : ["Candidate appears to be a non-product or search/category URL and must be verified before use."],
-  };
-}
-
-
-
-function dedupeSourceLinks(links: Array<{ label: string; url: string; domain?: string }>) {
-  const seen = new Set<string>();
-  const out: Array<{ label: string; url: string; domain?: string }> = [];
-
-  for (const link of links) {
-    if (!link.url || !/^https?:\/\//i.test(link.url)) continue;
-    const key = link.url.toLowerCase().replace(/[?#].*$/, "");
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(link);
-  }
-
-  return out.slice(0, 8);
-}
-
-function readSourceLinksFromResponseAnnotations(
-  output: Array<{ content?: Array<{ annotations?: Array<Record<string, unknown>>; text?: string }> }> | undefined
-) {
-  const links: Array<{ label: string; url: string; domain?: string }> = [];
-
-  for (const item of output || []) {
-    for (const content of item.content || []) {
-      for (const annotation of content.annotations || []) {
-        const url =
-          typeof annotation.url === "string"
-            ? annotation.url
-            : typeof annotation.uri === "string"
-              ? annotation.uri
-              : typeof annotation.href === "string"
-                ? annotation.href
-                : null;
-
-        if (!url || !/^https?:\/\//i.test(url)) continue;
-
-        const label =
-          typeof annotation.title === "string" && annotation.title.trim()
-            ? annotation.title
-            : typeof annotation.text === "string" && annotation.text.trim()
-              ? annotation.text
-              : url;
-
-        const domain = hostForUrl(url);
-
-        links.push({
-          label,
-          url,
-          ...(domain ? { domain } : {}),
-        });
-      }
-    }
-  }
-
-  const seen = new Set<string>();
-  return links.filter((link) => {
-    const key = link.url.toLowerCase().replace(/[?#].*$/, "");
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function fallbackCandidatesFromLinks(
-  links: Array<{ label: string; url: string; domain?: string }>
-): ExactProductCandidate[] {
-  return links
-    .map((link) =>
-      readCandidate({
-        url: link.url,
-        title: link.label,
-        domain: link.domain,
-        source: "sourceLinks",
-      })
-    )
-    .filter((candidate): candidate is ExactProductCandidate => Boolean(candidate));
-}
-
-function dedupeCandidates(candidates: ExactProductCandidate[], limit: number) {
-  const seen = new Set<string>();
-  const out: ExactProductCandidate[] = [];
-
-  for (const candidate of candidates) {
-    const url = String(candidate.url || "").trim();
-    if (!url) continue;
-    const key = url.toLowerCase().replace(/[?#].*$/, "");
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(candidate);
-    if (out.length >= limit) break;
-  }
-
-  return out;
 }
 
 function emptyCandidateSearchResult(
@@ -446,7 +248,6 @@ async function fetchAmazonSearchCandidates(query: string, maxCandidates = 4, tim
       if (!asin || seen.has(asin)) continue;
       seen.add(asin);
 
-      const href = match[1].replace(/&amp;/g, "&");
       const title = amazonTitleFromHtmlAround(html, match.index) || `Amazon.ca product ${asin}`;
 
       candidates.push({
@@ -603,13 +404,6 @@ export async function findExactProductCandidates(
 ): Promise<ExactProductCandidateSearchResult> {
   const startedAt = Date.now();
 
-
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    return emptyCandidateSearchResult("OPENAI_API_KEY is missing.", startedAt);
-  }
-
   const product = uniqueIdentityTokens([
     input.store,
     input.brand,
@@ -623,11 +417,7 @@ export async function findExactProductCandidates(
     return emptyCandidateSearchResult("Product identity was not clear enough for exact listing search.", startedAt);
   }
 
-  const storeTarget = storeSearchTarget(input.store);
   const maxCandidates = Math.max(1, Math.min(input.maxCandidates || 5, 5));
-  const candidateCountInstruction =
-    maxCandidates >= 3 ? `Return 3 to ${maxCandidates} candidates when possible` : `Return up to ${maxCandidates} candidates`;
-  const timeoutMs = Math.max(3000, Math.min(input.timeoutMs || 5500, 6000));
   const providedSearchQueries = Array.isArray(input.searchQueries) ? input.searchQueries : [];
   const appendProductQuery = input.appendProductQuery !== false || providedSearchQueries.length === 0;
   const searchQueries = Array.from(
@@ -682,7 +472,7 @@ export async function findExactProductCandidates(
         domain: candidate.domain,
       })),
       notes: [
-        `Retrieved ${retrievalFirst.candidates.length} real product URL candidate(s) before GPT exact search.`,
+        `Retrieved ${retrievalFirst.candidates.length} real product URL candidate(s) from native product URL retrieval.`,
       ],
       elapsedMs: retrievalFirst.elapsedMs,
       timedOut: retrievalFirst.timedOut,
@@ -703,221 +493,40 @@ export async function findExactProductCandidates(
         url: candidate.url,
         ...(candidate.domain ? { domain: candidate.domain } : {}),
       })),
-      notes: [`Parsed ${fastInitialCandidates.length} product candidate URL(s) from fast search before GPT exact search.`],
+      notes: [`Parsed ${fastInitialCandidates.length} product candidate URL(s) from fast native search.`],
       elapsedMs: Date.now() - startedAt,
       timedOut: false,
       attemptCount: 1,
     };
   }
 
-  const primarySearchQuery = searchQueries[0] || product;
+  const amazonFallbackCandidates =
+    /amazon\.ca/i.test(searchQueries.join(" "))
+      ? await fetchAmazonSearchCandidates(searchQueries[0], maxCandidates)
+      : [];
 
-  const prompt = `
-You are ReviewIntel's fast exact-product search retrieval tool.
-
-Agent search round:
-${input.searchRoundLabel || "candidate_search"}
-
-Run this as one search action, not as a final research report.
-
-Primary search query to run first:
-"${primarySearchQuery}"
-
-Find up to ${maxCandidates} possible public product page candidates for:
-"${product}"
-
-Preferred store targeting:
-${storeTarget || "No specific store target. Search broadly."}
-
-Search queries to use:
-${JSON.stringify(searchQueries, null, 2)}
-
-Known screenshot/listing clues:
-- Store: ${input.store || "not provided"}
-- Price: ${input.price ?? "not provided"}
-- Rating: ${input.rating ?? "not provided"}
-- Review count: ${input.reviewCount ?? "not provided"}
-
-Use these clues as identity signals. Prefer listings where title, store, price, rating, variant/color/capacity, and review count match. Do not invent missing rating or review count.
-
-Priority:
-1. Exact store listing if store is known, especially Amazon, Walmart, Best Buy, Costco, Sephora, Temu, Target.
-2. Match brand, title, product type, price, rating, and review count.
-3. Avoid broad category pages.
-4. Avoid unrelated products.
-5. Do not invent URLs, ratings, review counts, or prices.
-6. For Amazon, do not accept a different color/variant/ASIN as exact evidence.
-7. If the screenshot says Gray but the candidate is Pink, or the rating/review count differs materially, return low or none.
-8. Marketplace search pages, browse pages, category pages, and keyword-result URLs are never exact product listings.
-
-Return ONLY valid JSON. No markdown.
-
-JSON shape:
-{
-  "candidates": [
-    {
-      "url": "https://example.com/product-page",
-      "title": "visible product page title",
-      "store": "Amazon.ca",
-      "domain": "amazon.ca",
-      "price": null,
-      "rating": null,
-      "reviewCount": null,
-      "source": "web search result, marketplace, source link, etc",
-      "notes": ["short visible clue"]
-    }
-  ],
-  "sourcesChecked": [],
-  "notes": [],
-  "sourceLinks": [
-    {
-      "label": "source title",
-      "url": "https://example.com",
-      "domain": "example.com"
-    }
-  ]
-}
-
-Rules:
-- Use the primary search query first. Do not replace it with a broader generic query.
-- ${candidateCountInstruction}, not just one URL when more than one exact candidate is available.
-- If you find a listing with visible rating/review count, include them.
-- If only search snippets are available, include values only if visible in evidence.
-- If not confident it is the same product, confidence must be low or none.
-- Do not guess rating or review count.
-`;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_REVIEW_SEARCH_MODEL || "gpt-4.1-mini",
-        tools: [{ type: "web_search" }],
-        input: prompt,
-        temperature: 0.1,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      return emptyCandidateSearchResult(
-        `Exact listing search failed: ${response.status} ${errorText.slice(0, 180)}`,
-        startedAt,
-        searchQueries
-      );
-    }
-
-    const data = (await response.json()) as {
-      output_text?: string;
-      output?: Array<{
-        content?: Array<{
-          text?: string;
-          annotations?: Array<Record<string, unknown>>;
-        }>;
-      }>;
-    };
-
-    const outputText =
-      data.output_text ||
-      data.output
-        ?.flatMap((item) => item.content || [])
-        .map((content) => content.text || "")
-        .join("\n") ||
-      "";
-
-    if (!outputText.trim()) {
-      return emptyCandidateSearchResult("Exact listing search returned no usable result.", startedAt, searchQueries);
-    }
-
-    const parsed = JSON.parse(cleanJsonText(outputText)) as Record<string, unknown>;
-
-    const sourceLinks = dedupeSourceLinks([
-      ...readSourceLinks(parsed.sourceLinks),
-      ...readSourceLinksFromResponseAnnotations(data.output),
-    ]);
-    const rawCandidates = Array.isArray(parsed.candidates)
-      ? parsed.candidates
-      : parsed.exactListingUrl || parsed.url
-        ? [parsed]
-        : [];
-    const candidates = dedupeCandidates(
-      [
-        ...rawCandidates
-          .map(readCandidate)
-          .filter((candidate): candidate is ExactProductCandidate => Boolean(candidate)),
-        ...fallbackCandidatesFromLinks(sourceLinks),
-      ],
-      maxCandidates
-    );
-
-    const realCandidates = collectRealExactCandidates(
-      parsed,
-      [
-        JSON.stringify(parsed),
-        sourceLinks.map((link) => `${link.label} ${link.url}`).join(" "),
-      ].join("\n"),
-      "exact-product-search"
-    ).slice(0, maxCandidates);
-
-    const fastFallbackCandidates =
-      realCandidates.length === 0
-        ? await fetchFastProductUrlCandidates(searchQueries, maxCandidates)
-        : [];
-
-    const amazonFallbackCandidates =
-      realCandidates.length === 0 &&
-      fastFallbackCandidates.length === 0 &&
-      /amazon\.ca/i.test(searchQueries.join(" "))
-        ? await fetchAmazonSearchCandidates(searchQueries[0], maxCandidates)
-        : [];
-
-    const finalCandidates = realCandidates.length > 0
-      ? realCandidates
-      : fastFallbackCandidates.length > 0
-        ? fastFallbackCandidates
-        : amazonFallbackCandidates.length > 0
-          ? amazonFallbackCandidates
-          : candidates.filter((candidate) => candidate?.url && /^https?:\/\//i.test(candidate.url));
-
+  if (amazonFallbackCandidates.length > 0) {
     return {
-      candidates: finalCandidates,
+      candidates: amazonFallbackCandidates,
       queries: searchQueries.map((query) => cleanExactSearchQuery(query)),
-      sourcesChecked: Array.isArray(parsed.sourcesChecked)
-        ? parsed.sourcesChecked.map(String).slice(0, 12)
-        : finalCandidates.map((candidate) => String(candidate.url || "")).filter(Boolean),
-      sourceLinks,
-      notes: [
-        ...(Array.isArray(parsed.notes) ? parsed.notes.map(String).slice(0, 8) : []),
-        fastFallbackCandidates.length > 0
-          ? `Parsed ${fastFallbackCandidates.length} product candidate URL(s) from fast search fallback.`
-          : amazonFallbackCandidates.length > 0
-            ? `Parsed ${amazonFallbackCandidates.length} Amazon.ca candidate URL(s) from direct search fallback.`
-            : finalCandidates.length === 0
-              ? "No real product candidate URLs were parsed from exact product search."
-              : `Parsed ${finalCandidates.length} real product candidate URL(s).`,
-      ],
+      sourcesChecked: amazonFallbackCandidates.map((candidate) => candidate.url),
+      sourceLinks: amazonFallbackCandidates.map((candidate) => ({
+        label: candidate.title || candidate.url,
+        url: candidate.url,
+        domain: candidate.domain,
+      })),
+      notes: [`Parsed ${amazonFallbackCandidates.length} Amazon.ca candidate URL(s) from direct native search fallback.`],
       elapsedMs: Date.now() - startedAt,
       timedOut: false,
       attemptCount: 1,
     };
-  } catch (error: unknown) {
-    return emptyCandidateSearchResult(
-      error instanceof Error ? error.message : "Exact listing search failed.",
-      startedAt,
-      searchQueries,
-      error instanceof Error && error.name === "AbortError"
-    );
-  } finally {
-    clearTimeout(timer);
   }
+
+  return emptyCandidateSearchResult(
+    "Native exact listing search returned no usable product candidates before last-resort review URL discovery.",
+    startedAt,
+    searchQueries
+  );
 }
 
 
@@ -948,120 +557,6 @@ function cleanExactSearchQuery(value: unknown) {
     .replace(/\bAmazon\.ca Amazon\b/gi, "Amazon.ca")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function extractUrlsFromText(value: unknown) {
-  const text = String(value || "");
-  const matches = text.match(/https?:\/\/[^\s"'<>),]+/gi) || [];
-  return Array.from(new Set(matches.map((url) => url.replace(/[)\].,;]+$/g, ""))));
-}
-
-function candidateDomainFromUrl(url: string | null | undefined) {
-  try {
-    return new URL(String(url || "")).hostname.replace(/^www\./, "").toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
-function exactCandidateNumber(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value.replace(/[^0-9.]/g, ""));
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function normalizeExactCandidate(input: unknown, source = "exact-search") {
-  if (!input || typeof input !== "object") return null;
-
-  const item = input as Record<string, unknown>;
-
-  const url =
-    typeof item.url === "string"
-      ? item.url
-      : typeof item.href === "string"
-        ? item.href
-        : typeof item.link === "string"
-          ? item.link
-          : typeof item.exactListingUrl === "string"
-            ? item.exactListingUrl
-            : null;
-
-  const title =
-    typeof item.title === "string"
-      ? item.title
-      : typeof item.label === "string"
-        ? item.label
-        : typeof item.exactListingTitle === "string"
-          ? item.exactListingTitle
-          : null;
-
-  if (!url || !/^https?:\/\//i.test(url)) return null;
-
-  const domain =
-    typeof item.domain === "string" && item.domain.trim()
-      ? item.domain
-      : candidateDomainFromUrl(url);
-
-  const store =
-    typeof item.store === "string" && item.store.trim()
-      ? item.store
-      : domain;
-
-  return {
-    url,
-    title: title || url,
-    domain,
-    store,
-    price: exactCandidateNumber(item.price),
-    rating: exactCandidateNumber(item.rating),
-    reviewCount: exactCandidateNumber(item.reviewCount),
-    source: typeof item.source === "string" ? item.source : source,
-    notes: Array.isArray(item.notes) ? item.notes.map(String) : [],
-  };
-}
-
-function collectRealExactCandidates(parsed: unknown, rawText: unknown, source = "exact-search") {
-  const root = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
-  const candidates: ReturnType<typeof normalizeExactCandidate>[] = [];
-
-  const arrays = [
-    root.candidates,
-    root.candidateListings,
-    root.sourceLinks,
-    root.sources,
-    root.links,
-    root.results,
-  ];
-
-  for (const arr of arrays) {
-    if (!Array.isArray(arr)) continue;
-    for (const item of arr) {
-      const candidate = normalizeExactCandidate(item, source);
-      if (candidate) candidates.push(candidate);
-    }
-  }
-
-  const single = normalizeExactCandidate(root, source);
-  if (single) candidates.push(single);
-
-  for (const url of extractUrlsFromText(rawText)) {
-    const candidate = normalizeExactCandidate({ url, title: url, source }, source);
-    if (candidate) candidates.push(candidate);
-  }
-
-  const seen = new Set<string>();
-  return candidates
-    .filter((candidate): candidate is NonNullable<typeof candidate> => {
-      if (!candidate) return false;
-      const key = String(candidate.url || "").toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 5);
 }
 
 export async function findExactProductListing(

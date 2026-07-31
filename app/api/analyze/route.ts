@@ -1777,6 +1777,7 @@ async function researchAndVerdict(
     exactListingConfirmed: reviewEvidence?.exactListingConfirmed,
     exactListingAccepted: reviewEvidence?.exactListingAccepted,
     collectorSourceAccepted: reviewEvidence?.collectorSourceAccepted,
+    openAiWebSearchDiagnostics: reviewEvidence?.openAiWebSearchDiagnostics,
   });
 
   return buildReviewEvidenceShopperResult({
@@ -1799,6 +1800,7 @@ function clampPercent(value: number) {
 function computeVerdictConfidenceAudit(input: {
   exactListingUrl?: unknown;
   exactListingConfirmed?: unknown;
+  collectorSourceAccepted?: unknown;
   screenshotTitle?: unknown;
   listingTitle?: unknown;
   screenshotStore?: unknown;
@@ -1827,11 +1829,14 @@ function computeVerdictConfidenceAudit(input: {
   const rating = Number(input.rating);
   const marketplaceReviewCount = Number(input.marketplaceReviewCount || 0);
   const commentsAnalyzed = Number(input.commentsAnalyzed || 0);
+  const collectorSourceAccepted = input.collectorSourceAccepted === true;
+  const identityVerifiedReviewRecovery = collectorSourceAccepted && commentsAnalyzed > 0;
 
   const hasExactListing = Boolean(exactListingUrl);
   const sameStore =
     Boolean(screenshotStore && listingStore && (listingStore.includes(screenshotStore) || screenshotStore.includes(listingStore))) ||
-    Boolean(screenshotStore && exactListingUrl.toLowerCase().includes(screenshotStore.replace(".ca", "").replace(".com", "")));
+    Boolean(screenshotStore && exactListingUrl.toLowerCase().includes(screenshotStore.replace(".ca", "").replace(".com", ""))) ||
+    identityVerifiedReviewRecovery;
 
   const titleLooksMatched =
     Boolean(screenshotTitle && listingTitle) &&
@@ -1854,7 +1859,11 @@ function computeVerdictConfidenceAudit(input: {
         ? 16
         : hasExactListing
           ? 8
-          : 0;
+          : identityVerifiedReviewRecovery && (titleLooksMatched || listingTitle || screenshotTitle)
+            ? 14
+            : identityVerifiedReviewRecovery
+              ? 10
+              : 0;
 
   // Hard fail: wrong/no product identity means no trust.
   if (productMatchScore < 8) {
@@ -1990,7 +1999,9 @@ function computeVerdictConfidenceAudit(input: {
     input.exactListingConfirmed || ""
   ).toLowerCase();
 
-  if (exactListingConfidence === "medium") {
+  if (identityVerifiedReviewRecovery && !hasExactListing) {
+    verdictConfidence = Math.min(verdictConfidence, 62);
+  } else if (exactListingConfidence === "medium") {
     verdictConfidence = Math.min(verdictConfidence, 80);
   } else if (
     exactListingConfidence === "low" ||
@@ -2327,6 +2338,7 @@ function buildReviewEvidenceShopperResult(input: {
   const verdictConfidenceAudit = computeVerdictConfidenceAudit({
     exactListingUrl: exactListingUrl || null,
     exactListingConfirmed: evidence.exactListingConfirmed,
+    collectorSourceAccepted,
     screenshotTitle: vision.name || vision.title || vision.category,
     listingTitle: productName,
     screenshotStore: vision.store,
@@ -2730,6 +2742,15 @@ export async function POST(request: Request) {
         quota: usage.quota ?? null
       };
     };
+
+    const contentType = request.headers.get("content-type") || "";
+    const canReadFormData =
+      contentType.toLowerCase().includes("multipart/form-data") ||
+      contentType.toLowerCase().includes("application/x-www-form-urlencoded");
+
+    if (!canReadFormData) {
+      return NextResponse.json({ error: "Please upload a product screenshot.", scanId, resultSource: "analyze" }, { status: 400 });
+    }
 
     const formData = await request.formData();
     scanId = sanitizeScanId(formData.get("scanId")) || serverScanId;

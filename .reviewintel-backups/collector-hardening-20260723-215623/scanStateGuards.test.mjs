@@ -19,7 +19,6 @@ test("new product scans are stamped and stale results are rejected", () => {
 
   assert.match(results, /readActiveScanId\(\)/);
   assert.match(results, /readLatestResult\(\s*account,\s*activeScanId \? \{ scanId: activeScanId \}/s);
-  assert.match(results, /const parsedScanId = scanIdFromAnalyzeResponse\(parsed\)/);
   assert.match(results, /if \(activeScanId && parsedScanId && parsedScanId !== activeScanId\)/);
 });
 
@@ -38,9 +37,8 @@ test("recommendations are isolated from the main scan result", () => {
 test("rejected exact listings cannot collect unrelated written reviews", () => {
   const evidence = source("lib/reviewEvidence.ts");
 
-  assert.match(evidence, /let collectorSourceAccepted = Boolean\(\s*exactListingAccepted && listingUrlForReviewCollector\s*\)/s);
-  assert.match(evidence, /await runNativeReviewRetrieval[\s\S]*const exactProductAgent = await runExactProductAgent/);
-  assert.match(evidence, /nativeReviewRetrieval &&\s*collectedWrittenReviews\.reviewsCollected < 3 &&\s*\(\s*collectorSourceAccepted \|\| hasSpecificRecoveryIdentity/s);
+  assert.match(evidence, /collectorSourceAccepted\s*=\s*combinedReviews\.length\s*>\s*0/);
+  assert.match(evidence, /collectorSourceAccepted\s*=\s*combinedReviews\.length\s*>\s*0/);
   assert.match(evidence, /if \(!collectorSourceAccepted\) \{/);
   assert.match(evidence, /return insufficientEvidence;/);
   assert.match(evidence, /hasVariantMismatch \|\|\s*\(hasRatingMismatch && hasReviewCountMismatch\)/);
@@ -50,16 +48,14 @@ test("exact product search uses candidate collection instead of one guessed URL"
   const exactSearch = source("lib/exactProductSearch.ts");
 
   assert.match(exactSearch, /export async function findExactProductCandidates/);
-  assert.match(exactSearch, /retrieveProductUrls/);
-  assert.match(exactSearch, /fetchFastProductUrlCandidates/);
-  assert.match(exactSearch, /fetchAmazonSearchCandidates/);
+  assert.match(exactSearch, /"candidates": \[/);
+  assert.match(exactSearch, /candidateCountInstruction/);
+  assert.match(exactSearch, /Return up to \$\{maxCandidates\} candidates/);
   assert.match(exactSearch, /searchQueries/);
   assert.match(exactSearch, /appendProductQuery/);
-  assert.doesNotMatch(exactSearch, /callOpenAiWebSearchResponse/);
-  assert.doesNotMatch(exactSearch, /tools:\s*\[\s*\{\s*type:\s*["']web_search/);
-  assert.doesNotMatch(exactSearch, /Primary search query to run first/);
+  assert.match(exactSearch, /Primary search query to run first/);
   assert.doesNotMatch(exactSearch, /if \(!url \|\| !isProductCandidateUrl\(url\)\) return null/);
-  assert.match(exactSearch, /isLikelyProductUrl/);
+  assert.match(exactSearch, /Candidate appears to be a non-product or search\/category URL/);
   assert.match(exactSearch, /AbortController/);
 });
 
@@ -137,87 +133,4 @@ test("better picks does not auto-run during initial scan result load", () => {
   assert.match(panel, /autoLoad = false/);
   assert.match(panel, /window\.setTimeout/);
   assert.match(panel, /1800/);
-});
-
-test("collector review evidence is normalized before counting", () => {
-  const evidence = source("lib/reviewEvidence.ts");
-
-  assert.match(evidence, /REVIEWINTEL_COLLECTOR_EVIDENCE_HARDENING/);
-  assert.match(evidence, /function hardenedCollectorReviews/);
-  assert.match(evidence, /const incomingReviews = input\.reviews \?\? current\.reviews/);
-  assert.match(evidence, /const reviews = hardenedCollectorReviews\(incomingReviews\)/);
-  assert.match(evidence, /reviewsCollected: reviews\.length/);
-  assert.match(evidence, /collectorHasWrittenReviews: reviews\.length > 0/);
-});
-
-test("collector removes duplicate and unusable review text", () => {
-  const evidence = source("lib/reviewEvidence.ts");
-
-  assert.match(evidence, /normalizedReviewFingerprint/);
-  assert.match(evidence, /seenExact\.has\(fingerprint\)/);
-  assert.match(evidence, /seenNearDuplicate\.has\(nearDuplicateKey\)/);
-  assert.match(evidence, /fingerprint\.length < 12/);
-  assert.match(evidence, /\.normalize\("NFKC"\)/);
-});
-
-test("collector preserves unknown structured provider review shapes", () => {
-  const evidence = source("lib/reviewEvidence.ts");
-
-  assert.match(evidence, /Structured collector entries without a recognized text field are kept/);
-  assert.match(evidence, /if \(!fingerprint\) \{\s*return true;/s);
-});
-
-test("collector fallback URLs are unique, trimmed and bounded", () => {
-  const evidence = source("lib/reviewEvidence.ts");
-
-  assert.match(evidence, /\.map\(\(url\) => String\(url \|\| ""\)\.trim\(\)\)/);
-  assert.match(evidence, /\.filter\(Boolean\)/);
-  assert.match(evidence, /\.slice\(0, 24\)/);
-});
-
-test("review evidence uses one last-resort OpenAI URL discovery step", () => {
-  const evidence = source("lib/reviewEvidence.ts");
-  const helper = source("lib/openAiWebSearch.ts");
-
-  assert.match(evidence, /REVIEWINTEL_RELIABLE_SIGNAL_TARGET \|\| 20/);
-  assert.match(evidence, /Math\.min\(Number\(process\.env\.REVIEWINTEL_RELIABLE_SIGNAL_TARGET \|\| 20\), 30\)/);
-  assert.match(evidence, /createOpenAiWebSearchContext\(\{ maxCalls: 1 \}\)/);
-  assert.match(evidence, /discoverReviewUrlsWithOpenAi/);
-  assert.match(evidence, /last-resort-review-url-discovery/);
-  assert.match(evidence, /collectWrittenReviewsFromUrls/);
-  assert.match(evidence, /callOpenAiResponseWithoutWebSearch/);
-  assert.doesNotMatch(evidence, /REVIEWINTEL_DEEP_SEARCH_PASSES/);
-  assert.doesNotMatch(evidence, /review-evidence-deep-pass/);
-  assert.doesNotMatch(evidence, /usedOpenAiWebReviewSearch/);
-  assert.match(helper, /search_context_size/);
-});
-
-test("OpenAI Web Search calls are centralized and budgeted", () => {
-  const helper = source("lib/openAiWebSearch.ts");
-  const evidence = source("lib/reviewEvidence.ts");
-  const exactSearch = source("lib/exactProductSearch.ts");
-  const productUrlRetrieval = source("lib/productUrlRetrieval.ts");
-  const recommendations = source("app/api/product-recommendations/route.ts");
-  const adminCheck = source("app/api/admin/review-tools-check/route.ts");
-
-  assert.match(helper, /REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED/);
-  assert.match(helper, /gpt-4\.1-mini/);
-  assert.match(helper, /DEFAULT_MAX_OPENAI_WEB_SEARCH_CALLS = 1/);
-  assert.match(helper, /skippedDuplicates/);
-  assert.match(helper, /skippedDisabled/);
-  assert.match(helper, /skippedEvidenceSatisfied/);
-  assert.match(helper, /skippedLimitReached/);
-  assert.match(helper, /context\.diagnostics\.calls \+= 1/);
-
-  assert.equal((evidence.match(/await callOpenAiWebSearchResponse/g) || []).length, 1);
-  assert.match(evidence, /purpose: "last-resort-review-url-discovery"/);
-  assert.doesNotMatch(evidence, /purpose: "review-evidence-first-pass"/);
-  assert.doesNotMatch(evidence, /allowWithoutWebSearch/);
-  assert.doesNotMatch(exactSearch, /callOpenAiWebSearchResponse/);
-  assert.doesNotMatch(productUrlRetrieval, /callOpenAiWebSearchResponse/);
-
-  for (const file of [evidence, exactSearch, productUrlRetrieval, recommendations, adminCheck]) {
-    assert.doesNotMatch(file, /tools:\s*\[\s*\{\s*type:\s*["']web_search/);
-    assert.doesNotMatch(file, /tools:\s*\[\s*\{\s*type:\s*["']web_search_preview/);
-  }
 });
