@@ -28,7 +28,7 @@ const tiers: Array<{
     features: [
       "3 product scans per day",
       "Screenshot or product-link scan",
-      "BUY / CONSIDER / AVOID verdict",
+      "BUY / REVIEW FIRST / AVOID verdict",
       "Latest result only"
     ]
   },

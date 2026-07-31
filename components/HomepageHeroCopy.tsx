@@ -27,7 +27,7 @@ const heroCopy: Record<
     ],
     mobileSubtitle: "Paste. Scan. Decide.",
     subtitle:
-      "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, common complaints, ratings, value, and AI-like review patterns to give you a fast BUY, CONSIDER, or AVOID verdict.",
+      "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, common complaints, ratings, value, and AI-like review patterns to give you a fast BUY, REVIEW FIRST, or AVOID verdict.",
     slides: [
       "Find out if a product is worth buying.",
       "Know Before You Buy.",

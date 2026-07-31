@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type SourceLink = {
   label?: string;
@@ -176,7 +176,7 @@ export function ResultIntelligencePanel({ result, onResultUpdate }: { result: Re
     }
   }
 
-  async function refreshEvidence() {
+  const refreshEvidence = useCallback(async () => {
     const productName = productPayload.productName;
 
     if (!productName) {
@@ -218,7 +218,7 @@ export function ResultIntelligencePanel({ result, onResultUpdate }: { result: Re
     } finally {
       setRefreshing(false);
     }
-  }
+  }, [onResultUpdate, productPayload]);
 
   useEffect(() => {
     const reviewEvidence = asRecord(asRecord(result).reviewEvidence);
@@ -248,7 +248,7 @@ export function ResultIntelligencePanel({ result, onResultUpdate }: { result: Re
     if (typeof window !== "undefined") window.sessionStorage.setItem(storageKey, "1");
 
     refreshEvidence();
-  }, [result, productPayload.productKey, productPayload.productName, refreshing]);
+  }, [refreshEvidence, result, productPayload.productKey, productPayload.productName, refreshing]);
 
   return (
     <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/80">

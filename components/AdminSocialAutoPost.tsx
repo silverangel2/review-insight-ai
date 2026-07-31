@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HOMEPAGE_VIDEO_TOPIC } from "@/lib/socialMediaTopics";
 
 type Settings = {
@@ -187,7 +187,7 @@ export default function AdminSocialAutoPost() {
   const [generatingVideos, setGeneratingVideos] = useState(false);
   const [reelPreview, setReelPreview] = useState<SocialReelPreview | null>(null);
 
-  async function loadMediaLibrary() {
+  const loadMediaLibrary = useCallback(async () => {
     const mediaResponse = await fetch("/api/admin/social-media", {
       credentials: "include",
       cache: "no-store",
@@ -205,9 +205,9 @@ export default function AdminSocialAutoPost() {
     setMedia(loadedMedia);
     setMediaError(null);
     return loadedMedia;
-  }
+  }, []);
 
-  async function load() {
+  const load = useCallback(async () => {
     const messages: string[] = [];
 
     try {
@@ -237,11 +237,11 @@ export default function AdminSocialAutoPost() {
     }
 
     setStatus(messages.join(" "));
-  }
+  }, [loadMediaLibrary]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   function toggleArray(key: "platforms" | "topics", value: string) {
     setSettings((current) => {

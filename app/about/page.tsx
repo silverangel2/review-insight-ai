@@ -23,7 +23,7 @@ export default function AboutPage() {
       <section className="mt-5 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h2 className="text-xl font-black text-ink dark:text-white">Product boundary</h2>
         <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">
-          ReviewIntel helps shoppers make faster buying decisions from a product screenshot or product link. It reads visible product details, checks public review signals when available, and summarizes complaints, ratings, value, and AI-like review patterns into a simple BUY, CONSIDER, or AVOID verdict.
+          ReviewIntel helps shoppers make faster buying decisions from a product screenshot or product link. It reads visible product details, checks public review signals when available, and summarizes complaints, ratings, value, and AI-like review patterns into a simple BUY, REVIEW FIRST, or AVOID verdict.
         </p>
       </section>
       <Link href="/analyze" className="mt-8 inline-flex rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">

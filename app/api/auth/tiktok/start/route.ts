@@ -46,7 +46,7 @@ export async function GET() {
           "TikTok cannot connect because TIKTOK_CLIENT_KEY is missing. Add the TikTok app Client Key in Vercel, then redeploy.",
           health
         ),
-        { status: 500, headers: { "Content-Type": "text/html" } }
+        { status: 409, headers: { "Content-Type": "text/html" } }
       );
     }
 

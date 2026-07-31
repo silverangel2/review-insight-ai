@@ -17,11 +17,11 @@ type ProductMemoryRow = {
 };
 
 async function getProducts(): Promise<ProductMemoryRow[]> {
-  const baseUrl =
+  const baseUrl = (
     process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
 
   try {
     const response = await fetch(`${baseUrl}/api/admin/product-memory`, {

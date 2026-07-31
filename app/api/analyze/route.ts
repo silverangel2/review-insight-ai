@@ -14,13 +14,29 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
-import { scoreReviewEvidenceDecision } from "@/lib/reviewEvidenceScoring";
+import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 180;
 
-type Verdict = "BUY" | "CONSIDER" | "AVOID";
+type Verdict = "BUY" | "REVIEW FIRST" | "AVOID";
 type JsonRecord = Record<string, unknown>;
+
+function normalizeOptionalShopperVerdict(value: unknown): Verdict | null {
+  const verdict = String(value || "").trim().toUpperCase();
+
+  if (verdict === "BUY") return "BUY";
+  if (verdict === "AVOID") return "AVOID";
+  if (verdict === "REVIEW FIRST" || verdict === "MAYBE" || verdict === "CONSIDER") {
+    return "REVIEW FIRST";
+  }
+
+  return null;
+}
+
+function normalizeShopperVerdict(value: unknown, fallback: Verdict = "REVIEW FIRST"): Verdict {
+  return normalizeOptionalShopperVerdict(value) || fallback;
+}
 
 type ProfileAccessRow = {
   role?: unknown;
@@ -517,15 +533,15 @@ function summarizeProductMemory(memory: unknown[]) {
   if (!memory.length) {
     return {
       scanCount: 0,
-      verdictHistory: [] as string[],
+      verdictHistory: [] as Verdict[],
       repeatedComplaints: [] as string[],
       memoryNote: ""
     };
   }
 
   const verdictHistory = memory
-    .map((item) => String(asRecord(item).verdict || ""))
-    .filter(Boolean);
+    .map((item) => normalizeOptionalShopperVerdict(asRecord(item).verdict))
+    .filter((item): item is Verdict => Boolean(item));
 
   const complaintCounts = new Map<string, number>();
 
@@ -568,16 +584,16 @@ function applyProductMemory(
   let topComplaints = result.topComplaints;
 
   const avoidCount = memorySummary.verdictHistory.filter((item) => item === "AVOID").length;
-  const considerCount = memorySummary.verdictHistory.filter((item) => item === "CONSIDER").length;
+  const reviewFirstCount = memorySummary.verdictHistory.filter((item) => item === "REVIEW FIRST").length;
 
   if (avoidCount >= 3) {
     verdict = "AVOID";
     productScore = Math.min(productScore, 49);
   } else if (avoidCount >= 2 && verdict === "BUY") {
-    verdict = "CONSIDER";
+    verdict = "REVIEW FIRST";
     productScore = Math.min(productScore, 74);
-  } else if (considerCount + avoidCount >= 3 && verdict === "BUY") {
-    verdict = "CONSIDER";
+  } else if (reviewFirstCount + avoidCount >= 3 && verdict === "BUY") {
+    verdict = "REVIEW FIRST";
     productScore = Math.min(productScore, 74);
   }
 
@@ -660,8 +676,7 @@ function normalizeResult(rawValue: unknown, vision: VisionFacts, locale = "en") 
   const reviewAuthenticity = asRecord(raw.reviewAuthenticity);
   const fallbackCopy = localizedAnalyzeText(locale);
 
-  const rawVerdict = String(raw.verdict || "");
-  const verdict: Verdict = ["BUY", "CONSIDER", "AVOID"].includes(rawVerdict) ? (rawVerdict as Verdict) : "CONSIDER";
+  const verdict = normalizeShopperVerdict(raw.verdict);
 
   const rawValueForMoney = String(raw.valueForMoney || "");
   const valueForMoney = ["Excellent", "Good", "Fair", "Poor"].includes(rawValueForMoney) ? rawValueForMoney : "Fair";
@@ -969,11 +984,11 @@ function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
 
   buyingConfidence = clampScore(buyingConfidence);
 
-  let verdict: Verdict = "CONSIDER";
+  let verdict: Verdict = "REVIEW FIRST";
 
   // Do not allow confident BUY/AVOID from public rating/count alone.
   if (analyzedReviewCount < 5) {
-    verdict = "CONSIDER";
+    verdict = "REVIEW FIRST";
   } else if (
     productScore >= 75 &&
     buyingConfidence >= 70 &&
@@ -1019,7 +1034,7 @@ function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithSc
   let notIdealFor = result.notIdealFor;
 
   if (evidenceLevel === "product_mismatch" || !exactMatch) {
-    verdict = productScore < 45 ? "AVOID" : "CONSIDER";
+    verdict = productScore < 45 ? "AVOID" : "REVIEW FIRST";
     productScore = Math.min(productScore, 54);
     buyingConfidence = Math.min(buyingConfidence, 45);
     valueForMoney = valueForMoney === "Excellent" ? "Fair" : valueForMoney;
@@ -1038,7 +1053,7 @@ function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithSc
       ], 4);
     }
   } else if (evidenceLevel === "screenshot_only" || sourceCount === 0) {
-    if (verdict === "BUY") verdict = "CONSIDER";
+    if (verdict === "BUY") verdict = "REVIEW FIRST";
     productScore = Math.min(productScore, 59);
     buyingConfidence = Math.min(buyingConfidence, 45);
     if (valueForMoney === "Excellent") valueForMoney = "Fair";
@@ -1048,7 +1063,7 @@ function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithSc
         "This scan did not find enough verified public review evidence. The screenshot identifies the product, but ReviewIntel needs web review sources or a product link before giving a confident buying verdict.";
     }
   } else if (evidenceLevel === "limited" || sourceCount < 2) {
-    if (verdict === "BUY") verdict = "CONSIDER";
+    if (verdict === "BUY") verdict = "REVIEW FIRST";
     productScore = Math.min(productScore, 69);
     buyingConfidence = Math.min(buyingConfidence, 60);
     if (valueForMoney === "Excellent") valueForMoney = "Good";
@@ -1118,7 +1133,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
 
   // HARD TRUST RULES — raw AI cannot override these.
   if (aiReviewSigns >= 50 && verdict === "BUY") {
-    verdict = "CONSIDER";
+    verdict = "REVIEW FIRST";
     productScore = Math.min(productScore, 74);
     buyingConfidence = Math.min(buyingConfidence, 65);
     if (canRewriteCopy) {
@@ -1139,7 +1154,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
   }
 
   if (hasSeriousComplaints && verdict === "BUY") {
-    verdict = "CONSIDER";
+    verdict = "REVIEW FIRST";
     productScore = Math.min(productScore, 74);
     buyingConfidence = Math.min(buyingConfidence, 65);
     if (canRewriteCopy) {
@@ -1149,7 +1164,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
   }
 
   if (verdict === "BUY" && productScore < 75) {
-    verdict = "CONSIDER";
+    verdict = "REVIEW FIRST";
   }
 
   if (verdict === "AVOID") {
@@ -1169,7 +1184,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
     }
   }
 
-  if (verdict === "CONSIDER") {
+  if (verdict === "REVIEW FIRST") {
     productScore = Math.min(productScore, 74);
     if (valueForMoney === "Excellent") valueForMoney = "Good";
 
@@ -1228,7 +1243,7 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
     return applyReviewIntelBrain(
       {
         ...result,
-        verdict: "CONSIDER" as Verdict,
+        verdict: "REVIEW FIRST" as Verdict,
         productScore: Math.min(Math.max(calculated.productScore, 45), 64),
         buyingConfidence: Math.min(Math.max(calculated.buyingConfidence, 40), 59),
         valueForMoney: valueForMoney === "Excellent" ? "Good" : valueForMoney === "Poor" ? "Fair" : valueForMoney,
@@ -1281,7 +1296,7 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
     }
   }
 
-  if (calculated.verdict === "CONSIDER") {
+  if (calculated.verdict === "REVIEW FIRST") {
     if (canRewriteCopy) {
       bestFor = bestFor.length ? bestFor : ["Shoppers who are willing to compare alternatives first."];
       bottomLine = bottomLine || "This may work for some buyers, but the evidence is mixed. Compare similar products before buying.";
@@ -1335,7 +1350,7 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
   if (!enoughReviewEvidence) {
     return {
       ...result,
-      verdict: "CONSIDER" as Verdict,
+      verdict: "REVIEW FIRST" as Verdict,
       productScore: Math.min(Math.max(productScore, 45), 64),
       buyingConfidence: Math.min(Math.max(buyingConfidence, 40), 59),
       valueForMoney: valueForMoney === "Excellent" ? "Good" : valueForMoney === "Poor" ? "Fair" : valueForMoney,
@@ -1347,10 +1362,10 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
   }
 
   if (verdict === "BUY" && (productScore < 75 || buyingConfidence < 60 || poorValue || negativeEvidence)) {
-    verdict = productScore < 45 || poorValue || negativeEvidence ? "AVOID" : "CONSIDER";
+    verdict = productScore < 45 || poorValue || negativeEvidence ? "AVOID" : "REVIEW FIRST";
   }
 
-  if (verdict === "CONSIDER" && ((productScore < 35 && buyingConfidence < 45) || (poorValue && negativeEvidence))) {
+  if (verdict === "REVIEW FIRST" && ((productScore < 35 && buyingConfidence < 45) || (poorValue && negativeEvidence))) {
     verdict = "AVOID";
   }
 
@@ -1358,7 +1373,7 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
     return result;
   }
 
-  if (verdict === "CONSIDER") {
+  if (verdict === "REVIEW FIRST") {
     valueForMoney = valueForMoney === "Excellent" ? "Good" : valueForMoney;
     if (normalizedLocaleCode(locale) === "en" && result.verdict === "BUY") {
       bottomLine =
@@ -1368,7 +1383,7 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
 
   if (verdict === "AVOID") {
     valueForMoney = poorValue || productScore < 45 ? "Poor" : valueForMoney;
-    if (normalizedLocaleCode(locale) === "en" && (result.verdict === "BUY" || result.verdict === "CONSIDER")) {
+    if (normalizedLocaleCode(locale) === "en" && (result.verdict === "BUY" || result.verdict === "REVIEW FIRST")) {
       bottomLine =
         "The final evidence score, buyer confidence, or complaint signals do not support a BUY verdict. Safer choice: compare alternatives before purchasing.";
     }
@@ -1380,13 +1395,13 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
     productScore:
       verdict === "AVOID"
         ? Math.min(productScore, 49)
-        : verdict === "CONSIDER"
+        : verdict === "REVIEW FIRST"
           ? Math.min(productScore, 74)
           : productScore,
     buyingConfidence:
       verdict === "AVOID"
         ? Math.min(buyingConfidence, 55)
-        : verdict === "CONSIDER"
+        : verdict === "REVIEW FIRST"
           ? Math.min(buyingConfidence, 74)
           : buyingConfidence,
     valueForMoney,
@@ -1643,12 +1658,17 @@ async function researchAndVerdict(
       ? vision.reviewCount
       : undefined;
 
-  const configuredReviewEvidenceTimeoutMs = Number(process.env.REVIEW_EVIDENCE_TIMEOUT_MS || 60000);
+  const reviewEvidenceTimeoutCeilingMs = Math.max(1000, maxDuration * 1000 - 5000);
+  const configuredReviewEvidenceTimeoutMs = Number(
+    process.env.REVIEW_EVIDENCE_TIMEOUT_MS || reviewEvidenceTimeoutCeilingMs
+  );
   const reviewEvidenceTimeoutMs = Math.max(
     1000,
     Math.min(
-      Number.isFinite(configuredReviewEvidenceTimeoutMs) ? configuredReviewEvidenceTimeoutMs : 60000,
-      60000
+      Number.isFinite(configuredReviewEvidenceTimeoutMs)
+        ? configuredReviewEvidenceTimeoutMs
+        : reviewEvidenceTimeoutCeilingMs,
+      reviewEvidenceTimeoutCeilingMs
     )
   );
 
@@ -1742,7 +1762,12 @@ async function researchAndVerdict(
     }),
     new Promise<Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>>((resolve) => {
       setTimeout(() => {
-        resolve(fallbackReviewEvidence("Automatic public review evidence recovery reached the 60 second search limit."));
+        const timeoutSeconds = Math.round(reviewEvidenceTimeoutMs / 1000);
+        resolve(
+          fallbackReviewEvidence(
+            `Automatic public review evidence recovery reached the ${timeoutSeconds} second search limit.`
+          )
+        );
       }, reviewEvidenceTimeoutMs);
     }),
   ]);
@@ -1962,7 +1987,7 @@ function computeVerdictConfidenceAudit(input: {
     verdictRatificationScore = commentsAnalyzed > 0 ? 7 : 5;
   } else if (
     hasEnoughReviewCoverage &&
-    ["BUY", "CONSIDER", "AVOID"].includes(verdict) &&
+    ["BUY", "REVIEW FIRST", "AVOID"].includes(verdict) &&
     finalDecisionSource === "reviewEvidence"
   ) {
     verdictRatificationScore = 10;
@@ -2208,7 +2233,7 @@ function buildReviewEvidenceShopperResult(input: {
         ? commentsAnalyzed / 50
         : 0;
 
-  // RI can give BUY / CONSIDER / AVOID from exact-product review intelligence.
+  // RI can give BUY / REVIEW FIRST / AVOID from exact-product review intelligence.
   // Direct written review bodies are best; OpenAI web-search review intelligence is allowed
   // when marketplaces block review bodies, with lower confidence shown in the audit.
   const hasUsableReviewEvidence =
@@ -2283,8 +2308,9 @@ function buildReviewEvidenceShopperResult(input: {
       input.reviewAuthenticity && typeof input.reviewAuthenticity === "object"
         ? (input.reviewAuthenticity as Record<string, unknown>)
         : {};
-    const scoredDecision = scoreReviewEvidenceDecision({
+    const scoredEvidence = scoreReviewEvidenceSignals({
       rating: listingRatingForMetadataScore,
+      marketplaceRating: evidence.rating ?? listingEvidence?.rating ?? listingRatingForMetadataScore,
       marketplaceReviewCount,
       commentsAnalyzed,
       evidenceStrength,
@@ -2305,20 +2331,20 @@ function buildReviewEvidenceShopperResult(input: {
           : null,
     });
 
-    if (scoredDecision.verdict === "REVIEW EVIDENCE NOT ENOUGH") {
+    if (scoredEvidence.verdict === "REVIEW EVIDENCE NOT ENOUGH") {
       verdict = "REVIEW EVIDENCE NOT ENOUGH";
       decisionStatus = "not_enough_written_review_evidence";
       finalDecisionSource = "reviewEvidenceNotEnough";
       buyScore = null;
       valueForMoney = "Unknown";
     } else {
-      verdict = scoredDecision.verdict;
-      buyScore = scoredDecision.buyScore;
-      valueForMoney = scoredDecision.valueForMoney;
+      verdict = scoredEvidence.verdict;
+      buyScore = scoredEvidence.buyScore;
+      valueForMoney = scoredEvidence.valueForMoney;
     }
 
-    bottomLine = scoredDecision.bottomLine;
-    scoreAudit = scoredDecision.audit;
+    bottomLine = scoredEvidence.bottomLine;
+    scoreAudit = scoredEvidence.audit;
   } else if (
     hasVerifiedListingMetadata ||
     hasLimitedReviewEvidence ||

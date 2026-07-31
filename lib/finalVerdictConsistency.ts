@@ -18,13 +18,16 @@ function getNumber(value: unknown) {
 }
 
 function normalizedVerdict(record: AnyRecord) {
-  return (
+  const verdict = (
     getString(record.stableVerdict) ||
     getString(record.finalVerdict) ||
     getString(record.verdict) ||
     getString(record.recommendation) ||
     ""
   ).toUpperCase();
+
+  if (verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
+  return verdict;
 }
 
 export function enforceFinalVerdictConsistency<T>(value: T): T {
@@ -62,9 +65,9 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
       "Good buy. ReviewIntel found enough positive evidence to support a confident purchase.";
   }
 
-  if (verdict === "CONSIDER") {
+  if (verdict === "REVIEW FIRST") {
     // Mixed evidence can legitimately sit anywhere in the REVIEW FIRST band.
-    nextScore = Math.min(7, Math.max(nextScore || 5, 4));
+    nextScore = nextScore > 0 ? Math.min(7, Math.max(nextScore, 4)) : 5;
     nextConfidence = Math.min(82, Math.max(nextConfidence || 60, 60));
     nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Fair" : nextValue;
     nextBottomLine =

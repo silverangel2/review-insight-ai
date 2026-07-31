@@ -46,6 +46,41 @@ test("rejected exact listings cannot collect unrelated written reviews", () => {
   assert.match(evidence, /hasVariantMismatch \|\|\s*\(hasRatingMismatch && hasReviewCountMismatch\)/);
 });
 
+test("review evidence scan timeout stays below the production function timeout", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /export const runtime = "nodejs"/);
+  assert.match(analyzerRoute, /export const maxDuration = 180/);
+  assert.match(analyzerRoute, /const reviewEvidenceTimeoutCeilingMs = Math\.max\(1000, maxDuration \* 1000 - 5000\)/);
+  assert.match(analyzerRoute, /REVIEW_EVIDENCE_TIMEOUT_MS \|\| reviewEvidenceTimeoutCeilingMs/);
+});
+
+test("shopper verdict paths use review first instead of obsolete middle verdict output", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+  const results = source("components/ResultsClient.tsx");
+  const betterPicks = source("components/BetterPicksPanel.tsx");
+  const productStability = source("lib/productStability.ts");
+  const obsoleteMiddleVerdict = "CONSIDER";
+
+  assert.match(analyzerRoute, /type Verdict = "BUY" \| "REVIEW FIRST" \| "AVOID"/);
+  assert.match(analyzerRoute, /verdict = "REVIEW FIRST"/);
+  assert.match(analyzerRoute, /normalizeOptionalShopperVerdict/);
+  assert.doesNotMatch(analyzerRoute, new RegExp(`verdict\\s*[:=]\\s*["']${obsoleteMiddleVerdict}`));
+  assert.doesNotMatch(analyzerRoute, new RegExp(`return\\s+["']${obsoleteMiddleVerdict}`));
+
+  assert.match(results, /type ShopperVerdict = "BUY" \| "REVIEW FIRST" \| "AVOID" \| "NOT_ENOUGH"/);
+  assert.match(results, /displayShopperVerdict/);
+  assert.doesNotMatch(results, new RegExp(`return\\s+["']${obsoleteMiddleVerdict}`));
+  assert.doesNotMatch(results, new RegExp(`verdict:\\s*["']${obsoleteMiddleVerdict}`));
+
+  assert.match(betterPicks, /return "REVIEW FIRST"/);
+  assert.doesNotMatch(betterPicks, new RegExp(`return\\s+["']${obsoleteMiddleVerdict}`));
+
+  assert.match(productStability, /normalizeStoredVerdict/);
+  assert.doesNotMatch(productStability, new RegExp(`last_verdict:\\s*["']${obsoleteMiddleVerdict}`));
+  assert.doesNotMatch(productStability, new RegExp(`return\\s+["']${obsoleteMiddleVerdict}`));
+});
+
 test("exact product search uses candidate collection instead of one guessed URL", () => {
   const exactSearch = source("lib/exactProductSearch.ts");
 

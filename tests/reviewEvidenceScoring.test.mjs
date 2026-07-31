@@ -4,14 +4,14 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const jiti = require("jiti")(new URL("../review-evidence-scoring-test.js", import.meta.url).pathname);
-const { scoreReviewEvidenceDecision } = jiti("./lib/reviewEvidenceScoring.ts");
+const { scoreReviewEvidenceSignals } = jiti("./lib/reviewEvidenceScoring.ts");
 
 function shopperVerdict(result) {
-  return result.verdict === "CONSIDER" ? "REVIEW FIRST" : result.verdict;
+  return result.verdict;
 }
 
 test("clearly strong review evidence reaches BUY in the high score band", () => {
-  const result = scoreReviewEvidenceDecision({
+  const result = scoreReviewEvidenceSignals({
     rating: 4.7,
     marketplaceReviewCount: 6200,
     commentsAnalyzed: 84,
@@ -36,7 +36,7 @@ test("clearly strong review evidence reaches BUY in the high score band", () => 
 });
 
 test("moderately positive evidence reaches BUY around 7 to 8", () => {
-  const result = scoreReviewEvidenceDecision({
+  const result = scoreReviewEvidenceSignals({
     rating: 4.0,
     marketplaceReviewCount: 600,
     commentsAnalyzed: 42,
@@ -55,7 +55,7 @@ test("moderately positive evidence reaches BUY around 7 to 8", () => {
 });
 
 test("genuinely mixed evidence stays REVIEW FIRST around 4 to 7", () => {
-  const result = scoreReviewEvidenceDecision({
+  const result = scoreReviewEvidenceSignals({
     rating: 4.1,
     marketplaceReviewCount: 900,
     commentsAnalyzed: 48,
@@ -71,7 +71,7 @@ test("genuinely mixed evidence stays REVIEW FIRST around 4 to 7", () => {
 });
 
 test("clearly poor evidence reaches AVOID in the low score band", () => {
-  const result = scoreReviewEvidenceDecision({
+  const result = scoreReviewEvidenceSignals({
     rating: 3.1,
     marketplaceReviewCount: 700,
     commentsAnalyzed: 44,
@@ -91,7 +91,7 @@ test("clearly poor evidence reaches AVOID in the low score band", () => {
 });
 
 test("high rating with many reviews and isolated minor complaints does not become REVIEW FIRST", () => {
-  const result = scoreReviewEvidenceDecision({
+  const result = scoreReviewEvidenceSignals({
     rating: 4.8,
     marketplaceReviewCount: 18000,
     commentsAnalyzed: 36,
@@ -110,7 +110,7 @@ test("high rating with many reviews and isolated minor complaints does not becom
 });
 
 test("severe repeated complaints can override a high marketplace rating", () => {
-  const result = scoreReviewEvidenceDecision({
+  const result = scoreReviewEvidenceSignals({
     rating: 4.7,
     marketplaceReviewCount: 9500,
     commentsAnalyzed: 52,
@@ -130,7 +130,7 @@ test("severe repeated complaints can override a high marketplace rating", () => 
 });
 
 test("not enough is reserved for insufficient written-review evidence", () => {
-  const result = scoreReviewEvidenceDecision({
+  const result = scoreReviewEvidenceSignals({
     rating: 4.9,
     marketplaceReviewCount: 25000,
     commentsAnalyzed: 0,

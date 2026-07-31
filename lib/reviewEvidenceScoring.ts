@@ -1,11 +1,12 @@
 export type ReviewEvidenceVerdict =
   | "BUY"
-  | "CONSIDER"
+  | "REVIEW FIRST"
   | "AVOID"
   | "REVIEW EVIDENCE NOT ENOUGH";
 
 export type ReviewEvidenceScoreInput = {
   rating?: number | null;
+  marketplaceRating?: unknown;
   marketplaceReviewCount?: number | null;
   commentsAnalyzed?: number | null;
   evidenceStrength?: string | null;
@@ -400,8 +401,8 @@ function riskPenalty(input: ReviewEvidenceScoreInput) {
   return aiSignalPressure;
 }
 
-export function scoreReviewEvidenceDecision(input: ReviewEvidenceScoreInput): ReviewEvidenceScoreResult {
-  const rating = finiteNumber(input.rating);
+export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): ReviewEvidenceScoreResult {
+  const rating = finiteNumber(input.rating ?? input.marketplaceRating);
   const reviewCount = finiteNumber(input.marketplaceReviewCount);
   const commentsAnalyzed = Math.max(0, Math.round(finiteNumber(input.commentsAnalyzed) || 0));
   const evidenceStrength = String(input.evidenceStrength || "").toLowerCase();
@@ -615,7 +616,7 @@ export function scoreReviewEvidenceDecision(input: ReviewEvidenceScoreInput): Re
     severeProductComplaintPressure < 1 &&
     (rating === null || rating >= 4.0);
 
-  let verdict: ReviewEvidenceVerdict = "CONSIDER";
+  let verdict: ReviewEvidenceVerdict = "REVIEW FIRST";
 
   if (
     buyScore <= 3.5 ||
@@ -684,3 +685,5 @@ export function scoreReviewEvidenceDecision(input: ReviewEvidenceScoreInput): Re
     },
   };
 }
+
+export const scoreReviewEvidenceDecision = scoreReviewEvidenceSignals;

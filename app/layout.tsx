@@ -18,7 +18,11 @@ import SessionIdleLogout from "@/components/SessionIdleLogout";
 import { TrafficTracker } from "@/components/TrafficTracker";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000"
+  ),
   title: {
     default: "ReviewIntel | AI Review Intelligence Platform",
     template: "%s | ReviewIntel"
@@ -44,7 +48,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ReviewIntel",
-    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, CONSIDER, or AVOID verdict."
+    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict."
   }
 };
 
