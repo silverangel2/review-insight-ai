@@ -4,13 +4,5 @@
       "path": "/api/cron/social-autopost",
       "schedule": "0 13 * * *"
     }
-  ],
-  "functions": {
-    "app/api/admin/social-autopost/route.ts": {
-      "includeFiles": "node_modules/ffprobe-static/**"
-    },
-    "app/api/cron/social-autopost/route.ts": {
-      "includeFiles": "node_modules/ffprobe-static/**"
-    }
-  }
+  ]
 }

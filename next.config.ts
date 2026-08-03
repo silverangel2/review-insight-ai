@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       "./scripts/social-storage-public.mjs",
       "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
       "./node_modules/@ffmpeg-installer/linux-x64/**/*",
+      "./node_modules/ffprobe-static/**/*",
       "./node_modules/fluent-ffmpeg/**/*"
     ],
     "/api/admin/social-autopost": [
@@ -16,6 +17,7 @@ const nextConfig: NextConfig = {
       "./scripts/social-storage-public.mjs",
       "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
       "./node_modules/@ffmpeg-installer/linux-x64/**/*",
+      "./node_modules/ffprobe-static/**/*",
       "./node_modules/fluent-ffmpeg/**/*"
     ],
     "/api/cron/social-autopost": [
@@ -23,6 +25,7 @@ const nextConfig: NextConfig = {
       "./scripts/social-storage-public.mjs",
       "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
       "./node_modules/@ffmpeg-installer/linux-x64/**/*",
+      "./node_modules/ffprobe-static/**/*",
       "./node_modules/fluent-ffmpeg/**/*"
     ]
   },
