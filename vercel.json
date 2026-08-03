@@ -7,7 +7,7 @@
   ],
   "functions": {
     "app/api/**/*.ts": {
-      "includeFiles": "node_modules/**/linux/x64/{ffmpeg,ffprobe}"
+      "includeFiles": "node_modules/ffprobe-static/bin/linux/x64/ffprobe"
     }
   }
 }
