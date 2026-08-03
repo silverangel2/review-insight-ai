@@ -6,7 +6,10 @@
     }
   ],
   "functions": {
-    "api/**/*.js": {
+    "app/api/admin/social-autopost/route.ts": {
+      "includeFiles": "node_modules/ffprobe-static/**"
+    },
+    "app/api/cron/social-autopost/route.ts": {
       "includeFiles": "node_modules/ffprobe-static/**"
     }
   }
