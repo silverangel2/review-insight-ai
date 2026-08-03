@@ -6,7 +6,7 @@
     }
   ],
   "functions": {
-    "app/api/**/*.ts": {
+    "api/**/*.js": {
       "includeFiles": "node_modules/ffprobe-static/**"
     }
   }
