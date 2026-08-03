@@ -321,12 +321,12 @@ async function probeGeneratedMp4(filePath: string, ffprobePath: string) {
   const raw = await runProcessOutput(ffprobePath, ["-v", "error", "-print_format", "json", "-show_streams", "-show_format", filePath]);
   const probe = JSON.parse(raw) as { streams?: Array<Record<string, unknown>>; format?: Record<string, unknown> };
   const video = (probe.streams || []).find((stream) => stream.codec_type === "video");
-  const formatName = String(probe.format?.format_name || "").split(",")[0];
+  const formatName = String(probe.format?.format_name || "");
   const widthValue = Number(video?.width);
   const heightValue = Number(video?.height);
   const durationValue = Number(video?.duration || probe.format?.duration);
   const sizeValue = Number(probe.format?.size);
-  if (formatName !== "mp4" || video?.codec_name !== "h264" || !Number.isFinite(widthValue) || !Number.isFinite(heightValue) || Math.abs(widthValue / heightValue - 9 / 16) > 0.01 || !Number.isFinite(durationValue) || durationValue <= 0 || !Number.isFinite(sizeValue) || sizeValue <= 0 || sizeValue > publicSocialMaxBytes) {
+  if (!formatName.split(",").includes("mp4") || video?.codec_name !== "h264" || !Number.isFinite(widthValue) || !Number.isFinite(heightValue) || Math.abs(widthValue / heightValue - 9 / 16) > 0.01 || !Number.isFinite(durationValue) || durationValue <= 0 || !Number.isFinite(sizeValue) || sizeValue <= 0 || sizeValue > publicSocialMaxBytes) {
     throw new Error("Generated Reel failed ffprobe validation for MP4, H.264, 9:16, duration, or file size.");
   }
   return { probe, width: widthValue, height: heightValue, durationSeconds: durationValue, size: sizeValue };
