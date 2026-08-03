@@ -1808,18 +1808,23 @@ async function postToFacebookReel(input: {
     };
   }
 
-  const reelId = String(finishData?.post_id || finishData?.id || videoId);
-  const confirmationUrl = new URL(`https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(reelId)}`);
-  confirmationUrl.searchParams.set("fields", "id,permalink_url");
+  const confirmationUrl = new URL(`https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(input.pageId)}/videos`);
+  confirmationUrl.searchParams.set("fields", "id,permalink_url,media_type,is_reel,created_time,description");
+  confirmationUrl.searchParams.set("limit", "25");
   confirmationUrl.searchParams.set("access_token", input.pageToken);
   const confirmationResponse = await fetch(confirmationUrl);
   const confirmation = await confirmationResponse.json().catch(() => ({}));
-  const permalink = String(confirmation?.permalink_url || "");
-  if (!confirmationResponse.ok || !permalink || !/\/reel\//i.test(permalink)) {
+  const confirmedReel = (confirmation?.data || []).find(
+    (item: Record<string, unknown>) =>
+      String(item.description || "") === input.caption && /\/reel\//i.test(String(item.permalink_url || "")),
+  );
+  const reelId = String(confirmedReel?.id || "");
+  const permalink = String(confirmedReel?.permalink_url || "");
+  if (!confirmationResponse.ok || !reelId || !permalink) {
     return {
       ok: false,
       error: confirmation?.error?.message || "Meta did not confirm the published object as a Facebook Reel.",
-      metadata: { facebookReel: { phase: "confirmation", reel_id: reelId, permalink, media_type: "reel", response: confirmation } },
+      metadata: { facebookReel: { phase: "confirmation", video_id: videoId, reel_id: reelId || null, permalink, media_type: "reel", response: confirmation } },
     };
   }
 
@@ -1831,6 +1836,7 @@ async function postToFacebookReel(input: {
         posted_as: "reel",
         reel_id: reelId,
         video_id: videoId,
+        finish_post_id: finishData?.post_id || null,
         permalink,
         media_type: "reel",
         is_reel: true,

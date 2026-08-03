@@ -429,8 +429,8 @@ test("Facebook Reel publisher uses video_reels start upload and finish phases", 
       return jsonResponse({ success: true, post_id: "fb-post-1" });
     }
 
-    if (url.includes("/fb-post-1") && url.includes("fields=id%2Cpermalink_url")) {
-      return jsonResponse({ id: "fb-post-1", permalink_url: "https://www.facebook.com/reel/fb-post-1" });
+    if (url.includes("/page-id-test/videos") && url.includes("fields=id%2Cpermalink_url%2Cmedia_type%2Cis_reel%2Ccreated_time%2Cdescription")) {
+      return jsonResponse({ data: [{ id: "fb-reel-1", permalink_url: "https://www.facebook.com/reel/fb-reel-1", description: "ReviewIntel Reel caption" }] });
     }
 
     throw new Error(`Unexpected fetch: ${url}`);
@@ -446,13 +446,13 @@ test("Facebook Reel publisher uses video_reels start upload and finish phases", 
     });
 
     assert.equal(result.ok, true);
-    assert.equal(result.externalPostId, "fb-post-1");
+    assert.equal(result.externalPostId, "fb-reel-1");
     assert.equal(result.metadata.facebookReel.posted_as, "reel");
     assert.equal(result.metadata.facebookReel.media_type, "reel");
-    assert.equal(result.metadata.facebookReel.permalink, "https://www.facebook.com/reel/fb-post-1");
+    assert.equal(result.metadata.facebookReel.permalink, "https://www.facebook.com/reel/fb-reel-1");
     assert.deepEqual(
       calls.map((call) => call.url.includes("rupload") ? "upload" : new URL(call.url).pathname),
-      ["/v25.0/page-id-test/video_reels", "upload", "/v25.0/page-id-test/video_reels", "/v25.0/fb-post-1"],
+      ["/v25.0/page-id-test/video_reels", "upload", "/v25.0/page-id-test/video_reels", "/v25.0/page-id-test/videos"],
     );
   } finally {
     cleanup();
