@@ -243,6 +243,13 @@ test("Facebook media selection generates a fresh public video for auto and expli
     metadata: {
       uploaded_via: "admin_social_media_upload",
       storage_bucket: "reviewintel-social-public",
+      brand: "reviewintel",
+      library: "reviewintel_current_uploaded",
+      library_batch: "reviewintel-facebook-upload-20260730",
+      approved_for_automation: true,
+      selected_for_facebook: true,
+      deleted: false,
+      archived: false,
     },
   };
   const generatedVideo = {
@@ -533,6 +540,44 @@ test("Facebook explicit Reel skips safely when the selected source image is insi
     assert.equal(Array.isArray(result.metadata.freshFacebookReel.hashtags), true);
     assert.equal(result.metadata.freshFacebookReel.hashtags.length, 0);
     assert.match(result.metadata.freshFacebookReel.error, /cooldown/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("Facebook Reel source selection rejects deleted and archived library rows without legacy fallback", async () => {
+  const source = readFileSync(resolve("lib/socialAutoPost.ts"), "utf8");
+  assert.equal(source.includes("codexLibrarySocialMedia("), false);
+  assert.match(source, /metadata->>library_batch=eq\./);
+  assert.match(source, /approved_for_automation=eq\.true/);
+  assert.match(source, /selected_for_facebook=eq\.true/);
+
+  const deleted = {
+    id: "deleted-old-image",
+    media_type: "image",
+    file_url: "https://cdn.example.test/deleted.png",
+    metadata: {
+      brand: "reviewintel",
+      library: "reviewintel_current_uploaded",
+      library_batch: "reviewintel-facebook-upload-20260730",
+      approved_for_automation: true,
+      selected_for_facebook: true,
+      deleted: true,
+      archived: false,
+    },
+  };
+  const { api, cleanup } = loadSocialAutoPost(async (input) => {
+    const url = String(input);
+    if (url.includes("admin_social_media") && url.includes("media_type=eq.video")) return jsonResponse([]);
+    if (url.includes("admin_social_media") && url.includes("media_type=eq.image")) return jsonResponse([deleted]);
+    if (url.includes("admin_social_posts")) return jsonResponse([]);
+    throw new Error(`Unexpected fetch: ${url}`);
+  }, {}, { generateFreshSocialReelVideo: async () => { throw new Error("should not render"); } });
+
+  try {
+    const result = await api.resolveFacebookMediaForFormat("shopper_tips", { queueDay: 1, cycleNumber: 1, recycleCount: 0 }, "reel");
+    assert.equal(result.media, null);
+    assert.equal(result.metadata.freshFacebookReel.fallback, "none");
   } finally {
     cleanup();
   }

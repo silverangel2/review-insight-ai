@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import path from "path";
 import {
   buildAffiliateUrl,
@@ -182,9 +182,6 @@ const topicBriefs: Record<string, { title: string; angle: string; cta: string }>
   },
 };
 
-const codexSocialLibraryDir = "uploads/social";
-const codexSocialImagePattern = /^reviewintel-premium-day-\d{2}-.+\.(?:png|jpg|jpeg|webp)$/i;
-const builtInSocialTopics = Object.keys(topicBriefs);
 
 type ConnectorCheck = {
   label: string;
@@ -722,6 +719,7 @@ type SocialMediaItem = {
   title?: string | null;
   topic?: string | null;
   tags?: string[] | null;
+  is_active?: boolean | null;
   used_count?: number | null;
   last_used_at?: string | null;
   created_at?: string | null;
@@ -754,6 +752,25 @@ type FacebookMediaResolution = {
   } | null;
 };
 
+const reviewIntelCurrentSocialLibrary = "reviewintel-facebook-upload-20260730";
+
+function isApprovedCurrentReviewIntelMedia(media: SocialMediaItem | null, mediaType?: "image" | "video") {
+  if (!media || (mediaType && media.media_type !== mediaType)) return false;
+  const metadata = media.metadata && typeof media.metadata === "object" ? media.metadata : {};
+  return Boolean(
+    media.id &&
+      media.file_url &&
+      media.is_active !== false &&
+      metadata.brand === "reviewintel" &&
+      metadata.library === "reviewintel_current_uploaded" &&
+      metadata.library_batch === reviewIntelCurrentSocialLibrary &&
+      metadata.approved_for_automation === true &&
+      metadata.selected_for_facebook === true &&
+      metadata.deleted !== true &&
+      metadata.archived !== true
+  );
+}
+
 function freshFacebookReelFailureMetadata(error: unknown) {
   return {
     ok: false,
@@ -778,96 +795,8 @@ function freshFacebookReelFailureMetadata(error: unknown) {
   };
 }
 
-let codexSocialLibraryCache: string[] | null = null;
-
-function codexSocialLibraryPaths() {
-  if (codexSocialLibraryCache) return codexSocialLibraryCache;
-
-  try {
-    const dir = path.join(process.cwd(), "public", codexSocialLibraryDir);
-    codexSocialLibraryCache = readdirSync(dir)
-      .filter((file) => codexSocialImagePattern.test(file))
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      .map((file) => `/${codexSocialLibraryDir}/${file}`);
-  } catch {
-    codexSocialLibraryCache = [];
-  }
-
-  return codexSocialLibraryCache;
-}
-
-function normalSocialDay(day: number, librarySize = Math.max(1, codexSocialLibraryPaths().length)) {
-  const numericDay = Math.max(1, Math.floor(Number(day) || 1));
-  return ((numericDay - 1) % librarySize) + 1;
-}
-
-function codexSocialImagePath(day: number) {
-  const paths = codexSocialLibraryPaths();
-  if (!paths.length) return "";
-  return paths[normalSocialDay(day, paths.length) - 1] || "";
-}
-
-function codexLibrarySocialMedia(topic: string, queue: SocialQueueState): SocialMediaItem {
-  const paths = codexSocialLibraryPaths();
-  const queueDay = normalSocialDay(queue.queueDay, Math.max(1, paths.length));
-  const fileUrl = codexSocialImagePath(queueDay);
-  const topicKey = topic || builtInSocialTopics[(queueDay - 1) % builtInSocialTopics.length] || "shopper_tips";
-
-  return {
-    id: fileUrl
-      ? `codex-reviewintel-premium-${String(queueDay).padStart(3, "0")}`
-      : "reviewintel-text-only-fallback",
-    media_type: fileUrl ? "image" : "text",
-    file_url: fileUrl,
-    thumbnail_url: fileUrl,
-    title: fileUrl
-      ? `ReviewIntel Codex premium social creative ${String(queueDay).padStart(3, "0")}`
-      : "ReviewIntel text-only social fallback",
-    topic: topicKey,
-    tags: ["ReviewIntel", "AIReviewIntelligence", "SmartShopping", "CodexLibrary", topicKey],
-    used_count: 0,
-    last_used_at: null,
-    metadata: {
-      codex_library: Boolean(fileUrl),
-      text_only_fallback: !fileUrl,
-      queue_day: queueDay,
-      cycle_number: queue.cycleNumber,
-      note: fileUrl
-        ? "Codex-made ReviewIntel premium image used because no active uploaded media matched the queue."
-        : "No active uploaded media or Codex image was available, so ReviewIntel created a text-only post.",
-    },
-  };
-}
-
-function isSystemSocialMedia(media: SocialMediaItem | null) {
-  return Boolean(
-    media?.metadata?.codex_library ||
-      media?.metadata?.text_only_fallback ||
-      media?.id?.startsWith("codex-reviewintel-premium-") ||
-      media?.id === "reviewintel-text-only-fallback"
-  );
-}
-
-function isCodexLibraryMedia(media: SocialMediaItem | null) {
-  if (!media) return false;
-
-  const id = String(media.id || "").toLowerCase();
-  const title = String(media.title || "").toLowerCase();
-  const tags = Array.isArray(media.tags) ? media.tags.map((tag) => String(tag).toLowerCase()) : [];
-  const metadata = media.metadata && typeof media.metadata === "object" ? media.metadata : {};
-  const source = String(metadata.source || metadata.media_source || "").toLowerCase();
-
-  return (
-    metadata.codex_library === true ||
-    id.startsWith("codex-") ||
-    id.includes("codex") ||
-    title.includes("codex") ||
-    source === "codex" ||
-    source === "codex_library" ||
-    tags.includes("codexlibrary") ||
-    tags.includes("codex_library") ||
-    tags.includes("codex")
-  );
+function isSystemSocialMedia() {
+  return false;
 }
 
 function isOldHouseSocialMedia(media: SocialMediaItem | null) {
@@ -899,12 +828,6 @@ function facebookAutoPostFormat() {
 
   if (value === "reel" || value === "reels" || value === "video" || value === "auto") return "reel";
   return "unsupported";
-}
-
-function codexMediaJsonFilter() {
-  return __riSocialMediaSourceMode() === "codex_library"
-    ? "&metadata->>codex_library=eq.true"
-    : "";
 }
 
 function mediaTypeFilter(mediaType?: "image" | "video") {
@@ -1148,7 +1071,7 @@ async function pickFreshReelSourceImage(topic: string): Promise<SocialMediaItem 
   const cutoff = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000).toISOString();
   const recentSourceIds = await recentlyUsedFreshReelSourceImageIds(cutoff);
   const rows = await supabaseFetch(
-    "admin_social_media?select=*&is_active=eq.true&media_type=eq.image&order=created_at.desc&limit=250"
+    `admin_social_media?select=*&is_active=eq.true&media_type=eq.image&metadata->>brand=eq.reviewintel&metadata->>library=eq.reviewintel_current_uploaded&metadata->>library_batch=eq.${encodeURIComponent(reviewIntelCurrentSocialLibrary)}&metadata->>approved_for_automation=eq.true&metadata->>selected_for_facebook=eq.true&metadata->>deleted=neq.true&metadata->>archived=neq.true&order=created_at.desc&limit=250`
   ).catch(() => []);
 
   if (!Array.isArray(rows)) return null;
@@ -1159,6 +1082,7 @@ async function pickFreshReelSourceImage(topic: string): Promise<SocialMediaItem 
 
     return (
       Boolean(row.id && row.file_url) &&
+      isApprovedCurrentReviewIntelMedia(row, "image") &&
       String(row.topic || "") !== HOMEPAGE_VIDEO_TOPIC &&
       !Boolean(row.metadata?.homepage_video) &&
       !isOldHouseSocialMedia(row) &&
@@ -1554,29 +1478,28 @@ async function pickSocialMedia(
   queue: SocialQueueState,
   options: SocialMediaPickOptions = {}
 ): Promise<SocialMediaItem | null> {
-  const sourceMode = __riSocialMediaSourceMode();
   const usable = (rows: unknown): SocialMediaItem[] =>
     Array.isArray(rows)
       ? (rows as SocialMediaItem[]).filter((row) => {
-          const mediaType = String(row.media_type || "");
+    const mediaType = String(row.media_type || "");
           return (
             Boolean(row.file_url) &&
+            isApprovedCurrentReviewIntelMedia(row, options.requireMediaType || options.preferMediaType) &&
             (mediaType === "image" || mediaType === "video") &&
             (!options.requireMediaType || mediaType === options.requireMediaType) &&
             String(row.topic || "") !== HOMEPAGE_VIDEO_TOPIC &&
             !Boolean(row.metadata?.homepage_video) &&
             !isOldHouseSocialMedia(row) &&
-            (sourceMode !== "codex_library" || isCodexLibraryMedia(row))
+            isApprovedCurrentReviewIntelMedia(row, options.requireMediaType || options.preferMediaType)
           );
         })
       : [];
 
   const topicQuery = encodeURIComponent(topic);
-  const codexFilter = codexMediaJsonFilter();
   const preferredType = options.preferMediaType || options.requireMediaType;
   const topicRows = sortPickedMedia(usable(
     await supabaseFetch(
-      `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}${codexFilter}${mediaTypeFilter(preferredType)}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=50`
+        `admin_social_media?select=*&is_active=eq.true&topic=eq.${topicQuery}&metadata->>brand=eq.reviewintel&metadata->>library=eq.reviewintel_current_uploaded&metadata->>library_batch=eq.${encodeURIComponent(reviewIntelCurrentSocialLibrary)}&metadata->>approved_for_automation=eq.true&metadata->>selected_for_facebook=eq.true&metadata->>deleted=neq.true&metadata->>archived=neq.true${mediaTypeFilter(preferredType)}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=50`
     ).catch(() => [])
   ), options);
 
@@ -1584,24 +1507,24 @@ async function pickSocialMedia(
     ? topicRows
     : sortPickedMedia(usable(
         await supabaseFetch(
-          `admin_social_media?select=*&is_active=eq.true${codexFilter}${mediaTypeFilter(preferredType)}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=100`
+          `admin_social_media?select=*&is_active=eq.true&metadata->>brand=eq.reviewintel&metadata->>library=eq.reviewintel_current_uploaded&metadata->>library_batch=eq.${encodeURIComponent(reviewIntelCurrentSocialLibrary)}&metadata->>approved_for_automation=eq.true&metadata->>selected_for_facebook=eq.true&metadata->>deleted=neq.true&metadata->>archived=neq.true${mediaTypeFilter(preferredType)}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=100`
         ).catch(() => [])
       ), options);
 
   if (!fallbackRows.length && options.preferMediaType && !options.requireMediaType) {
     fallbackRows = sortPickedMedia(usable(
       await supabaseFetch(
-        `admin_social_media?select=*&is_active=eq.true${codexFilter}&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=100`
+        `admin_social_media?select=*&is_active=eq.true&metadata->>brand=eq.reviewintel&metadata->>library=eq.reviewintel_current_uploaded&metadata->>library_batch=eq.${encodeURIComponent(reviewIntelCurrentSocialLibrary)}&metadata->>approved_for_automation=eq.true&metadata->>selected_for_facebook=eq.true&metadata->>deleted=neq.true&metadata->>archived=neq.true&order=last_used_at.asc.nullsfirst,used_count.asc,created_at.asc&limit=100`
       ).catch(() => [])
     ), options);
   }
 
   if (!fallbackRows.length) {
     if (options.requireMediaType || options.allowCodexFallback === false) return null;
-    return codexLibrarySocialMedia(topic, queue);
+    return null;
   }
 
-  return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || codexLibrarySocialMedia(topic, queue);
+  return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || null;
 }
 
 async function resolveFacebookMediaForFormat(
@@ -1627,7 +1550,7 @@ async function resolveFacebookMediaForFormat(
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
   if (!media?.id) return;
-  if (isSystemSocialMedia(media)) return;
+  if (isSystemSocialMedia()) return;
 
   await supabaseFetch(`admin_social_media?id=eq.${encodeURIComponent(media.id)}`, {
     method: "PATCH",
@@ -1953,8 +1876,7 @@ export async function checkFacebookConnector() {
   const facebookCredentials = await resolveFacebookPostingCredentials();
   const pageId = facebookCredentials.pageId;
   const pageToken = facebookCredentials.pageToken;
-  const sampleMediaPath = codexSocialImagePath(1);
-  const sampleMediaUrl = sampleMediaPath ? `${publicSiteUrl()}${sampleMediaPath}` : "";
+  const sampleMediaUrl = "";
   const checks: ConnectorCheck[] = [
     connectorCheck(
       "Facebook credentials",
@@ -2194,8 +2116,7 @@ export async function checkTikTokConnector() {
   const credential = await getTikTokAccessTokenForPosting();
   const accessToken = credential.accessToken;
   const oauthHealth = getTikTokOAuthHealth();
-  const sampleMediaPath = codexSocialImagePath(2);
-  const sampleMediaUrl = sampleMediaPath ? `${publicSiteUrl()}${sampleMediaPath}` : "";
+  const sampleMediaUrl = "";
   const checks: ConnectorCheck[] = [
     connectorCheck(
       "TikTok OAuth app",
@@ -2356,7 +2277,7 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
 
   for (let batchIndex = 0; batchIndex < batchCount; batchIndex += 1) {
     const topic = topics[(new Date().getUTCDate() + batchIndex) % topics.length];
-    const defaultMedia = (await pickSocialMedia(topic, queue)) || codexLibrarySocialMedia(topic, queue);
+    const defaultMedia = await pickSocialMedia(topic, queue);
 
     for (const platform of platformsToPost) {
       const facebookFormat = platform === "facebook" ? facebookAutoPostFormat() : "default";
@@ -2446,7 +2367,7 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
         queue_day: queue.queueDay,
         cycle_number: queue.cycleNumber,
         recycle_count: queue.recycleCount,
-        media_id: isSystemSocialMedia(media) ? null : media?.id ?? null,
+        media_id: isSystemSocialMedia() ? null : media?.id ?? null,
         content_fingerprint: fingerprint,
         metadata: {
           content,
