@@ -1105,7 +1105,6 @@ async function insertGeneratedFreshReelMedia(input: {
   const row = {
     title: `ReviewIntel fresh Reel - ${input.topic.replace(/_/g, " ")}`,
     media_type: "video",
-    mime_type: "video/mp4",
     file_url: input.video.publicUrl,
     thumbnail_url: input.sourceImage.thumbnail_url || input.sourceImage.file_url || null,
     alt_text: "ReviewIntel vertical Reel generated from a recent media-library image.",
