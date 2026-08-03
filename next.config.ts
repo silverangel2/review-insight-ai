@@ -5,28 +5,16 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   outputFileTracingIncludes: {
     "/api/admin/social-media/generate-videos": [
-      "./scripts/generate-social-videos.mjs",
-      "./scripts/social-storage-public.mjs",
-      "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
-      "./node_modules/@ffmpeg-installer/linux-x64/**/*",
-      "./node_modules/ffprobe-static/**/*",
-      "./node_modules/fluent-ffmpeg/**/*"
+      "./node_modules/@ffmpeg-installer/linux-x64/ffmpeg",
+      "./node_modules/ffprobe-static/bin/linux/x64/ffprobe"
     ],
     "/api/admin/social-autopost": [
-      "./scripts/generate-social-videos.mjs",
-      "./scripts/social-storage-public.mjs",
-      "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
-      "./node_modules/@ffmpeg-installer/linux-x64/**/*",
-      "./node_modules/ffprobe-static/**/*",
-      "./node_modules/fluent-ffmpeg/**/*"
+      "./node_modules/@ffmpeg-installer/linux-x64/ffmpeg",
+      "./node_modules/ffprobe-static/bin/linux/x64/ffprobe"
     ],
     "/api/cron/social-autopost": [
-      "./scripts/generate-social-videos.mjs",
-      "./scripts/social-storage-public.mjs",
-      "./node_modules/@ffmpeg-installer/ffmpeg/**/*",
-      "./node_modules/@ffmpeg-installer/linux-x64/**/*",
-      "./node_modules/ffprobe-static/**/*",
-      "./node_modules/fluent-ffmpeg/**/*"
+      "./node_modules/@ffmpeg-installer/linux-x64/ffmpeg",
+      "./node_modules/ffprobe-static/bin/linux/x64/ffprobe"
     ]
   },
 };
