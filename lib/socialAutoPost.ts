@@ -754,17 +754,14 @@ type FacebookMediaResolution = {
   } | null;
 };
 
-function freshFacebookReelFailureMetadata(error: unknown, fallback: "none" | "image") {
+function freshFacebookReelFailureMetadata(error: unknown) {
   return {
     ok: false,
-    fallback,
-    requiresVideo: fallback === "none",
-    blockedDirectImageUpload: fallback === "none",
-    skipped: fallback === "none",
-    skipped_reason:
-      fallback === "none"
-        ? "SOCIAL_AUTOPOST_FACEBOOK_FORMAT=reel requires a freshly generated public MP4."
-        : null,
+    fallback: "none",
+    requiresVideo: true,
+    blockedDirectImageUpload: true,
+    skipped: true,
+    skipped_reason: "Automated Facebook publishing is Reel-only and requires a freshly generated public MP4.",
     source_image_id: null,
     source_image_url: null,
     generated_mp4_id: null,
@@ -900,10 +897,8 @@ function facebookAutoPostFormat() {
     .trim()
     .toLowerCase();
 
-  if (value === "auto") return "auto";
-  if (value === "reel" || value === "reels" || value === "video") return "reel";
-  if (value === "image" || value === "photo") return "image";
-  return "default";
+  if (value === "reel" || value === "reels" || value === "video" || value === "auto") return "reel";
+  return "unsupported";
 }
 
 function codexMediaJsonFilter() {
@@ -1226,6 +1221,10 @@ async function insertGeneratedFreshReelMedia(input: {
       },
       video_duration_seconds: input.video.durationSeconds,
       file_size_bytes: input.video.size,
+      video_width: input.video.width,
+      video_height: input.video.height,
+      video_mime_type: input.video.mimeType,
+      ffprobe: input.video.ffprobe,
       storage: "supabase",
       storage_bucket: "reviewintel-social-public",
       object_path: input.video.objectPath,
@@ -1341,6 +1340,12 @@ async function createFreshFacebookReelMedia(
         source_image_id: sourceImage.id,
         generated_mp4_id: generatedMedia.id,
         public_url: generatedMedia.file_url,
+        mime_type: video.mimeType,
+        width: video.width,
+        height: video.height,
+        size_bytes: video.size,
+        duration_seconds: video.durationSeconds,
+        ffprobe: video.ffprobe,
         public_probe: probe,
         website_url: websiteUrl,
         website_short_url: plan.websiteShortUrl,
@@ -1599,25 +1604,11 @@ async function pickSocialMedia(
   return fallbackRows[(queue.queueDay - 1) % fallbackRows.length] || fallbackRows[0] || codexLibrarySocialMedia(topic, queue);
 }
 
-async function pickFacebookImageFallback(topic: string, queue: SocialQueueState) {
-  return (
-    (await pickSocialMedia(topic, queue, {
-      preferMediaType: "image",
-      requireMediaType: "image",
-    })) || codexLibrarySocialMedia(topic, queue)
-  );
-}
-
 async function resolveFacebookMediaForFormat(
   topic: string,
   queue: SocialQueueState,
-  facebookFormat: string,
-  defaultMedia: SocialMediaItem | null
+  facebookFormat: string
 ): Promise<FacebookMediaResolution> {
-  if (facebookFormat === "image") {
-    return { media: await pickFacebookImageFallback(topic, queue) };
-  }
-
   if (facebookFormat === "reel") {
     try {
       return await createFreshFacebookReelMedia(topic, queue);
@@ -1625,26 +1616,13 @@ async function resolveFacebookMediaForFormat(
       return {
         media: null,
         metadata: {
-          freshFacebookReel: freshFacebookReelFailureMetadata(error, "none"),
+          freshFacebookReel: freshFacebookReelFailureMetadata(error),
         },
       };
     }
   }
 
-  if (facebookFormat !== "auto") {
-    return { media: defaultMedia };
-  }
-
-  try {
-    return await createFreshFacebookReelMedia(topic, queue);
-  } catch (error) {
-    return {
-      media: await pickFacebookImageFallback(topic, queue),
-      metadata: {
-        freshFacebookReel: freshFacebookReelFailureMetadata(error, "image"),
-      },
-    };
-  }
+  return { media: null, metadata: { freshFacebookReel: freshFacebookReelFailureMetadata("Unsupported Facebook format.") } };
 }
 
 async function markSocialMediaUsed(media: SocialMediaItem | null, usedAt: string) {
@@ -1908,15 +1886,35 @@ async function postToFacebookReel(input: {
     };
   }
 
+  const reelId = String(finishData?.post_id || finishData?.id || videoId);
+  const confirmationUrl = new URL(`https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(reelId)}`);
+  confirmationUrl.searchParams.set("fields", "id,permalink_url");
+  confirmationUrl.searchParams.set("access_token", input.pageToken);
+  const confirmationResponse = await fetch(confirmationUrl);
+  const confirmation = await confirmationResponse.json().catch(() => ({}));
+  const permalink = String(confirmation?.permalink_url || "");
+  if (!confirmationResponse.ok || !permalink || !/\/reel\//i.test(permalink)) {
+    return {
+      ok: false,
+      error: confirmation?.error?.message || "Meta did not confirm the published object as a Facebook Reel.",
+      metadata: { facebookReel: { phase: "confirmation", reel_id: reelId, permalink, media_type: "reel", response: confirmation } },
+    };
+  }
+
   return {
     ok: true,
-    externalPostId: finishData?.post_id || finishData?.id || videoId,
+    externalPostId: reelId,
     metadata: {
       facebookReel: {
         posted_as: "reel",
+        reel_id: reelId,
         video_id: videoId,
+        permalink,
+        media_type: "reel",
+        is_reel: true,
         upload_success: uploadData?.success ?? true,
         publish_response: finishData,
+        confirmation,
       },
     },
   };
@@ -1941,93 +1939,13 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
     };
   }
 
+  if (facebookAutoPostFormat() !== "reel") return { ok: false, error: "Automated Facebook publishing is Reel-only." };
+  if (!media || media.media_type !== "video" || !/\.mp4(?:\?|$)/i.test(media.file_url || "")) {
+    return { ok: false, error: "Facebook Reel publishing requires an approved public MP4 video asset." };
+  }
   const mediaUrl = absoluteMediaUrl(media);
-  const facebookFormat = facebookAutoPostFormat();
-  let reelAttempt: PublishResult | null = null;
-
-  if (
-    media?.file_url &&
-    (media.media_type === "image" || media.media_type === "video") &&
-    (!mediaUrl || isPrivateOrLocalUrl(mediaUrl))
-  ) {
-    return {
-      ok: false,
-      error:
-        "Facebook cannot fetch localhost or private media URLs. Use the deployed site URL or Supabase Storage public URLs.",
-      metadata: {
-        media_id: media.id,
-        media_type: media.media_type,
-        media_url_public: Boolean(mediaUrl && !isPrivateOrLocalUrl(mediaUrl)),
-      },
-    };
-  }
-
-  if (
-    media?.media_type === "video" &&
-    media.file_url &&
-    mediaUrl &&
-    (facebookFormat === "auto" || facebookFormat === "reel")
-  ) {
-    reelAttempt = await postToFacebookReel({
-      graphVersion,
-      pageId,
-      pageToken,
-      caption,
-      mediaUrl,
-    });
-
-    if (reelAttempt.ok || facebookFormat === "reel") {
-      return reelAttempt;
-    }
-  }
-
-  const endpoint =
-    media?.media_type === "video" && media.file_url
-      ? `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/videos`
-      : media?.media_type === "image" && media.file_url
-        ? `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/photos`
-        : `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pageId)}/feed`;
-
-  const body =
-    media?.media_type === "video" && media.file_url
-      ? new URLSearchParams({
-          file_url: mediaUrl,
-          description: caption,
-          published: "true",
-          access_token: pageToken,
-        })
-      : media?.media_type === "image" && media.file_url
-        ? new URLSearchParams({
-            url: mediaUrl,
-            caption,
-            access_token: pageToken,
-          })
-        : new URLSearchParams({
-            message: caption,
-            access_token: pageToken,
-          });
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: data?.error?.message || "Facebook post failed.",
-      metadata: { ...data, facebookReelFallback: reelAttempt?.metadata || null },
-    };
-  }
-
-  return {
-    ok: true,
-    externalPostId: data?.post_id || data?.id || null,
-    metadata: { ...data, facebookReelFallback: reelAttempt?.metadata || null },
-  };
+  if (!mediaUrl || isPrivateOrLocalUrl(mediaUrl)) return { ok: false, error: "Facebook Reel publishing requires a public media URL." };
+  return postToFacebookReel({ graphVersion, pageId, pageToken, caption, mediaUrl });
 }
 
 export async function checkFacebookConnector() {
@@ -2444,23 +2362,34 @@ async function runSocialAutoPostInternal(options: { force?: boolean } = {}) {
       const facebookFormat = platform === "facebook" ? facebookAutoPostFormat() : "default";
       const facebookMedia =
         platform === "facebook"
-          ? await resolveFacebookMediaForFormat(topic, queue, facebookFormat, defaultMedia)
+          ? await resolveFacebookMediaForFormat(topic, queue, facebookFormat)
           : { media: defaultMedia, metadata: null };
       const media = facebookMedia.media;
 
       if (facebookFormat === "reel" && (!media || media.media_type !== "video")) {
-        results.push({
+        const error = String(facebookMedia.metadata?.freshFacebookReel && typeof facebookMedia.metadata.freshFacebookReel === "object"
+          ? (facebookMedia.metadata.freshFacebookReel as Record<string, unknown>).error
+          : "Facebook Reel MP4 generation was not available.");
+        const failedPost = await createSocialPost({
           platform,
-          status: "skipped",
+          mode: "full_auto",
+          status: "failed",
           topic,
-          error: "SOCIAL_AUTOPOST_FACEBOOK_FORMAT=reel requires a freshly generated public MP4, but generation was not available.",
+          caption: `Facebook Reel generation failed: ${error}`,
+          hashtags: ["ReviewIntel", "FacebookReels"],
+          link_url: "https://getreviewintel.com",
+          queue_day: queue.queueDay,
+          cycle_number: queue.cycleNumber,
+          recycle_count: queue.recycleCount,
           metadata: {
             queue,
-            facebookFormat,
+            facebookFormat: "reel",
+            platform_media_type: "reel",
             ...(facebookMedia.metadata || {}),
-            fix: "Upload active source images, configure public website and affiliate URLs, and keep source images outside the Reel cooldown window.",
+            failure: "reel_generation_or_validation",
           },
         });
+        results.push(failedPost || { platform, status: "failed", topic, error, metadata: facebookMedia.metadata || {} });
         continue;
       }
 
@@ -2846,6 +2775,7 @@ export const __socialAutoPostTest = {
   probePublicMediaUrl,
   resolveFacebookMediaForFormat,
   postToFacebookReel,
+  postToFacebookPage,
   sourceMode: __riSocialMediaSourceMode,
   shouldForceCodexMediaTable: __riShouldForceCodexMediaTable,
 };

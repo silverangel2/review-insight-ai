@@ -78,8 +78,8 @@ function loadSocialAutoPost(fetchMock, env = {}, reelGenerator = {}) {
       if (id === "@/lib/facebookConnector") {
         return {
           getFacebookPageAccessTokenForPosting: async () => ({
-            accessToken: "",
-            pageId: "",
+            accessToken: process.env.FACEBOOK_PAGE_ACCESS_TOKEN || "",
+            pageId: process.env.FACEBOOK_PAGE_ID || "",
             source: "test",
           }),
         };
@@ -277,7 +277,7 @@ test("Facebook media selection generates a fresh public video for auto and expli
     }
 
     if (url === generatedVideo.file_url && init.method === "HEAD") {
-      return new Response("", { status: 200 });
+      return new Response("", { status: 200, headers: { "content-type": "video/mp4" } });
     }
 
     throw new Error(`Unexpected fetch: ${url}`);
@@ -287,7 +287,11 @@ test("Facebook media selection generates a fresh public video for auto and expli
       objectPath: "social/videos/fresh-reel.mp4",
       publicUrl: generatedVideo.file_url,
       size: 12345,
+      width: 1080,
+      height: 1920,
       durationSeconds: 9,
+      mimeType: "video/mp4",
+      ffprobe: { format: { format_name: "mp4" } },
       audioTrack: {
         id: "track-test",
         name: "Test original audio",
@@ -301,27 +305,15 @@ test("Facebook media selection generates a fresh public video for auto and expli
       "shopper_tips",
       { queueDay: 1, cycleNumber: 1, recycleCount: 0 },
       "auto",
-      null,
     );
     const reelResult = await api.resolveFacebookMediaForFormat(
       "shopper_tips",
       { queueDay: 1, cycleNumber: 1, recycleCount: 0 },
       "reel",
-      null,
     );
 
-    assert.equal(autoResult.media.id, generatedVideo.id, JSON.stringify(autoResult.metadata));
-    assert.equal(autoResult.media.media_type, "video");
-    assert.equal(autoResult.freshReel.sourceImage.id, sourceImage.id);
-    assert.equal(autoResult.contentOverride.hashtags.length > 0, true);
-    assert.equal(autoResult.finalCaptionOverride.includes("https://getreviewintel.com/start"), true);
-    assert.equal(autoResult.finalCaptionOverride.includes("https://getreviewintel.com/recommends"), true);
-    assert.equal(autoResult.finalCaptionOverride.includes("https://www.amazon.com/dp/test-product"), false);
-    assert.equal(autoResult.freshReel.captionPlan.overlayHook, "Reviews reveal the real story.");
-    assert.equal(autoResult.freshReel.captionPlan.hashtags.length, 5);
-    assert.equal(autoResult.metadata.freshFacebookReel.public_probe.status, 200);
-    assert.equal(autoResult.metadata.freshFacebookReel.affiliate_url, "https://www.amazon.com/dp/test-product?tag=reviewintel-test");
-    assert.equal(autoResult.metadata.freshFacebookReel.affiliate_short_url, "https://getreviewintel.com/recommends");
+    assert.equal(autoResult.media, null);
+    assert.equal(autoResult.metadata.freshFacebookReel.fallback, "none");
     assert.equal(reelResult.media.id, generatedVideo.id);
     assert.equal(reelResult.media.media_type, "video");
     assert.equal(reelResult.freshReel.sourceImage.id, sourceImage.id);
@@ -330,7 +322,7 @@ test("Facebook media selection generates a fresh public video for auto and expli
   }
 });
 
-test("Facebook auto media selection falls back to an image when fresh Reel generation has a network failure", async () => {
+test("Facebook auto media selection fails closed when fresh Reel generation has a network failure", async () => {
   const image = {
     id: "codex-image-network",
     media_type: "image",
@@ -367,12 +359,12 @@ test("Facebook auto media selection falls back to an image when fresh Reel gener
       "shopper_tips",
       { queueDay: 1, cycleNumber: 1, recycleCount: 0 },
       "auto",
-      null,
     );
 
-    assert.equal(result.media.id, image.id);
-    assert.equal(result.metadata.freshFacebookReel.error, "network down");
-    assert.equal(result.metadata.freshFacebookReel.fallback, "image");
+    assert.equal(result.media, null);
+    assert.match(result.metadata.freshFacebookReel.error, /network down|Fresh Facebook Reel generation failed/);
+    assert.equal(result.metadata.freshFacebookReel.fallback, "none");
+    assert.equal(result.metadata.freshFacebookReel.blockedDirectImageUpload, true);
   } finally {
     cleanup();
   }
@@ -430,6 +422,10 @@ test("Facebook Reel publisher uses video_reels start upload and finish phases", 
       return jsonResponse({ success: true, post_id: "fb-post-1" });
     }
 
+    if (url.includes("/fb-post-1") && url.includes("fields=id%2Cpermalink_url")) {
+      return jsonResponse({ id: "fb-post-1", permalink_url: "https://www.facebook.com/reel/fb-post-1" });
+    }
+
     throw new Error(`Unexpected fetch: ${url}`);
   });
 
@@ -445,10 +441,37 @@ test("Facebook Reel publisher uses video_reels start upload and finish phases", 
     assert.equal(result.ok, true);
     assert.equal(result.externalPostId, "fb-post-1");
     assert.equal(result.metadata.facebookReel.posted_as, "reel");
+    assert.equal(result.metadata.facebookReel.media_type, "reel");
+    assert.equal(result.metadata.facebookReel.permalink, "https://www.facebook.com/reel/fb-post-1");
     assert.deepEqual(
       calls.map((call) => call.url.includes("rupload") ? "upload" : new URL(call.url).pathname),
-      ["/v25.0/page-id-test/video_reels", "upload", "/v25.0/page-id-test/video_reels"],
+      ["/v25.0/page-id-test/video_reels", "upload", "/v25.0/page-id-test/video_reels", "/v25.0/fb-post-1"],
     );
+  } finally {
+    cleanup();
+  }
+});
+
+test("Facebook Reel publisher rejects image media without calling feed or photos", async () => {
+  const calls = [];
+  const { api, cleanup } = loadSocialAutoPost(async (input, init = {}) => {
+    calls.push({ url: String(input), method: init.method || "GET" });
+    throw new Error("unexpected Meta call");
+  }, {
+    FACEBOOK_PAGE_ID: "page-id-test",
+    FACEBOOK_PAGE_ACCESS_TOKEN: "page-token-test",
+    SOCIAL_AUTOPOST_FACEBOOK_FORMAT: "reel",
+  });
+
+  try {
+    const result = await api.postToFacebookPage("caption", {
+      id: "image-1",
+      media_type: "image",
+      file_url: "https://cdn.example.test/image.jpg",
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.error, /requires an approved public MP4/);
+    assert.equal(calls.length, 0);
   } finally {
     cleanup();
   }
@@ -499,7 +522,6 @@ test("Facebook explicit Reel skips safely when the selected source image is insi
       "shopper_tips",
       { queueDay: 1, cycleNumber: 1, recycleCount: 0 },
       "reel",
-      null,
     );
 
     assert.equal(result.media, null);
