@@ -13,8 +13,9 @@ import {
 
 const width = 1080;
 const height = 1920;
-const sceneSeconds = 3;
-const totalSeconds = sceneSeconds * 3;
+const sceneSeconds = 4;
+const sceneCount = 5;
+const totalSeconds = sceneSeconds * sceneCount;
 const publicSocialMaxBytes = 50 * 1024 * 1024;
 
 export type ReelSourceImageInput = {
@@ -176,53 +177,28 @@ async function fetchImageBuffer(url: string) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-function sceneOverlaySvg(input: {
-  hook: string;
-  support: string;
-  cta: string;
-  accent: string;
-  scene: number;
-}) {
-  const hookLines = wrapLines(input.hook, 22, 2);
-  const supportLines = input.scene === 1 ? wrapLines(input.support, 38, 2) : [];
-  const ctaLines = input.scene === 3 ? wrapLines(input.cta, 24, 1) : [];
-  const panelHeight = input.scene === 2 ? 0 : input.scene === 3 ? 330 : 410;
-  const panelTop = input.scene === 3 ? 1320 : 1210;
-  const panel = panelHeight
-    ? `<rect x="86" y="${panelTop}" width="908" height="${panelHeight}" rx="44" fill="#ffffff" opacity="0.94" filter="url(#shadow)"/>`
-    : "";
-  const supportText = supportLines.length
-    ? `<text font-family="Inter, Arial, sans-serif">${textTspans(supportLines, 144, panelTop + 210, 35, 48, "#475569")}</text>`
-    : "";
-  const ctaText = ctaLines.length
-    ? `<rect x="144" y="${panelTop + 190}" width="440" height="78" rx="39" fill="${input.accent}" opacity="0.18"/>
-    <text font-family="Inter, Arial, sans-serif">${textTspans(ctaLines, 184, panelTop + 240, 35, 42, "#0f172a")}</text>`
-    : "";
+function sceneOverlaySvg(input: { hook: string; support: string; cta: string; accent: string; scene: number; fontBase64: string }) {
+  const font = "ReviewIntel Sans, Arial, sans-serif";
+  const hook = wrapLines(input.hook, 23, 2);
+  const support = wrapLines(input.support, 34, 3);
+  const cta = wrapLines(input.cta, 24, 2);
+  const common = `<text x="84" y="130" font-family="${font}" font-size="28" font-weight="700" fill="#ffffff" opacity="0.94">REVIEWINTEL</text><rect x="84" y="154" width="150" height="6" rx="3" fill="${input.accent}"/>`;
+  const headline = (lines: string[], y: number, size = 72, color = "#ffffff") => `<text font-family="${font}">${textTspans(lines, 84, y, size, size + 10, color)}</text>`;
+  let content = "";
 
-  return Buffer.from(`
-  <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#07111f" stop-opacity="0.68"/>
-        <stop offset="0.56" stop-color="#12243b" stop-opacity="0.48"/>
-        <stop offset="1" stop-color="#0f766e" stop-opacity="0.70"/>
-      </linearGradient>
-      <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#ffffff" stop-opacity="0.96"/>
-        <stop offset="1" stop-color="#eef9ff" stop-opacity="0.90"/>
-      </linearGradient>
-      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="24" stdDeviation="30" flood-color="#03101e" flood-opacity="0.38"/>
-      </filter>
-    </defs>
-    <rect width="${width}" height="${height}" fill="url(#shade)"/>
-    <rect x="78" y="94" width="470" height="72" rx="36" fill="#ffffff" opacity="0.92"/>
-    <text x="124" y="141" font-family="Inter, Arial, sans-serif" font-size="27" font-weight="950" letter-spacing="4" fill="#0f172a">REVIEWINTEL</text>
-    ${panel}
-    ${panelHeight ? `<text font-family="Inter, Arial, sans-serif">${textTspans(hookLines, 144, panelTop + 102, 66, 76, "#101827")}</text>` : ""}
-    ${supportText}
-    ${ctaText}
-  </svg>`);
+  if (input.scene === 1) {
+    content = `${headline(hook, 1210, 78)}<text font-family="${font}">${textTspans(support, 88, 1435, 34, 48, "#dbeafe")}</text><circle cx="900" cy="1540" r="118" fill="${input.accent}" opacity="0.18"/><circle cx="900" cy="1540" r="74" fill="none" stroke="${input.accent}" stroke-width="8" opacity="0.8"/>`;
+  } else if (input.scene === 2) {
+    content = `<rect x="84" y="880" width="912" height="510" rx="42" fill="#081526" opacity="0.88" stroke="#ffffff" stroke-opacity="0.18"/><text font-family="${font}">${textTspans(["The star rating is", "not the whole story."], 132, 1030, 62, 76, "#ffffff")}</text><rect x="132" y="1240" width="730" height="14" rx="7" fill="#334155"/><rect x="132" y="1240" width="420" height="14" rx="7" fill="${input.accent}"/><text x="132" y="1325" font-family="${font}" font-size="31" font-weight="700" fill="#bfdbfe">Repeated complaints can hide in the average.</text>`;
+  } else if (input.scene === 3) {
+    content = `<text font-family="${font}">${textTspans(["ReviewIntel", "scans the pattern."], 84, 500, 68, 82, "#ffffff")}</text><rect x="84" y="700" width="912" height="730" rx="44" fill="#f8fafc" opacity="0.97"/><rect x="132" y="770" width="816" height="70" rx="20" fill="#e0f2fe"/><circle cx="175" cy="805" r="14" fill="${input.accent}"/><text x="214" y="817" font-family="${font}" font-size="31" font-weight="700" fill="#0f172a">Scanning review signals</text><rect x="132" y="910" width="680" height="22" rx="11" fill="#cbd5e1"/><rect x="132" y="910" width="520" height="22" rx="11" fill="${input.accent}"/><text x="132" y="1030" font-family="${font}" font-size="32" font-weight="700" fill="#334155">Complaints found</text><text x="790" y="1030" font-family="${font}" font-size="40" font-weight="700" fill="#0f172a">18</text><text x="132" y="1150" font-family="${font}" font-size="32" font-weight="700" fill="#334155">Review quality</text><text x="790" y="1150" font-family="${font}" font-size="40" font-weight="700" fill="#0f172a">High</text><text x="132" y="1270" font-family="${font}" font-size="32" font-weight="700" fill="#334155">Risk signals</text><text x="790" y="1270" font-family="${font}" font-size="40" font-weight="700" fill="#0f172a">Clear</text>`;
+  } else if (input.scene === 4) {
+    content = `<text font-family="${font}">${textTspans(["A clearer score", "before you buy."], 84, 420, 70, 82, "#ffffff")}</text><circle cx="540" cy="1020" r="230" fill="#082f49" stroke="${input.accent}" stroke-width="14"/><text x="540" y="1095" text-anchor="middle" font-family="${font}" font-size="210" font-weight="700" fill="#ffffff">8.7</text><text x="540" y="1170" text-anchor="middle" font-family="${font}" font-size="32" font-weight="700" fill="#a5f3fc">BUYER CONFIDENCE</text><rect x="120" y="1430" width="840" height="20" rx="10" fill="#164e63"/><rect x="120" y="1430" width="730" height="20" rx="10" fill="${input.accent}"/><text x="120" y="1535" font-family="${font}" font-size="32" font-weight="700" fill="#e0f2fe">Strengths found</text><text x="820" y="1535" font-family="${font}" font-size="32" font-weight="700" fill="#ffffff">12</text>`;
+  } else {
+    content = `<rect x="84" y="820" width="912" height="650" rx="48" fill="#ffffff" opacity="0.96"/><text font-family="${font}">${textTspans(["Know the pattern.", "Shop with confidence."], 140, 1010, 65, 80, "#0f172a")}</text><text font-family="${font}">${textTspans(cta, 140, 1255, 38, 52, "#334155")}</text><rect x="140" y="1360" width="500" height="84" rx="42" fill="${input.accent}"/><text x="390" y="1416" text-anchor="middle" font-family="${font}" font-size="32" font-weight="700" fill="#082f49">TRY REVIEWINTEL</text>`;
+  }
+
+  return Buffer.from(`<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><defs><style>@font-face{font-family:'ReviewIntel Sans';src:url('data:font/ttf;base64,${input.fontBase64 || ""}') format('truetype');font-weight:100 900;}</style><linearGradient id="shade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#020617" stop-opacity="0.88"/><stop offset="0.56" stop-color="#0f172a" stop-opacity="0.68"/><stop offset="1" stop-color="#075985" stop-opacity="0.86"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#020617" flood-opacity="0.4"/></filter></defs><rect width="1080" height="1920" fill="url(#shade)"/>${common}${content}</svg>`);
 }
 
 async function createSceneFrame(input: {
@@ -238,27 +214,16 @@ async function createSceneFrame(input: {
     92
   );
   const cta = compactText(input.captionPlan.overlayCta || input.captionPlan.cta, 28);
+  const fontBase64 = (await readFile(path.join(process.cwd(), "public/fonts/ReviewIntelSans.ttf"))).toString("base64");
 
   const background = await sharp(input.imageBuffer)
-    .resize(width, height, { fit: "cover" })
-    .blur(22)
-    .modulate({ brightness: 0.72, saturation: 1.08 })
+    .resize(width, height, { fit: "cover", position: "attention" })
+    .modulate({ brightness: 0.34, saturation: 0.86 })
     .png()
     .toBuffer();
-  const hero = await sharp(input.imageBuffer)
-    .resize(800, 800, { fit: "cover" })
-    .png()
-    .toBuffer();
-  const frame = Buffer.from(`
-    <svg width="860" height="860" viewBox="0 0 860 860" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="860" height="860" rx="62" fill="#ffffff" opacity="0.92"/>
-      <rect x="30" y="30" width="800" height="800" rx="48" fill="#e2e8f0"/>
-    </svg>`);
 
   await sharp(background)
     .composite([
-      { input: frame, top: 238, left: 110 },
-      { input: hero, top: 268, left: 140 },
       {
         input: sceneOverlaySvg({
           hook,
@@ -266,6 +231,7 @@ async function createSceneFrame(input: {
           cta,
           accent,
           scene: input.scene,
+          fontBase64,
         }),
         top: 0,
         left: 0,
@@ -282,7 +248,7 @@ function runProcess(command: string, args: string[]) {
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
-    child.on("error", reject);
+    child.on("error", (error) => reject(new Error(`${path.basename(command)}: ${error.message}`)));
     child.on("close", (code) => {
       if (code === 0) resolve();
       else reject(new Error(stderr.trim() || `${path.basename(command)} exited with code ${code}`));
@@ -309,12 +275,25 @@ function runProcessOutput(command: string, args: string[]) {
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
     child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
-    child.on("error", reject);
+    child.on("error", (error) => reject(new Error(`${path.basename(command)}: ${error.message}`)));
     child.on("close", (code) => {
       if (code === 0) resolve(stdout);
       else reject(new Error(stderr.trim() || `${path.basename(command)} exited with code ${code}`));
     });
   });
+}
+
+function resolveFfprobePath() {
+  const packagePath = (ffprobeInstaller as { path?: string }).path || "";
+  const candidates = [
+    packagePath,
+    process.platform === "darwin" && process.arch === "arm64" ? path.join(process.cwd(), "node_modules/ffprobe-static/bin/darwin/arm64/ffprobe") : "",
+    process.platform === "darwin" ? path.join(process.cwd(), "node_modules/ffprobe-static/bin/darwin/x64/ffprobe") : "",
+    process.platform === "linux" && process.arch === "x64" ? path.join(process.cwd(), "node_modules/ffprobe-static/bin/linux/x64/ffprobe") : "",
+  ].filter(Boolean);
+  const binary = candidates.find((candidate) => existsSync(candidate));
+  if (!binary) throw new Error("ffprobe binary path is not available.");
+  return binary;
 }
 
 async function probeGeneratedMp4(filePath: string, ffprobePath: string) {
@@ -365,9 +344,9 @@ export async function generateFreshSocialReelVideo(input: {
   await mkdir(tmpDir, { recursive: true });
 
   try {
-    const frames = [1, 2, 3].map((scene) => path.join(tmpDir, `scene-${scene}.png`));
+    const frames = Array.from({ length: sceneCount }, (_, index) => path.join(tmpDir, `scene-${index + 1}.png`));
 
-    for (let scene = 1; scene <= 3; scene += 1) {
+    for (let scene = 1; scene <= sceneCount; scene += 1) {
       await createSceneFrame({
         imageBuffer,
         destination: frames[scene - 1],
@@ -377,26 +356,12 @@ export async function generateFreshSocialReelVideo(input: {
     }
 
     const ffmpegPath = await resolveFfmpegPath();
-    await runProcess(ffmpegPath, [
+    const sceneFilters = frames.map((_, index) => `[${index}:v]zoompan=z='min(zoom+0.0015,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${sceneSeconds * 30}:s=${width}x${height}:fps=30,format=yuv420p[v${index}]`).join(";");
+    const concatInputs = Array.from({ length: sceneCount }, (_, index) => `[v${index}]`).join("");
+    try {
+      await runProcess(ffmpegPath, [
       "-y",
-      "-loop",
-      "1",
-      "-t",
-      String(sceneSeconds),
-      "-i",
-      frames[0],
-      "-loop",
-      "1",
-      "-t",
-      String(sceneSeconds),
-      "-i",
-      frames[1],
-      "-loop",
-      "1",
-      "-t",
-      String(sceneSeconds),
-      "-i",
-      frames[2],
+      ...frames.flatMap((frame) => ["-i", frame]),
       "-f",
       "lavfi",
       "-t",
@@ -404,7 +369,7 @@ export async function generateFreshSocialReelVideo(input: {
       "-i",
       audioTrack.lavfi,
       "-filter_complex",
-      `[0:v][1:v][2:v]concat=n=3:v=1:a=0,format=yuv420p,fps=30[v];[3:a]volume=${audioTrack.volume},afade=t=in:st=0:d=0.5,afade=t=out:st=8.2:d=0.8[a]`,
+      `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v];[${sceneCount}:a]volume=${audioTrack.volume},afade=t=in:st=0:d=0.5,afade=t=out:st=19.2:d=0.8[a]`,
       "-map",
       "[v]",
       "-map",
@@ -422,11 +387,19 @@ export async function generateFreshSocialReelVideo(input: {
       "aac",
       "-b:a",
       "96k",
-      outputPath,
-    ]);
+        outputPath,
+      ]);
+    } catch (error) {
+      throw new Error(`Fresh Reel FFmpeg encode failed (${ffmpegPath}): ${error instanceof Error ? error.message : String(error)}`);
+    }
 
-    const ffprobePath = existsSync((ffprobeInstaller as { path?: string }).path || "") ? (ffprobeInstaller as { path: string }).path : path.join(process.cwd(), "node_modules/ffprobe-static/bin/linux/x64/ffprobe");
-    const validated = await probeGeneratedMp4(outputPath, ffprobePath);
+    const ffprobePath = resolveFfprobePath();
+    let validated;
+    try {
+      validated = await probeGeneratedMp4(outputPath, ffprobePath);
+    } catch (error) {
+      throw new Error(`Fresh Reel FFprobe validation failed (${ffprobePath}): ${error instanceof Error ? error.message : String(error)}`);
+    }
     const buffer = await readFile(outputPath);
     const size = await stat(outputPath).then((item) => item.size).catch(() => buffer.length);
     const { storageBucket } = publicSocialMediaStorageBucket();

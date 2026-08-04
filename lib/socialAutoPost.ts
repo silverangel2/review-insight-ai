@@ -1323,6 +1323,17 @@ export async function previewFreshFacebookReel(options: { topic?: string } = {})
   });
   const validation = validateMinimalReelContentPlan(plan);
   const audioTrack = selectApprovedAudioTrack(`${topic}:${queue.queueDay}:${sourceImage.id}:preview`);
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Fresh Facebook Reel preview requires Supabase service configuration.");
+  }
+  const video = await generateFreshSocialReelVideo({
+    sourceImage: sourceImage as ReelSourceImageInput,
+    captionPlan: plan,
+    publicSiteUrl: websiteUrl,
+    supabaseUrl,
+    serviceKey: supabaseServiceKey,
+    audioSeed: `${topic}:${queue.queueDay}:${sourceImage.id}:preview`,
+  });
 
   return {
     ok: validation.ok,
@@ -1360,6 +1371,15 @@ export async function previewFreshFacebookReel(options: { topic?: string } = {})
       name: audioTrack.name,
       license: audioTrack.license,
       type: "original_generated_background_audio",
+    },
+    renderedVideo: {
+      publicUrl: video.publicUrl,
+      mimeType: video.mimeType,
+      size: video.size,
+      width: video.width,
+      height: video.height,
+      durationSeconds: video.durationSeconds,
+      ffprobe: video.ffprobe,
     },
     clutterCheck: {
       ok: validation.ok,
