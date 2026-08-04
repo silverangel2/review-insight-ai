@@ -433,6 +433,10 @@ test("Facebook Reel publisher uses video_reels start upload and finish phases", 
       return jsonResponse({ data: [{ id: "fb-reel-1", permalink_url: "https://www.facebook.com/reel/fb-reel-1", description: "ReviewIntel Reel caption" }] });
     }
 
+    if (url.includes("/v25.0/fb-video-1?")) {
+      return jsonResponse({ id: "fb-video-1", permalink_url: "https://www.facebook.com/reel/fb-video-1", media_type: "reel", is_reel: true });
+    }
+
     throw new Error(`Unexpected fetch: ${url}`);
   });
 
@@ -452,7 +456,7 @@ test("Facebook Reel publisher uses video_reels start upload and finish phases", 
     assert.equal(result.metadata.facebookReel.permalink, "https://www.facebook.com/reel/fb-reel-1");
     assert.deepEqual(
       calls.map((call) => call.url.includes("rupload") ? "upload" : new URL(call.url).pathname),
-      ["/v25.0/page-id-test/video_reels", "upload", "/v25.0/page-id-test/video_reels", "/v25.0/page-id-test/videos"],
+      ["/v25.0/page-id-test/video_reels", "upload", "/v25.0/page-id-test/video_reels", "/v25.0/page-id-test/videos", "/v25.0/fb-video-1"],
     );
   } finally {
     cleanup();

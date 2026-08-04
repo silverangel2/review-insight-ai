@@ -1838,13 +1838,24 @@ async function postToFacebookReel(input: {
     (item: Record<string, unknown>) =>
       String(item.description || "") === input.caption && /\/reel\//i.test(String(item.permalink_url || "")),
   );
-  const reelId = String(confirmedReel?.id || "");
-  const permalink = String(confirmedReel?.permalink_url || "");
-  if (!confirmationResponse.ok || !reelId || !permalink) {
+  const directReel = videoId
+    ? await fetch(
+        `https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(videoId)}?fields=id,permalink_url,media_type,is_reel,created_time,description&access_token=${encodeURIComponent(input.pageToken)}`
+      ).then((response) => response.json().catch(() => ({})))
+    : {};
+  const reelId = String(confirmedReel?.id || directReel?.id || "");
+  const permalink = String(confirmedReel?.permalink_url || directReel?.permalink_url || "");
+  const isReel = Boolean(
+    /\/reel\//i.test(permalink) ||
+      String(confirmedReel?.media_type || directReel?.media_type || "").toLowerCase() === "reel" ||
+      confirmedReel?.is_reel === true ||
+      directReel?.is_reel === true
+  );
+  if (!confirmationResponse.ok || !reelId || !permalink || !isReel) {
     return {
       ok: false,
       error: confirmation?.error?.message || "Meta did not confirm the published object as a Facebook Reel.",
-      metadata: { facebookReel: { phase: "confirmation", video_id: videoId, reel_id: reelId || null, permalink, media_type: "reel", response: confirmation } },
+      metadata: { facebookReel: { phase: "confirmation", video_id: videoId, reel_id: reelId || null, permalink, media_type: "reel", response: confirmation, direct_response: directReel } },
     };
   }
 
@@ -1863,6 +1874,7 @@ async function postToFacebookReel(input: {
         upload_success: uploadData?.success ?? true,
         publish_response: finishData,
         confirmation,
+        direct_response: directReel,
       },
     },
   };
@@ -2690,6 +2702,13 @@ export async function runSocialAutoPost(
       return (
         media.codex_library === true ||
         metadata.codex_library === true ||
+        metadata.brand === "reviewintel" &&
+        metadata.library === "reviewintel_current_uploaded" &&
+        metadata.library_batch === reviewIntelCurrentSocialLibrary &&
+        metadata.approved_for_automation === true &&
+        metadata.selected_for_facebook === true &&
+        metadata.deleted !== true &&
+        metadata.archived !== true ||
         id.startsWith("codex-") ||
         id.includes("codex") ||
         title.includes("codex") ||
