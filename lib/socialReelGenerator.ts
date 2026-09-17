@@ -163,8 +163,8 @@ function resolveSourceImageUrl(image: ReelSourceImageInput, publicSiteUrl: strin
   throw new Error("Source image URL must be an absolute URL or public ReviewIntel path.");
 }
 
-async function fetchImageBuffer(url: string) {
-  const response = await fetch(url, { cache: "no-store" });
+async function fetchImageBuffer(url: string, fetcher: typeof fetch = fetch) {
+  const response = await fetcher(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Source image returned HTTP ${response.status}.`);
   }
@@ -237,6 +237,10 @@ async function createSceneFrame(input: {
     .png()
     .toFile(input.destination);
 }
+
+// Kept for non-Facebook callers that may still use the legacy renderer; the
+// Facebook Reel path above intentionally does not call it.
+void createSceneFrame;
 
 function runProcess(command: string, args: string[]) {
   return new Promise<void>((resolve, reject) => {
@@ -326,7 +330,7 @@ export async function generateFreshSocialReelVideo(input: {
   fetcher?: typeof fetch;
 }) {
   const sourceImageUrl = resolveSourceImageUrl(input.sourceImage, input.publicSiteUrl);
-  const imageBuffer = await fetchImageBuffer(sourceImageUrl);
+  const imageBuffer = await fetchImageBuffer(sourceImageUrl, input.fetcher || fetch);
   const audioTrack = selectApprovedAudioTrack(input.audioSeed || input.sourceImage.id);
   const musicPath = path.join(process.cwd(), "public/audio/reels/reviewintel-theme.mp3");
   if (!existsSync(musicPath)) {
@@ -345,32 +349,38 @@ export async function generateFreshSocialReelVideo(input: {
   await mkdir(tmpDir, { recursive: true });
 
   try {
-    const frames = Array.from({ length: sceneCount }, (_, index) => path.join(tmpDir, `scene-${index + 1}.png`));
-
-    for (let scene = 1; scene <= sceneCount; scene += 1) {
-      await createSceneFrame({
-        imageBuffer,
-        destination: frames[scene - 1],
-        scene,
-        captionPlan: input.captionPlan,
-      });
-    }
+    // The uploaded campaign image is already the approved creative. Keep it
+    // intact and only contain it on a portrait canvas; never redraw its text
+    // or design through SVG/Sharp overlays.
+    const posterPath = path.join(tmpDir, "campaign-poster.png");
+    await sharp(imageBuffer)
+      .rotate()
+      .resize(width, height, {
+        fit: "contain",
+        position: "centre",
+        background: { r: 0, g: 0, b: 0, alpha: 1 },
+      })
+      .png()
+      .toFile(posterPath);
 
     const ffmpegPath = await resolveFfmpegPath();
-    const sceneFilters = frames.map((_, index) => `[${index}:v]zoompan=z='min(zoom+0.0015,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${sceneSeconds * 30}:s=${width}x${height}:fps=30,format=yuv420p[v${index}]`).join(";");
-    const concatInputs = Array.from({ length: sceneCount }, (_, index) => `[v${index}]`).join("");
     try {
       await runProcess(ffmpegPath, [
         "-y",
-        ...frames.flatMap((frame) => ["-i", frame]),
+        "-loop",
+        "1",
+        "-framerate",
+        "30",
+        "-i",
+        posterPath,
         "-stream_loop",
         "-1",
         "-i",
         musicPath,
         "-filter_complex",
-        `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v];[${sceneCount}:a]volume=0.20,afade=t=in:st=0:d=0.8,afade=t=out:st=19:d=1[a]`,
+        "[1:a]volume=0.20,afade=t=in:st=0:d=0.8,afade=t=out:st=19:d=1[a]",
         "-map",
-        "[v]",
+        "0:v:0",
         "-map",
         "[a]",
         "-t",
