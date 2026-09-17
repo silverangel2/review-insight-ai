@@ -177,8 +177,8 @@ async function fetchImageBuffer(url: string) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-function sceneOverlaySvg(input: { hook: string; support: string; cta: string; accent: string; scene: number; fontBase64: string }) {
-  const font = "ReviewIntel Sans, Arial, sans-serif";
+function sceneOverlaySvg(input: { hook: string; support: string; cta: string; accent: string; scene: number }) {
+  const font = "Arial, Helvetica, sans-serif";
   const hook = wrapLines(input.hook, 23, 2);
   const support = wrapLines(input.support, 34, 3);
   const cta = wrapLines(input.cta, 24, 2);
@@ -198,7 +198,7 @@ function sceneOverlaySvg(input: { hook: string; support: string; cta: string; ac
     content = `<rect x="84" y="820" width="912" height="650" rx="48" fill="#ffffff" opacity="0.96"/><text font-family="${font}">${textTspans(["Know the pattern.", "Shop with confidence."], 140, 1010, 65, 80, "#0f172a")}</text><text font-family="${font}">${textTspans(cta, 140, 1255, 38, 52, "#334155")}</text><rect x="140" y="1360" width="500" height="84" rx="42" fill="${input.accent}"/><text x="390" y="1416" text-anchor="middle" font-family="${font}" font-size="32" font-weight="700" fill="#082f49">TRY REVIEWINTEL</text>`;
   }
 
-  return Buffer.from(`<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><defs><style>@font-face{font-family:'ReviewIntel Sans';src:url('data:font/ttf;base64,${input.fontBase64 || ""}') format('truetype');font-weight:100 900;}</style><linearGradient id="shade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#020617" stop-opacity="0.88"/><stop offset="0.56" stop-color="#0f172a" stop-opacity="0.68"/><stop offset="1" stop-color="#075985" stop-opacity="0.86"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#020617" flood-opacity="0.4"/></filter></defs><rect width="1080" height="1920" fill="url(#shade)"/>${common}${content}</svg>`);
+  return Buffer.from(`<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="shade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#020617" stop-opacity="0.88"/><stop offset="0.56" stop-color="#0f172a" stop-opacity="0.68"/><stop offset="1" stop-color="#075985" stop-opacity="0.86"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#020617" flood-opacity="0.4"/></filter></defs><rect width="1080" height="1920" fill="url(#shade)"/>${common}${content}</svg>`);
 }
 
 async function createSceneFrame(input: {
@@ -214,8 +214,6 @@ async function createSceneFrame(input: {
     92
   );
   const cta = compactText(input.captionPlan.overlayCta || input.captionPlan.cta, 28);
-  const fontBase64 = (await readFile(path.join(process.cwd(), "public/fonts/ReviewIntelSans.ttf"))).toString("base64");
-
   const background = await sharp(input.imageBuffer)
     .resize(width, height, { fit: "cover", position: "attention" })
     .modulate({ brightness: 0.34, saturation: 0.86 })
@@ -231,7 +229,6 @@ async function createSceneFrame(input: {
           cta,
           accent,
           scene: input.scene,
-          fontBase64,
         }),
         top: 0,
         left: 0,
@@ -331,6 +328,10 @@ export async function generateFreshSocialReelVideo(input: {
   const sourceImageUrl = resolveSourceImageUrl(input.sourceImage, input.publicSiteUrl);
   const imageBuffer = await fetchImageBuffer(sourceImageUrl);
   const audioTrack = selectApprovedAudioTrack(input.audioSeed || input.sourceImage.id);
+  const musicPath = path.join(process.cwd(), "public/audio/reels/reviewintel-theme.mp3");
+  if (!existsSync(musicPath)) {
+    throw new Error("ReviewIntel Reel music asset is missing.");
+  }
   const cleanId = safeFilenamePart(input.sourceImage.id || "source-image");
   const digest = createHash("sha1")
     .update(`${cleanId}-${input.captionPlan.caption}-${input.audioSeed}`)
@@ -360,33 +361,43 @@ export async function generateFreshSocialReelVideo(input: {
     const concatInputs = Array.from({ length: sceneCount }, (_, index) => `[v${index}]`).join("");
     try {
       await runProcess(ffmpegPath, [
-      "-y",
-      ...frames.flatMap((frame) => ["-i", frame]),
-      "-f",
-      "lavfi",
-      "-t",
-      String(totalSeconds),
-      "-i",
-      audioTrack.lavfi,
-      "-filter_complex",
-      `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v];[${sceneCount}:a]volume=${audioTrack.volume},afade=t=in:st=0:d=0.5,afade=t=out:st=19.2:d=0.8[a]`,
-      "-map",
-      "[v]",
-      "-map",
-      "[a]",
-      "-shortest",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-movflags",
-      "+faststart",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "96k",
+        "-y",
+        ...frames.flatMap((frame) => ["-i", frame]),
+        "-stream_loop",
+        "-1",
+        "-i",
+        musicPath,
+        "-filter_complex",
+        `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v];[${sceneCount}:a]volume=0.20,afade=t=in:st=0:d=0.8,afade=t=out:st=19:d=1[a]`,
+        "-map",
+        "[v]",
+        "-map",
+        "[a]",
+        "-t",
+        String(totalSeconds),
+        "-shortest",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-movflags",
+        "+faststart",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        "30",
+        "-profile:v",
+        "main",
+        "-level:v",
+        "4.0",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
         outputPath,
       ]);
     } catch (error) {
