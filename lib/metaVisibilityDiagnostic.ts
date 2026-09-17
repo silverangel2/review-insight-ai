@@ -39,6 +39,23 @@ async function graphGet<T extends GraphRecord>(input: { graphVersion: string; pa
   return { ok: true as const, body, error: null };
 }
 
+async function pageVideoMembership(input: { graphVersion: string; pageId: string; token: string; objectId: string }) {
+  const collection = await graphGet<GraphRecord>({
+    graphVersion: input.graphVersion,
+    path: `${input.pageId}/videos`,
+    token: input.token,
+    params: { fields: "id,permalink_url,media_type,is_reel,created_time", limit: "100" }
+  });
+  const rows = Array.isArray(collection.body.data) ? collection.body.data : [];
+  return {
+    endpoint: `/${input.pageId}/videos`,
+    lookup: collection.ok ? "PROVEN" : "NOT_EXPOSED",
+    contains_object: collection.ok ? rows.some((item) => text((item as GraphRecord)?.id) === input.objectId) : null,
+    returned_count: collection.ok ? rows.length : null,
+    error: collection.ok ? null : collection.error
+  };
+}
+
 function appSummary(appId: string) {
   return { configured_id: Boolean(appId), id: appId || null, mode: "NOT_EXPOSED_BY_META_API", status: "NOT_EXPOSED_BY_META_API" };
 }
@@ -89,7 +106,10 @@ export async function runReviewIntelMetaVisibilityDiagnostic() {
   const reelMetadata = metadata.facebookReel && typeof metadata.facebookReel === "object" && !Array.isArray(metadata.facebookReel) ? metadata.facebookReel as GraphRecord : {};
   const objectId = text(candidate?.external_post_id) || text(reelMetadata.video_id);
   const reel = objectId
-    ? await graphGet<GraphRecord>({ graphVersion, path: objectId, token, params: { fields: "id,permalink_url,media_type,is_reel,created_time,status" } })
+    ? await graphGet<GraphRecord>({ graphVersion, path: objectId, token, params: { fields: "id,permalink_url,media_type,is_reel,created_time" } })
+    : null;
+  const pageVideos = objectId && page.ok
+    ? await pageVideoMembership({ graphVersion, pageId, token, objectId })
     : null;
 
   return {
@@ -107,10 +127,11 @@ export async function runReviewIntelMetaVisibilityDiagnostic() {
       id: reel ? text(reel.body.id) || objectId || null : null,
       is_reel: reel && typeof reel.body.is_reel === "boolean" ? reel.body.is_reel : null,
       media_type: reel ? text(reel.body.media_type) || null : null,
-      status: reel?.body.status ?? null,
+      status: "NOT_EXPOSED_BY_META_API",
       permalink_url: reel ? text(reel.body.permalink_url) || null : null,
       created_time: reel ? text(reel.body.created_time) || null : null,
     },
+    page_media: pageVideos,
     restrictions: restrictionsSummary(),
     errors: [!page.ok ? page.error : null, reel && !reel.ok ? reel.error : null].filter(Boolean)
   };
