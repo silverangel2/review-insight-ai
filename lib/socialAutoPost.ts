@@ -1828,28 +1828,20 @@ async function postToFacebookReel(input: {
     };
   }
 
-  const confirmationUrl = new URL(`https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(input.pageId)}/videos`);
+  const confirmationUrl = new URL(`https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(input.pageId)}/video_reels`);
   confirmationUrl.searchParams.set("fields", "id,permalink_url,media_type,is_reel,created_time,description");
   confirmationUrl.searchParams.set("limit", "25");
   confirmationUrl.searchParams.set("access_token", input.pageToken);
   const confirmationResponse = await fetch(confirmationUrl);
   const confirmation = await confirmationResponse.json().catch(() => ({}));
   const confirmedReel = (confirmation?.data || []).find(
-    (item: Record<string, unknown>) =>
-      String(item.description || "") === input.caption && /\/reel\//i.test(String(item.permalink_url || "")),
+    (item: Record<string, unknown>) => String(item.id || "") === videoId,
   );
-  const directReel = videoId
-    ? await fetch(
-        `https://graph.facebook.com/${input.graphVersion}/${encodeURIComponent(videoId)}?fields=id,permalink_url,media_type,is_reel,created_time,description&access_token=${encodeURIComponent(input.pageToken)}`
-      ).then((response) => response.json().catch(() => ({})))
-    : {};
-  const reelId = String(confirmedReel?.id || directReel?.id || "");
-  const permalink = String(confirmedReel?.permalink_url || directReel?.permalink_url || "");
+  const reelId = String(confirmedReel?.id || "");
+  const permalink = String(confirmedReel?.permalink_url || "");
   const isReel = Boolean(
     /\/reel\//i.test(permalink) ||
-      String(confirmedReel?.media_type || directReel?.media_type || "").toLowerCase() === "reel" ||
-      confirmedReel?.is_reel === true ||
-      directReel?.is_reel === true
+      String(confirmedReel?.media_type || "").toLowerCase() === "reel" || confirmedReel?.is_reel === true
   );
   if (!confirmationResponse.ok || !reelId || !permalink || !isReel) {
     return {

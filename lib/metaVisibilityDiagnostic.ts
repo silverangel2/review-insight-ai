@@ -47,10 +47,18 @@ async function pageVideoMembership(input: { graphVersion: string; pageId: string
     params: { fields: "id,permalink_url,media_type,is_reel,created_time,description", limit: "100" }
   });
   const rows = Array.isArray(collection.body.data) ? collection.body.data : [];
+  const matched = rows.find((item) => text((item as GraphRecord)?.id) === input.objectId) as GraphRecord | undefined;
   return {
     endpoint: `/${input.pageId}/video_reels`,
     lookup: collection.ok ? "PROVEN" : "NOT_EXPOSED",
     contains_object: collection.ok ? rows.some((item) => text((item as GraphRecord)?.id) === input.objectId) : null,
+    matched_object: collection.ok && matched ? {
+      id: text(matched.id) || null,
+      permalink_url: text(matched.permalink_url) || null,
+      media_type: text(matched.media_type) || "NOT_EXPOSED_BY_META_API",
+      is_reel: typeof matched.is_reel === "boolean" ? matched.is_reel : "NOT_EXPOSED_BY_META_API",
+      created_time: text(matched.created_time) || null
+    } : null,
     returned_count: collection.ok ? rows.length : null,
     recent_objects: collection.ok ? rows.slice(0, 100).map((item) => {
       const row = item as GraphRecord;
@@ -109,12 +117,10 @@ export async function runReviewIntelMetaVisibilityDiagnostic() {
   const metadata = candidate?.metadata && typeof candidate.metadata === "object" && !Array.isArray(candidate.metadata) ? candidate.metadata as GraphRecord : {};
   const reelMetadata = metadata.facebookReel && typeof metadata.facebookReel === "object" && !Array.isArray(metadata.facebookReel) ? metadata.facebookReel as GraphRecord : {};
   const objectId = text(candidate?.external_post_id) || text(reelMetadata.video_id);
-  const reel = objectId
-    ? await graphGet<GraphRecord>({ graphVersion, path: objectId, token, params: { fields: "id,permalink_url,media_type,is_reel,created_time" } })
-    : null;
   const pageVideos = objectId && page.ok
     ? await pageVideoMembership({ graphVersion, pageId, token, objectId })
     : null;
+  const matchedReel = pageVideos?.matched_object || null;
 
   return {
     product: "reviewintel",
@@ -126,17 +132,17 @@ export async function runReviewIntelMetaVisibilityDiagnostic() {
     reel: {
       internal_record_id: text(candidate?.id) || null,
       meta_object_id: objectId || null,
-      lookup: reel ? (reel.ok ? "PROVEN" : "NOT_EXPOSED") : "NOT_EXPOSED",
-      exists: reel ? Boolean(reel.body.id || objectId) : false,
-      id: reel ? text(reel.body.id) || objectId || null : null,
-      is_reel: reel && typeof reel.body.is_reel === "boolean" ? reel.body.is_reel : null,
-      media_type: reel ? text(reel.body.media_type) || null : null,
+      lookup: matchedReel ? "PROVEN" : pageVideos?.lookup === "PROVEN" ? "NOT_EXPOSED" : "NOT_EXPOSED",
+      exists: Boolean(matchedReel),
+      id: matchedReel?.id || null,
+      is_reel: matchedReel?.is_reel === "NOT_EXPOSED_BY_META_API" ? null : matchedReel?.is_reel ?? null,
+      media_type: matchedReel?.media_type === "NOT_EXPOSED_BY_META_API" ? null : matchedReel?.media_type || null,
       status: "NOT_EXPOSED_BY_META_API",
-      permalink_url: reel ? text(reel.body.permalink_url) || null : null,
-      created_time: reel ? text(reel.body.created_time) || null : null,
+      permalink_url: matchedReel?.permalink_url || null,
+      created_time: matchedReel?.created_time || null,
     },
     page_media: pageVideos,
     restrictions: restrictionsSummary(),
-    errors: [!page.ok ? page.error : null, reel && !reel.ok ? reel.error : null].filter(Boolean)
+    errors: [!page.ok ? page.error : null, pageVideos?.error || null].filter(Boolean)
   };
 }
