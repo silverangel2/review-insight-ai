@@ -58,6 +58,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
 
+    if (body.action === "publish-one-facebook-reel") {
+      const result = await publishOneFacebookReel();
+      return NextResponse.json({ ok: result.ok, result }, { status: result.ok ? 200 : 409 });
+    }
+
     if (body.action === "run-now") {
       const result = await runSocialAutoPost({ force: true });
       const settings = await getSocialSettings();
