@@ -1077,7 +1077,12 @@ function sortFreshReelImages(rows: SocialMediaItem[], topic: string) {
   });
 }
 
-async function pickFreshReelSourceImage(topic: string): Promise<SocialMediaItem | null> {
+type FreshReelSourceOptions = { allowCooldownOverride?: boolean };
+
+async function pickFreshReelSourceImage(
+  topic: string,
+  options: FreshReelSourceOptions = {}
+): Promise<SocialMediaItem | null> {
   const cooldownDays = reelImageCooldownDays();
   const cutoff = new Date(Date.now() - cooldownDays * 24 * 60 * 60 * 1000).toISOString();
   const recentSourceIds = await recentlyUsedFreshReelSourceImageIds(cutoff);
@@ -1098,12 +1103,23 @@ async function pickFreshReelSourceImage(topic: string): Promise<SocialMediaItem 
       !Boolean(row.metadata?.homepage_video) &&
       !isOldHouseSocialMedia(row) &&
       validPublicHttpUrl(url) &&
-      !recentSourceIds.has(row.id) &&
-      (!lastUsedAt || lastUsedAt < cutoff)
+      (options.allowCooldownOverride || (
+        !recentSourceIds.has(row.id) &&
+        (!lastUsedAt || lastUsedAt < cutoff)
+      ))
     );
   });
 
-  return sortFreshReelImages(eligible, topic)[0] || null;
+  const ordered = options.allowCooldownOverride
+    ? [...eligible].sort((a, b) => {
+        const aUsed = a.last_used_at ? Date.parse(a.last_used_at) : 0;
+        const bUsed = b.last_used_at ? Date.parse(b.last_used_at) : 0;
+        if (aUsed !== bUsed) return aUsed - bUsed;
+        return Date.parse(String(a.created_at || "")) - Date.parse(String(b.created_at || ""));
+      })
+    : sortFreshReelImages(eligible, topic);
+
+  return ordered[0] || null;
 }
 
 async function insertGeneratedFreshReelMedia(input: {
@@ -1195,7 +1211,8 @@ async function insertGeneratedFreshReelMedia(input: {
 async function createFreshFacebookReelMedia(
   topic: string,
   queue: SocialQueueState,
-  platform = "facebook"
+  platform = "facebook",
+  options: FreshReelSourceOptions = {}
 ): Promise<FacebookMediaResolution> {
   if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error("Fresh Facebook Reel generation requires Supabase service configuration.");
@@ -1208,7 +1225,7 @@ async function createFreshFacebookReelMedia(
     affiliateShortUrl,
     affiliateAttachment,
   } = requiredFreshReelLinks(platform);
-  const sourceImage = await pickFreshReelSourceImage(topic);
+  const sourceImage = await pickFreshReelSourceImage(topic, options);
 
   if (!sourceImage) {
     throw new Error(`No eligible source image is available outside the ${reelImageCooldownDays()} day Reel cooldown.`);
@@ -1271,6 +1288,7 @@ async function createFreshFacebookReelMedia(
     metadata: {
       freshFacebookReel: {
         generated_at: generatedAt,
+        cooldown_override: Boolean(options.allowCooldownOverride),
         source_image_id: sourceImage.id,
         generated_mp4_id: generatedMedia.id,
         public_url: generatedMedia.file_url,
@@ -1560,11 +1578,12 @@ async function pickSocialMedia(
 async function resolveFacebookMediaForFormat(
   topic: string,
   queue: SocialQueueState,
-  facebookFormat: string
+  facebookFormat: string,
+  options: FreshReelSourceOptions = {}
 ): Promise<FacebookMediaResolution> {
   if (facebookFormat === "reel") {
     try {
-      return await createFreshFacebookReelMedia(topic, queue);
+      return await createFreshFacebookReelMedia(topic, queue, "facebook", options);
     } catch (error) {
       return {
         media: null,
@@ -1919,7 +1938,17 @@ async function publishOneFacebookReelOnce(): Promise<SingleFacebookReelResult> {
   const topic = settings.topics?.[0] || "shopper_tips";
   const cycleLength = Math.max(1, Number(settings.cycle_length || 100));
   const queue = await getLatestQueueState(cycleLength);
-  const facebookMedia = await resolveFacebookMediaForFormat(topic, queue, "reel");
+  const normalFacebookMedia = await resolveFacebookMediaForFormat(topic, queue, "reel");
+  const normalFailure = normalFacebookMedia.metadata?.freshFacebookReel;
+  const cooldownExhausted = Boolean(
+    !normalFacebookMedia.media &&
+    normalFailure &&
+    typeof normalFailure === "object" &&
+    /cooldown/i.test(String((normalFailure as Record<string, unknown>).error || ""))
+  );
+  const facebookMedia = cooldownExhausted
+    ? await resolveFacebookMediaForFormat(topic, queue, "reel", { allowCooldownOverride: true })
+    : normalFacebookMedia;
   const media = facebookMedia.media;
 
   if (!media || media.media_type !== "video") {
