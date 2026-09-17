@@ -16,6 +16,6 @@ test("Meta diagnostic is admin-only and GET-only", () => {
   assert.doesNotMatch(route, /access_token|Authorization|FACEBOOK_PAGE_ACCESS_TOKEN/);
   assert.doesNotMatch(ui, /access_token|Authorization|FACEBOOK_PAGE_ACCESS_TOKEN/);
   assert.match(helper, /video_reels|permalink_url|is_reel|media_type/);
-  assert.match(helper, /path: `\$\{input\.pageId\}\/videos`/);
+  assert.match(helper, /path: `\$\{input\.pageId\}\/video_reels`/);
   assert.doesNotMatch(helper, /fields: "[^"]*status[^"]*"/);
 });

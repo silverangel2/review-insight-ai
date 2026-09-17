@@ -42,16 +42,20 @@ async function graphGet<T extends GraphRecord>(input: { graphVersion: string; pa
 async function pageVideoMembership(input: { graphVersion: string; pageId: string; token: string; objectId: string }) {
   const collection = await graphGet<GraphRecord>({
     graphVersion: input.graphVersion,
-    path: `${input.pageId}/videos`,
+    path: `${input.pageId}/video_reels`,
     token: input.token,
-    params: { fields: "id,permalink_url,media_type,is_reel,created_time", limit: "100" }
+    params: { fields: "id,permalink_url,media_type,is_reel,created_time,description", limit: "100" }
   });
   const rows = Array.isArray(collection.body.data) ? collection.body.data : [];
   return {
-    endpoint: `/${input.pageId}/videos`,
+    endpoint: `/${input.pageId}/video_reels`,
     lookup: collection.ok ? "PROVEN" : "NOT_EXPOSED",
     contains_object: collection.ok ? rows.some((item) => text((item as GraphRecord)?.id) === input.objectId) : null,
     returned_count: collection.ok ? rows.length : null,
+    recent_objects: collection.ok ? rows.slice(0, 100).map((item) => {
+      const row = item as GraphRecord;
+      return { id: text(row.id) || null, created_time: text(row.created_time) || null, permalink_url: text(row.permalink_url) || null, is_reel: typeof row.is_reel === "boolean" ? row.is_reel : "NOT_EXPOSED_BY_META_API", media_type: text(row.media_type) || "NOT_EXPOSED_BY_META_API", description: text(row.description) || null };
+    }) : [],
     error: collection.ok ? null : collection.error
   };
 }
