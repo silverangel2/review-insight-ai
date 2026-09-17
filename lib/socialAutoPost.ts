@@ -138,6 +138,17 @@ type PublishResult = {
   draftOnly?: boolean;
 };
 
+type SingleFacebookReelResult = {
+  ok: boolean;
+  status: "posted" | "failed" | "skipped";
+  postId?: string | null;
+  externalPostId?: string | null;
+  metadata?: Record<string, unknown>;
+  error?: string;
+};
+
+let singleFacebookReelInFlight: Promise<SingleFacebookReelResult> | null = null;
+
 const platformLabels: Record<string, string> = {
   facebook: "Facebook",
   instagram: "Instagram",
@@ -1898,6 +1909,129 @@ async function postToFacebookPage(caption: string, media?: SocialMediaItem | nul
   const mediaUrl = absoluteMediaUrl(media);
   if (!mediaUrl || isPrivateOrLocalUrl(mediaUrl)) return { ok: false, error: "Facebook Reel publishing requires a public media URL." };
   return postToFacebookReel({ graphVersion, pageId, pageToken, caption, mediaUrl });
+}
+
+async function publishOneFacebookReelOnce(): Promise<SingleFacebookReelResult> {
+  const settings = await getSocialSettings();
+  if (settings.emergency_pause) {
+    return { ok: true, status: "skipped", error: "Emergency pause is enabled." };
+  }
+
+  const topic = settings.topics?.[0] || "shopper_tips";
+  const cycleLength = Math.max(1, Number(settings.cycle_length || 100));
+  const queue = await getLatestQueueState(cycleLength);
+  const facebookMedia = await resolveFacebookMediaForFormat(topic, queue, "reel");
+  const media = facebookMedia.media;
+
+  if (!media || media.media_type !== "video") {
+    return {
+      ok: false,
+      status: "failed",
+      error: "No eligible ReviewIntel Facebook Reel media is available.",
+      metadata: facebookMedia.metadata || undefined,
+    };
+  }
+
+  const content =
+    facebookMedia.contentOverride ||
+    (await generateAiReviewIntelContentPack("facebook", topic, queue, media));
+  const affiliateAttachment =
+    facebookMedia.affiliateAttachmentOverride === undefined
+      ? socialAffiliateAttachment("facebook", topic)
+      : facebookMedia.affiliateAttachmentOverride;
+  const baseCaption = facebookMedia.finalCaptionOverride
+    ? facebookMedia.finalCaptionOverride
+    : finalFreshSocialCaption(recycleCaption(formatPostCaption(content), queue), topic, queue);
+  const captionWithoutFixedFacebookHashtags = facebookMedia.finalCaptionOverride
+    ? facebookMedia.finalCaptionOverride
+    : appendSocialAffiliateLink(baseCaption, affiliateAttachment);
+  const caption = `${captionWithoutFixedFacebookHashtags.trim()}\n\n#fypシ #fypシ゚viralシ #fypviralシ`;
+  const now = new Date().toISOString();
+  const fingerprint = makeContentFingerprint({
+    platform: "facebook",
+    topic,
+    queueDay: queue.queueDay,
+    cycleNumber: queue.cycleNumber,
+    recycleCount: queue.recycleCount,
+  });
+  const existing = await existingCompletedPostFingerprints(fingerprint);
+  if (existing.length) {
+    return {
+      ok: true,
+      status: "skipped",
+      postId: String((existing[0] as Record<string, unknown>).id || "") || null,
+      error: "This exact Facebook Reel content cycle was already recorded.",
+    };
+  }
+
+  const draft = await createSocialPost({
+    platform: "facebook",
+    mode: "admin_single_facebook_reel",
+    status: "publishing",
+    topic,
+    caption,
+    hashtags: content.hashtags,
+    link_url: affiliateAttachment?.url || content.link,
+    queue_day: queue.queueDay,
+    cycle_number: queue.cycleNumber,
+    recycle_count: queue.recycleCount,
+    media_id: media.id,
+    content_fingerprint: fingerprint,
+    metadata: {
+      queue,
+      facebookFormat: "reel",
+      ...(facebookMedia.metadata || {}),
+      media: {
+        id: media.id,
+        type: media.media_type,
+        file_url: media.file_url,
+      },
+    },
+  });
+
+  if (!draft?.id) {
+    return { ok: false, status: "failed", error: "Could not create the single Facebook Reel history record." };
+  }
+
+  // This is the only Meta publication call in this single-item action.
+  const published = await postToFacebookPage(caption, media);
+  if (!published.ok) {
+    await updateSocialPost(draft.id, {
+      status: "failed",
+      error: published.error,
+      metadata: { ...(draft.metadata || {}), ...(published.metadata || {}) },
+    });
+    return { ok: false, status: "failed", postId: draft.id, error: published.error || "Facebook Reel publication failed.", metadata: published.metadata };
+  }
+
+  if (facebookMedia.freshReel) {
+    await updateFreshReelPublishMetadata({ freshReel: facebookMedia.freshReel, published, postedAt: now });
+  }
+  await markSocialMediaUsed(media, now);
+  const updated = await updateSocialPost(draft.id, {
+    status: "posted",
+    external_post_id: published.externalPostId,
+    posted_at: now,
+    error: null,
+    metadata: { ...(draft.metadata || {}), ...(published.metadata || {}) },
+  });
+  await updateSocialSettings({ last_queue_day: queue.queueDay, last_posted_at: now });
+
+  return {
+    ok: true,
+    status: "posted",
+    postId: String(updated?.id || draft.id),
+    externalPostId: published.externalPostId || null,
+    metadata: published.metadata,
+  };
+}
+
+export function publishOneFacebookReel(): Promise<SingleFacebookReelResult> {
+  if (singleFacebookReelInFlight) return singleFacebookReelInFlight;
+  singleFacebookReelInFlight = publishOneFacebookReelOnce().finally(() => {
+    singleFacebookReelInFlight = null;
+  });
+  return singleFacebookReelInFlight;
 }
 
 export async function checkFacebookConnector() {

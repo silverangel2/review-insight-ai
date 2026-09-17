@@ -324,6 +324,30 @@ export default function AdminSocialAutoPost() {
     }
   }
 
+  async function publishOneFacebookReel() {
+    setSaving(true);
+    setStatus("Publishing one ReviewIntel Facebook Reel...");
+
+    try {
+      const response = await fetch("/api/admin/social-autopost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "publish-one-facebook-reel" }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        setStatus(data.error || data.result?.error || "Could not publish one Facebook Reel.");
+        return;
+      }
+      setStatus(data.result?.status === "skipped" ? data.result.error || "Single Facebook Reel was skipped." : "One Facebook Reel publication finished. Check logs below.");
+      await load();
+    } catch {
+      setStatus("Could not publish one Facebook Reel.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function checkFacebook() {
     setSaving(true);
     setStatus("Checking Facebook connector...");
@@ -1172,6 +1196,14 @@ export default function AdminSocialAutoPost() {
                 className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
               >
                 Post one test now
+              </button>
+              <button
+                type="button"
+                onClick={publishOneFacebookReel}
+                disabled={saving}
+                className="rounded-2xl border border-ocean/30 bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
+              >
+                Publish one Facebook Reel
               </button>
               <button
                 type="button"

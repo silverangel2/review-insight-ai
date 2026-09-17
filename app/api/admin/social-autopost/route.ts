@@ -8,6 +8,7 @@ import {
   getSocialSettings,
   listSocialPosts,
   previewFreshFacebookReel,
+  publishOneFacebookReel,
   pruneSocialPostHistory,
   runSocialAutoPost,
   updateSocialSettings,
