@@ -1858,7 +1858,7 @@ async function postToFacebookReel(input: {
     return {
       ok: false,
       error: confirmation?.error?.message || "Meta did not confirm the published object as a Facebook Reel.",
-      metadata: { facebookReel: { phase: "confirmation", video_id: videoId, reel_id: reelId || null, permalink, media_type: "reel", response: confirmation, direct_response: directReel } },
+      metadata: { facebookReel: { phase: "confirmation", video_id: videoId, reel_id: reelId || null, permalink, media_type: "reel", response: confirmation } },
     };
   }
 
@@ -1877,7 +1877,6 @@ async function postToFacebookReel(input: {
         upload_success: uploadData?.success ?? true,
         publish_response: finishData,
         confirmation,
-        direct_response: directReel,
       },
     },
   };
