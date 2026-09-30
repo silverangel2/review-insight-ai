@@ -12,6 +12,7 @@ import {
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
+import type { ReviewEvidenceResult } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 import {
   analyzeSellerReviews,
@@ -221,19 +222,24 @@ function parseCsvRows(csv: string, limit = 80) {
   return rows;
 }
 
-function sampleTextFromRows(rows: JsonRecord[]) {
-  return rows
-    .slice(0, 60)
-    .map((row, index) => {
-      const values = Object.entries(row)
-        .filter(([, value]) => String(value || "").trim())
-        .slice(0, 8)
-        .map(([key, value]) => `${key}: ${String(value).slice(0, 500)}`)
-        .join(" | ");
-
-      return `Row ${index + 1}: ${values}`;
-    })
-    .join("\n");
+// Tiny voice sample for the LLM: verbatim review excerpts already extracted by
+// the deterministic engine (capped at ~180 chars each, max 6). All facts,
+// counts, and trends come from the evidence brief — this sample exists only so
+// the AI can match the reviewers' tone. Keeps prompt input to a few hundred
+// tokens instead of tens of thousands of raw CSV characters.
+function sampleEvidenceQuotes(deepIntel: {
+  aspects: Array<{ label: string; sampleQuotes: string[] }>;
+}) {
+  const quotes: string[] = [];
+  for (const aspect of deepIntel.aspects) {
+    for (const quote of aspect.sampleQuotes) {
+      if (quotes.length >= 6) break;
+      if (quote && !quotes.includes(quote)) quotes.push(quote);
+    }
+    if (quotes.length >= 6) break;
+  }
+  if (!quotes.length) return "(no review excerpts available)";
+  return quotes.map((quote, index) => `${index + 1}. "${quote}"`).join("\n");
 }
 
 async function openAIResponse(prompt: string) {
@@ -250,7 +256,10 @@ async function openAIResponse(prompt: string) {
       "content-type": "application/json"
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || "gpt-4.1",
+      // gpt-4.1-mini default: the deterministic engine already did the heavy
+      // reasoning, so the LLM only writes consultant copy from the evidence
+      // brief. Override with OPENAI_MODEL for a larger model.
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
       input: [
         {
           role: "user",
@@ -461,18 +470,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No review rows found in this CSV." }, { status: 400 });
     }
 
-    const sample = sampleTextFromRows(rows);
-
     // Deterministic intelligence computed from the actual CSV rows. The LLM
     // reasons over these computed facts (see EVIDENCE BRIEF below) instead of
     // a flattened text sample, and the quantified insights ship in the
     // response even if the AI pass is unavailable.
     const deepIntel = analyzeSellerReviews(rows);
+    const sample = sampleEvidenceQuotes(deepIntel);
 
     const prompt = `
 You are ReviewIntel Seller Intelligence.
 
-Analyze this seller product review CSV sample.
+Analyze this seller product's reviews.
 Do not talk about shopper screenshot analysis.
 Do not ask for screenshots.
 Do not mention fake reviews as fact.
@@ -533,23 +541,44 @@ Return JSON only with this shape:
   "nextActions": ["..."]
 }
 
-CSV sample:
+VOICE SAMPLE (verbatim review excerpts — tone reference only; every fact, count, and trend comes from the brief):
 ${sample}
 
 ${deepIntel.evidenceBrief}
 `;
 
+    // Recover real-world review evidence in parallel with the AI pass — it
+    // only needs the product name, not the AI result. Capped at 25s so a slow
+    // web search can never blow the route's 90s budget; the report is complete
+    // without it. Skipped entirely when the CSV has no real product name
+    // (a web search for the generic fallback would be pure waste).
+    const productNameForEvidence = sellerProductNameFromRows(rows);
+    const evidencePromise: Promise<ReviewEvidenceResult | null> =
+      productNameForEvidence.toLowerCase() === "seller product"
+        ? Promise.resolve(null)
+        : Promise.race([
+            collectAndAnalyzeReviewEvidence({
+              productName: productNameForEvidence,
+            }).catch(() => null),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 25_000)),
+          ]);
+
     let raw: unknown = null;
     let usedDeterministicFallback = false;
 
-    try {
-      raw = await openAIResponse(prompt);
-    } catch (llmError) {
-      // The AI pass failed (no key, timeout, API error). Fall back to a fully
-      // deterministic report derived from the CSV instead of a 500 error.
-      console.error("Seller AI analysis failed, using deterministic fallback:", llmError);
-      usedDeterministicFallback = true;
-    }
+    const llmPromise = openAIResponse(prompt).then(
+      (value) => {
+        raw = value;
+      },
+      (llmError) => {
+        // The AI pass failed (no key, timeout, API error). Fall back to a fully
+        // deterministic report derived from the CSV instead of a 500 error.
+        console.error("Seller AI analysis failed, using deterministic fallback:", llmError);
+        usedDeterministicFallback = true;
+      }
+    );
+
+    const [reviewEvidence] = await Promise.all([evidencePromise, llmPromise.then(() => null)]);
 
     const result: JsonRecord = usedDeterministicFallback || !raw
       ? (buildDeterministicSellerResult(rows, deepIntel, file.name) as JsonRecord)
@@ -564,20 +593,16 @@ ${deepIntel.evidenceBrief}
         "The AI insight pass was unavailable for this scan, so ReviewIntel built this report deterministically from your CSV.";
     }
 
-    const reviewEvidence = await collectAndAnalyzeReviewEvidence({
-      productName: sellerProductNameFromRows(rows),
-    });
-
     Object.assign(result, {
       reviewEvidence,
       reviewAuthenticity:
-        reviewEvidence.commentsAnalyzed > 0
+        reviewEvidence && reviewEvidence.commentsAnalyzed > 0
           ? reviewEvidence.reviewAuthenticity
           : {
               score: null,
               label: "Review scan not verified",
               suspiciousReviewRisk: "Not scored",
-              reasons: reviewEvidence.reviewAuthenticity.reasons,
+              reasons: reviewEvidence?.reviewAuthenticity?.reasons ?? [],
               suspiciousComments: [],
             },
     });
