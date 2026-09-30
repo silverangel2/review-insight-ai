@@ -21,6 +21,31 @@ type SellerResult = {
   listingFixes: string[];
   adAngles: string[];
   nextActions: string[];
+  notice?: string;
+  deepInsights?: {
+    executiveSummary: string;
+    ratingBreakdownNote: string;
+    aspectHighlights: Array<{
+      label: string;
+      mentions: number;
+      mentionShare: number;
+      complaintShare: number;
+      severity: 1 | 2 | 3;
+      fixType: string;
+      sampleQuote: string | null;
+    }>;
+    trendNote: string;
+    anomalyNotes: Array<{ severity: string; title: string; detail: string }>;
+    authenticityNote: string;
+    priorityActions: Array<{
+      rank: number;
+      theme: string;
+      impact: string;
+      effort: string;
+      why: string;
+      sampleQuote: string | null;
+    }>;
+  } | null;
 };
 
 type StoredSellerResult = {
@@ -121,6 +146,157 @@ function PriorityPlan({ items }: { items: string[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function toneForSeverity(severity: string) {
+  const value = String(severity || "").toLowerCase();
+  if (value === "high") return "bg-rose-100 text-rose-800 border-rose-200";
+  if (value === "medium") return "bg-amber-100 text-amber-800 border-amber-200";
+  return "bg-slate-100 text-slate-700 border-slate-200";
+}
+
+function toneForImpact(impact: string) {
+  return toneForSeverity(impact);
+}
+
+function toneForEffort(effort: string) {
+  const value = String(effort || "").toLowerCase();
+  if (value === "low") return "bg-emerald-100 text-emerald-800 border-emerald-200";
+  if (value === "medium") return "bg-amber-100 text-amber-800 border-amber-200";
+  return "bg-slate-100 text-slate-700 border-slate-200";
+}
+
+function Pill({ label, tone }: { label: string; tone: string }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[0.68rem] font-black uppercase tracking-[0.12em] ${tone}`}>
+      {label}
+    </span>
+  );
+}
+
+function DeepInsightsSection({ insights }: { insights: NonNullable<SellerResult["deepInsights"]> }) {
+  const aspects = Array.isArray(insights.aspectHighlights) ? insights.aspectHighlights : [];
+  const anomalies = Array.isArray(insights.anomalyNotes) ? insights.anomalyNotes : [];
+  const priorities = Array.isArray(insights.priorityActions) ? insights.priorityActions : [];
+
+  return (
+    <section className="seller-deep-insights mt-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex items-center gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-xl">
+          🧬
+        </div>
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-violet-700">Deep intelligence</p>
+          <h3 className="text-lg font-black text-slate-950">Computed from your actual reviews</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Aspect frequencies, trends, data-quality signals, and evidence-ranked priorities — every number comes from the uploaded CSV.
+          </p>
+        </div>
+      </div>
+
+      {insights.ratingBreakdownNote ? (
+        <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+          📊 {insights.ratingBreakdownNote}
+        </p>
+      ) : null}
+
+      {insights.trendNote ? (
+        <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+          📈 {insights.trendNote}
+        </p>
+      ) : null}
+
+      {aspects.length > 0 ? (
+        <div className="mt-5">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Aspect intelligence</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {aspects.slice(0, 8).map((aspect) => {
+              const complaintPct = Math.round((aspect.complaintShare || 0) * 100);
+              return (
+                <div key={aspect.label} className="seller-insight-card rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-sm font-black text-slate-900">{aspect.label}</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Pill label={`${aspect.fixType} fix`} tone="bg-cyan-100 text-cyan-800 border-cyan-200" />
+                      <Pill label={`severity ${aspect.severity}/3`} tone={toneForSeverity(aspect.severity >= 3 ? "high" : aspect.severity === 2 ? "medium" : "low")} />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs font-bold text-slate-600">
+                    {aspect.mentions} mention{aspect.mentions === 1 ? "" : "s"} · {complaintPct}% negative
+                  </p>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={`h-full rounded-full ${complaintPct >= 60 ? "bg-rose-500" : complaintPct >= 35 ? "bg-amber-500" : "bg-emerald-500"}`}
+                      style={{ width: `${Math.max(2, Math.min(100, complaintPct))}%` }}
+                    />
+                  </div>
+                  {aspect.sampleQuote ? (
+                    <p className="mt-2 border-l-2 border-violet-300 pl-3 text-xs font-semibold italic leading-relaxed text-slate-600">
+                      “{aspect.sampleQuote}”
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {anomalies.length > 0 ? (
+        <div className="mt-5">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Data-quality signals</p>
+          <div className="mt-3 space-y-2">
+            {anomalies.map((anomaly, index) => (
+              <div key={`${anomaly.title}-${index}`} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Pill label={anomaly.severity} tone={toneForSeverity(anomaly.severity)} />
+                  <p className="text-sm font-black text-slate-900">{anomaly.title}</p>
+                </div>
+                <p className="mt-1.5 text-xs font-semibold leading-relaxed text-slate-600">{anomaly.detail}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[0.7rem] font-semibold text-slate-400">
+            These are statistical signals from your uploaded reviews, not proof of fake reviews.
+          </p>
+        </div>
+      ) : null}
+
+      {insights.authenticityNote ? (
+        <p className="mt-4 rounded-2xl bg-violet-50 px-4 py-3 text-xs font-bold leading-relaxed text-violet-900">
+          🛡️ {insights.authenticityNote}
+        </p>
+      ) : null}
+
+      {priorities.length > 0 ? (
+        <div className="mt-5">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Evidence-ranked priorities</p>
+          <div className="mt-3 space-y-2.5">
+            {priorities.map((priority) => (
+              <div key={priority.rank} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-black text-white">
+                  {priority.rank}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="text-sm font-black text-slate-900">{priority.theme}</p>
+                    <Pill label={`${priority.impact} impact`} tone={toneForImpact(priority.impact)} />
+                    <Pill label={`${priority.effort} effort`} tone={toneForEffort(priority.effort)} />
+                  </div>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-600">{priority.why}</p>
+                  {priority.sampleQuote ? (
+                    <p className="mt-1.5 border-l-2 border-violet-300 pl-3 text-xs font-semibold italic leading-relaxed text-slate-500">
+                      “{priority.sampleQuote}”
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -285,6 +461,14 @@ export default function SellerResultPage() {
           }}
           plan="seller-pro"
         />
+
+        {result.notice ? (
+          <div className="mt-6 rounded-[2rem] border border-amber-200 bg-amber-50 p-5 text-sm font-bold text-amber-900 shadow-sm">
+            ⚠️ {result.notice}
+          </div>
+        ) : null}
+
+        {result.deepInsights ? <DeepInsightsSection insights={result.deepInsights} /> : null}
 
         <section className="seller-result-top-cards mt-6 grid gap-4 lg:grid-cols-3">
           <div className="seller-result-mini-card rounded-[2rem] border border-rose-200 bg-rose-50 p-5 shadow-sm">

@@ -13,6 +13,11 @@ import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
+import {
+  analyzeSellerReviews,
+  buildDeterministicSellerResult,
+  toDeepInsightsView,
+} from "@/lib/sellerReviewIntelligence";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -458,6 +463,12 @@ export async function POST(request: Request) {
 
     const sample = sampleTextFromRows(rows);
 
+    // Deterministic intelligence computed from the actual CSV rows. The LLM
+    // reasons over these computed facts (see EVIDENCE BRIEF below) instead of
+    // a flattened text sample, and the quantified insights ship in the
+    // response even if the AI pass is unavailable.
+    const deepIntel = analyzeSellerReviews(rows);
+
     const prompt = `
 You are ReviewIntel Seller Intelligence.
 
@@ -524,10 +535,34 @@ Return JSON only with this shape:
 
 CSV sample:
 ${sample}
+
+${deepIntel.evidenceBrief}
 `;
 
-    const raw = await openAIResponse(prompt);
-    const result = normalizeSellerResult(raw, rows.length);
+    let raw: unknown = null;
+    let usedDeterministicFallback = false;
+
+    try {
+      raw = await openAIResponse(prompt);
+    } catch (llmError) {
+      // The AI pass failed (no key, timeout, API error). Fall back to a fully
+      // deterministic report derived from the CSV instead of a 500 error.
+      console.error("Seller AI analysis failed, using deterministic fallback:", llmError);
+      usedDeterministicFallback = true;
+    }
+
+    const result: JsonRecord = usedDeterministicFallback || !raw
+      ? (buildDeterministicSellerResult(rows, deepIntel, file.name) as JsonRecord)
+      : (normalizeSellerResult(raw, rows.length) as unknown as JsonRecord);
+
+    // Quantified deep insights are always deterministic and always attached,
+    // so the frontend can render aspect frequencies, trends, anomalies, and
+    // prioritized actions with real numbers from the uploaded CSV.
+    result.deepInsights = toDeepInsightsView(deepIntel);
+    if (usedDeterministicFallback && !result.notice) {
+      result.notice =
+        "The AI insight pass was unavailable for this scan, so ReviewIntel built this report deterministically from your CSV.";
+    }
 
     const reviewEvidence = await collectAndAnalyzeReviewEvidence({
       productName: sellerProductNameFromRows(rows),
@@ -549,14 +584,15 @@ ${sample}
 
     Object.assign(result, await stabilizeAnalysisResultWithMemory(result as Record<string, unknown>, { reviewEvidence }));
     if (email && !isCompareSideAnalysis) {
+      const healthScore = readNumber(result, "healthScore");
       const analysisRecord = await saveAnalysisRecord({
         profile_email: email,
         mode: "seller",
         product_name: file.name.replace(/\.csv$/i, "") || "Seller CSV scan",
         platform: "other",
-        product_score: result.healthScore,
-        recommendation: result.healthScore >= 70 ? "seller_watch" : "seller_fix",
-        summary: result.summary,
+        product_score: healthScore,
+        recommendation: healthScore >= 70 ? "seller_watch" : "seller_fix",
+        summary: readString(result, "summary"),
         analysis_json: result,
         account: { email, plan, role }
       }) as { id?: string; created_at?: string } | null;
