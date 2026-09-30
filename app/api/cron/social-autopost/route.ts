@@ -3,6 +3,10 @@ import { runSocialAutoPost } from "@/lib/socialAutoPost";
 
 export async function GET(request: NextRequest) {
   const secret = process.env.SOCIAL_CRON_SECRET || process.env.CRON_SECRET;
+
+  if (!secret && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ ok: false, error: "Cron secret is not configured." }, { status: 401 });
+  }
   const vercelCronSchedule = request.headers.get("x-vercel-cron-schedule") || "";
   const isExpectedVercelCron = vercelCronSchedule === "0 13 * * *";
 

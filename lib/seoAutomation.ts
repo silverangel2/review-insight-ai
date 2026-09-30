@@ -1,6 +1,6 @@
 import { seoLandingPages } from "@/lib/seoLandingPages";
 
-export type RobotsMode = "index,follow" | "noindex,nofollow";
+export type RobotsMode = "index,follow" | "noindex,follow" | "noindex,nofollow";
 
 export type SeoDraft = {
   title: string;
@@ -42,7 +42,7 @@ const coreSeoPages: AutomatedSeoPage[] = [
     title: "AI Product Review Analyzer | ReviewIntel",
     description: "Upload a product screenshot, review text, or product link to get a clear AI buying verdict with risks, value signals, complaints, and next steps.",
     keywords: ["AI product review analyzer", "product scan", "buying verdict"],
-    robots: "index,follow",
+    robots: "noindex,follow",
     priority: 0.9,
     changeFrequency: "weekly",
   },
@@ -52,7 +52,7 @@ const coreSeoPages: AutomatedSeoPage[] = [
     title: "Product Compare AI | ReviewIntel",
     description: "Compare two products with AI review intelligence so shoppers can see the stronger choice, important tradeoffs, and when products should not be compared.",
     keywords: ["product compare AI", "compare product reviews", "shopping comparison"],
-    robots: "index,follow",
+    robots: "noindex,follow",
     priority: 0.86,
     changeFrequency: "weekly",
   },

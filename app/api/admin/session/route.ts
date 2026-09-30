@@ -71,7 +71,7 @@ export async function POST(request: Request): Promise<Response> {
       value: await createAdminSessionCookie(),
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
     });

@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000"
+    (process.env.NODE_ENV === "production" ? "https://getreviewintel.com" : "http://localhost:3000")
   ),
   title: {
     default: "ReviewIntel | AI Review Intelligence Platform",
@@ -37,8 +37,11 @@ export const metadata: Metadata = {
     "review screenshot analysis",
     "AI shopping assistant"
   ],
+  alternates: {
+    canonical: "/"
+  },
   openGraph: {
-    images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "ReviewIntel AI Review Intelligence" }],
+    images: [{ url: "/og-reviewintel.png", width: 1200, height: 630, alt: "ReviewIntel AI Review Intelligence" }],
     title: "ReviewIntel",
     description: "AI-powered review intelligence for shoppers and ecommerce sellers.",
     url: "/",
@@ -48,7 +51,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ReviewIntel",
-    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict."
+    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict.",
+    images: ["/og-reviewintel.png"]
   }
 };
 
