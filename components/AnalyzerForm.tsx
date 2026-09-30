@@ -333,6 +333,7 @@ export default function AnalyzerForm() {
           value={productLink}
           onChange={(event) => setProductLink(event.target.value)}
           placeholder={analyzerFormCopy(readStoredLocale()).linkPlaceholder}
+          aria-label={analyzerFormCopy(readStoredLocale()).linkPlaceholder}
           className="mt-5 w-full rounded-2xl border border-line bg-white px-5 py-4 text-base font-bold text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/15 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
         />
 
