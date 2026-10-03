@@ -2697,6 +2697,7 @@ export async function POST(request: Request) {
 
     const isShopperFree =
       role !== "admin" &&
+      role !== "guest" &&
       !isBetaPlanForAnalyze &&
       normalizedPlanForAnalyze === "free_buyer";
 

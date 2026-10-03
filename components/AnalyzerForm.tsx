@@ -14,15 +14,32 @@ import { ReviewIntelScanOverlay, type ScanStage } from "@/components/ReviewIntel
 // SCAN_PROGRESS_STEPS removed: the overlay now uses real upload progress
 // plus an indeterminate (never fake-percentaged) analyzing stage.
 
-// Anonymous-visitor free scans. The localStorage counter is UX-only —
-// the server enforces the real limit by IP hash (lib/anonymousScans.ts).
+// Anonymous-visitor free scans: 3 per day, per device. The localStorage
+// counter is UX-only — the server enforces the real limit by IP hash
+// with its own daily window (lib/anonymousScans.ts).
 const ANON_SCAN_LIMIT_CLIENT = 3;
 const ANON_SCAN_STORAGE_KEY = "ri_anon_scans";
+
+function anonDayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function readAnonScanCount(): number {
   try {
     if (typeof window === "undefined") return 0;
-    return Number(window.localStorage.getItem(ANON_SCAN_STORAGE_KEY)) || 0;
+    const raw = window.localStorage.getItem(ANON_SCAN_STORAGE_KEY);
+    if (!raw) return 0;
+    // New format: {"d":"2026-10-03","n":2}. Old format was a bare number,
+    // treated as today's count so nobody is stuck on the old behavior.
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        return parsed.d === anonDayKey() ? Number(parsed.n) || 0 : 0;
+      }
+    } catch {
+      // Not JSON — fall through to the legacy bare-number format.
+    }
+    return Number(raw) || 0;
   } catch {
     return 0;
   }
@@ -30,7 +47,10 @@ function readAnonScanCount(): number {
 
 function writeAnonScanCount(value: number) {
   try {
-    window.localStorage.setItem(ANON_SCAN_STORAGE_KEY, String(value));
+    window.localStorage.setItem(
+      ANON_SCAN_STORAGE_KEY,
+      JSON.stringify({ d: anonDayKey(), n: value })
+    );
   } catch {
     // Storage unavailable — the server still enforces the limit.
   }
@@ -400,9 +420,9 @@ export default function AnalyzerForm() {
             <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#ffbd58]">
               Free scans used
             </p>
-            <h2 className="mt-3 text-3xl font-black">You&apos;ve used your 3 free scans</h2>
+            <h2 className="mt-3 text-3xl font-black">You&apos;ve used today&apos;s 3 free scans</h2>
             <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-6 text-slate-300">
-              Sign in to keep scanning — it&apos;s free. Your scan history and premium verdicts are waiting.
+              Come back tomorrow for 3 more — or sign in now to keep scanning. It&apos;s free, and your scan history and premium verdicts are waiting.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a
@@ -422,13 +442,13 @@ export default function AnalyzerForm() {
         ) : (
         <>
         {isAnonymousVisitor ? (
-          <p className="mb-4 text-center text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-            <span className="rounded-full border border-[#ffbd58]/50 bg-[#ffbd58]/10 px-3 py-1.5 text-[#b98a2f]">
+          <p className="mb-4 flex justify-center px-4">
+            <span className="inline-block max-w-full rounded-full border border-[#ffbd58]/50 bg-[#ffbd58]/10 px-4 py-2 text-center text-[11px] font-black uppercase leading-relaxed tracking-[0.14em] text-[#b98a2f] sm:text-xs sm:tracking-[0.18em]">
               {anonScansLeft} of {ANON_SCAN_LIMIT_CLIENT} free scans left — no sign-in needed
             </span>
           </p>
         ) : null}
-        <label className="group flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[2.5rem] border-4 border-dashed border-teal/40 bg-white p-8 text-center shadow-soft transition hover:-translate-y-1 hover:border-teal hover:shadow-glow dark:border-cyan-300/40 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+        <label className="group flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[2.5rem] border-2 border-dashed border-teal/40 bg-white p-8 text-center shadow-soft transition hover:-translate-y-1 hover:border-teal hover:shadow-glow dark:border-cyan-300/40 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <input
             type="file"
             accept="image/*"
