@@ -483,6 +483,14 @@ export default async function LandingPage() {
                 </span>
               ))}
             </div>
+            <div className="mt-6 space-y-4">
+              <p className="text-sm font-semibold leading-7 text-slate-700">
+                A product can show thousands of reviews while hiding a pattern of broken zippers, wrong sizes, or batteries that die in a month. ReviewIntel reads the actual review language — not just the star rating — so you see which complaints keep repeating and which praise actually matches the listing. Every scan ends with a plain verdict: BUY, REVIEW FIRST, or AVOID.
+              </p>
+              <p className="text-sm font-semibold leading-7 text-slate-700">
+                Use it before you click checkout. Paste a product link, upload a screenshot of the listing, or drop in a TXT or CSV of reviews you already saved. Your first 3 scans are free with no sign-in. Treat the verdict as decision support, not a guarantee — it estimates risk from the reviews you feed it, and thin or one-sided review sets make weaker scans.
+              </p>
+            </div>
             <Link href="/analyze" className="mt-8 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
               {t("tryShopperScan")}
             </Link>
@@ -497,6 +505,14 @@ export default async function LandingPage() {
                   {item}
                 </span>
               ))}
+            </div>
+            <div className="mt-6 space-y-4">
+              <p className="text-sm font-semibold leading-7 text-slate-700">
+                Sellers rarely have time to read every review — but the patterns are where the money goes. ReviewIntel clusters repeated complaints (wrong size expectations, packaging damage, missing parts) so you see which issues are costing refunds and dragging down your rating. It also surfaces sentiment trends and the phrases buyers use when they&rsquo;re happy, which tells you what to say louder in your listing.
+              </p>
+              <p className="text-sm font-semibold leading-7 text-slate-700">
+                Scan your own product and two competitors. The gap between their complaint themes and yours is your roadmap: fix the packaging complaint before it becomes a one-star pattern, or double down on the feature buyers praise that nobody else offers. Treat the output as an improvement signal, not a verdict on your business — pair it with your own sales data before making inventory decisions.
+              </p>
             </div>
             <Link href="/pricing" className="mt-8 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
               {t("seeSellerPlans")}
@@ -517,6 +533,75 @@ export default async function LandingPage() {
           </p>
         </div>
       </section>
+      <section className="bg-[linear-gradient(135deg,#0d1b33_0%,#16294d_55%,#2356a3_100%)] px-5 py-16 text-white sm:px-6 sm:py-20 lg:py-24">
+        <div className="mx-auto max-w-7xl">
+          <Badge tone="info">How it works</Badge>
+          <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-tight md:text-4xl">How ReviewIntel reads reviews</h2>
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-slate-200">
+            Star ratings lie by compression: a 4.3-star product can be &ldquo;great value, terrible packaging&rdquo; averaged into a shrug. ReviewIntel reads the review text itself and the rating patterns around it, then turns what it finds into plain-language risk signals and a single BUY, REVIEW FIRST, or AVOID verdict with a confidence level.
+          </p>
+          <div className="mt-8 grid gap-6 md:grid-cols-2">
+            <article className="rounded-2xl border border-white/15 bg-white/10 p-6 backdrop-blur">
+              <h3 className="text-lg font-black text-amber-200">What the scan looks at</h3>
+              <ul className="mt-4 space-y-3 text-sm font-semibold leading-7 text-slate-200">
+                <li><strong className="font-black text-white">Review language</strong> — recurring phrases, complaint wording, and praise patterns across reviews.</li>
+                <li><strong className="font-black text-white">Repeated themes</strong> — the same complaint showing up from many reviewers becomes a complaint pattern.</li>
+                <li><strong className="font-black text-white">Rating patterns</strong> — whether five-star and one-star reviews tell different stories about the product.</li>
+                <li><strong className="font-black text-white">Value signals</strong> — whether the quality described matches the price charged.</li>
+                <li><strong className="font-black text-white">Fake-review risk</strong> — indicators that some reviews may be inauthentic or incentivized.</li>
+              </ul>
+            </article>
+            <article className="rounded-2xl border border-white/15 bg-white/10 p-6 backdrop-blur">
+              <h3 className="text-lg font-black text-amber-200">What it does not do</h3>
+              <ul className="mt-4 space-y-3 text-sm font-semibold leading-7 text-slate-200">
+                <li><strong className="font-black text-white">Not a guarantee</strong> — it estimates risk from the reviews you provide; it cannot verify manufacturing quality or predict your personal experience.</li>
+                <li><strong className="font-black text-white">Limited by its input</strong> — it cannot read reviews you didn&rsquo;t include, so one-sided or planted review sets produce weaker scans.</li>
+                <li><strong className="font-black text-white">Confidence varies</strong> — a verdict built on ten reviews is weaker than one built on ten thousand; the confidence indicator tells you how much weight to give the result.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-16 text-ink sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-7xl">
+          <Badge tone="good">Free tier</Badge>
+          <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">Start with 3 free scans</h2>
+          <p className="mt-4 max-w-3xl text-base font-semibold leading-8 text-slate-700">
+            Every visitor gets 3 free scans — no account, no payment, no sign-in. Paste a product link, upload a screenshot, or import a TXT or CSV of reviews and get the full analysis: verdict, risk signals, complaint patterns, and best-for match. Three scans is enough to try it on the purchases you&rsquo;re actually debating. When you run out, creating a free account unlocks more.
+          </p>
+        </div>
+      </section>
+
+      <section className="bg-mist px-5 py-16 text-ink sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-7xl">
+          <Badge tone="info">FAQ</Badge>
+          <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">Frequently asked questions</h2>
+          <div className="mt-8 grid gap-5 md:grid-cols-2">
+            <article className="rounded-2xl border border-line bg-white p-6 shadow-soft">
+              <h3 className="text-base font-black">What do I upload to start a scan?</h3>
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">A product link from any store, a screenshot of the listing, or a TXT or CSV file of reviews you already saved. The scan reads the review text, rating patterns, and repeated themes, then returns a verdict with the reasons behind it.</p>
+            </article>
+            <article className="rounded-2xl border border-line bg-white p-6 shadow-soft">
+              <h3 className="text-base font-black">Is ReviewIntel really free?</h3>
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">Your first 3 scans are free with no sign-in and no payment. If you need more scans or seller tools like complaint clusters and sentiment trends, paid plans add capacity — but the free tier is the full analysis, not a teaser.</p>
+            </article>
+            <article className="rounded-2xl border border-line bg-white p-6 shadow-soft">
+              <h3 className="text-base font-black">Which marketplaces does it work with?</h3>
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">Anywhere reviews exist: Amazon, Walmart, Temu, TikTok Shop, Etsy, Shopify stores, and eBay. And because you can upload screenshots or review files, it works with any product link at all.</p>
+            </article>
+            <article className="rounded-2xl border border-line bg-white p-6 shadow-soft">
+              <h3 className="text-base font-black">How should I treat the verdict?</h3>
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">As decision support, not a guarantee. The BUY / REVIEW FIRST / AVOID verdict estimates risk from the reviews provided — check the confidence indicator, especially on products with few reviews, and use your own judgment before a big purchase.</p>
+            </article>
+            <article className="rounded-2xl border border-line bg-white p-6 shadow-soft md:col-span-2">
+              <h3 className="text-base font-black">Do sellers see my scans?</h3>
+              <p className="mt-3 max-w-3xl text-sm font-semibold leading-7 text-slate-600">No. Shopper scans are private to you. Sellers only see analysis of products they choose to scan themselves — your scans are never published or shared with the brands you research.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
     
       <section className="home-premium-ad-section hidden mx-auto max-w-7xl px-6 py-12 sm:block">
