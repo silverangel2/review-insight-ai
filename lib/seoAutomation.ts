@@ -212,9 +212,83 @@ const landingSeoPages: AutomatedSeoPage[] = Object.values(seoLandingPages).map((
   changeFrequency: "weekly",
 }));
 
+const guideSeoPages: AutomatedSeoPage[] = [
+  {
+    label: "Guides",
+    path: "/guides",
+    title: "ReviewIntel Guides | Read Product Reviews Like a Pro",
+    description: "Practical ReviewIntel guides on spotting fake reviews, understanding star ratings, reading complaint patterns, and checking products before you buy.",
+    keywords: ["review guides", "spot fake reviews", "read product reviews", "shopping guides"],
+    robots: "index,follow",
+    priority: 0.7,
+    changeFrequency: "weekly",
+  },
+  {
+    label: "How to Spot Fake Amazon Reviews",
+    path: "/guides/spot-fake-amazon-reviews",
+    title: "How to Spot Fake Amazon Reviews: 7 Patterns Worth Checking | ReviewIntel",
+    description: "Fake reviews leave patterns: repeated phrases, marketing-like language, review bursts, thin reviewer profiles, and more. Learn seven risk signals to check before trusting a star rating.",
+    keywords: ["spot fake amazon reviews", "fake review patterns", "fake product reviews"],
+    robots: "index,follow",
+    priority: 0.64,
+    changeFrequency: "monthly",
+  },
+  {
+    label: "What Review Velocity Spikes Mean",
+    path: "/guides/review-velocity-spikes",
+    title: "What Review Velocity Spikes Mean (and When to Worry) | ReviewIntel",
+    description: "A product that gains hundreds of reviews in a week is telling you something. Learn to tell a launch surge from a review pattern that deserves suspicion.",
+    keywords: ["review velocity", "review spikes", "suspicious review patterns"],
+    robots: "index,follow",
+    priority: 0.64,
+    changeFrequency: "monthly",
+  },
+  {
+    label: "How to Read Complaint Patterns Before You Buy",
+    path: "/guides/read-complaint-patterns",
+    title: "How to Read Complaint Patterns Before You Buy | ReviewIntel",
+    description: "Every product has complaints. Learn to tell a real durability problem apart from shipping gripes, one-off bad luck, and complaints that don't apply to you.",
+    keywords: ["read complaint patterns", "product complaints", "durability issues reviews"],
+    robots: "index,follow",
+    priority: 0.64,
+    changeFrequency: "monthly",
+  },
+  {
+    label: "What Verified Purchase, Vine, and Unverified Badges Mean",
+    path: "/guides/verified-purchase-vine-badges",
+    title: "What Verified Purchase, Vine, and Unverified Badges Actually Mean | ReviewIntel",
+    description: "Plain-English explainer of Amazon review badges: what Verified Purchase actually verifies, how the Vine program works, and how much weight each badge deserves.",
+    keywords: ["verified purchase meaning", "amazon vine reviews", "unverified reviews"],
+    robots: "index,follow",
+    priority: 0.64,
+    changeFrequency: "monthly",
+  },
+  {
+    label: "Why the Same Star Rating Can Mean Very Different Things",
+    path: "/guides/same-star-rating-different-meaning",
+    title: "Why the Same Star Rating Can Mean Very Different Things | ReviewIntel",
+    description: "Two products can both show 4.3 stars and be completely different bets. Learn to read rating distributions, category norms, and recency before trusting the number.",
+    keywords: ["star rating meaning", "rating distribution", "polarized reviews"],
+    robots: "index,follow",
+    priority: 0.64,
+    changeFrequency: "monthly",
+  },
+  {
+    label: "A 5-Minute Cross-Checking Routine Before You Buy",
+    path: "/guides/pre-purchase-cross-check-routine",
+    title: "A 5-Minute Cross-Checking Routine Before You Buy | ReviewIntel",
+    description: "A practical five-minute checklist for any product page: badges, rating shape, complaint patterns, review timing, and customer photos — in order.",
+    keywords: ["check product before buying", "product research checklist", "verify product reviews"],
+    robots: "index,follow",
+    priority: 0.64,
+    changeFrequency: "monthly",
+  },
+];
+
 export const automatedSeoPages: AutomatedSeoPage[] = [
   ...coreSeoPages,
   ...landingSeoPages,
+  ...guideSeoPages,
   ...trustSeoPages,
 ];
 

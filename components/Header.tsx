@@ -140,11 +140,13 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
             ["Results", "/results"],
             ["Pricing", "/pricing"],
             ["Advertise", "/advertise"],
+            ["Guides", "/guides"],
           ]
     : [
         ["Pricing", "/pricing"],
         ["Advertise", "/advertise"],
         ["Reviews", "/reviews"],
+        ["Guides", "/guides"],
       ];
 
   const planLabel =
