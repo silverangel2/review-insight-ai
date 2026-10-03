@@ -229,21 +229,31 @@ test("collector fallback URLs are unique, trimmed and bounded", () => {
   assert.match(evidence, /\.slice\(0, 24\)/);
 });
 
-test("review evidence uses one last-resort OpenAI URL discovery step", () => {
+test("review evidence uses bounded adaptive research after efficient collection", () => {
   const evidence = source("lib/reviewEvidence.ts");
   const helper = source("lib/openAiWebSearch.ts");
 
-  assert.match(evidence, /REVIEWINTEL_RELIABLE_SIGNAL_TARGET \|\| 20/);
-  assert.match(evidence, /Math\.min\(Number\(process\.env\.REVIEWINTEL_RELIABLE_SIGNAL_TARGET \|\| 20\), 30\)/);
-  assert.match(evidence, /createOpenAiWebSearchContext\(\{ maxCalls: 1 \}\)/);
+  assert.match(evidence, /REVIEWINTEL_RELIABLE_SIGNAL_TARGET \|\| 35/);
+  assert.match(evidence, /Math\.min\(Number\(process\.env\.REVIEWINTEL_RELIABLE_SIGNAL_TARGET \|\| 35\), 50\)/);
+  assert.match(evidence, /createOpenAiWebSearchContext\(\{ maxCalls: 5 \}\)/);
   assert.match(evidence, /discoverReviewUrlsWithOpenAi/);
-  assert.match(evidence, /last-resort-review-url-discovery/);
+  assert.match(evidence, /adaptive-review-evidence-research/);
+  assert.match(evidence, /REVIEWINTEL_DEEP_SEARCH_PASSES/);
+  assert.match(evidence, /collectedWrittenReviewCount\(\) < reliableSignalTarget/);
+  assert.match(evidence, /parsedEvidenceSignalCount\(adaptiveResearchAggregate\)/);
   assert.match(evidence, /collectWrittenReviewsFromUrls/);
   assert.match(evidence, /callOpenAiResponseWithoutWebSearch/);
-  assert.doesNotMatch(evidence, /REVIEWINTEL_DEEP_SEARCH_PASSES/);
-  assert.doesNotMatch(evidence, /review-evidence-deep-pass/);
-  assert.doesNotMatch(evidence, /usedOpenAiWebReviewSearch/);
   assert.match(helper, /search_context_size/);
+  assert.match(helper, /HARD_MAX_OPENAI_WEB_SEARCH_CALLS = 5/);
+});
+
+test("marketplace aggregates cannot satisfy written-review evidence gates", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /Aggregate marketplace stars\/review volume are useful context/);
+  assert.doesNotMatch(analyzerRoute, /const hasMarketplaceSignals =/);
+  assert.match(analyzerRoute, /normalizedReviewSignalCount = Math\.max\(/);
+  assert.match(analyzerRoute, /normalizedReviewSignalCount >= 3/);
 });
 
 test("OpenAI Web Search calls are centralized and budgeted", () => {
@@ -263,9 +273,9 @@ test("OpenAI Web Search calls are centralized and budgeted", () => {
   assert.match(helper, /skippedLimitReached/);
   assert.match(helper, /context\.diagnostics\.calls \+= 1/);
 
-  assert.equal((evidence.match(/await callOpenAiWebSearchResponse/g) || []).length, 1);
+  assert.ok((evidence.match(/await callOpenAiWebSearchResponse/g) || []).length >= 2);
+  assert.match(evidence, /purpose: "adaptive-review-evidence-research"/);
   assert.match(evidence, /purpose: "last-resort-review-url-discovery"/);
-  assert.doesNotMatch(evidence, /purpose: "review-evidence-first-pass"/);
   assert.doesNotMatch(evidence, /allowWithoutWebSearch/);
   assert.doesNotMatch(exactSearch, /callOpenAiWebSearchResponse/);
   assert.doesNotMatch(productUrlRetrieval, /callOpenAiWebSearchResponse/);

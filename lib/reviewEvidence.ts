@@ -899,6 +899,55 @@ function safeParseReviewEvidenceJson(text: string) {
   }
 }
 
+function parsedEvidenceSignalCount(value: unknown) {
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const lengths = [
+    "reviewSnippets",
+    "repeatedPraises",
+    "repeatedComplaints",
+    "productPros",
+    "productCons",
+    "buyerExperienceSignals",
+    "aiPatternSignals",
+  ].map((key) => (Array.isArray(record[key]) ? record[key].length : 0));
+  return Math.max(...lengths, typeof record.reviewIntelligenceSignals === "number" ? record.reviewIntelligenceSignals : 0);
+}
+
+function mergeParsedReviewEvidence(
+  primary: Record<string, unknown>,
+  secondary: Record<string, unknown>
+) {
+  const merged: Record<string, unknown> = { ...primary, ...secondary };
+  const arrayKeys = [
+    "sourcesChecked",
+    "reviewSnippets",
+    "repeatedPraises",
+    "repeatedComplaints",
+    "productPros",
+    "productCons",
+    "buyerExperienceSignals",
+    "aiPatternSignals",
+    "sourceNotes",
+    "sourceLinks",
+  ];
+
+  for (const key of arrayKeys) {
+    const values = [
+      ...(Array.isArray(primary[key]) ? primary[key] : []),
+      ...(Array.isArray(secondary[key]) ? secondary[key] : []),
+    ];
+    const seen = new Set<string>();
+    merged[key] = values.filter((item) => {
+      const identity = JSON.stringify(item);
+      if (seen.has(identity)) return false;
+      seen.add(identity);
+      return true;
+    });
+  }
+
+  return merged;
+}
+
 function normalizeDiscoveredReviewUrl(value: unknown): string | null {
   const raw = String(value || "")
     .replace(/&amp;/g, "&")
@@ -2007,7 +2056,7 @@ export async function collectAndAnalyzeReviewEvidence(
 ): Promise<ReviewEvidenceResult> {
   const requestedLocale = normalizeLocale(input.locale || "en");
   const outputLanguage = String(input.outputLanguage || localeLabel(requestedLocale) || "English");
-  const openAiWebSearchContext = createOpenAiWebSearchContext({ maxCalls: 1 });
+  const openAiWebSearchContext = createOpenAiWebSearchContext({ maxCalls: 5 });
 
   const product = uniqueIdentityTokens([input.brand, input.productName, input.model], 30);
   const cleanVisibleIdentity = uniqueSearchWordsFromText([
@@ -2374,7 +2423,7 @@ export async function collectAndAnalyzeReviewEvidence(
 
   const reliableSignalTarget = Math.max(
     8,
-    Math.min(Number(process.env.REVIEWINTEL_RELIABLE_SIGNAL_TARGET || 20), 30)
+    Math.min(Number(process.env.REVIEWINTEL_RELIABLE_SIGNAL_TARGET || 35), 50)
   );
   const collectedWrittenReviewCount = () => Math.max(
     Number(collectedWrittenReviews.reviewsCollected || 0),
@@ -2639,6 +2688,98 @@ export async function collectAndAnalyzeReviewEvidence(
     collectedWrittenReviews
   );
 
+  const adaptiveResearchEvidence: Record<string, unknown>[] = [];
+  let adaptiveResearchAggregate: Record<string, unknown> = {};
+  const adaptiveMaxPasses = Math.max(
+    1,
+    Math.min(Number(process.env.REVIEWINTEL_DEEP_SEARCH_PASSES || 5), 5)
+  );
+
+  for (
+    let pass = 1;
+    pass <= adaptiveMaxPasses &&
+      collectedWrittenReviewCount() < reliableSignalTarget &&
+      parsedEvidenceSignalCount(adaptiveResearchAggregate) < reliableSignalTarget;
+    pass += 1
+  ) {
+    const beforeSignals = parsedEvidenceSignalCount(adaptiveResearchAggregate);
+    const adaptivePrompt = `
+You are ReviewIntel's bounded adaptive public-review research pass.
+
+Find additional exact-product written buyer-review, Q&A, forum, or open-web review-intelligence signals for:
+${reviewSearchIdentity || product}
+
+This is pass ${pass} of ${adaptiveMaxPasses}. The current collected evidence is below the quality target of ${reliableSignalTarget} distinct signals.
+
+Exact product identity:
+${JSON.stringify({
+      store: input.store || null,
+      brand: input.brand || null,
+      title: input.productName || null,
+      model: input.model || null,
+      price: input.price ?? null,
+      rating: input.rating ?? null,
+      reviewCount: input.reviewCount ?? null,
+      exactListingUrl: checkedListingUrl || null,
+      exactListingTitle: checkedListingTitle || null,
+    }, null, 2)}
+
+Already collected marketplace evidence:
+${collectedWrittenReviewsPrompt}
+
+Previous adaptive evidence:
+${JSON.stringify(adaptiveResearchAggregate, null, 2)}
+
+Rules:
+- Use web search only for the same exact product; do not use similar products.
+- Do not invent review bodies, URLs, ratings, or verdicts.
+- Prefer concrete buyer signals, complaints, praise, Q&A, forum comments, or public review snippets.
+- Return only JSON in the existing review-evidence shape.
+- Product identity and aggregate marketplace rating/review count are metadata, not written-review evidence.
+- Return additional distinct signals if available; return empty arrays if no useful incremental evidence remains.
+`.trim();
+
+    const adaptiveResponse = await callOpenAiWebSearchResponse<{
+      output_text?: string;
+      output?: Array<{ content?: Array<{ text?: string }> }>;
+    }>({
+      model: process.env.OPENAI_REVIEW_DEEP_SEARCH_MODEL || process.env.OPENAI_REVIEW_SEARCH_MODEL,
+      searchContextSize: "low",
+      input: adaptivePrompt,
+      temperature: 0.1,
+      context: openAiWebSearchContext,
+      purpose: "adaptive-review-evidence-research",
+      dedupeKey: `adaptive-review-evidence-research:${reviewSearchIdentity || product}:pass-${pass}`,
+      evidenceSatisfied: () => parsedEvidenceSignalCount(adaptiveResearchAggregate) >= reliableSignalTarget,
+    });
+
+    const adaptiveOutput = adaptiveResponse.outputText || "";
+    if (!adaptiveResponse.ok || !adaptiveOutput.trim()) break;
+
+    const parsedAdaptive = safeParseReviewEvidenceJson(adaptiveOutput);
+    const parsedAdaptiveRecord =
+      parsedAdaptive && typeof parsedAdaptive === "object"
+        ? (parsedAdaptive as Record<string, unknown>)
+        : {};
+    adaptiveResearchAggregate = mergeParsedReviewEvidence(
+      adaptiveResearchAggregate,
+      parsedAdaptiveRecord
+    );
+    adaptiveResearchEvidence.push(parsedAdaptiveRecord);
+
+    const afterSignals = parsedEvidenceSignalCount(adaptiveResearchAggregate);
+    console.log("[ReviewIntel DEBUG adaptiveReviewResearch]", {
+      pass,
+      targetSignals: reliableSignalTarget,
+      beforeSignals,
+      afterSignals,
+      usefulIncrement: afterSignals > beforeSignals,
+      webSearchCalls: getOpenAiWebSearchDiagnostics(openAiWebSearchContext).calls,
+    });
+
+    if (afterSignals <= beforeSignals) break;
+  }
+
   console.log("[ReviewIntel DEBUG reviewCollectorInput]", {
     listingUrlForReviewCollector,
     marketplaceReviewCountForCollector,
@@ -2717,6 +2858,9 @@ ${nativeRetrievalNote}
 
 Firecrawl fallback recovery:
 ${firecrawlRecoveryNote}
+
+Adaptive research evidence collected before this final analysis:
+${JSON.stringify(adaptiveResearchEvidence, null, 2)}
 
 You are ReviewIntel's review-evidence scanner.
 

@@ -66,6 +66,7 @@ type OpenAiPlainResponseInput = {
 };
 
 const DEFAULT_MAX_OPENAI_WEB_SEARCH_CALLS = 1;
+const HARD_MAX_OPENAI_WEB_SEARCH_CALLS = 5;
 
 function createDiagnostics(): OpenAiWebSearchDiagnostics {
   return {
@@ -82,7 +83,7 @@ function createDiagnostics(): OpenAiWebSearchDiagnostics {
 function clampMaxCalls(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(parsed)) return DEFAULT_MAX_OPENAI_WEB_SEARCH_CALLS;
-  return Math.max(0, Math.min(Math.round(parsed), DEFAULT_MAX_OPENAI_WEB_SEARCH_CALLS));
+  return Math.max(0, Math.min(Math.round(parsed), HARD_MAX_OPENAI_WEB_SEARCH_CALLS));
 }
 
 function normalizeDedupeKey(value: string) {

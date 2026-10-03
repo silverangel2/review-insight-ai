@@ -831,8 +831,6 @@ function evidenceCoverageWeight(commentsAnalyzed: number) {
 
 function hasEnoughReviewEvidence(result: ReturnType<typeof normalizeResult>) {
   const sourcesCount = result.sourcesUsed.length;
-  const reviewCount = parseVisibleReviewCount(result.product.reviewCount);
-  const rating = parseVisibleRating(result.product.rating);
   const evidenceText = [
     ...result.topStrengths,
     ...result.topComplaints,
@@ -843,9 +841,9 @@ function hasEnoughReviewEvidence(result: ReturnType<typeof normalizeResult>) {
 
   const hasWrittenReviewSignals =
     /\b(review|reviews|buyer|buyers|customer|customers|complain|complaint|praise|praised|reported|mentioned|said|feedback)\b/.test(evidenceText);
-  const hasMarketplaceSignals = rating !== null && reviewCount !== null && reviewCount >= 25;
-
-  return sourcesCount > 0 || hasWrittenReviewSignals || hasMarketplaceSignals;
+  // Aggregate marketplace stars/review volume are useful context, but they
+  // are not written-review evidence and cannot satisfy this gate by themselves.
+  return sourcesCount > 0 || hasWrittenReviewSignals;
 }
 
 function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
@@ -2211,6 +2209,13 @@ function buildReviewEvidenceShopperResult(input: {
     aiPatternSignals.length > 0 ||
     commentsAnalyzed > 0;
 
+  const normalizedReviewSignalCount = Math.max(
+    repeatedPraises.length + repeatedComplaints.length,
+    productPros.length + productCons.length,
+    buyerExperienceSignals.length,
+    aiPatternSignals.length
+  );
+
   const reviewCoverageRatio =
     marketplaceReviewCount > 0
       ? commentsAnalyzed / marketplaceReviewCount
@@ -2224,7 +2229,7 @@ function buildReviewEvidenceShopperResult(input: {
   const hasUsableReviewEvidence =
     hasReadableReviewEvidence &&
     commentsAnalyzed >= 3 &&
-    evidenceReviewSignalCount >= 3 &&
+    normalizedReviewSignalCount >= 3 &&
     evidenceStrength !== "none";
 
   // If RI found the product/review count but only reached thin review intelligence,
