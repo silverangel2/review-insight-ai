@@ -79,15 +79,42 @@ type RecommendationBase = {
   aiLikeRisk: string;
 };
 
+const AMAZON_STORE_LABELS: Array<[string, string]> = [
+  ["amazon.ca", "Amazon.ca"],
+  ["amazon.com", "Amazon.com"],
+  ["amazon.co.uk", "Amazon UK"],
+  ["amazon.de", "Amazon Germany"],
+  ["amazon.fr", "Amazon France"],
+  ["amazon.it", "Amazon Italy"],
+  ["amazon.es", "Amazon Spain"],
+  ["amazon.co.jp", "Amazon Japan"],
+  ["amazon.com.au", "Amazon Australia"],
+  ["amazon.com.mx", "Amazon Mexico"],
+  ["amazon.com.br", "Amazon Brazil"],
+  ["amazon.in", "Amazon India"],
+];
+
 function amazonStoreForUrl(url: string) {
   try {
-    const host = new URL(url).hostname.toLowerCase();
-    if (host.includes("amazon.com") && !host.includes("amazon.ca")) return "Amazon.com";
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    for (const [suffix, label] of AMAZON_STORE_LABELS) {
+      if (host === suffix || host.endsWith(`.${suffix}`)) return label;
+    }
   } catch {
     // Keep the Canadian store label as the shopper default when parsing fails.
   }
 
   return "Amazon.ca";
+}
+
+// Invented ASINs from the AI often contain repeated-character runs
+// (e.g. B09N1X1X1X). Real ASINs rarely repeat the same char 4+ times.
+function looksLikeInventedAsin(url: string) {
+  const match =
+    /\/dp\/([A-Z0-9]{10})(?:[/?#]|$)/i.exec(url) ||
+    /\/gp\/product\/([A-Z0-9]{10})(?:[/?#]|$)/i.exec(url);
+  if (!match) return false;
+  return /(.)\1{3,}/.test(match[1].toUpperCase());
 }
 
 async function extractOpenGraphImage(url: string) {
@@ -153,6 +180,7 @@ function normalizeRecommendationUrls(
 
     const looksPlaceholder =
       /B09N1X1X1X|B07Z5Y5Y5Y/i.test(url) ||
+      looksLikeInventedAsin(url) ||
       seenUrls.has(url);
 
     const safeUrl = looksPlaceholder

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
+import { buildAffiliateUrl } from "@/lib/affiliate";
 import type { AffiliatePartnerPlacement } from "@/lib/adConfig";
 import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 
@@ -317,7 +318,7 @@ export function BetterPicksPanel({
         title: suggestion.badge,
         store: "Amazon.ca",
         url,
-        affiliateUrl: url,
+        affiliateUrl: buildAffiliateUrl(url),
         imageUrl: null,
         rating: null,
         reviewCount: null,
