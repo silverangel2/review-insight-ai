@@ -46,13 +46,32 @@ test("rejected exact listings cannot collect unrelated written reviews", () => {
   assert.match(evidence, /hasVariantMismatch \|\|\s*\(hasRatingMismatch && hasReviewCountMismatch\)/);
 });
 
-test("review evidence scan timeout stays below the production function timeout", () => {
+test("review evidence does not finalize from an outer timeout while collection is still pending", () => {
   const analyzerRoute = source("app/api/analyze/route.ts");
 
   assert.match(analyzerRoute, /export const runtime = "nodejs"/);
   assert.match(analyzerRoute, /export const maxDuration = 180/);
-  assert.match(analyzerRoute, /const reviewEvidenceTimeoutCeilingMs = Math\.max\(1000, maxDuration \* 1000 - 5000\)/);
-  assert.match(analyzerRoute, /REVIEW_EVIDENCE_TIMEOUT_MS \|\| reviewEvidenceTimeoutCeilingMs/);
+  assert.match(analyzerRoute, /const reviewEvidence = await collectAndAnalyzeReviewEvidence\(/);
+  assert.doesNotMatch(analyzerRoute, /const reviewEvidence = await Promise\.race\(/);
+  assert.doesNotMatch(analyzerRoute, /Automatic public review evidence recovery reached the .* search limit/);
+});
+
+test("terminal scan state distinguishes evidence completion from insufficient evidence", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /scanState: finalDecisionSource === "reviewEvidence" \? "COMPLETE" : "INSUFFICIENT_EVIDENCE"/);
+  assert.match(analyzerRoute, /scanState: "FAILED"/);
+});
+
+test("scan overlay does not claim an unsupported review volume or fake timed stages", () => {
+  const overlay = source("components/ReviewIntelScanOverlay.tsx");
+  const analyzer = source("components/AnalyzerForm.tsx");
+
+  assert.doesNotMatch(overlay, /hundreds of reviews/i);
+  assert.doesNotMatch(overlay, /setInterval/);
+  assert.match(overlay, /Waiting for the evidence-backed scan result/);
+  assert.match(analyzer, /if \(percent >= 100\) setScanStage\("analyzing"\)/);
+  assert.match(analyzer, /setScanStage\("done"\);\s*router\.push\("\/results"\)/s);
 });
 
 test("shopper verdict paths use review first instead of obsolete middle verdict output", () => {

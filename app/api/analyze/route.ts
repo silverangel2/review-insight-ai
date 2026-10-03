@@ -1663,20 +1663,6 @@ async function researchAndVerdict(
       ? vision.reviewCount
       : undefined;
 
-  const reviewEvidenceTimeoutCeilingMs = Math.max(1000, maxDuration * 1000 - 5000);
-  const configuredReviewEvidenceTimeoutMs = Number(
-    process.env.REVIEW_EVIDENCE_TIMEOUT_MS || reviewEvidenceTimeoutCeilingMs
-  );
-  const reviewEvidenceTimeoutMs = Math.max(
-    1000,
-    Math.min(
-      Number.isFinite(configuredReviewEvidenceTimeoutMs)
-        ? configuredReviewEvidenceTimeoutMs
-        : reviewEvidenceTimeoutCeilingMs,
-      reviewEvidenceTimeoutCeilingMs
-    )
-  );
-
   const fallbackReviewEvidence = (reason: string) =>
     ({
       analysisVersion: "review-evidence-v2",
@@ -1747,35 +1733,29 @@ async function researchAndVerdict(
       bottomLine: PUBLIC_REVIEW_EVIDENCE_FAILURE,
     }) as Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>;
 
-  const reviewEvidence = await Promise.race([
-    collectAndAnalyzeReviewEvidence({
-      productName: productForReviewEvidence || vision.category || "unknown product",
-      brand: vision.brand,
-      model: undefined,
-      store: vision.store,
-      price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
-        ? vision.price
-        : undefined,
-      rating: screenshotRating,
-      reviewCount: screenshotReviewCount,
-      locale,
-      outputLanguage,
-      forceRefresh: false,
-    }).catch((error) => {
-      console.error("[ReviewIntel reviewEvidence error]", error);
-      return fallbackReviewEvidence("Automatic public review evidence recovery failed during the scan.");
-    }),
-    new Promise<Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>>((resolve) => {
-      setTimeout(() => {
-        const timeoutSeconds = Math.round(reviewEvidenceTimeoutMs / 1000);
-        resolve(
-          fallbackReviewEvidence(
-            `Automatic public review evidence recovery reached the ${timeoutSeconds} second search limit.`
-          )
-        );
-      }, reviewEvidenceTimeoutMs);
-    }),
-  ]);
+  // Do not race evidence collection against a fallback response. A Promise.race
+  // would return an insufficient-evidence result while the collector continued
+  // in the background, allowing the client to navigate to a degraded result
+  // before the approved evidence paths had reached a terminal state. The
+  // collector has bounded provider/retry work, and the platform maxDuration is
+  // the final hard ceiling for an unrecoverable request.
+  const reviewEvidence = await collectAndAnalyzeReviewEvidence({
+    productName: productForReviewEvidence || vision.category || "unknown product",
+    brand: vision.brand,
+    model: undefined,
+    store: vision.store,
+    price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
+      ? vision.price
+      : undefined,
+    rating: screenshotRating,
+    reviewCount: screenshotReviewCount,
+    locale,
+    outputLanguage,
+    forceRefresh: false,
+  }).catch((error) => {
+    console.error("[ReviewIntel reviewEvidence error]", error);
+    return fallbackReviewEvidence("Automatic public review evidence recovery failed during the scan.");
+  });
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
   const reviewAuthenticity =
@@ -2579,6 +2559,7 @@ function buildReviewEvidenceShopperResult(input: {
         repeatedComplaints: repeatedComplaints.length,
       },
       finalDecisionSource,
+      scanState: finalDecisionSource === "reviewEvidence" ? "COMPLETE" : "INSUFFICIENT_EVIDENCE",
       scoreAudit,
       verdictConfidenceAudit: verdictConfidenceAudit.audit,
     },
@@ -2753,6 +2734,14 @@ export async function POST(request: Request) {
     }
 
     const recordCompletedScan = async (scanResult: JsonRecord) => {
+      const finalDecisionSource = String(scanResult.finalDecisionSource || "");
+      const terminalScanResult = scanResult.scanState
+        ? scanResult
+        : {
+            ...scanResult,
+            scanState: finalDecisionSource === "reviewEvidence" ? "COMPLETE" : "INSUFFICIENT_EVIDENCE",
+          };
+
       if (!email) {
         // Anonymous scan completed — count it against the IP-hash allowance.
         // Best-effort: never fail a completed scan over counting.
@@ -2763,7 +2752,7 @@ export async function POST(request: Request) {
             // ignore
           }
         }
-        return scanResult;
+        return terminalScanResult;
       }
 
       const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
@@ -2772,13 +2761,13 @@ export async function POST(request: Request) {
         ? (await saveAnalysisRecord({
             profile_email: email,
             mode: "buyer",
-            product_name: asRecord(scanResult.product).name ?? "Product scan",
-            platform: asRecord(scanResult.product).store ?? "other",
-            product_score: scanResult.productScore ?? scanResult.buyingConfidence ?? null,
-            recommendation: scanResult.verdict ?? null,
-            summary: scanResult.bottomLine ?? null,
+            product_name: asRecord(terminalScanResult.product).name ?? "Product scan",
+            platform: asRecord(terminalScanResult.product).store ?? "other",
+            product_score: terminalScanResult.productScore ?? terminalScanResult.buyingConfidence ?? null,
+            recommendation: terminalScanResult.verdict ?? null,
+            summary: terminalScanResult.bottomLine ?? null,
             analysis_json: {
-              ...scanResult,
+              ...terminalScanResult,
               analysisVersion: "review-evidence-v2",
             },
             account: { email, plan: accountPlan, role }
@@ -2793,13 +2782,13 @@ export async function POST(request: Request) {
         {
           analysis_id: analysisRecord?.id ?? null,
           audience: "buyer",
-          product_name: asRecord(scanResult.product).name ?? null,
-          verdict: scanResult.verdict ?? null
+          product_name: asRecord(terminalScanResult.product).name ?? null,
+          verdict: terminalScanResult.verdict ?? null
         }
       );
 
       return {
-        ...scanResult,
+        ...terminalScanResult,
         analysisId: analysisRecord?.id ?? null,
         createdAt: analysisRecord?.created_at ?? new Date().toISOString(),
         quota: usage.quota ?? null
@@ -2972,6 +2961,7 @@ export async function POST(request: Request) {
             : "We could not analyze this product. Please try a clearer screenshot or paste the product link.",
           scanId,
           detectedProductKey: cleanDetectedProductKey(detectedProductKey),
+          scanState: "FAILED",
           resultSource: "analyze"
       },
       { status: 500 }

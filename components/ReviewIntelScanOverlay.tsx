@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export type ScanStage = "uploading" | "analyzing" | "done";
+export type ScanStage = "uploading" | "analyzing" | "done" | "failed";
 
 type ReviewIntelScanOverlayProps = {
   stage: ScanStage;
@@ -18,19 +18,11 @@ type ReviewIntelScanOverlayProps = {
  * - "uploading": the screenshot is being sent. The bar shows REAL bytes-sent
  *   progress from XMLHttpRequest upload events.
  * - "analyzing": the server is working. We cannot see inside the single
- *   request, so this stage is deliberately indeterminate — the hints below
- *   cycle as live activity and are NEVER marked complete until the response
- *   arrives. No percentages are shown for this stage.
- * - "done": the verdict arrived; the overlay hands off to the results page.
+ *   request, so this stage is deliberately indeterminate and makes no claim
+ *   about review volume or a completed provider step.
+ * - "done": a terminal result arrived; the overlay hands off to the results page.
+ * - "failed": the request ended with a real error; no verdict is presented.
  */
-const ANALYZING_HINTS = [
-  "Reading product details from your screenshot",
-  "Gathering review evidence across stores",
-  "Checking for fake-review patterns",
-  "Weighing complaints against praise",
-  "Building your verdict",
-];
-
 const STAGES: Array<{ id: ScanStage; label: string; hint: string }> = [
   {
     id: "uploading",
@@ -39,20 +31,29 @@ const STAGES: Array<{ id: ScanStage; label: string; hint: string }> = [
   },
   {
     id: "analyzing",
-    label: "Analyzing reviews",
-    hint: "AI is reading hundreds of reviews",
+    label: "Researching review evidence",
+    hint: "Waiting for the evidence-backed scan result",
   },
   {
     id: "done",
     label: "Verdict ready",
     hint: "Preparing your results",
   },
+  {
+    id: "failed",
+    label: "Scan stopped",
+    hint: "No evidence-backed result was prepared",
+  },
 ];
 
 function stageState(stage: ScanStage, current: ScanStage): "done" | "active" | "pending" {
-  const order: ScanStage[] = ["uploading", "analyzing", "done"];
+  const order: ScanStage[] = ["uploading", "analyzing", "done", "failed"];
   const stageIdx = order.indexOf(stage);
   const currentIdx = order.indexOf(current);
+  if (current === "failed") {
+    if (stage === "failed") return "active";
+    if (stage === "done") return "pending";
+  }
   if (stageIdx < currentIdx) return "done";
   if (stageIdx === currentIdx) return "active";
   return "pending";
@@ -63,19 +64,10 @@ export function ReviewIntelScanOverlay({
   uploadProgress,
   productLabel,
 }: ReviewIntelScanOverlayProps) {
-  const [hintIndex, setHintIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (stage !== "analyzing") return;
-    const timer = window.setInterval(() => {
-      setHintIndex((i) => (i + 1) % ANALYZING_HINTS.length);
-    }, 3200);
-    return () => window.clearInterval(timer);
-  }, [stage]);
-
-  useEffect(() => {
-    if (stage === "done") {
+    if (stage === "done" || stage === "failed") {
       const timer = window.setTimeout(() => setVisible(false), 900);
       return () => window.clearTimeout(timer);
     }
@@ -89,7 +81,7 @@ export function ReviewIntelScanOverlay({
   return (
     <div
       className={`fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#0b1226]/92 px-5 py-8 backdrop-blur-xl transition-opacity duration-500 ${
-        stage === "done" ? "opacity-0" : "opacity-100"
+        stage === "done" || stage === "failed" ? "opacity-0" : "opacity-100"
       }`}
       role="status"
       aria-live="polite"
@@ -154,9 +146,7 @@ export function ReviewIntelScanOverlay({
                   <span className="block truncate text-xs font-semibold text-slate-400">
                     {s.id === "uploading" && state === "active"
                       ? `${safeUpload}% uploaded`
-                      : s.id === "analyzing" && state === "active"
-                        ? `${ANALYZING_HINTS[hintIndex]}…`
-                        : s.hint}
+                      : s.hint}
                   </span>
                 </span>
                 {s.id === "uploading" && state === "active" ? (
@@ -182,7 +172,9 @@ export function ReviewIntelScanOverlay({
         <p className="mt-6 text-xs font-semibold leading-5 text-slate-400">
           {stage === "analyzing"
             ? "Deep scans take a minute or two. Keep this tab open — your verdict is on its way."
-            : "Preparing a clean result page. Please keep this tab open."}
+            : stage === "failed"
+              ? "The scan did not reach a usable terminal result."
+              : "Preparing a clean result page. Please keep this tab open."}
         </p>
       </div>
     </div>

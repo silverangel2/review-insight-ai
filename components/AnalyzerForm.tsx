@@ -75,6 +75,9 @@ type ScanApiPayload = {
   error?: string;
   code?: string;
   scanId?: string;
+  scanState?: "COMPLETE" | "INSUFFICIENT_EVIDENCE" | "FAILED";
+  productName?: string;
+  product?: { name?: string; title?: string };
 };
 
 function postScanRequest(
@@ -216,6 +219,7 @@ export default function AnalyzerForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [scanStage, setScanStage] = useState<ScanStage>("uploading");
+  const [identifiedProductLabel, setIdentifiedProductLabel] = useState("");
   const [error, setError] = useState("");
   const [anonScansUsed, setAnonScansUsed] = useState(0);
 
@@ -330,6 +334,7 @@ export default function AnalyzerForm() {
     setIsLoading(true);
     setScanStage("uploading");
     setUploadProgress(0);
+    setIdentifiedProductLabel("");
 
     try {
       await refreshServerQuota();
@@ -340,15 +345,18 @@ export default function AnalyzerForm() {
       formData.append("locale", readStoredLocale());
       formData.append("scanId", scanId);
 
-      // XHR so the overlay shows REAL upload progress; once the body is sent
-      // we enter the indeterminate "analyzing" stage until the response lands.
+      // XHR so the overlay shows REAL upload progress; once the request body
+      // is sent we enter the indeterminate research stage until the terminal
+      // server response lands.
       const { status, data } = await postScanRequest(
         formData,
         accountHeaders(),
-        (percent) => setUploadProgress(percent)
+        (percent) => {
+          setUploadProgress(percent);
+          if (percent >= 100) setScanStage("analyzing");
+        }
       );
       setUploadProgress(100);
-      setScanStage("analyzing");
 
       if (!data || status !== 200) {
         if (data?.quota) saveQuota(data.quota);
@@ -361,6 +369,11 @@ export default function AnalyzerForm() {
         throw new Error(data?.error || analyzerFormCopy(readStoredLocale()).analyzeError);
       }
       if (data?.quota) saveQuota(data.quota);
+
+      const identifiedLabel = String(
+        data?.productName || data?.product?.name || data?.product?.title || ""
+      ).trim();
+      if (identifiedLabel) setIdentifiedProductLabel(identifiedLabel);
 
       if (data?.scanId !== scanId) {
         throw new Error("This scan finished out of order. Please run the scan again.");
@@ -391,7 +404,7 @@ export default function AnalyzerForm() {
       setScanStage("done");
       router.push("/results");
     } catch (err) {
-      setScanStage("done");
+      setScanStage("failed");
       setError(err instanceof Error ? err.message : analyzerFormCopy(readStoredLocale()).analyzeError);
     } finally {
       setIsLoading(false);
@@ -517,11 +530,11 @@ export default function AnalyzerForm() {
           </span>
         </button>
 
-        {(isLoading || scanStage === "done") && !anonLimitReached ? (
+        {(isLoading || scanStage === "done" || scanStage === "failed") && !anonLimitReached ? (
           <ReviewIntelScanOverlay
             stage={scanStage}
             uploadProgress={uploadProgress}
-            productLabel={productLink || undefined}
+            productLabel={identifiedProductLabel || undefined}
           />
         ) : null}
         </>
