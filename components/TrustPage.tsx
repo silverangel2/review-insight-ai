@@ -92,6 +92,21 @@ export function TrustPage({ page }: { page: TrustPageContent }) {
                 ))}
               </ul>
             ) : null}
+            {section.links?.length ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {section.links.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-full border border-ocean/30 bg-ocean/5 px-4 py-2 text-xs font-black text-ocean transition hover:bg-ocean hover:text-white dark:border-cyan-300/30 dark:bg-cyan-300/10 dark:text-cyan-100 dark:hover:bg-cyan-300 dark:hover:text-slate-950"
+                  >
+                    {link.label} ↗
+                  </a>
+                ))}
+              </div>
+            ) : null}
           </article>
         ))}
       </section>

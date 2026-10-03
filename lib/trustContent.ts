@@ -13,6 +13,7 @@ export type TrustPageContent = {
     title: string;
     body: string | string[];
     items?: string[];
+    links?: Array<{ label: string; href: string }>;
   }>;
   cta?: {
     label: string;
@@ -333,6 +334,26 @@ export const trustPages: Record<string, TrustPageContent> = {
           "Traffic events may include page path, referrer, browser, device type, platform, approximate country, region, city from hosting headers, UTM campaign parameters, account role, account plan, consent choice, and a hashed visitor key.",
           "ReviewIntel does not store raw IP addresses in traffic analytics, but may use IP address and user-agent data transiently to create abuse-resistant hashed visitor keys and security records.",
           "Where advertising or affiliate features are enabled, Google advertising, affiliate networks, or sponsor systems may process data under their own policies. Optional advertising cookies are controlled through the cookie banner where supported."
+        ]
+      },
+      {
+        title: "Advertising and Google AdSense",
+        body:
+          "ReviewIntel may display ads served by Google AdSense. Google uses cookies to serve ads based on your prior visits to this website and other websites. Google's use of advertising cookies enables it and its partners to serve personalized ads to you based on your visit to our site and other sites on the Internet.",
+        items: [
+          "Advertising cookies load only after you accept optional cookies in our cookie banner. Choosing “Essential only” keeps Google advertising cookies off entirely.",
+          "You can opt out of personalized advertising at any time through Google Ads Settings, which also lets you control the information Google uses to show you ads.",
+          "Google's data practices for sites using its advertising services are described in Google's partner-sites policy linked below."
+        ],
+        links: [
+          {
+            label: "How Google uses information from sites or apps that use our services",
+            href: "https://policies.google.com/technologies/partner-sites"
+          },
+          {
+            label: "Google Ads Settings — opt out of personalized ads",
+            href: "https://www.google.com/settings/ads"
+          }
         ]
       },
       {
