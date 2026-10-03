@@ -376,7 +376,7 @@ export default async function LandingPage() {
           }
         `}</style>
 
-        <div className="reviewintel-home-hero-grid relative isolate mx-auto grid h-auto min-h-0 max-w-7xl overflow-hidden gap-10 px-5 py-8 sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10 xl:grid-cols-[0.92fr_1.08fr] xl:items-center">
+        <div className="reviewintel-home-hero-grid relative isolate mx-auto grid h-auto min-h-0 max-w-7xl overflow-hidden gap-10 px-5 py-8 sm:min-h-0 sm:overflow-visible sm:px-6 sm:py-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:py-14">
           <div className="home-mobile-rainbow-light pointer-events-none absolute inset-0 -z-10 sm:hidden" aria-hidden="true" />
           <div>
             <HomepageHeroCopy initialLocale={locale} />
@@ -456,8 +456,8 @@ export default async function LandingPage() {
 
       <PlatformLogoOrbit initialLocale={locale} />
 
-      <section className="home-premium-payoff min-h-[100svh] snap-start overflow-visible bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-10 text-ink sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-12">
-        <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+      <section className="home-premium-payoff overflow-visible bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-16 text-ink sm:px-6 sm:py-20 lg:py-24">
+        <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-12">
           <div>
             <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
             <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">{t("instructionVideo.title")}</h2>
@@ -471,42 +471,42 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section className="home-premium-audience min-h-[100svh] snap-start overflow-visible bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-10 text-ink sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-10">
-        <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
-          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
+      <section className="home-premium-audience overflow-visible bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-16 text-ink sm:px-6 sm:py-20 lg:py-24">
+        <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-6 md:grid-cols-2 lg:gap-8">
+          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur lg:p-8">
             <Badge tone="good">{t("shopperMode")}</Badge>
             <h2 className="mt-4 text-3xl font-black">{t("fastShoppingVerdict")}</h2>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {buyerWins.map((item) => (
-                <span key={item} className="rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm font-black">
+                <span key={item} className="rounded-2xl border border-line bg-white/70 px-4 py-3.5 text-sm font-bold leading-6">
                   {item}
                 </span>
               ))}
             </div>
-            <Link href="/analyze" className="mt-6 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
+            <Link href="/analyze" className="mt-8 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
               {t("tryShopperScan")}
             </Link>
           </article>
 
-          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
+          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur lg:p-8">
             <Badge tone="warn">{t("sellerPro")}</Badge>
             <h2 className="mt-4 text-3xl font-black">{t("businessIntelligence")}</h2>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {sellerWins.map((item) => (
-                <span key={item} className="rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm font-black">
+                <span key={item} className="rounded-2xl border border-line bg-white/70 px-4 py-3.5 text-sm font-bold leading-6">
                   {item}
                 </span>
               ))}
             </div>
-            <Link href="/pricing" className="mt-6 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
+            <Link href="/pricing" className="mt-8 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
               {t("seeSellerPlans")}
             </Link>
           </article>
         </div>
       </section>
 
-      <section className="home-premium-mode hidden min-h-0 bg-mist px-5 py-8 text-ink sm:block sm:min-h-0 sm:px-6 sm:py-12">
-        <div className="home-premium-mode-card mx-auto max-w-5xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-8">
+      <section className="home-premium-mode hidden min-h-0 bg-mist px-5 py-16 text-ink sm:block sm:min-h-0 sm:px-6 sm:py-20">
+        <div className="home-premium-mode-card mx-auto max-w-7xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-10">
           <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
           <h2 className="mt-4 text-3xl font-black tracking-tight text-ink md:text-4xl">{t("modeIntro.title")}</h2>
           <p className="mt-4 text-base font-semibold leading-7 text-slate-700 sm:hidden">
@@ -519,7 +519,7 @@ export default async function LandingPage() {
       </section>
       <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
     
-      <section className="home-premium-ad-section hidden mx-auto max-w-6xl px-6 pb-12 sm:block">
+      <section className="home-premium-ad-section hidden mx-auto max-w-7xl px-6 py-12 sm:block">
         <AdSlot placement="homepage_mid" />
       </section>
 

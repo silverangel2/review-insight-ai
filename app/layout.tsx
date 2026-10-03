@@ -63,12 +63,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale} data-scroll-behavior="smooth">
       <head>
-        <script
-          id="reviewintel-google-adsense"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5711144364755686"
-          crossOrigin="anonymous"
-        />
+        {/* Google AdSense loads only via the consent-gated GoogleAdSenseBlock
+            (components/advertising/AdSlot.tsx), which injects the script after
+            the visitor accepts optional cookies. Do not hardcode the
+            adsbygoogle script here — it would contradict the cookie banner. */}
       </head>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>

@@ -1,5 +1,6 @@
 "use client";
 
+import "./results-stagger.css";
 import { ResultIntelligencePanel } from "@/components/ResultIntelligencePanel";
 import { BetterPicksPanel } from "@/components/BetterPicksPanel";
 import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
@@ -2519,7 +2520,7 @@ export function ResultsClient() {
       : shortProductName(productTitle, "Analyzed product");
 
   return (
-    <div className="space-y-5">
+    <div className="ri-stagger space-y-5">
       {accountPlan !== "free_buyer" ? customerNav : null}
       {!isSellerAudience && ["buyer_pro", "buyer_beta", "shopper_beta"].includes(String(accountPlan)) ? <ShopperResultHistoryCorner /> : null}
       <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.6rem] sm:p-4">

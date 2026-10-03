@@ -12,6 +12,11 @@ import {
   supabaseSelect,
 } from "@/lib/supabaseServer";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
+import {
+  ANON_SCAN_LIMIT,
+  anonymousScansRemaining,
+  incrementAnonymousScanCount,
+} from "@/lib/anonymousScans";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
@@ -2666,10 +2671,23 @@ export async function POST(request: Request) {
     const plan = resolvedAccount.plan;
 
     if (role === "guest") {
-      return NextResponse.json(
-        { error: "Please log in before analyzing a product.", scanId, resultSource: "analyze" },
-        { status: 401 }
-      );
+      // Anonymous shoppers get a few free scans without signing in.
+      // Enforcement is server-side by IP hash (lib/anonymousScans.ts);
+      // the localStorage counter on the client is UX-only and never trusted.
+      const remaining = await anonymousScansRemaining(request);
+      if (remaining <= 0) {
+        return NextResponse.json(
+          {
+            error: `You've used your ${ANON_SCAN_LIMIT} free scans. Sign in to keep scanning — it's free.`,
+            code: "ANON_SCAN_LIMIT_REACHED",
+            signInRequired: true,
+            signInUrl: "/login?next=/analyze",
+            scanId,
+            resultSource: "analyze",
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const normalizedPlanForAnalyze = String(plan || "").trim();
@@ -2726,6 +2744,15 @@ export async function POST(request: Request) {
 
     const recordCompletedScan = async (scanResult: JsonRecord) => {
       if (!email) {
+        // Anonymous scan completed — count it against the IP-hash allowance.
+        // Best-effort: never fail a completed scan over counting.
+        if (role === "guest") {
+          try {
+            await incrementAnonymousScanCount(request);
+          } catch {
+            // ignore
+          }
+        }
         return scanResult;
       }
 
