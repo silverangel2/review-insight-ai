@@ -145,3 +145,27 @@ test("not enough is reserved for insufficient written-review evidence", () => {
   assert.equal(shopperVerdict(result), "REVIEW EVIDENCE NOT ENOUGH");
   assert.equal(result.buyScore, null);
 });
+
+test("unstructured recovered snippets cannot masquerade as a normal scored verdict", () => {
+  const result = scoreReviewEvidenceSignals({
+    rating: 4.1,
+    marketplaceReviewCount: 2366,
+    commentsAnalyzed: 3,
+    evidenceStrength: "weak",
+    reviewSnippets: [
+      { sentiment: "mixed", snippet: "mixed buyer experience" },
+      { sentiment: "mixed", snippet: "some buyers liked it and others did not" },
+      { sentiment: "mixed", snippet: "results varied by use case" },
+    ],
+    repeatedPraises: [],
+    repeatedComplaints: [],
+    productPros: [],
+    productCons: [],
+    buyerExperienceSignals: [],
+    aiPatternSignals: [],
+  });
+
+  assert.equal(result.verdict, "REVIEW EVIDENCE NOT ENOUGH");
+  assert.equal(result.buyScore, null);
+  assert.match(result.bottomLine, /could not normalize enough product strengths or complaints/i);
+});

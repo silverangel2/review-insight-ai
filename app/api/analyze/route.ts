@@ -2455,7 +2455,16 @@ function buildReviewEvidenceShopperResult(input: {
         : "ReviewIntel did not access usable review-intelligence signals for this scan.",
     ],
   };
-  const displayedVerdictConfidence = noPublicReviewEvidence ? null : verdictConfidence;
+  const displayedVerdictConfidence = finalDecisionSource === "reviewEvidence" ? verdictConfidence : null;
+  const displayedReviewAuthenticity = finalDecisionSource === "reviewEvidence"
+    ? input.reviewAuthenticity
+    : {
+        score: null,
+        label: "Review evidence not enough",
+        suspiciousReviewRisk: "Not scored",
+        reasons: [PUBLIC_REVIEW_EVIDENCE_FAILURE],
+        suspiciousComments: [],
+      };
 
   console.log("[ReviewIntel DEBUG verdictAudit]", {
     verdict,
@@ -2536,7 +2545,7 @@ function buildReviewEvidenceShopperResult(input: {
     },
 
     reviewEvidence: evidence,
-    reviewAuthenticity: input.reviewAuthenticity,
+    reviewAuthenticity: displayedReviewAuthenticity,
     stableProductKey,
     productKey: stableProductKey,
     researchQuality,

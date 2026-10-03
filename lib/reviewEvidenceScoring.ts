@@ -413,6 +413,15 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
   const productCons = uniqueThemeTexts(input.productCons || [], 8);
   const buyerSignals = uniqueTexts(input.buyerExperienceSignals || [], 10);
 
+  const structuredSignalCount =
+    repeatedPraises.length +
+    repeatedComplaints.length +
+    productPros.length +
+    productCons.length +
+    buyerSignals.length;
+  const snippetsWithoutStructuredSignals =
+    reviewSnippets.length > 0 && structuredSignalCount === 0;
+
   const writtenEvidenceCount = Math.max(
     commentsAnalyzed,
     reviewSnippets.length,
@@ -424,6 +433,7 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
   const notEnough =
     writtenEvidenceCount < 3 ||
     evidenceStrength === "none" ||
+    snippetsWithoutStructuredSignals ||
     (
       reviewSnippets.length === 0 &&
       repeatedPraises.length === 0 &&
@@ -439,7 +449,9 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
       buyScore: null,
       valueForMoney: "Unknown",
       bottomLine:
-        "ReviewIntel did not find enough written-review evidence to calculate a trustworthy Buy Score.",
+        snippetsWithoutStructuredSignals
+          ? "ReviewIntel collected review material but could not normalize enough product strengths or complaints to calculate a trustworthy Buy Score."
+          : "ReviewIntel did not find enough written-review evidence to calculate a trustworthy Buy Score.",
       audit: {
         writtenEvidenceCount,
         positiveSignal: 0,

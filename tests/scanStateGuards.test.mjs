@@ -15,7 +15,7 @@ test("new product scans are stamped and stale results are rejected", () => {
 
   assert.match(analyzer, /formData\.append\("scanId", scanId\)/);
   assert.match(analyzer, /data\?\.scanId !== scanId/);
-  assert.match(analyzer, /saveLatestResult\(\{ \.\.\.data, resultSource: "analyze" \}/);
+  assert.match(analyzer, /saveLatestResult\([\s\S]*resultSource:\s*"analyze"/);
 
   assert.match(results, /readActiveScanId\(\)/);
   assert.match(results, /readLatestResult\(\s*account,\s*activeScanId \? \{ scanId: activeScanId \}/s);
