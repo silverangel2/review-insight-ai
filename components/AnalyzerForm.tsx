@@ -5,18 +5,36 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { isAccountProfileComplete, profileCompletionMissingFields } from "@/lib/account";
+import type { AnalyzeResponse, QuotaInfo } from "@/lib/types";
 import { accountHeaders, getClientAccount, saveQuota } from "@/lib/clientAccount";
 import { saveLatestPreview, saveLatestResult, clearLatestResult, setActiveScanId } from "@/lib/resultStorage";
 import { incrementStoredScanTally } from "@/lib/clientAccount";
+import { ReviewIntelScanOverlay, type ScanStage } from "@/components/ReviewIntelScanOverlay";
 
-const SCAN_PROGRESS_STEPS = [
-  "Reading the screenshot",
-  "Finding the exact product",
-  "Checking Amazon and public review sources",
-  "Collecting review evidence",
-  "Comparing with fresh product memory",
-  "Building the final verdict",
-];
+// SCAN_PROGRESS_STEPS removed: the overlay now uses real upload progress
+// plus an indeterminate (never fake-percentaged) analyzing stage.
+
+// Anonymous-visitor free scans. The localStorage counter is UX-only —
+// the server enforces the real limit by IP hash (lib/anonymousScans.ts).
+const ANON_SCAN_LIMIT_CLIENT = 3;
+const ANON_SCAN_STORAGE_KEY = "ri_anon_scans";
+
+function readAnonScanCount(): number {
+  try {
+    if (typeof window === "undefined") return 0;
+    return Number(window.localStorage.getItem(ANON_SCAN_STORAGE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeAnonScanCount(value: number) {
+  try {
+    window.localStorage.setItem(ANON_SCAN_STORAGE_KEY, String(value));
+  } catch {
+    // Storage unavailable — the server still enforces the limit.
+  }
+}
 
 function createClientScanId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -24,6 +42,59 @@ function createClientScanId() {
   }
 
   return `scan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * POST the scan with XMLHttpRequest so the overlay can show REAL upload
+ * progress. fetch() has no upload-progress events, which is why the old UI
+ * faked the bar. The analyzing stage stays indeterminate by design — the
+ * server returns one synchronous response, so no fake percentages there.
+ */
+type ScanApiPayload = {
+  quota?: QuotaInfo;
+  error?: string;
+  code?: string;
+  scanId?: string;
+};
+
+function postScanRequest(
+  formData: FormData,
+  headers: Record<string, string>,
+  onUploadProgress: (percent: number) => void
+): Promise<{ status: number; data: ScanApiPayload | null }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/analyze");
+
+    for (const [key, value] of Object.entries(headers)) {
+      try {
+        xhr.setRequestHeader(key, value);
+      } catch {
+        // Skip headers the browser won't allow.
+      }
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      }
+    };
+
+    xhr.onload = () => {
+      let data: ScanApiPayload | null = null;
+      try {
+        data = xhr.responseText ? (JSON.parse(xhr.responseText) as ScanApiPayload) : null;
+      } catch {
+        data = null;
+      }
+      resolve({ status: xhr.status, data });
+    };
+
+    xhr.onerror = () => reject(new Error("Network error while uploading your scan. Please try again."));
+    xhr.ontimeout = () => reject(new Error("The scan timed out. Please try again."));
+
+    xhr.send(formData);
+  });
 }
 
 
@@ -123,12 +194,17 @@ export default function AnalyzerForm() {
   const [previewDataUrl, setPreviewDataUrl] = useState("");
   const [productLink, setProductLink] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [scanStage, setScanStage] = useState<ScanStage>("uploading");
   const [error, setError] = useState("");
+  const [anonScansUsed, setAnonScansUsed] = useState(0);
 
   const canAnalyze = Boolean(image) && !isLoading;
   const scanLimitMessage = analyzerFormCopy(readStoredLocale()).scanLimitMessage;
   const clientAccount = getClientAccount();
+  const isAnonymousVisitor = !clientAccount?.email || clientAccount.email === "guest";
+  const anonLimitReached = isAnonymousVisitor && anonScansUsed >= ANON_SCAN_LIMIT_CLIENT;
+  const anonScansLeft = Math.max(0, ANON_SCAN_LIMIT_CLIENT - anonScansUsed);
   const isBetaAccount = clientAccount?.plan === "buyer_beta" || clientAccount?.plan === "seller_beta";
   const isScanLimitError =
     !isBetaAccount &&
@@ -165,6 +241,10 @@ export default function AnalyzerForm() {
   }, [scanLimitMessage]);
 
   useEffect(() => {
+    setAnonScansUsed(readAnonScanCount());
+  }, []);
+
+  useEffect(() => {
     void refreshServerQuota();
 
     const handleFocus = () => {
@@ -180,22 +260,8 @@ export default function AnalyzerForm() {
     };
   }, [refreshServerQuota]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      setScanProgress(0);
-      return;
-    }
-
-    setScanProgress(8);
-    const interval = window.setInterval(() => {
-      setScanProgress((current) => {
-        const lift = current < 42 ? 9 : current < 72 ? 6 : current < 90 ? 3 : 1;
-        return Math.min(96, current + lift);
-      });
-    }, 850);
-
-    return () => window.clearInterval(interval);
-  }, [isLoading]);
+  // No timer-driven reset: analyzeProduct resets the overlay at scan start
+  // and the stages follow real request state from there.
 
   function handleImage(file: File | null) {
     setError("");
@@ -241,6 +307,9 @@ export default function AnalyzerForm() {
 
     setIsLoading(true);
     setError("");
+    setIsLoading(true);
+    setScanStage("uploading");
+    setUploadProgress(0);
 
     try {
       await refreshServerQuota();
@@ -251,16 +320,24 @@ export default function AnalyzerForm() {
       formData.append("locale", readStoredLocale());
       formData.append("scanId", scanId);
 
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: accountHeaders(),
-        body: formData
-      });
+      // XHR so the overlay shows REAL upload progress; once the body is sent
+      // we enter the indeterminate "analyzing" stage until the response lands.
+      const { status, data } = await postScanRequest(
+        formData,
+        accountHeaders(),
+        (percent) => setUploadProgress(percent)
+      );
+      setUploadProgress(100);
+      setScanStage("analyzing");
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
+      if (!data || status !== 200) {
         if (data?.quota) saveQuota(data.quota);
+        if (status === 403 && data?.code === "ANON_SCAN_LIMIT_REACHED") {
+          // Server says the anonymous allowance is spent — sync the local
+          // counter so the sign-in wall shows immediately.
+          writeAnonScanCount(ANON_SCAN_LIMIT_CLIENT);
+          setAnonScansUsed(ANON_SCAN_LIMIT_CLIENT);
+        }
         throw new Error(data?.error || analyzerFormCopy(readStoredLocale()).analyzeError);
       }
       if (data?.quota) saveQuota(data.quota);
@@ -271,8 +348,16 @@ export default function AnalyzerForm() {
 
       try {
         const account = getClientAccount();
-        saveLatestResult({ ...data, resultSource: "analyze" }, account);
+        saveLatestResult(
+          { ...(data as unknown as AnalyzeResponse), resultSource: "analyze" },
+          account
+        );
         incrementStoredScanTally();
+        if (isAnonymousVisitor) {
+          const next = readAnonScanCount() + 1;
+          writeAnonScanCount(next);
+          setAnonScansUsed(next);
+        }
         saveLatestPreview(previewDataUrl || preview);
         window.sessionStorage.removeItem("reviewintel_latest_result");
         window.localStorage.removeItem("reviewintel_latest_result_last");
@@ -283,9 +368,10 @@ export default function AnalyzerForm() {
         // Keep scan flow alive even if browser storage is unavailable.
       }
 
-      setScanProgress(100);
+      setScanStage("done");
       router.push("/results");
     } catch (err) {
+      setScanStage("done");
       setError(err instanceof Error ? err.message : analyzerFormCopy(readStoredLocale()).analyzeError);
     } finally {
       setIsLoading(false);
@@ -305,6 +391,43 @@ export default function AnalyzerForm() {
       </div>
 
       <div className="mx-auto mt-10 max-w-2xl">
+        {anonLimitReached ? (
+          <div className="relative overflow-hidden rounded-[2rem] border border-[#ffbd58]/35 bg-[linear-gradient(135deg,#101a30_0%,#16244a_55%,#1e2f5e_100%)] p-8 text-center text-white shadow-[0_24px_70px_rgba(10,18,38,0.35)] sm:p-10">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#ffbd58]/80 to-transparent"
+            />
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#ffbd58]">
+              Free scans used
+            </p>
+            <h2 className="mt-3 text-3xl font-black">You&apos;ve used your 3 free scans</h2>
+            <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-6 text-slate-300">
+              Sign in to keep scanning — it&apos;s free. Your scan history and premium verdicts are waiting.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <a
+                href="/login?next=/analyze"
+                className="inline-flex items-center justify-center rounded-2xl bg-[#ffbd58] px-7 py-3.5 text-sm font-black text-[#172033] shadow-[0_10px_30px_rgba(255,189,88,0.35)] transition hover:-translate-y-0.5 hover:bg-[#ffd07a]"
+              >
+                Sign in to continue
+              </a>
+              <a
+                href="/signup?next=/analyze"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-7 py-3.5 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/20"
+              >
+                Create free account
+              </a>
+            </div>
+          </div>
+        ) : (
+        <>
+        {isAnonymousVisitor ? (
+          <p className="mb-4 text-center text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            <span className="rounded-full border border-[#ffbd58]/50 bg-[#ffbd58]/10 px-3 py-1.5 text-[#b98a2f]">
+              {anonScansLeft} of {ANON_SCAN_LIMIT_CLIENT} free scans left — no sign-in needed
+            </span>
+          </p>
+        ) : null}
         <label className="group flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-[2.5rem] border-4 border-dashed border-teal/40 bg-white p-8 text-center shadow-soft transition hover:-translate-y-1 hover:border-teal hover:shadow-glow dark:border-cyan-300/40 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <input
             type="file"
@@ -358,39 +481,31 @@ export default function AnalyzerForm() {
           onClick={analyzeProduct}
           className="relative mt-6 min-h-16 w-full overflow-hidden rounded-3xl bg-ink px-8 py-5 text-xl font-black text-white shadow-glow transition hover:-translate-y-0.5 hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-white dark:text-ink dark:disabled:bg-white/20 dark:disabled:text-white/40"
         >
-          {isLoading ? (
+          {isLoading && scanStage === "uploading" ? (
             <span
-              className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgba(8,183,168,0.45),rgba(35,86,163,0.55),rgba(255,178,56,0.45))] transition-all duration-700"
-              style={{ width: `${scanProgress}%` }}
+              className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgba(8,183,168,0.45),rgba(35,86,163,0.55),rgba(255,178,56,0.45))] transition-[width] duration-200"
+              style={{ width: `${uploadProgress}%` }}
               aria-hidden="true"
             />
           ) : null}
           <span className="relative z-10">
-            {isLoading ? `${analyzerFormCopy(readStoredLocale()).analyzing} ${scanProgress}%` : analyzerFormCopy(readStoredLocale()).analyze}
+            {isLoading
+              ? scanStage === "uploading"
+                ? `${analyzerFormCopy(readStoredLocale()).analyzing} ${uploadProgress}%`
+                : analyzerFormCopy(readStoredLocale()).analyzing
+              : analyzerFormCopy(readStoredLocale()).analyze}
           </span>
         </button>
 
-        {isLoading ? (
-          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/90 p-4 shadow-soft dark:border-sky-300/20 dark:bg-sky-300/10">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-100">
-                ReviewIntel detective scan
-              </p>
-              <p className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-sky-700 shadow-sm dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-sky-100">
-                {scanProgress}%
-              </p>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white dark:bg-gradient-to-r from-sky-600 to-teal-500">
-              <div
-                className="h-full rounded-full bg-[linear-gradient(90deg,#08b7a8,#2356a3,#ffb238)] transition-all duration-700"
-                style={{ width: `${scanProgress}%` }}
-              />
-            </div>
-            <p className="mt-3 text-xs font-bold leading-5 text-slate-600 dark:text-slate-200">
-              {SCAN_PROGRESS_STEPS[Math.min(SCAN_PROGRESS_STEPS.length - 1, Math.floor((scanProgress / 100) * SCAN_PROGRESS_STEPS.length))]}
-            </p>
-          </div>
+        {(isLoading || scanStage === "done") && !anonLimitReached ? (
+          <ReviewIntelScanOverlay
+            stage={scanStage}
+            uploadProgress={uploadProgress}
+            productLabel={productLink || undefined}
+          />
         ) : null}
+        </>
+        )}
       </div>
 
 

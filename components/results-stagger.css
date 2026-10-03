@@ -1,0 +1,23 @@
+/* Staggered section reveal for the scan results page.
+   Direct children of .ri-stagger fade/slide in one after another on mount.
+   Uses the revealPop keyframe and motion tokens defined in app/globals.css. */
+
+.ri-stagger > * {
+  animation: revealPop var(--ri-medium) var(--ri-ease) both;
+  backface-visibility: hidden;
+}
+
+.ri-stagger > *:nth-child(2) { animation-delay: 70ms; }
+.ri-stagger > *:nth-child(3) { animation-delay: 140ms; }
+.ri-stagger > *:nth-child(4) { animation-delay: 210ms; }
+.ri-stagger > *:nth-child(5) { animation-delay: 280ms; }
+.ri-stagger > *:nth-child(6) { animation-delay: 350ms; }
+.ri-stagger > *:nth-child(7) { animation-delay: 420ms; }
+.ri-stagger > *:nth-child(8) { animation-delay: 490ms; }
+.ri-stagger > *:nth-child(n+9) { animation-delay: 560ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ri-stagger > * {
+    animation: none;
+  }
+}
