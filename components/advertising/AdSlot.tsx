@@ -215,10 +215,10 @@ function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
 
   return (
     <aside
-      className={`rounded-3xl border border-line bg-white p-4 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70 ${className}`}
+      className={`rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70 ${className}`}
       aria-label="Google AdSense advertisement"
     >
-      <div className="mb-2 text-[11px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#b98a2f]">
         Advertisement
       </div>
 
@@ -405,13 +405,13 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
     (isHouseAd ? "Advertise with ReviewIntel" : isAffiliateAd ? "View offer" : visibleAdSource === "direct" ? "Learn more" : "Apply for ads");
   const badgeLabels = visibleAd.labels?.length
     ? visibleAd.labels
-    : [isHouseAd ? "ReviewIntel ad spot" : "Sponsored"];
+    : [isHouseAd ? "Advertisement" : "Sponsored"];
   const partnerCopy = isAffiliateAd ? affiliateDisplayCopy(visibleAd) : null;
   const displaySponsorName = partnerCopy?.sponsorName || visibleAd.sponsorName;
   const displayHeadline = partnerCopy?.headline || visibleAd.headline;
   const displayDescription = partnerCopy?.description || visibleAd.description;
   const ctaClassName =
-    "inline-flex shrink-0 items-center justify-center rounded-full bg-ocean px-5 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 dark:bg-cyan-300 dark:text-slate-950 dark:hover:bg-cyan-200";
+    "inline-flex shrink-0 items-center justify-center rounded-full bg-[#ffbd58] px-6 py-2.5 text-sm font-black text-[#172033] shadow-[0_10px_30px_rgba(255,189,88,0.35)] transition hover:-translate-y-0.5 hover:bg-[#ffd07a]";
   const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl;
   const media = mediaUrl ? (
     visibleAd.mediaType === "video" ? (
@@ -465,10 +465,14 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
 
   return (
     <aside
-      className={`rounded-3xl border border-cyan-200/70 bg-[linear-gradient(135deg,rgba(232,252,255,0.96),rgba(255,255,255,0.98)_54%,rgba(255,247,226,0.9))] p-4 text-ink shadow-soft backdrop-blur-xl dark:border-cyan-300/25 dark:bg-gradient-to-r from-sky-600 to-teal-500/80 dark:text-white ${isHouseAd ? "ri-house-ad-slot" : ""} ${className}`}
+      className={`relative overflow-hidden rounded-[1.75rem] border border-[#ffbd58]/35 bg-[linear-gradient(135deg,#101a30_0%,#16244a_55%,#1e2f5e_100%)] p-5 text-white shadow-[0_24px_70px_rgba(10,18,38,0.35)] sm:p-6 ${isHouseAd ? "ri-house-ad-slot" : ""} ${className}`}
       aria-label="Sponsored placement"
       data-ri-no-translate
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#ffbd58]/80 to-transparent"
+      />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center">
           {media}
@@ -478,24 +482,24 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
               {badgeLabels.map((label) => (
                 <span
                   key={label}
-                  className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold tracking-[0.12em] text-ocean dark:border-cyan-300/25 dark:bg-cyan-300/10 dark:text-cyan-100"
+                  className="inline-flex rounded-full border border-[#ffbd58]/40 bg-[#ffbd58]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#ffbd58]"
                 >
                   {label}
                 </span>
               ))}
             </div>
 
-            <p className="text-sm font-semibold text-ocean dark:text-cyan-100">{displaySponsorName}</p>
-            <h3 className={compact ? "mt-1 text-lg font-bold" : "mt-1 text-xl font-bold"}>
+            <p className="text-sm font-bold text-[#ffbd58]">{displaySponsorName}</p>
+            <h3 className={compact ? "mt-1 text-lg font-black text-white" : "mt-1 text-xl font-black text-white"}>
               {displayHeadline}
             </h3>
             {displayDescription ? (
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
                 {displayDescription}
               </p>
             ) : null}
             {visibleAd.disclosureText ? (
-              <p className="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-500 dark:text-cyan-100/80">
+              <p className="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-400">
                 {visibleAd.disclosureText}
               </p>
             ) : null}
