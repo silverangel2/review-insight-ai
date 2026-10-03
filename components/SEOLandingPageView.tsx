@@ -10,6 +10,12 @@ export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
       : page.audience === "Seller"
         ? "/pricing"
         : "/results";
+  const audienceLabel =
+    page.audience === "Shopper"
+      ? "For shoppers"
+      : page.audience === "Seller"
+        ? "For sellers"
+        : "ReviewIntel platform";
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
@@ -18,7 +24,7 @@ export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
         <div className="ri-scan-beam absolute inset-x-0 top-0 h-28 opacity-70" />
         <div className="relative grid gap-8 lg:grid-cols-[1fr_0.82fr] lg:items-center">
           <div>
-            <Badge tone={page.audience === "Seller" ? "warn" : "good"}>{page.audience} SEO landing page</Badge>
+            <Badge tone={page.audience === "Seller" ? "warn" : "good"}>{audienceLabel}</Badge>
             <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight md:text-7xl">{page.title}</h1>
             <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-slate-100">{page.description}</p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -32,7 +38,7 @@ export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
           </div>
 
           <div className="rounded-[2rem] border border-white/15 bg-gradient-to-r from-sky-600 to-teal-500/52 p-5 shadow-[0_25px_90px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-            <p className="text-xs font-black uppercase tracking-wide text-cyan-100">Launch-ready search focus</p>
+            <p className="text-xs font-black uppercase tracking-wide text-cyan-100">What the scan covers</p>
             <div className="mt-4 grid gap-3">
               {page.highlights.map((highlight, index) => (
                 <div key={highlight} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 px-4 py-3">
@@ -45,25 +51,20 @@ export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-5 md:grid-cols-3">
+      <div className="mx-auto mt-10 max-w-4xl space-y-8">
         {(page.sections ?? []).map((section) => (
-          <article key={section.title} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-            <h2 className="text-2xl font-black text-ink dark:text-white">{section.title}</h2>
-            <p className="mt-4 text-sm leading-7 text-slate-600 dark:text-slate-300">{section.body}</p>
+          <article key={section.title} className="rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-panel md:p-8">
+            <h2 className="text-2xl font-black text-ink dark:text-white md:text-3xl">{section.title}</h2>
+            <div className="mt-4 space-y-4">
+              {section.body.split("\n\n").map((paragraph, index) => (
+                <p key={index} className="text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base md:leading-8">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
           </article>
         ))}
-      </section>
-
-      <section className="mt-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-        <p className="text-xs font-black uppercase text-ocean dark:text-cyan-300">Keywords and search topics</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {page.keywords.map((keyword) => (
-            <span key={keyword} className="rounded-full border border-teal/20 bg-teal/10 px-3 py-2 text-xs font-black uppercase text-teal">
-              {keyword}
-            </span>
-          ))}
-        </div>
-      </section>
+      </div>
     </main>
   );
 }
