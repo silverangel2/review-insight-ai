@@ -7,16 +7,14 @@ import { readAccountSession } from "@/lib/accountSession";
 import {
   consumePersistentQuota,
   isSupabaseConfigured,
-  readPersistentQuota,
   saveAnalysisRecord,
   supabaseSelect,
 } from "@/lib/supabaseServer";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import {
   ANON_SCAN_LIMIT,
-  anonymousScansRemaining,
-  incrementAnonymousScanCount,
 } from "@/lib/anonymousScans";
+import { claimFreeScan } from "@/lib/freeScanQuota";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
@@ -2664,141 +2662,7 @@ export async function POST(request: Request) {
     const resolvedAccount = await resolveAnalyzeAccount(email, requestedPlan, requestedRole);
     const role = resolvedAccount.role;
     const plan = resolvedAccount.plan;
-
-    if (role === "guest") {
-      // Anonymous shoppers get a few free scans without signing in.
-      // Enforcement is server-side by IP hash (lib/anonymousScans.ts);
-      // the localStorage counter on the client is UX-only and never trusted.
-      const remaining = await anonymousScansRemaining(request);
-      if (remaining <= 0) {
-        return NextResponse.json(
-          {
-            error: `You've used your ${ANON_SCAN_LIMIT} free scans. Sign in to keep scanning — it's free.`,
-            code: "ANON_SCAN_LIMIT_REACHED",
-            signInRequired: true,
-            signInUrl: "/login?next=/analyze",
-            scanId,
-            resultSource: "analyze",
-          },
-          { status: 403 }
-        );
-      }
-    }
-
-    const normalizedPlanForAnalyze = String(plan || "").trim();
-    const isBetaPlanForAnalyze =
-      normalizedPlanForAnalyze === "buyer_beta" ||
-      normalizedPlanForAnalyze === "seller_beta";
-
-    const isShopperFree =
-      role !== "admin" &&
-      role !== "guest" &&
-      !isBetaPlanForAnalyze &&
-      normalizedPlanForAnalyze === "free_buyer";
-
-    if (isShopperFree) {
-      if (!email) {
-        return NextResponse.json(
-          { error: "Please log in again before analyzing a product.", scanId, resultSource: "analyze" },
-          { status: 401 }
-        );
-      }
-
-      const quota = await readPersistentQuota({
-        email,
-        plan: "free_buyer"
-      });
-
-      if (!quota) {
-        return NextResponse.json(
-          {
-            error: "We could not verify your daily scan allowance. Please try again.",
-            code: "QUOTA_UNAVAILABLE",
-            scanId,
-            resultSource: "analyze"
-          },
-          { status: 503 }
-        );
-      }
-
-      if ((quota.remaining ?? 0) <= 0) {
-        return NextResponse.json(
-          {
-            error: "You have used all 3 free scans for today. Upgrade to Premium for more scans and the fuller buying-confidence report.",
-            code: "DAILY_SCAN_LIMIT_REACHED",
-            upgradeRequired: true,
-            upgradeUrl: "/pricing?plan=shopper_premium",
-            cta: "Try Premium",
-            quota,
-            scanId,
-            resultSource: "analyze"
-          },
-          { status: 429 }
-        );
-      }
-    }
-
-    const recordCompletedScan = async (scanResult: JsonRecord) => {
-      const finalDecisionSource = String(scanResult.finalDecisionSource || "");
-      const terminalScanResult = scanResult.scanState
-        ? scanResult
-        : {
-            ...scanResult,
-            scanState: finalDecisionSource === "reviewEvidence" ? "COMPLETE" : "INSUFFICIENT_EVIDENCE",
-          };
-
-      if (!email) {
-        // Anonymous scan completed — count it against the IP-hash allowance.
-        // Best-effort: never fail a completed scan over counting.
-        if (role === "guest") {
-          try {
-            await incrementAnonymousScanCount(request);
-          } catch {
-            // ignore
-          }
-        }
-        return terminalScanResult;
-      }
-
-      const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
-      const shouldSaveHistory = role === "admin" || accountPlan !== "free_buyer";
-      const analysisRecord = shouldSaveHistory
-        ? (await saveAnalysisRecord({
-            profile_email: email,
-            mode: "buyer",
-            product_name: asRecord(terminalScanResult.product).name ?? "Product scan",
-            platform: asRecord(terminalScanResult.product).store ?? "other",
-            product_score: terminalScanResult.productScore ?? terminalScanResult.buyingConfidence ?? null,
-            recommendation: terminalScanResult.verdict ?? null,
-            summary: terminalScanResult.bottomLine ?? null,
-            analysis_json: {
-              ...terminalScanResult,
-              analysisVersion: "review-evidence-v2",
-            },
-            account: { email, plan: accountPlan, role }
-          }) as { id?: string; created_at?: string } | null)
-        : null;
-
-      const usage = await consumePersistentQuota(
-        {
-          email,
-          plan: accountPlan
-        },
-        {
-          analysis_id: analysisRecord?.id ?? null,
-          audience: "buyer",
-          product_name: asRecord(terminalScanResult.product).name ?? null,
-          verdict: terminalScanResult.verdict ?? null
-        }
-      );
-
-      return {
-        ...terminalScanResult,
-        analysisId: analysisRecord?.id ?? null,
-        createdAt: analysisRecord?.created_at ?? new Date().toISOString(),
-        quota: usage.quota ?? null
-      };
-    };
+    let claimedQuota: Awaited<ReturnType<typeof claimFreeScan>> | null = null;
 
     const contentType = request.headers.get("content-type") || "";
     const canReadFormData =
@@ -2831,6 +2695,159 @@ export async function POST(request: Request) {
     if (file.size > 8 * 1024 * 1024) {
       return NextResponse.json({ error: "Image is too large. Please upload a screenshot under 8MB.", scanId, resultSource: "analyze" }, { status: 400 });
     }
+
+    const normalizedPlanForAnalyze = String(plan || "").trim();
+    const isBetaPlanForAnalyze =
+      normalizedPlanForAnalyze === "buyer_beta" ||
+      normalizedPlanForAnalyze === "seller_beta";
+
+    const isShopperFree =
+      role !== "admin" &&
+      role !== "guest" &&
+      !isBetaPlanForAnalyze &&
+      normalizedPlanForAnalyze === "free_buyer";
+
+    if (isShopperFree) {
+      if (!email) {
+        return NextResponse.json(
+          { error: "Please log in again before analyzing a product.", scanId, resultSource: "analyze" },
+          { status: 401 }
+        );
+      }
+
+      const quotaClaim = await claimFreeScan({
+        kind: "authenticated",
+        identity: email,
+        scanId,
+      });
+      claimedQuota = quotaClaim;
+
+      if (quotaClaim.code === "unavailable") {
+        return NextResponse.json(
+          {
+            error: "We could not verify your daily scan allowance. Please try again.",
+            code: "QUOTA_UNAVAILABLE",
+            scanId,
+            resultSource: "analyze"
+          },
+          { status: 503 }
+        );
+      }
+
+      if (!quotaClaim.allowed) {
+        return NextResponse.json(
+          {
+            error: "You have used all 3 free scans for today. Upgrade to Premium for more scans and the fuller buying-confidence report.",
+            code: "DAILY_SCAN_LIMIT_REACHED",
+            upgradeRequired: true,
+            upgradeUrl: "/pricing?plan=shopper_premium",
+            cta: "Try Premium",
+            quota: quotaClaim,
+            scanId,
+            resultSource: "analyze"
+          },
+          { status: 429 }
+        );
+      }
+    }
+
+    if (role === "guest") {
+      const anonymousIdentity =
+        request.headers.get("x-forwarded-for") ||
+        request.headers.get("x-real-ip") ||
+        request.headers.get("cf-connecting-ip") ||
+        "unknown";
+      const quotaClaim = await claimFreeScan({
+        kind: "anonymous",
+        identity: anonymousIdentity.split(",")[0]?.trim() || "unknown",
+        scanId,
+      });
+      claimedQuota = quotaClaim;
+
+      if (quotaClaim.code === "unavailable") {
+        return NextResponse.json(
+          {
+            error: "Free scans are temporarily unavailable. Please try again later.",
+            code: "QUOTA_UNAVAILABLE",
+            scanId,
+            resultSource: "analyze",
+          },
+          { status: 503 }
+        );
+      }
+
+      if (!quotaClaim.allowed) {
+        return NextResponse.json(
+          {
+            error: `You've used your ${ANON_SCAN_LIMIT} free scans. Sign in to keep scanning — it's free.`,
+            code: "ANON_SCAN_LIMIT_REACHED",
+            signInRequired: true,
+            signInUrl: "/login?next=/analyze",
+            quota: quotaClaim,
+            scanId,
+            resultSource: "analyze",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    const recordCompletedScan = async (scanResult: JsonRecord) => {
+      const finalDecisionSource = String(scanResult.finalDecisionSource || "");
+      const terminalScanResult = scanResult.scanState
+        ? scanResult
+        : {
+            ...scanResult,
+            scanState: finalDecisionSource === "reviewEvidence" ? "COMPLETE" : "INSUFFICIENT_EVIDENCE",
+          };
+
+      if (!email) {
+        return {
+          ...terminalScanResult,
+          quota: claimedQuota,
+        };
+      }
+
+      const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
+      const shouldSaveHistory = role === "admin" || accountPlan !== "free_buyer";
+      const analysisRecord = shouldSaveHistory
+        ? (await saveAnalysisRecord({
+            profile_email: email,
+            mode: "buyer",
+            product_name: asRecord(terminalScanResult.product).name ?? "Product scan",
+            platform: asRecord(terminalScanResult.product).store ?? "other",
+            product_score: terminalScanResult.productScore ?? terminalScanResult.buyingConfidence ?? null,
+            recommendation: terminalScanResult.verdict ?? null,
+            summary: terminalScanResult.bottomLine ?? null,
+            analysis_json: {
+              ...terminalScanResult,
+              analysisVersion: "review-evidence-v2",
+            },
+            account: { email, plan: accountPlan, role }
+          }) as { id?: string; created_at?: string } | null)
+        : null;
+
+      const usage = await consumePersistentQuota(
+        {
+          email,
+          plan: accountPlan
+        },
+        {
+          analysis_id: analysisRecord?.id ?? null,
+          scan_id: scanId,
+          audience: "buyer",
+          product_name: asRecord(terminalScanResult.product).name ?? null,
+          verdict: terminalScanResult.verdict ?? null
+        }
+      );
+
+      return {
+        ...terminalScanResult,
+        analysisId: analysisRecord?.id ?? null,
+        createdAt: analysisRecord?.created_at ?? new Date().toISOString(),
+        quota: claimedQuota ?? usage.quota ?? null,
+      };
+    };
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const imageDataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;

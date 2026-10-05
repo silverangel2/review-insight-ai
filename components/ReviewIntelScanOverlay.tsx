@@ -118,6 +118,12 @@ export function ReviewIntelScanOverlay({
         <ol className="mt-8 grid gap-2.5 text-left">
           {STAGES.map((s, index) => {
             const state = stageState(s.id, stage);
+            const label =
+              s.id === "done" && stage !== "done" ? "Preparing result" : s.label;
+            const hint =
+              s.id === "done" && stage !== "done"
+                ? "Waiting for the completed server response"
+                : s.hint;
             return (
               <li
                 key={s.id}
@@ -142,11 +148,11 @@ export function ReviewIntelScanOverlay({
                   {state === "done" ? "✓" : state === "active" ? "●" : index + 1}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black text-white">{s.label}</span>
+                  <span className="block text-sm font-black text-white">{label}</span>
                   <span className="block truncate text-xs font-semibold text-slate-400">
                     {s.id === "uploading" && state === "active"
                       ? `${safeUpload}% uploaded`
-                      : s.hint}
+                      : hint}
                   </span>
                 </span>
                 {s.id === "uploading" && state === "active" ? (
@@ -170,11 +176,13 @@ export function ReviewIntelScanOverlay({
         ) : null}
 
         <p className="mt-6 text-xs font-semibold leading-5 text-slate-400">
-          {stage === "analyzing"
-            ? "Deep scans take a minute or two. Keep this tab open — your verdict is on its way."
-            : stage === "failed"
-              ? "The scan did not reach a usable terminal result."
-              : "Preparing a clean result page. Please keep this tab open."}
+          {stage === "uploading"
+            ? "Upload in progress. Keep this tab open."
+            : stage === "analyzing"
+              ? "ReviewIntel is checking the available evidence. Keep this tab open."
+              : stage === "failed"
+                ? "The scan stopped before a usable result was prepared."
+                : "Preparing a clean result page."}
         </p>
       </div>
     </div>

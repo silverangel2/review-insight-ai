@@ -2295,7 +2295,13 @@ export async function collectAndAnalyzeReviewEvidence(
     (collectorSourceAccepted || hasSpecificRecoveryIdentity)
   ) {
     if (nativeReviewRetrieval.reviewsCollected > 0) {
-      const nativeReviews = nativeReviewRetrieval.reviews.map((review) => ({
+      const trustedNativeReviews = nativeReviewRetrieval.reviews.filter(
+        (review) =>
+          Boolean(listingUrlForReviewCollector) &&
+          Boolean(review.sourceUrl) &&
+          !/search snippet|native search/i.test(String(review.source || "")),
+      );
+      const nativeReviews = trustedNativeReviews.map((review) => ({
         ...review,
         source: review.source || "Native public review retrieval",
       }));
@@ -2316,7 +2322,7 @@ export async function collectAndAnalyzeReviewEvidence(
         }
       );
 
-      if (collectedWrittenReviews.reviewsCollected > 0) {
+      if (nativeReviews.length > 0 && collectedWrittenReviews.reviewsCollected > 0) {
         collectorSourceAccepted = true;
         if (hasSpecificRecoveryIdentity || exactListingAccepted) {
           // Recovered review bodies matched the specific screenshot product
@@ -2324,6 +2330,10 @@ export async function collectAndAnalyzeReviewEvidence(
           exactListingAccepted = true;
           collectorSourceRejectedReason = null;
         }
+      }
+      if (!nativeReviews.length) {
+        nativeRetrievalNote =
+          "Native retrieval returned search snippets only; snippets were retained as discovery metadata and excluded from trusted written-review evidence.";
       }
     } else {
       collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
@@ -2425,10 +2435,21 @@ export async function collectAndAnalyzeReviewEvidence(
     8,
     Math.min(Number(process.env.REVIEWINTEL_RELIABLE_SIGNAL_TARGET || 35), 50)
   );
-  const collectedWrittenReviewCount = () => Math.max(
-    Number(collectedWrittenReviews.reviewsCollected || 0),
-    collectedWrittenReviews.reviews.length
-  );
+  const collectedWrittenReviewCount = () => {
+    const trustedCollectorSource =
+      Boolean(collectedWrittenReviews.sourceUrl) &&
+      collectedWrittenReviews.extractor !== "none";
+
+    // Native search snippets are useful discovery input, but their count is
+    // not a reliable evidence-depth signal. They must not suppress the
+    // bounded web-research recovery path before normalization.
+    return trustedCollectorSource
+      ? Math.max(
+          Number(collectedWrittenReviews.reviewsCollected || 0),
+          collectedWrittenReviews.reviews.length
+        )
+      : 0;
+  };
 
   let openAiReviewUrlDiscoveryNote =
     "OpenAI Web Search URL discovery was not needed because written evidence was sufficient.";
@@ -2694,6 +2715,21 @@ export async function collectAndAnalyzeReviewEvidence(
     1,
     Math.min(Number(process.env.REVIEWINTEL_DEEP_SEARCH_PASSES || 5), 5)
   );
+  const adaptiveResearchStrategies = [
+    {
+      label: "exact-product-reviews",
+      instruction: "Search the exact product name with buyer reviews and review-page sources.",
+    },
+    {
+      label: "exact-product-problems",
+      instruction: "Search the exact product name with complaints, problems, failures, and customer experiences.",
+    },
+    {
+      label: "exact-product-user-discussion",
+      instruction: "Search the exact product name with Reddit, forums, Q&A, and independent review discussions.",
+    },
+  ];
+  let consecutiveStagnantPasses = 0;
 
   for (
     let pass = 1;
@@ -2703,6 +2739,7 @@ export async function collectAndAnalyzeReviewEvidence(
     pass += 1
   ) {
     const beforeSignals = parsedEvidenceSignalCount(adaptiveResearchAggregate);
+    const strategy = adaptiveResearchStrategies[(pass - 1) % adaptiveResearchStrategies.length];
     const adaptivePrompt = `
 You are ReviewIntel's bounded adaptive public-review research pass.
 
@@ -2710,6 +2747,8 @@ Find additional exact-product written buyer-review, Q&A, forum, or open-web revi
 ${reviewSearchIdentity || product}
 
 This is pass ${pass} of ${adaptiveMaxPasses}. The current collected evidence is below the quality target of ${reliableSignalTarget} distinct signals.
+Research strategy for this pass: ${strategy.label}
+${strategy.instruction}
 
 Exact product identity:
 ${JSON.stringify({
@@ -2749,12 +2788,24 @@ Rules:
       temperature: 0.1,
       context: openAiWebSearchContext,
       purpose: "adaptive-review-evidence-research",
-      dedupeKey: `adaptive-review-evidence-research:${reviewSearchIdentity || product}:pass-${pass}`,
+      dedupeKey: `adaptive-review-evidence-research:${reviewSearchIdentity || product}:${strategy.label}:pass-${pass}`,
       evidenceSatisfied: () => parsedEvidenceSignalCount(adaptiveResearchAggregate) >= reliableSignalTarget,
     });
 
     const adaptiveOutput = adaptiveResponse.outputText || "";
-    if (!adaptiveResponse.ok || !adaptiveOutput.trim()) break;
+    if (!adaptiveResponse.ok || !adaptiveOutput.trim()) {
+      consecutiveStagnantPasses += 1;
+      console.log("[ReviewIntel DEBUG adaptiveReviewResearchStop]", {
+        pass,
+        strategy: strategy.label,
+        reason: adaptiveResponse.skipped
+          ? "research_not_executed"
+          : "research_returned_no_output",
+        consecutiveStagnantPasses,
+      });
+      if (consecutiveStagnantPasses >= 2) break;
+      continue;
+    }
 
     const parsedAdaptive = safeParseReviewEvidenceJson(adaptiveOutput);
     const parsedAdaptiveRecord =
@@ -2768,16 +2819,31 @@ Rules:
     adaptiveResearchEvidence.push(parsedAdaptiveRecord);
 
     const afterSignals = parsedEvidenceSignalCount(adaptiveResearchAggregate);
+    if (afterSignals > beforeSignals) {
+      consecutiveStagnantPasses = 0;
+    } else {
+      consecutiveStagnantPasses += 1;
+    }
     console.log("[ReviewIntel DEBUG adaptiveReviewResearch]", {
       pass,
+      strategy: strategy.label,
       targetSignals: reliableSignalTarget,
       beforeSignals,
       afterSignals,
       usefulIncrement: afterSignals > beforeSignals,
       webSearchCalls: getOpenAiWebSearchDiagnostics(openAiWebSearchContext).calls,
+      consecutiveStagnantPasses,
     });
 
-    if (afterSignals <= beforeSignals) break;
+    if (consecutiveStagnantPasses >= 2) {
+      console.log("[ReviewIntel DEBUG adaptiveReviewResearchStop]", {
+        pass,
+        strategy: strategy.label,
+        reason: "stagnant_research_passes",
+        consecutiveStagnantPasses,
+      });
+      break;
+    }
   }
 
   console.log("[ReviewIntel DEBUG reviewCollectorInput]", {
@@ -3389,18 +3455,13 @@ Scoring rules:
 
     const groundedCommentsAnalyzed = Math.max(
       collectorReviewsCollected,
-      reviewSnippets.length,
-      repeatedPraises.length + repeatedComplaints.length,
-      productPros.length + productCons.length,
-      buyerExperienceSignals.length,
-      aiPatternSignals.length
+      reviewSnippetsBase.length
     );
 
     const actualCommentsAnalyzed = Math.max(
       groundedCommentsAnalyzed,
       collectorReviewsCollected,
       reviewSnippetsBase.length,
-      reviewSnippets.length,
       collectedWrittenReviews.reviews.length,
       collectedWrittenReviews.reviewsCollected || 0,
     );
@@ -3614,7 +3675,7 @@ Scoring rules:
     // later parser/cleanup mismatch or by the insufficient-evidence fallback.
     const preservedCollectedReviewCount = Math.max(
       collectorReviewsCollected,
-      reviewSnippets.length,
+      reviewSnippetsBase.length,
       Number(finalEvidence.reviewsCollected ?? 0),
       Number(finalEvidence.reviewCollector?.reviewsCollected ?? 0),
     );
@@ -3623,7 +3684,7 @@ Scoring rules:
       preservedCollectedReviewCount > 0
         ? Math.max(
             actualCommentsAnalyzed,
-            reviewSnippets.length,
+            reviewSnippetsBase.length,
             Number(finalEvidence.commentsAnalyzed ?? 0),
           )
         : actualCommentsAnalyzed;

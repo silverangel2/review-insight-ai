@@ -63,6 +63,24 @@ test("terminal scan state distinguishes evidence completion from insufficient ev
   assert.match(analyzerRoute, /scanState: "FAILED"/);
 });
 
+test("insufficient evidence never renders a normal verdict-confidence indicator", () => {
+  const results = source("components/ResultsClient.tsx");
+
+  assert.match(results, /const reviewEvidenceState = reviewEvidenceDecisionState\(rawResultForVerdict\)/);
+  assert.match(results, /const showVerdictConfidence = reviewEvidenceState !== "not_enough"/);
+  assert.match(results, /showVerdictConfidence\s*\n?\s*\?\s*rawResultForVerdict\.verdictConfidence/);
+  assert.match(results, /showVerdictConfidence \? \(/);
+  assert.match(results, /reviewEvidenceState === "not_enough"\s*\? 0/);
+});
+
+test("synthesized themes cannot inflate the independent review count", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(evidence, /const groundedCommentsAnalyzed = Math\.max\(\s*collectorReviewsCollected,\s*reviewSnippetsBase\.length\s*\)/s);
+  assert.match(evidence, /const actualCommentsAnalyzed = Math\.max\(\s*groundedCommentsAnalyzed,\s*collectorReviewsCollected,\s*reviewSnippetsBase\.length/s);
+  assert.doesNotMatch(evidence, /const groundedCommentsAnalyzed = Math\.max\([\s\S]{0,260}repeatedPraises\.length \+ repeatedComplaints\.length/);
+});
+
 test("scan overlay does not claim an unsupported review volume or fake timed stages", () => {
   const overlay = source("components/ReviewIntelScanOverlay.tsx");
   const analyzer = source("components/AnalyzerForm.tsx");
@@ -70,8 +88,35 @@ test("scan overlay does not claim an unsupported review volume or fake timed sta
   assert.doesNotMatch(overlay, /hundreds of reviews/i);
   assert.doesNotMatch(overlay, /setInterval/);
   assert.match(overlay, /Waiting for the evidence-backed scan result/);
+  assert.match(overlay, /s\.id === "done" && stage !== "done" \? "Preparing result"/);
+  assert.match(overlay, /stage === "uploading"/);
+  assert.match(overlay, /stage === "failed"/);
   assert.match(analyzer, /if \(percent >= 100\) setScanStage\("analyzing"\)/);
   assert.match(analyzer, /setScanStage\("done"\);\s*router\.push\("\/results"\)/s);
+});
+
+test("long server responses keep the real scan pending until persistence and navigation", () => {
+  const analyzer = source("components/AnalyzerForm.tsx");
+  const overlay = source("components/ReviewIntelScanOverlay.tsx");
+
+  // The customer request is an XHR with no short client-side timeout or
+  // abort.  This keeps an 80-second server response pending instead of
+  // turning a diagnostic harness deadline into a product failure.
+  assert.doesNotMatch(analyzer, /AbortController/);
+  assert.doesNotMatch(analyzer, /xhr\.timeout\s*=\s*(?:[1-9]\d{0,4}|0?\.[0-9]+)/);
+  assert.match(analyzer, /xhr\.onload\s*=\s*\(\) =>/);
+
+  // Upload completion enters the indeterminate server-research state; only a
+  // successful response can reach persistence, the terminal overlay state,
+  // and navigation, in that order.
+  assert.match(analyzer, /if \(percent >= 100\) setScanStage\("analyzing"\)/);
+  assert.match(analyzer, /saveLatestResult\([\s\S]*?incrementStoredScanTally\(\)[\s\S]*?saveLatestPreview[\s\S]*?setScanStage\("done"\);\s*router\.push\("\/results"\)/);
+  assert.doesNotMatch(analyzer, /setScanStage\("done"\)[\s\S]{0,160}before/);
+
+  // The overlay exposes no completed/verdict-ready state while the actual
+  // request is still analyzing or has failed.
+  assert.match(overlay, /s\.id === "done" && stage !== "done" \? "Preparing result"/);
+  assert.match(overlay, /stage === "failed"\s*\n\s*\? "The scan stopped before a usable result was prepared\."/);
 });
 
 test("shopper verdict paths use review first instead of obsolete middle verdict output", () => {
@@ -240,6 +285,12 @@ test("review evidence uses bounded adaptive research after efficient collection"
   assert.match(evidence, /adaptive-review-evidence-research/);
   assert.match(evidence, /REVIEWINTEL_DEEP_SEARCH_PASSES/);
   assert.match(evidence, /collectedWrittenReviewCount\(\) < reliableSignalTarget/);
+  assert.match(evidence, /trustedCollectorSource/);
+  assert.match(evidence, /Native search snippets are useful discovery input/);
+  assert.match(evidence, /exact-product-problems/);
+  assert.match(evidence, /exact-product-user-discussion/);
+  assert.match(evidence, /consecutiveStagnantPasses >= 2/);
+  assert.match(evidence, /Math\.min\(Number\(process\.env\.REVIEWINTEL_DEEP_SEARCH_PASSES \|\| 5\), 5\)/);
   assert.match(evidence, /parsedEvidenceSignalCount\(adaptiveResearchAggregate\)/);
   assert.match(evidence, /collectWrittenReviewsFromUrls/);
   assert.match(evidence, /callOpenAiResponseWithoutWebSearch/);
@@ -284,4 +335,19 @@ test("OpenAI Web Search calls are centralized and budgeted", () => {
     assert.doesNotMatch(file, /tools:\s*\[\s*\{\s*type:\s*["']web_search/);
     assert.doesNotMatch(file, /tools:\s*\[\s*\{\s*type:\s*["']web_search_preview/);
   }
+});
+
+test("Firecrawl remains an exact-listing last resort and search snippets stay untrusted", () => {
+  const collector = source("lib/reviewCollector.ts");
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.doesNotMatch(collector, /runFirecrawlFallback|fetchFirecrawlDiscoveredReviews/);
+  assert.match(evidence, /const firecrawlLastResortAllowed = Boolean\(/);
+  assert.match(evidence, /listingUrlForReviewCollector/);
+  assert.match(evidence, /nativeReviewRetrieval\.normalFetchFailed/);
+  assert.match(evidence, /nativeReviewRetrieval\.playwrightFailed/);
+  assert.match(evidence, /!nativeReviewRetrieval\.usableSnippetsExtracted/);
+  assert.match(evidence, /process\.env\.FIRECRAWL_API_KEY/);
+  assert.match(evidence, /search snippet\|native search/);
+  assert.doesNotMatch(collector, /fetchFirecrawlDiscoveredReviews/);
 });

@@ -169,3 +169,68 @@ test("unstructured recovered snippets cannot masquerade as a normal scored verdi
   assert.equal(result.buyScore, null);
   assert.match(result.bottomLine, /could not normalize enough product strengths or complaints/i);
 });
+
+test("independent written-review count controls sufficiency, not theme count", () => {
+  const oneReviewWithManyThemes = scoreReviewEvidenceSignals({
+    rating: 4.7,
+    marketplaceReviewCount: 2366,
+    commentsAnalyzed: 1,
+    evidenceStrength: "usable",
+    reviewSnippets: [{ sentiment: "positive", snippet: "reliable works well" }],
+    productPros: ["reliable", "works well", "easy", "great value", "durable", "quiet"],
+  });
+  const sixIndependentReviews = scoreReviewEvidenceSignals({
+    rating: 4.7,
+    marketplaceReviewCount: 2366,
+    commentsAnalyzed: 6,
+    evidenceStrength: "usable",
+    productPros: ["reliable", "works well", "easy", "great value", "durable", "quiet"],
+  });
+
+  assert.equal(oneReviewWithManyThemes.verdict, "REVIEW EVIDENCE NOT ENOUGH");
+  assert.equal(oneReviewWithManyThemes.buyScore, null);
+  assert.equal(oneReviewWithManyThemes.audit.writtenEvidenceCount, 1);
+  assert.equal(sixIndependentReviews.audit.writtenEvidenceCount, 6);
+  assert.equal(sixIndependentReviews.verdict, "BUY");
+});
+
+test("duplicate repeated themes are deduplicated before signal weighting", () => {
+  const result = scoreReviewEvidenceSignals({
+    rating: 4.7,
+    marketplaceReviewCount: 2366,
+    commentsAnalyzed: 1,
+    evidenceStrength: "usable",
+    repeatedPraises: Array.from({ length: 6 }, () => ({
+      theme: "reliable works well",
+      evidenceCount: 1,
+    })),
+    reviewSnippets: [{ sentiment: "positive", snippet: "reliable works well" }],
+  });
+
+  assert.equal(result.verdict, "REVIEW EVIDENCE NOT ENOUGH");
+  assert.equal(result.buyScore, null);
+  assert.equal(result.audit.writtenEvidenceCount, 1);
+});
+
+test("mixed independent evidence still balances positive and negative signals", () => {
+  const result = scoreReviewEvidenceSignals({
+    rating: 4.1,
+    marketplaceReviewCount: 900,
+    commentsAnalyzed: 6,
+    evidenceStrength: "usable",
+    repeatedPraises: [
+      { theme: "reliable works well", evidenceCount: 1 },
+      { theme: "great value", evidenceCount: 1 },
+    ],
+    repeatedComplaints: [
+      { theme: "broken battery", evidenceCount: 1 },
+      { theme: "poor quality", evidenceCount: 1 },
+    ],
+    productPros: ["reliable", "great value"],
+    productCons: ["broken battery", "poor quality"],
+  });
+
+  assert.ok(result.audit.positiveSignal > 0);
+  assert.ok(result.audit.negativeSignal > 0);
+  assert.equal(result.verdict, "REVIEW FIRST");
+});

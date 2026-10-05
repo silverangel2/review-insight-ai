@@ -114,6 +114,28 @@ export async function supabaseDelete(table: string, query: string) {
   return true;
 }
 
+export async function supabaseRpc<T = SupabaseRow>(functionName: string, body: SupabaseRow) {
+  if (!isSupabaseConfigured()) return null;
+
+  const response = await fetch(
+    `${SUPABASE_URL!.replace(/\/$/, "")}/rest/v1/rpc/${encodeURIComponent(functionName)}`,
+    {
+      method: "POST",
+      headers: headers("return=representation"),
+      body: JSON.stringify(body),
+      cache: "no-store",
+    }
+  ).catch(() => null);
+
+  if (!response?.ok) {
+    console.error(`[Supabase] rpc ${functionName} failed`, response?.status || "network");
+    return null;
+  }
+
+  const data = await response.json().catch(() => null);
+  return (Array.isArray(data) ? data[0] : data) as T | null;
+}
+
 
 function supabaseHeaders(): Record<string, string> {
   const key = SUPABASE_SERVICE_ROLE_KEY || "";
@@ -491,6 +513,31 @@ export async function consumePersistentQuota(emailOrAccount?: string | { email?:
       mode: "local",
       quota: null
     };
+  }
+
+  const scanId = String(metadata.scan_id || metadata.scanId || "").trim();
+  if (scanId) {
+    const existing = await supabaseSelect(
+      "usage_events",
+      [
+        "select=*",
+        `profile_email=eq.${encodeURIComponent(email)}`,
+        "event_type=eq.analysis",
+        `metadata->>scan_id=eq.${encodeURIComponent(scanId)}`,
+        "limit=1",
+      ].join("&")
+    );
+
+    if (existing.length > 0) {
+      return {
+        ok: true,
+        mode: "supabase",
+        row: existing[0],
+        quota: plan === "free_buyer"
+          ? await readPersistentQuota({ email, plan })
+          : { used: 0, remaining: null, limit: null, resetAt: null },
+      };
+    }
   }
 
   const now = new Date().toISOString();

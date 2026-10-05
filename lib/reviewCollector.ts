@@ -481,7 +481,6 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Pr
         reviews.push(...collectJsonLdReviews(decoded, url));
         reviews.push(...collectEmbeddedReviewText(decoded, url));
         reviews.push(...collectEmbeddedJsonReviews(decoded, url));
-        reviews.push(...collectSearchResultSnippets(decoded, url));
       }
     } catch {
       // continue trying other discovered review URLs
@@ -490,8 +489,6 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Pr
 
   return dedupeReviews(reviews, maxReviews);
 }
-
-
 
 function buildPublicReviewSearchQueries(productName: string, listingUrl: string): string[] {
   const normalized = cleanText(productName).slice(0, 180);

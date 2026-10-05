@@ -235,6 +235,21 @@ function uniqueThemeTexts(items: unknown[], limit: number) {
   return clean;
 }
 
+function uniqueThemeRecords(items: unknown[], limit: number) {
+  const seen = new Set<string>();
+  const clean: unknown[] = [];
+
+  for (const item of items) {
+    const key = signalKey(themeText(item));
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    clean.push(item);
+    if (clean.length >= limit) break;
+  }
+
+  return clean;
+}
+
 function themeText(item: unknown) {
   if (typeof item === "string") return normalizedText(item);
 
@@ -407,8 +422,8 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
   const commentsAnalyzed = Math.max(0, Math.round(finiteNumber(input.commentsAnalyzed) || 0));
   const evidenceStrength = String(input.evidenceStrength || "").toLowerCase();
   const reviewSnippets = input.reviewSnippets || [];
-  const repeatedPraises = input.repeatedPraises || [];
-  const repeatedComplaints = input.repeatedComplaints || [];
+  const repeatedPraises = uniqueThemeRecords(input.repeatedPraises || [], 8);
+  const repeatedComplaints = uniqueThemeRecords(input.repeatedComplaints || [], 8);
   const productPros = uniqueThemeTexts(input.productPros || [], 8);
   const productCons = uniqueThemeTexts(input.productCons || [], 8);
   const buyerSignals = uniqueTexts(input.buyerExperienceSignals || [], 10);
@@ -422,13 +437,18 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
   const snippetsWithoutStructuredSignals =
     reviewSnippets.length > 0 && structuredSignalCount === 0;
 
-  const writtenEvidenceCount = Math.max(
-    commentsAnalyzed,
-    reviewSnippets.length,
-    repeatedPraises.length + repeatedComplaints.length,
-    productPros.length + productCons.length,
-    buyerSignals.length
-  );
+  // commentsAnalyzed is the grounded written-review record count supplied by
+  // the evidence pipeline. Structured themes describe what those records say;
+  // they must not create additional independent reviews when the pipeline has
+  // already reported a smaller grounded count.
+  const writtenEvidenceCount = finiteNumber(input.commentsAnalyzed) !== null
+    ? commentsAnalyzed
+    : Math.max(
+        reviewSnippets.length,
+        repeatedPraises.length + repeatedComplaints.length,
+        productPros.length + productCons.length,
+        buyerSignals.length
+      );
 
   const notEnough =
     writtenEvidenceCount < 3 ||

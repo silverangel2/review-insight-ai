@@ -16,8 +16,9 @@ import {
  *   HMAC-SHA256 hash (same pattern as traffic analytics visitor keys).
  * - The allowance resets every UTC calendar day. The window is derived from
  *   `last_scan_at`, so no schema change is needed for the daily reset.
- * - When Supabase is unavailable, a per-instance in-memory Map is the
- *   best-effort fallback. Supabase is the source of truth.
+ * - This legacy counter is no longer an entitlement source. The analyze route
+ *   uses the atomic claim RPC in lib/freeScanQuota.ts and fails closed when it
+ *   cannot reach durable quota state.
  */
 
 export const ANON_SCAN_LIMIT = 3;
@@ -58,26 +59,25 @@ export async function getAnonymousScanCount(request: Request): Promise<number> {
   const ipHash = hashAnonymousIp(clientIp(request));
   const today = todayKey();
 
-  if (hasSupabaseServiceEnv()) {
-    try {
-      const rows = await supabaseSelect<AnonScanRow>(
-        "anonymous_scan_usage",
-        `select=scan_count,last_scan_at&ip_hash=eq.${encodeURIComponent(ipHash)}&limit=1`
-      );
-      if (rows.length > 0) {
-        const rowDay = String(rows[0].last_scan_at || "").slice(0, 10);
-        // A row from a previous day means today's count starts at zero.
-        const count = rowDay === today ? Number(rows[0].scan_count) || 0 : 0;
-        memoryCounts.set(ipHash, { day: today, count });
-        return count;
-      }
-    } catch {
-      // Fall through to the in-memory fallback below.
+  if (!hasSupabaseServiceEnv()) return ANON_SCAN_LIMIT;
+
+  try {
+    const rows = await supabaseSelect<AnonScanRow>(
+      "anonymous_scan_usage",
+      `select=scan_count,last_scan_at&ip_hash=eq.${encodeURIComponent(ipHash)}&limit=1`
+    );
+    if (rows.length > 0) {
+      const rowDay = String(rows[0].last_scan_at || "").slice(0, 10);
+      // A row from a previous day means today's count starts at zero.
+      const count = rowDay === today ? Number(rows[0].scan_count) || 0 : 0;
+      memoryCounts.set(ipHash, { day: today, count });
+      return count;
     }
+  } catch {
+    return ANON_SCAN_LIMIT;
   }
 
-  const cached = memoryCounts.get(ipHash);
-  return cached && cached.day === today ? cached.count : 0;
+  return 0;
 }
 
 export async function incrementAnonymousScanCount(request: Request): Promise<number> {

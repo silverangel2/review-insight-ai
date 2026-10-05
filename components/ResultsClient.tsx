@@ -759,6 +759,7 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
   };
 
   const analysis = source.analysis;
+  const reviewEvidenceState = reviewEvidenceDecisionState(source);
   const productSource = source.product || {};
   const product = {
     ...productSource,
@@ -794,15 +795,18 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
       (analysis as Record<string, unknown> | undefined)?.score,
     0
   );
-  const buyingConfidence = clampScore(
-    source.buyingConfidence ??
-      (source as Record<string, unknown>).buyerConfidence ??
-      (source as Record<string, unknown>).verdictConfidence ??
-      analysis?.confidence_score ??
-      analysis?.product_score ??
-      (analysis as Record<string, unknown> | undefined)?.score,
-    productScore
-  );
+  const buyingConfidence =
+    reviewEvidenceState === "not_enough"
+      ? 0
+      : clampScore(
+          source.buyingConfidence ??
+            (source as Record<string, unknown>).buyerConfidence ??
+            (source as Record<string, unknown>).verdictConfidence ??
+            analysis?.confidence_score ??
+            analysis?.product_score ??
+            (analysis as Record<string, unknown> | undefined)?.score,
+          productScore
+        );
   const valueForMoney = String(source.valueForMoney || analysis?.value_for_money_opinion || "Fair");
   const strengths = cleanBuyerInsightArray(
     asTextArray(source.topStrengths?.length ? source.topStrengths : analysis?.positive_points?.length ? analysis.positive_points : analysis?.praised_features, 12),
@@ -1138,12 +1142,16 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   };
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
   const rawResultForVerdict = result as Record<string, unknown>;
+  const reviewEvidenceState = reviewEvidenceDecisionState(rawResultForVerdict);
+  const showVerdictConfidence = reviewEvidenceState !== "not_enough";
 
   const verdictConfidenceRaw =
-    rawResultForVerdict.verdictConfidence ??
-    rawResultForVerdict.buyerConfidence ??
-    rawResultForVerdict.buyingConfidence ??
-    shopper.buyingConfidence;
+    showVerdictConfidence
+      ? rawResultForVerdict.verdictConfidence ??
+        rawResultForVerdict.buyerConfidence ??
+        rawResultForVerdict.buyingConfidence ??
+        shopper.buyingConfidence
+      : null;
   const verdictConfidence =
     typeof verdictConfidenceRaw === "number" && Number.isFinite(verdictConfidenceRaw)
       ? Math.round(verdictConfidenceRaw)
@@ -1221,9 +1229,11 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             {verdict.answer}
           </p>
 
-          <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"} {copy.buyerConfidence}
-          </div>
+          {showVerdictConfidence ? (
+            <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
+              {verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"} {copy.buyerConfidence}
+            </div>
+          ) : null}
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
             {productName}
@@ -1387,12 +1397,14 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
                   <p className="mt-1 text-xs font-bold leading-5 text-slate-600 sm:text-sm sm:leading-6">{verdict.message}</p>
                 </div>
               </div>
-              <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
-                <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"}</p>
-                  <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
+              {showVerdictConfidence ? (
+                <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
+                  <div className="text-center">
+                    <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"}</p>
+                    <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 md:grid-cols-4 sm:mt-6 sm:pt-5">
