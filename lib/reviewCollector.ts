@@ -1,11 +1,81 @@
+import { hasWrittenCustomerExperience, normalizeReviewCandidate } from "./reviewEvidenceAdjudication";
+import { captureStage } from "./devScanCapture";
+import { buildAmazonReviewPageUrls } from "./reviewRetrievalPolicy";
+import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
+
+
+export function isBlockedOrSignInReviewPage(input: {
+  requestedUrl?: string | null;
+  finalUrl?: string | null;
+  html?: string | null;
+}): boolean {
+  const requestedUrl = String(input.requestedUrl || "").toLowerCase();
+  const finalUrl = String(input.finalUrl || "").toLowerCase();
+  const html = String(input.html || "");
+
+  // Amazon may return HTTP 200 while redirecting review requests to an
+  // authentication/claim page. That response is NOT review evidence.
+  if (
+    /captcha|verify you are human|automated access|access denied/i.test(html) ||
+    finalUrl.includes("/ax/claim") ||
+    finalUrl.includes("/ap/signin") ||
+    finalUrl.includes("/gp/sign-in") ||
+    finalUrl.includes("/signin")
+  ) {
+    return true;
+  }
+
+  const title =
+    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
+      ?.replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase() || "";
+
+  if (
+    /^(?:amazon(?:\.[a-z.]+)?\s*[:|-]?\s*)?sign[ -]?in$/i.test(title) ||
+    /amazon\s*[:|-]?\s*sign[ -]?in/i.test(title) ||
+    title.includes("robot check")
+  ) {
+    return true;
+  }
+
+  if (
+    /enter the characters you see below/i.test(html) ||
+    /type the characters you see in this image/i.test(html) ||
+    /sorry, we just need to make sure you're not a robot/i.test(html)
+  ) {
+    return true;
+  }
+
+  // If an Amazon review URL was requested but Amazon redirected somewhere
+  // unrelated to product-reviews, treat it as blocked instead of parsing the
+  // returned page as review HTML.
+  if (
+    /amazon\.[^/]+\/.*product-reviews/i.test(requestedUrl) &&
+    finalUrl &&
+    !/\/product-reviews\//i.test(finalUrl)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export type CollectedReview = {
   source: string;
   sourceUrl?: string;
+  reviewId?: string | null;
+  retrievedAt?: string;
+  marketplaceProductId?: string | null;
   rating?: number | null;
   title?: string;
   body: string;
   date?: string | null;
   verified?: boolean | null;
+  reviewStructureVerified?: boolean;
+  reviewedProductName?: string | null;
+  reviewedBrand?: string | null;
 };
 
 export type ReviewExtractorName = "amazon" | "walmart" | "generic" | "none";
@@ -37,7 +107,7 @@ function normalizeRating(value: unknown): number | null {
 }
 
 function reviewKey(text: string) {
-  return cleanText(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 180);
+  return cleanText(text).toLowerCase().replace(/[^a-z0-9]+/g, " ");
 }
 
 function extractorForUrl(url: string | null | undefined): ReviewExtractorName {
@@ -60,35 +130,31 @@ function isLikelyWrittenReviewBody(value: string): boolean {
 
   if (text.length < 25 || text.length > 5000) return false;
   if (
-    /privacy policy|terms of use|add to cart|shipping|pickup|sponsored|advertisement|subscribe|cookie policy|write a review/i.test(
+    /privacy policy|terms of use|add to cart|sponsored|advertisement|subscribe|cookie policy|write a review/i.test(
       lower
     )
   ) {
     return false;
   }
 
-  const firstPersonOrUsage =
-    /\b(i|we|my|our|me|us|bought|purchased|received|used|using|works|worked|love|liked|disappointed|returned|broke|lasted|recommend)\b/i.test(
-      text
-    );
-  const productExperience =
-    /\b(quality|battery|fit|size|price|value|durable|comfortable|taste|smell|sound|charge|delivery|seller|return|packaging|material|review|stars?)\b/i.test(
-      text
-    );
-
-  return firstPersonOrUsage || productExperience;
+  return hasWrittenCustomerExperience(text);
 }
 
-function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedReview[]) {
+function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedReview[], productName: string | null = null, productBrand: string | null = null) {
   if (!node || typeof node !== "object") return;
 
   if (Array.isArray(node)) {
-    for (const item of node) collectFromJsonLdNode(item, sourceUrl, out);
+    for (const item of node) collectFromJsonLdNode(item, sourceUrl, out, productName, productBrand);
     return;
   }
 
   const record = node as Record<string, unknown>;
   const type = record["@type"];
+  const types = Array.isArray(type) ? type.map(String) : [String(type)];
+  const contextName = types.some((value) => value.toLowerCase() === "product") ? cleanText(record.name) || null : productName;
+  const brandName = (value: unknown) => typeof value === "string" ? cleanText(value)
+    : value && typeof value === "object" ? cleanText((value as Record<string, unknown>).name) : "";
+  const contextBrand = types.some((value) => value.toLowerCase() === "product") ? brandName(record.brand) || null : productBrand;
 
   const isReview =
     type === "Review" ||
@@ -115,12 +181,17 @@ function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedR
         body,
         date: cleanText(record.datePublished) || null,
         verified: null,
+        reviewStructureVerified: true,
+        reviewedProductName: record.itemReviewed && typeof record.itemReviewed === "object"
+          ? cleanText((record.itemReviewed as Record<string, unknown>).name) || contextName : contextName,
+        reviewedBrand: record.itemReviewed && typeof record.itemReviewed === "object"
+          ? brandName((record.itemReviewed as Record<string, unknown>).brand) || contextBrand : contextBrand,
       });
     }
   }
 
   for (const value of Object.values(record)) {
-    if (value && typeof value === "object") collectFromJsonLdNode(value, sourceUrl, out);
+    if (value && typeof value === "object") collectFromJsonLdNode(value, sourceUrl, out, contextName, contextBrand);
   }
 }
 
@@ -146,20 +217,25 @@ function collectJsonLdReviews(html: string, sourceUrl: string): CollectedReview[
 
 function collectEmbeddedReviewText(html: string, sourceUrl: string): CollectedReview[] {
   const reviews: CollectedReview[] = [];
+  // Parsed JSON is handled by the contextual extractors. A raw field regex
+  // must not strip away a Product wrapper and turn its metadata into reviews.
+  const unstructuredScripts = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, (block) => {
+    if (/type=["']application\/ld\+json["']/i.test(block)) return " ";
+    const script = htmlDecodeLight(block.replace(/^<script[^>]*>|<\/script>$/gi, "")).trim();
+    return safeJsonParse(script) || /"@type"\s*:\s*"Product"/i.test(script) ? " " : block;
+  });
   const patterns = [
-    /"reviewText"\s*:\s*"((?:\\.|[^"\\]){20,1200})"/gi,
-    /"reviewBody"\s*:\s*"((?:\\.|[^"\\]){20,1200})"/gi,
-    /"body"\s*:\s*"((?:\\.|[^"\\]){30,1200})"\s*,\s*"rating"/gi,
-    /"text"\s*:\s*"((?:\\.|[^"\\]){30,1200})"\s*,\s*"rating"/gi,
-    /"customerReviewText"\s*:\s*"((?:\\.|[^"\\]){20,1200})"/gi,
+    /"reviewText"\s*:\s*"((?:\\.|[^"\\]){20,5000})"/gi,
+    /"reviewBody"\s*:\s*"((?:\\.|[^"\\]){20,5000})"/gi,
+    /"customerReviewText"\s*:\s*"((?:\\.|[^"\\]){20,5000})"/gi,
   ];
 
   for (const pattern of patterns) {
-    for (const match of html.matchAll(pattern)) {
+    for (const match of unstructuredScripts.matchAll(pattern)) {
       const body = cleanText(match[1]);
       if (
         isLikelyWrittenReviewBody(body) &&
-        !/privacy policy|terms of use|add to cart|shipping|pickup|sponsored|advertisement/i.test(body)
+        !/privacy policy|terms of use|add to cart|sponsored|advertisement/i.test(body)
       ) {
         reviews.push({
           source: "Listing embedded review data",
@@ -168,6 +244,7 @@ function collectEmbeddedReviewText(html: string, sourceUrl: string): CollectedRe
           body,
           date: null,
           verified: null,
+          reviewStructureVerified: true,
         });
       }
     }
@@ -190,8 +267,9 @@ function dedupeReviews(reviews: CollectedReview[], maxReviews: number): Collecte
     seen.add(key);
     cleaned.push({
       ...review,
-      body: body.slice(0, 1200),
+      body: body.slice(0, 5000),
       title: review.title ? cleanText(review.title).slice(0, 160) : undefined,
+      retrievedAt: review.retrievedAt || new Date().toISOString(),
     });
 
     if (cleaned.length >= maxReviews) break;
@@ -251,9 +329,7 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
   const verifiedKeys = ["verified", "isverified", "verifiedpurchase", "isverifiedpurchaser", "badges"];
 
   const hasExplicitReviewKey =
-    keys.some((key) => key.includes("review")) ||
-    keys.some((key) => key.includes("comment")) ||
-    keys.some((key) => key.includes("submission"));
+    keys.some((key) => ["reviewtext", "reviewbody", "review", "comment", "comments", "customerreviewtext", "reviewdescription", "reviewid", "reviewtitle", "reviewer", "submissiontime", "submissionid"].includes(key));
 
   const hasReviewShape =
     hasExplicitReviewKey &&
@@ -277,7 +353,8 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
     }
   }
 
-  if (hasReviewShape && isLikelyWrittenReviewBody(body)) {
+  const types = Array.isArray(record["@type"]) ? record["@type"] : [record["@type"]];
+  if (!types.some((type) => String(type).toLowerCase() === "product") && hasReviewShape && isLikelyWrittenReviewBody(body)) {
     const ratingKey = Object.keys(record).find((candidate) =>
       ratingKeys.includes(candidate.toLowerCase())
     );
@@ -299,6 +376,8 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
 
     reviews.push({
       source,
+      sourceUrl: source,
+      reviewStructureVerified: true,
       title: titleValue ? cleanText(titleValue) : undefined,
       rating: Number.isFinite(ratingValue) ? ratingValue : null,
       body,
@@ -314,7 +393,8 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
 
 function collectEmbeddedJsonReviews(html: string, source: string): CollectedReview[] {
   const reviews: CollectedReview[] = [];
-  const scriptMatches = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+  const scriptMatches = html.replace(/<script[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, " ")
+    .matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
 
   for (const match of scriptMatches) {
     const script = htmlDecodeLight(match[1] || "").trim();
@@ -355,6 +435,7 @@ function discoverReviewUrls(html: string, listingUrl: string): string[] {
   const absoluteMatches = decoded.matchAll(/https?:\/\/[^"' <>)\\]+/gi);
   for (const match of absoluteMatches) {
     const url = match[0];
+    if (/m\.media-amazon\.com|\.(?:css|js|jpg|jpeg|png|gif|webp|avif|mp4)(?:[?,#]|$)/i.test(url)) continue;
     if (/review|bazaarvoice|ugc|ratings|product-reviews/i.test(url)) {
       urls.add(url);
     }
@@ -363,7 +444,8 @@ function discoverReviewUrls(html: string, listingUrl: string): string[] {
   const relativeMatches = decoded.matchAll(/["'](\/[^"']*(?:review|ratings|ugc|bazaarvoice)[^"']*)["']/gi);
   for (const match of relativeMatches) {
     try {
-      urls.add(new URL(match[1], listingUrl).toString());
+      const url = new URL(match[1], listingUrl).toString();
+      if (!/\.(?:css|js|jpg|jpeg|png|gif|webp|avif|mp4)(?:[?,#]|$)/i.test(url)) urls.add(url);
     } catch {
       // ignore malformed URLs
     }
@@ -379,6 +461,13 @@ function extractAmazonAsin(listingUrl: string, html: string): string | null {
     /data-asin=["']([A-Z0-9]{10})["']/i,
   ];
 
+  // The verified listing identity is authoritative. Amazon product HTML can
+  // contain recommendation widgets, alternate variants, or unrelated ASINs;
+  // scanning that HTML before the canonical URL can silently paginate the
+  // wrong product.
+  const listingMatch = listingUrl.match(patterns[0]);
+  if (listingMatch?.[1]) return listingMatch[1].toUpperCase();
+
   const haystack = `${listingUrl}\n${html}`;
   for (const pattern of patterns) {
     const match = haystack.match(pattern);
@@ -393,11 +482,7 @@ function amazonReviewUrls(listingUrl: string, html: string): string[] {
   if (!asin) return [];
 
   try {
-    const base = new URL(listingUrl);
-    return [
-      `${base.origin}/product-reviews/${asin}/?reviewerType=all_reviews`,
-      `${base.origin}/product-reviews/${asin}/?sortBy=recent&reviewerType=all_reviews`,
-    ];
+    return buildAmazonReviewPageUrls(listingUrl, asin);
   } catch {
     return [];
   }
@@ -424,7 +509,10 @@ function collectAmazonHtmlReviews(html: string, sourceUrl: string): CollectedRev
 
     reviews.push({
       source: "Amazon written review",
+      reviewStructureVerified: true,
       sourceUrl,
+      reviewId: block.match(/data-(?:review-id|hook-review-id)=["']([^"']+)/i)?.[1] || null,
+      marketplaceProductId: extractAmazonAsin(sourceUrl, decoded),
       rating: ratingMatch?.[1] ? normalizeRating(Number(ratingMatch[1])) : null,
       title: titleMatch ? cleanText(titleMatch[1]) : undefined,
       body,
@@ -440,7 +528,10 @@ function marketplaceReviewUrls(extractor: ReviewExtractorName, html: string, lis
   const discovered = discoverReviewUrls(html, listingUrl);
 
   if (extractor === "amazon") {
-    return Array.from(new Set([...amazonReviewUrls(listingUrl, html), ...discovered]));
+    // Amazon product pages contain recommendation widgets and SSPA links for
+    // other ASINs. The direct marketplace collector must stay on the verified
+    // ASIN; public discovery belongs to the separately gated fallback layer.
+    return amazonReviewUrls(listingUrl, html);
   }
 
   if (extractor === "walmart") {
@@ -450,13 +541,20 @@ function marketplaceReviewUrls(extractor: ReviewExtractorName, html: string, lis
   return discovered;
 }
 
-async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Promise<CollectedReview[]> {
+async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, costTelemetry?: ScanCostTelemetry): Promise<CollectedReview[]> {
   const reviews: CollectedReview[] = [];
 
-  for (const url of urls) {
-    if (reviews.length >= maxReviews) break;
+  let pagesFetched = 0;
+  let stopReason = "candidate review URLs exhausted";
+  for (const [index, url] of urls.entries()) {
+    if (reviews.length >= maxReviews) {
+      stopReason = "configured corpus cap reached";
+      break;
+    }
 
     try {
+      if (costTelemetry && !costTelemetry.canStartRetrievalRequest()) break;
+      costTelemetry?.recordRetrievalRequest("other");
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -468,241 +566,87 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number): Pr
         cache: "no-store",
       });
 
-      if (!response.ok) continue;
+      pagesFetched += 1;
+      captureStage("page", () => ({ sourceUrl: url, httpStatus: response.status, page: index + 1, blockedOrChallenged: !response.ok, records: [] }));
+      if (!response.ok) {
+        console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "discovered-review-url", url, page: index + 1, status: response.status, reviewsFound: 0, nextPageDiscovered: index + 1 < urls.length, paginationContinued: index + 1 < urls.length, stopReason: "HTTP response not usable" }));
+        continue;
+      }
 
       const text = await response.text();
+      const before = reviews.length;
       const decoded = htmlDecodeLight(text);
       const parsed = safeJsonParse(decoded);
+      const contentType = response.headers.get("content-type") || "unknown";
+      const blockedOrChallenged = isBlockedOrSignInReviewPage({
+        requestedUrl: url,
+        finalUrl: response.url,
+        html: decoded,
+      });
+
+      // HTTP 200 is not sufficient proof of usable review content.
+      // Amazon and other marketplaces may redirect a public review request
+      // to a sign-in/claim/challenge page while still returning 200.
+      if (blockedOrChallenged) {
+        captureStage("extraction", () => ({
+          sourceUrl: url,
+          httpStatus: response.status,
+          page: index + 1,
+          blockedOrChallenged: true,
+          records: [],
+        }));
+
+        console.log(
+          "[ReviewIntel PIPELINE] retrieval",
+          JSON.stringify({
+            layer: "discovered-review-url",
+            url,
+            finalUrl: response.url || null,
+            page: index + 1,
+            status: response.status,
+            contentType,
+            reviewNodesFound: 0,
+            validReviewTexts: 0,
+            nextPageFound: index + 1 < urls.length,
+            nextPageUrl: urls[index + 1] || null,
+            blockedOrChallenged: true,
+            selectorMismatch: false,
+            paginationContinued:
+              index + 1 < urls.length && reviews.length < maxReviews,
+            stopReason: "sign-in/challenge response rejected",
+          })
+        );
+
+        continue;
+      }
 
       if (parsed) {
-        collectReviewLikeObjects(parsed, url, reviews);
+        collectReviewLikeObjects(parsed, response.url || url, reviews);
       } else {
-        reviews.push(...collectAmazonHtmlReviews(decoded, url));
-        reviews.push(...collectJsonLdReviews(decoded, url));
-        reviews.push(...collectEmbeddedReviewText(decoded, url));
-        reviews.push(...collectEmbeddedJsonReviews(decoded, url));
-        reviews.push(...collectSearchResultSnippets(decoded, url));
+        reviews.push(...collectAmazonHtmlReviews(decoded, response.url || url));
+        reviews.push(...collectJsonLdReviews(decoded, response.url || url));
+        reviews.push(...collectEmbeddedReviewText(decoded, response.url || url));
+        reviews.push(...collectEmbeddedJsonReviews(decoded, response.url || url));
       }
+      captureStage("extraction", () => ({ sourceUrl: url, httpStatus: response.status, page: index + 1, blockedOrChallenged, records: reviews.slice(before).map(record => ({ ...record, ...normalizeReviewCandidate(record), sourceDomain: new URL(url).hostname })) }));
+      console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "discovered-review-url", url, page: index + 1, status: response.status, contentType, reviewNodesFound: reviews.length - before, validReviewTexts: reviews.length - before, nextPageFound: index + 1 < urls.length, nextPageUrl: urls[index + 1] || null, blockedOrChallenged, selectorMismatch: /html/i.test(contentType) && reviews.length === before, paginationContinued: index + 1 < urls.length && reviews.length < maxReviews, stopReason: index + 1 < urls.length && reviews.length < maxReviews ? null : reviews.length >= maxReviews ? "configured corpus cap reached" : "candidate review URLs exhausted" }));
     } catch {
-      // continue trying other discovered review URLs
+      console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "discovered-review-url", url, page: index + 1, status: "error", reviewsFound: 0, nextPageDiscovered: index + 1 < urls.length, paginationContinued: index + 1 < urls.length, stopReason: "fetch error; continued" }));
     }
   }
 
-  return dedupeReviews(reviews, maxReviews);
+  const deduped = dedupeReviews(reviews, maxReviews);
+  console.log("[ReviewIntel PIPELINE] retrieval-summary", JSON.stringify({ layer: "discovered-review-url", pagesFetched, rawReviewsDiscovered: reviews.length, dedupedReviews: deduped.length, maxReviews, stopReason }));
+  return deduped;
 }
 
 
 
-function buildPublicReviewSearchQueries(productName: string, listingUrl: string): string[] {
-  const normalized = cleanText(productName).slice(0, 180);
-  const quoted = normalized ? `"${normalized.replace(/"/g, "")}"` : "";
-  const compactTitle = cleanText(
-    normalized
-      .replace(/\b(with|for|and|the|set|bag|bags|travel|lightweight|hardshell|spinner|wheels|lock)\b/gi, " ")
-      .replace(/\s+/g, " ")
-  );
-  const shortTitle = normalized.split(/\s+/).slice(0, 8).join(" ");
-  const quotedShortTitle = shortTitle ? `"${shortTitle.replace(/"/g, "")}"` : "";
-  const quotedCompactTitle = compactTitle ? `"${compactTitle.replace(/"/g, "")}"` : "";
-  const listingIdentifiers = Array.from(
-    new Set(
-      [listingUrl.match(/\/([A-Z0-9]{8,})(?:[/?#]|$)/i)?.[1], listingUrl]
-        .filter(Boolean)
-        .map((value) => cleanText(value))
-    )
-  ).slice(0, 3);
-  let host = "";
-
-  try {
-    host = new URL(listingUrl).hostname.replace(/^www\./, "");
-  } catch {
-    host = "";
-  }
-
-  const marketplaceFallbacks = [
-    `${quoted} reviews`,
-    `${quoted} exact reviews`,
-    `${quoted} exact title reviews`,
-    `${quoted} Amazon.ca`,
-    `${quoted} Amazon.com`,
-    `${quoted} Walmart`,
-    `${quoted} Reddit`,
-    `${quoted} YouTube review`,
-    `${quoted} complaints`,
-    `${quoted} worth it`,
-    `${quoted} problems`,
-    `${quoted} Q&A`,
-    `${quoted} review blog`,
-    ...listingIdentifiers.flatMap((identifier) => [
-      `"${identifier}" reviews`,
-      `"${identifier}" customer reviews`,
-      `"${identifier}" complaints`,
-    ]),
-    `${quoted} ${host} reviews`,
-    `${quoted} customer reviews`,
-    `${quoted} complaints`,
-    `${quoted} buyer reviews`,
-    `${quotedShortTitle} ${host} reviews`,
-    `${quotedShortTitle} customer reviews`,
-    `${quotedShortTitle} Walmart reviews`,
-    `${quotedCompactTitle} reviews`,
-    `${quotedCompactTitle} customer reviews`,
-    `${quoted} Amazon reviews`,
-    `${quoted} site:amazon.ca reviews`,
-    `${quoted} site:amazon.com reviews`,
-    `${quotedShortTitle} Amazon reviews`,
-    `${quotedShortTitle} site:amazon.ca reviews`,
-    `${quotedShortTitle} site:amazon.com reviews`,
-    `${quoted} Walmart reviews`,
-    `${quoted} site:walmart.ca reviews`,
-    `${quoted} Best Buy reviews`,
-    `${quoted} Costco reviews`,
-    `${quoted} Target reviews`,
-    `${quoted} manufacturer reviews`,
-    `${quoted} Reddit`,
-    `${quoted} forum`,
-    `${normalized} Amazon customer reviews`,
-    `${normalized} marketplace reviews`,
-  ];
-
-  return Array.from(
-    new Set(marketplaceFallbacks.map((query) => cleanText(query)).filter(Boolean))
-  ).slice(0, 18);
-}
-
-function collectSearchResultSnippets(html: string, source: string): CollectedReview[] {
-  const decoded = htmlDecodeLight(html);
-  const reviews: CollectedReview[] = [];
-  const blocks = decoded.match(/<li[^>]+class=["'][^"']*\bb_algo\b[^"']*["'][\s\S]*?<\/li>/gi) || [];
-
-  for (const block of blocks) {
-    const titleMatch =
-      block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i) ||
-      block.match(/<a[^>]*>([\s\S]*?)<\/a>/i);
-    const snippetMatch =
-      block.match(/<p[^>]+class=["'][^"']*\bb_caption\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/i) ||
-      block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-    const urlMatch = block.match(/<a[^>]+href=["']([^"']+)["']/i);
-
-    const title = titleMatch ? cleanText(titleMatch[1]).slice(0, 180) : "";
-    const snippet = snippetMatch ? cleanText(snippetMatch[1]).slice(0, 900) : "";
-    const body = [title, snippet].filter(Boolean).join(" - ");
-
-    if (!isLikelyWrittenReviewBody(body)) continue;
-
-    reviews.push({
-      source: `Search snippet: ${source.slice(0, 80)}`,
-      sourceUrl: urlMatch?.[1] || undefined,
-      rating: null,
-      title: title || undefined,
-      body,
-      date: null,
-      verified: null,
-    });
-  }
-
-  return reviews;
-}
-
-function collectSearchResultLinks(html: string, listingUrl: string): string[] {
-  const decoded = htmlDecodeLight(html);
-  const links = new Set<string>();
-
-  const urlMatches = decoded.matchAll(/https?:\/\/[^"' <>)\\]+/gi);
-  for (const match of urlMatches) {
-    const url = match[0];
-
-    if (
-      /google\.|bing\.|duckduckgo\.|yahoo\.|facebook\.com\/sharer|twitter\.com\/share/i.test(url)
-    ) {
-      continue;
-    }
-
-    if (/review|reviews|complaint|customer|product/i.test(url)) {
-      links.add(url);
-    }
-  }
-
-  try {
-    links.add(listingUrl);
-  } catch {
-    // ignore
-  }
-
-  return [...links].slice(0, 10);
-}
-
-async function fetchSearchPage(query: string): Promise<string | null> {
-  const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
-
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "en-CA,en;q=0.9",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) return null;
-    return await response.text();
-  } catch {
-    return null;
-  }
-}
-
-async function fetchPublicReviewFallback(input: {
-  productName: string;
-  listingUrl: string;
-  maxReviews: number;
-}): Promise<CollectedReview[]> {
-  const reviews: CollectedReview[] = [];
-  const queries = buildPublicReviewSearchQueries(input.productName, input.listingUrl);
-
-  for (const query of queries) {
-    if (reviews.length >= input.maxReviews) break;
-
-    const searchHtml = await fetchSearchPage(query);
-    if (!searchHtml) continue;
-
-    reviews.push(...collectSearchResultSnippets(searchHtml, query));
-
-    const resultLinks = collectSearchResultLinks(searchHtml, input.listingUrl);
-
-    for (const url of resultLinks) {
-      if (reviews.length >= input.maxReviews) break;
-
-      try {
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "user-agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-            accept: "application/json,text/plain,text/html,*/*",
-            "accept-language": "en-CA,en;q=0.9",
-          },
-          cache: "no-store",
-        });
-
-        if (!response.ok) continue;
-
-        const text = await response.text();
-        const decoded = htmlDecodeLight(text);
-
-        reviews.push(...collectSearchResultSnippets(decoded, url));
-        reviews.push(...collectJsonLdReviews(decoded, url));
-        reviews.push(...collectEmbeddedReviewText(decoded, url));
-        reviews.push(...collectEmbeddedJsonReviews(decoded, url));
-      } catch {
-        // continue with next result
-      }
-    }
-  }
-
-  return dedupeReviews(reviews, input.maxReviews);
+function reviewCorpusCap(value: unknown) {
+  const configured = Number(process.env.REVIEWINTEL_MAX_ACCEPTED_REVIEW_CORPUS || 240);
+  const cap = Number.isFinite(configured) ? Math.max(10, Math.min(Math.floor(configured), 500)) : 240;
+  const requested = Number(value);
+  return Number.isFinite(requested) ? Math.max(10, Math.min(Math.floor(requested), cap)) : cap;
 }
 
 function normalizeCandidateReviewUrl(value: unknown): string | null {
@@ -723,8 +667,9 @@ export async function collectWrittenReviewsFromUrls(input: {
   urls: string[];
   productName?: string | null;
   maxReviews?: number;
+  costTelemetry?: ScanCostTelemetry;
 }): Promise<ReviewCollectorResult> {
-  const maxReviews = Math.max(10, Math.min(input.maxReviews || 80, 120));
+  const maxReviews = reviewCorpusCap(input.maxReviews);
   const urls = Array.from(
     new Set(
       (input.urls || [])
@@ -746,7 +691,7 @@ export async function collectWrittenReviewsFromUrls(input: {
     };
   }
 
-  const reviews = await fetchDiscoveredReviewUrls(urls, maxReviews);
+  const reviews = await fetchDiscoveredReviewUrls(urls, maxReviews, input.costTelemetry);
 
   return {
     sourceUrl: urls[0],
@@ -772,6 +717,13 @@ Collector has written reviews: no.
 Coverage note: ${result.coverageNote}`;
   }
 
+  // Retrieval may retain up to 240 records for deterministic scoring, but the
+  // model receives a bounded evidence packet. Numeric scoring never uses this
+  // packet; it uses the complete adjudicated corpus locally.
+  const modelReviews = result.reviews
+    .filter((review) => review.body.trim().length >= 25)
+    .slice(0, 24);
+
   return [
     `Review collector attempted: ${result.attempted ? "yes" : "no"}.`,
     `Extractor: ${result.extractor}.`,
@@ -779,15 +731,29 @@ Coverage note: ${result.coverageNote}`;
     `Collector has written reviews: ${result.collectorHasWrittenReviews ? "yes" : "no"}.`,
     `Coverage note: ${result.coverageNote}.`,
     "",
-    ...result.reviews.map((review, index) => {
+    `Compact model evidence packet: ${modelReviews.length} of ${result.reviews.length} retained reviews.`,
+    ...modelReviews.map((review, index) => {
       const rating = typeof review.rating === "number" ? ` Rating: ${review.rating}/5.` : "";
       const date = review.date ? ` Date: ${review.date}.` : "";
       const verified =
         typeof review.verified === "boolean" ? ` Verified: ${review.verified ? "yes" : "no"}.` : "";
 
-      return `Review ${index + 1}.${rating}${date}${verified} Source: ${review.source}. Text: ${review.body}`;
+      return `Review ${index + 1}.${rating}${date}${verified} Source: ${review.source}. Text: ${review.body.slice(0, 700)}`;
     }),
   ].join("\n");
+}
+
+// Shared written-review selectors; descriptions and generic paragraphs are not evidence.
+export function extractWrittenReviewsFromHtml(html: string, sourceUrl: string, maxReviews = 240): CollectedReview[] {
+  if (isBlockedOrSignInReviewPage({ requestedUrl: sourceUrl, finalUrl: sourceUrl, html })) return [];
+  const rawRecords = [
+    ...(extractorForUrl(sourceUrl) === "amazon" ? collectAmazonHtmlReviews(html, sourceUrl) : []),
+    ...collectJsonLdReviews(html, sourceUrl),
+    ...collectEmbeddedReviewText(html, sourceUrl),
+    ...collectEmbeddedJsonReviews(html, sourceUrl),
+  ];
+  captureStage("extraction", () => ({ sourceUrl, records: rawRecords.map(record => ({ ...record, ...normalizeReviewCandidate(record), sourceDomain: new URL(sourceUrl).hostname })) }));
+  return dedupeReviews(rawRecords, maxReviews);
 }
 
 export async function collectWrittenReviewsFromListing(input: {
@@ -795,41 +761,38 @@ export async function collectWrittenReviewsFromListing(input: {
   productName?: string | null;
   marketplaceReviewCount?: number | null;
   maxReviews?: number;
+  costTelemetry?: ScanCostTelemetry;
 }): Promise<ReviewCollectorResult> {
   const listingUrl = input.listingUrl || null;
-  const maxReviews = Math.max(10, Math.min(input.maxReviews || 80, 120));
+  const maxReviews = reviewCorpusCap(input.maxReviews);
   const extractor = extractorForUrl(listingUrl);
 
   if (!listingUrl) {
-    const publicFallbackReviews = input.productName
-      ? await fetchPublicReviewFallback({
-          productName: input.productName,
-          listingUrl: "",
-          maxReviews,
-        })
-      : [];
-
-    const reviews = dedupeReviews(publicFallbackReviews, maxReviews);
-
     return {
       sourceUrl: null,
       attempted: true,
       extractor: "generic",
-      reviews,
-      reviewsCollected: reviews.length,
-      collectorHasWrittenReviews: reviews.length > 0,
-      coverageNote: reviews.length
-        ? `${reviews.length} written review texts were collected from public review search because no exact listing URL was available.`
-        : input.productName
-          ? "No exact listing URL was available, so ReviewIntel searched public review pages by product name but did not collect written review text."
-          : "No exact listing URL or product name was available for written-review collection.",
-      fallbackUrlsTried: input.productName
-        ? buildPublicReviewSearchQueries(input.productName, "").slice(0, 12)
-        : [],
+      reviews: [],
+      reviewsCollected: 0,
+      collectorHasWrittenReviews: false,
+      coverageNote: "No exact listing URL was available; search discovery cannot be counted as written review evidence.",
+      fallbackUrlsTried: [],
     };
   }
 
   try {
+    if (input.costTelemetry && !input.costTelemetry.canStartRetrievalRequest()) {
+      return {
+        sourceUrl: listingUrl,
+        attempted: true,
+        extractor,
+        reviews: [],
+        reviewsCollected: 0,
+        collectorHasWrittenReviews: false,
+        coverageNote: "Per-scan retrieval ceiling reached before the listing request.",
+      };
+    }
+    input.costTelemetry?.recordRetrievalRequest("other");
     const response = await fetch(listingUrl, {
       method: "GET",
       headers: {
@@ -841,6 +804,7 @@ export async function collectWrittenReviewsFromListing(input: {
       cache: "no-store",
     });
 
+    captureStage("page", () => ({ sourceUrl: listingUrl, httpStatus: response.status, page: 1, blockedOrChallenged: !response.ok, records: [] }));
     if (!response.ok) {
       return {
         sourceUrl: listingUrl,
@@ -854,36 +818,71 @@ export async function collectWrittenReviewsFromListing(input: {
     }
 
     const html = await response.text();
-    const discoveredReviewUrls = marketplaceReviewUrls(extractor, html, listingUrl);
+    const listingBlockedOrChallenged = isBlockedOrSignInReviewPage({
+      requestedUrl: listingUrl,
+      finalUrl: response.url,
+      html,
+    });
 
-    const listingReviews = dedupeReviews(
-      [
-        ...(extractor === "amazon" ? collectAmazonHtmlReviews(html, listingUrl) : []),
-        ...collectJsonLdReviews(html, listingUrl),
-        ...collectEmbeddedReviewText(html, listingUrl),
-        ...collectEmbeddedJsonReviews(html, listingUrl),
-      ],
-      maxReviews
-    );
+    if (listingBlockedOrChallenged) {
+      captureStage("page", () => ({
+        sourceUrl: listingUrl,
+        httpStatus: response.status,
+        page: 1,
+        blockedOrChallenged: true,
+        records: [],
+      }));
+
+      console.log(
+        "[ReviewIntel PIPELINE] retrieval",
+        JSON.stringify({
+          layer: "listing-page",
+          url: listingUrl,
+          finalUrl: response.url || null,
+          page: 1,
+          status: response.status,
+          reviewNodesFound: 0,
+          validReviewTexts: 0,
+          blockedOrChallenged: true,
+          stopReason: "sign-in/challenge response rejected",
+        })
+      );
+
+      return {
+        sourceUrl: listingUrl,
+        attempted: true,
+        extractor,
+        reviews: [],
+        reviewsCollected: 0,
+        collectorHasWrittenReviews: false,
+        coverageNote:
+          "The marketplace redirected the public review request to a sign-in or challenge page, so no review text from that response was accepted.",
+      };
+    }
+
+    const responseUrl = response.url || listingUrl;
+    const discoveredReviewUrls = marketplaceReviewUrls(extractor, html, responseUrl);
+
+    const listingRawReviews = [
+      ...(extractor === "amazon" ? collectAmazonHtmlReviews(html, responseUrl) : []),
+      ...collectJsonLdReviews(html, responseUrl),
+      ...collectEmbeddedReviewText(html, responseUrl),
+      ...collectEmbeddedJsonReviews(html, responseUrl),
+    ];
+    const listingReviews = dedupeReviews(listingRawReviews, maxReviews);
+
+    captureStage("extraction", () => ({ sourceUrl: listingUrl, httpStatus: response.status, page: 1, blockedOrChallenged: listingBlockedOrChallenged, records: listingRawReviews.map(record => ({ ...record, ...normalizeReviewCandidate(record), sourceDomain: new URL(listingUrl).hostname })) }));
+    console.log("[ReviewIntel PIPELINE] normalization", JSON.stringify({ layer: "listing-page", rawCount: listingReviews.length, malformedRemoved: 0, duplicatesRemoved: 0, remainingUnique: listingReviews.length }));
 
     const discoveredReviews = await fetchDiscoveredReviewUrls(
       discoveredReviewUrls,
-      Math.max(0, maxReviews - listingReviews.length)
+      Math.max(0, maxReviews - listingReviews.length),
+      input.costTelemetry,
     );
 
-    let reviews = dedupeReviews([...listingReviews, ...discoveredReviews], maxReviews);
+    const reviews = dedupeReviews([...listingReviews, ...discoveredReviews], maxReviews);
 
-    let publicFallbackReviews: CollectedReview[] = [];
-
-    if (reviews.length === 0) {
-      publicFallbackReviews = await fetchPublicReviewFallback({
-        productName: input.productName || listingUrl,
-        listingUrl,
-        maxReviews,
-      });
-
-      reviews = dedupeReviews([...reviews, ...publicFallbackReviews], maxReviews);
-    }
+    console.log("[ReviewIntel PIPELINE] normalization", JSON.stringify({ layer: "listing-plus-pagination", rawCount: listingReviews.length + discoveredReviews.length, malformedRemoved: 0, duplicatesRemoved: Math.max(0, listingReviews.length + discoveredReviews.length - reviews.length), remainingUnique: reviews.length }));
 
     console.log("[ReviewIntel DEBUG reviewCollector]", {
       listingUrl,
@@ -891,8 +890,11 @@ export async function collectWrittenReviewsFromListing(input: {
       discoveredReviewUrls: discoveredReviewUrls.length,
       listingReviews: listingReviews.length,
       discoveredReviews: discoveredReviews.length,
-      publicFallbackReviews: publicFallbackReviews.length,
+      publicFallbackReviews: 0,
       reviewsCollected: reviews.length,
+      rawReviewsDiscovered: listingReviews.length + discoveredReviews.length,
+      pagesFetched: discoveredReviewUrls.length,
+      sourcesUsed: Array.from(new Set(reviews.map((review) => review.sourceUrl || review.source))),
     });
 
     const total = input.marketplaceReviewCount || null;
@@ -902,8 +904,8 @@ export async function collectWrittenReviewsFromListing(input: {
         : reviews.length
           ? `${reviews.length} written review texts were collected.`
           : total
-            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML, discovered review URLs, or public review search fallback.`
-            : "No written review text was accessible from the listing HTML, discovered review URLs, or public review search fallback.";
+            ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML or fetched public review pages.`
+            : "No written review text was accessible from the listing HTML or fetched public review pages.";
 
     return {
       sourceUrl: listingUrl,

@@ -1,4 +1,12 @@
+import { captureStage } from "./devScanCapture";
+import { extractWrittenReviewsFromHtml, isBlockedOrSignInReviewPage } from "@/lib/reviewCollector";
+import { verifyProductCandidate } from "./productSearchVerifier";
+import { stableProductSearchTerms, type ProductIdentityTokenRoles } from "./productIdentityTokens";
+import { normalizeProductUrl } from "./productUrlRetrieval";
 import type { CollectedReview } from "@/lib/reviewCollector";
+import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
+import { buildAmazonReviewPageUrls } from "./reviewRetrievalPolicy";
+import { buildDirectReviewCandidateUrls } from "./exactProductSearch";
 
 type SourceLink = { label: string; url: string; domain?: string };
 
@@ -8,11 +16,14 @@ export type NativeReviewRetrievalInput = {
   model?: string | null;
   store?: string | null;
   listingUrl?: string | null;
+  productId?: string | null;
+  structuredIdentity?: ProductIdentityTokenRoles;
   sourceLinks?: Array<{ label?: string | null; url?: string | null; domain?: string | null }> | null;
   maxQueries?: number;
   maxPages?: number;
   maxSnippets?: number;
   politeDelayMs?: number;
+  costTelemetry?: ScanCostTelemetry;
 };
 
 export type NativeReviewRetrievalResult = {
@@ -29,6 +40,8 @@ export type NativeReviewRetrievalResult = {
   playwrightFailed: boolean;
   proxyConfigured: boolean;
   coverageNote: string;
+  stopReason: "corpus_cap_reached" | "candidate_pages_exhausted" | "access_restricted" | "retrieval_budget_reached" | "duration_cap_reached" | "page_cap_reached";
+  nativeScraperBlocked: boolean;
   diagnostics: {
     searchProviders: string[];
     attemptedSearches: number;
@@ -37,6 +50,15 @@ export type NativeReviewRetrievalResult = {
     normalFetchFailures: number;
     playwrightSuccesses: number;
     playwrightFailures: number;
+    candidateUrlsDiscovered: number;
+    fetchedPageUrls: string[];
+    writtenReviewSources: string[];
+    pagesBlocked: number;
+    stopReason: string;
+    rawReviewRecords: number;
+    duplicatesRemoved: number;
+    rejectedCandidates: number;
+    pageResults: Array<{ url: string; status: number | null; error: string | null }>;
   };
 };
 
@@ -46,6 +68,7 @@ type PageFetchResult = {
   ok: boolean;
   text: string;
   status?: number;
+  finalUrl?: string;
   method: "fetch" | "playwright";
   error?: string;
 };
@@ -55,34 +78,6 @@ const USER_AGENTS = [
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
-];
-
-const REVIEWISH_PATTERNS = [
-  /\bverified purchase\b/i,
-  /\bcustomer reviews?\b/i,
-  /\breviewed\b/i,
-  /\b(?:\d(?:\.\d)?)\s*(?:out of|\/)\s*5\b/i,
-  /\b[1-5]\s*stars?\b/i,
-  /\bpros?\b/i,
-  /\bcons?\b/i,
-  /\bcomplaints?\b/i,
-  /\bworth it\b/i,
-  /\bbroke|broken|defective|returned|returning\b/i,
-  /\bquality|durable|comfortable|battery|fit|size|taste|smell|sound|charge|delivery|packaging|material\b/i,
-  /\breddit|youtube|forum|buyer|purchased|bought|used\b/i,
-];
-
-const BOILERPLATE_PATTERNS = [
-  /\bprivacy policy\b/i,
-  /\bterms of use\b/i,
-  /\bcookie policy\b/i,
-  /\ball rights reserved\b/i,
-  /\bsubscribe\b/i,
-  /\bsponsored\b/i,
-  /\badvertisement\b/i,
-  /\badd to cart\b/i,
-  /\bselect a store\b/i,
-  /\bskip to main content\b/i,
 ];
 
 let cachedProxyDispatcher: Promise<unknown | null> | null = null;
@@ -152,7 +147,7 @@ function normalizeHttpUrl(value: unknown, base?: string): string | null {
       return normalizeHttpUrl(parsed.searchParams.get("uddg"));
     }
 
-    return parsed.toString();
+    return /(?:^|\.)bing\.com$/i.test(parsed.hostname) ? normalizeProductUrl(parsed.toString()) : parsed.toString();
   } catch {
     return null;
   }
@@ -198,7 +193,7 @@ async function politeDelay(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchText(url: string, index: number, timeoutMs = 9000): Promise<PageFetchResult> {
+async function fetchText(url: string, index: number, timeoutMs = 9000, costTelemetry?: ScanCostTelemetry): Promise<PageFetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -218,6 +213,10 @@ async function fetchText(url: string, index: number, timeoutMs = 9000): Promise<
 
     if (dispatcher) init.dispatcher = dispatcher;
 
+    if (costTelemetry && !costTelemetry.canStartRetrievalRequest()) {
+      return { url, ok: false, text: "", method: "fetch", error: "Per-scan retrieval ceiling reached." };
+    }
+    costTelemetry?.recordRetrievalRequest(/(?:bing\.com\/search|duckduckgo\.com\/html)/i.test(url) ? "search" : "other");
     const response = await fetch(url, init);
     const text = await response.text().catch(() => "");
 
@@ -226,6 +225,7 @@ async function fetchText(url: string, index: number, timeoutMs = 9000): Promise<
       ok: response.ok && text.trim().length > 0,
       text,
       status: response.status,
+      finalUrl: response.url || url,
       method: "fetch",
       error: response.ok ? undefined : `HTTP ${response.status}`,
     };
@@ -242,7 +242,11 @@ async function fetchText(url: string, index: number, timeoutMs = 9000): Promise<
   }
 }
 
-async function fetchTextWithPlaywright(url: string, index: number, timeoutMs = 12000): Promise<PageFetchResult> {
+async function fetchTextWithPlaywright(url: string, index: number, timeoutMs = 12000, costTelemetry?: ScanCostTelemetry): Promise<PageFetchResult> {
+  if (costTelemetry && !costTelemetry.canStartRetrievalRequest()) {
+    return { url, ok: false, text: "", method: "playwright", error: "Per-scan retrieval ceiling reached." };
+  }
+  costTelemetry?.recordRetrievalRequest("other");
   try {
     const dynamicImport = new Function("specifier", "return import(specifier)") as (
       specifier: string
@@ -254,6 +258,7 @@ async function fetchTextWithPlaywright(url: string, index: number, timeoutMs = 1
             newPage: (options?: Record<string, unknown>) => Promise<{
               goto: (target: string, options?: Record<string, unknown>) => Promise<unknown>;
               content: () => Promise<string>;
+              url: () => string;
             }>;
             close: () => Promise<void>;
           }>;
@@ -288,6 +293,7 @@ async function fetchTextWithPlaywright(url: string, index: number, timeoutMs = 1
         ok: text.trim().length > 0,
         text,
         method: "playwright",
+        finalUrl: page.url(),
       };
     } finally {
       await browser.close();
@@ -304,12 +310,13 @@ async function fetchTextWithPlaywright(url: string, index: number, timeoutMs = 1
 }
 
 function normalizedIdentity(input: NativeReviewRetrievalInput) {
-  const title = cleanText(input.productTitle).slice(0, 220);
+  const stable = stableProductSearchTerms({ brand: input.brand, productName: input.productTitle, model: input.model });
+  const title = [...stable.brands, ...stable.models, stable.family, ...stable.roles.capacityOrSize].filter(Boolean).join(" ").slice(0, 220);
   const brand = cleanText(input.brand).slice(0, 80);
-  const model = cleanText(input.model).slice(0, 80);
+  const model = stable.models.join(" ").slice(0, 80);
   const store = cleanText(input.store).slice(0, 80);
 
-  const exactTitle = uniqueStrings([brand, title, model], 3).join(" ").replace(/\s+/g, " ").trim();
+  const exactTitle = uniqueStrings([brand && !title.toLowerCase().includes(brand.toLowerCase()) ? brand : "", title, model && !title.toLowerCase().includes(model.toLowerCase()) ? model : ""], 3).join(" ").replace(/\s+/g, " ").trim();
 
   return {
     title,
@@ -342,7 +349,7 @@ export function buildNativeReviewSearchQueries(input: NativeReviewRetrievalInput
       `${quoted || exact} pros cons`,
       `${quoted || exact} worth it`,
       `${quoted || exact} problems`,
-      input.listingUrl ? `${input.listingUrl} reviews` : "",
+      input.listingUrl ? `${brandModel || exact} ${input.listingUrl} reviews` : "",
     ],
     14
   );
@@ -413,142 +420,23 @@ function extractSearchResultLinks(html: string, provider: string): SourceLink[] 
   return dedupeSourceLinks(links).slice(0, 12);
 }
 
-function isLikelyReviewSnippet(text: string) {
-  const cleaned = cleanText(text);
-  if (cleaned.length < 35 || cleaned.length > 1200) return false;
-  if (BOILERPLATE_PATTERNS.some((pattern) => pattern.test(cleaned))) return false;
-  return REVIEWISH_PATTERNS.some((pattern) => pattern.test(cleaned));
-}
-
-function ratingFromText(text: string): number | null {
-  const match =
-    text.match(/\b([1-5](?:\.\d)?)\s*(?:out of|\/)\s*5\b/i) ||
-    text.match(/\b([1-5](?:\.\d)?)\s*stars?\b/i);
-  if (!match?.[1]) return null;
-  const rating = Number(match[1]);
-  return Number.isFinite(rating) && rating >= 0 && rating <= 5 ? rating : null;
-}
-
-function sourceLabelFor(url: string, fallback: string) {
-  const domain = domainForUrl(url);
-  if (!domain) return fallback;
-  if (domain.includes("reddit.com")) return "Reddit buyer comment";
-  if (domain.includes("youtube.com") || domain.includes("youtu.be")) return "YouTube review text";
-  if (domain.includes("amazon.")) return "Amazon public review evidence";
-  if (domain.includes("walmart.")) return "Walmart public review evidence";
-  return domain;
-}
-
-function reviewFromSnippet(snippet: string, sourceUrl: string | undefined, source: string): CollectedReview | null {
-  const body = cleanText(snippet).slice(0, 1200);
-  if (!isLikelyReviewSnippet(body)) return null;
-
-  return {
-    source,
-    sourceUrl,
-    rating: ratingFromText(body),
-    body,
-    date: null,
-    verified: /\bverified purchase\b/i.test(body) ? true : null,
-  };
-}
-
-function extractSearchSnippets(html: string, provider: string, query: string): CollectedReview[] {
-  const decoded = htmlDecodeLight(html);
-  const reviews: CollectedReview[] = [];
-  const blocks =
-    provider === "duckduckgo"
-      ? decoded.match(/<div[^>]+class=["'][^"']*result[^"']*["'][\s\S]*?(?=<div[^>]+class=["'][^"']*result|$)/gi) || []
-      : decoded.match(/<li[^>]+class=["'][^"']*\bb_algo\b[^"']*["'][\s\S]*?<\/li>/gi) || [];
-
-  for (const block of blocks) {
-    const titleMatch =
-      block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i) ||
-      block.match(/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
-      block.match(/<a[^>]*>([\s\S]*?)<\/a>/i);
-    const snippetMatch =
-      block.match(/<a[^>]+class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
-      block.match(/<div[^>]+class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-    const urlMatch = block.match(/<a[^>]+href=["']([^"']+)["']/i);
-    const sourceUrl = normalizeHttpUrl(urlMatch?.[1], provider === "duckduckgo" ? "https://duckduckgo.com/" : undefined) || undefined;
-    const body = [titleMatch ? cleanText(titleMatch[1]) : "", snippetMatch ? cleanText(snippetMatch[1]) : ""]
-      .filter(Boolean)
-      .join(" - ");
-    const review = reviewFromSnippet(body, sourceUrl, `Native search snippet: ${query.slice(0, 80)}`);
-    if (review) reviews.push(review);
-  }
-
-  return dedupeReviews(reviews, 20);
-}
-
-function extractJsonReviewFields(text: string, sourceUrl: string): CollectedReview[] {
-  const reviews: CollectedReview[] = [];
-  const decoded = htmlDecodeLight(text);
-  const patterns = [
-    /"reviewText"\s*:\s*"((?:\\.|[^"\\]){25,1400})"/gi,
-    /"reviewBody"\s*:\s*"((?:\\.|[^"\\]){25,1400})"/gi,
-    /"customerReviewText"\s*:\s*"((?:\\.|[^"\\]){25,1400})"/gi,
-    /"comment"\s*:\s*"((?:\\.|[^"\\]){35,1400})"/gi,
-    /"text"\s*:\s*"((?:\\.|[^"\\]){35,1400})"\s*,\s*"(?:rating|stars|score)"/gi,
-  ];
-
-  for (const pattern of patterns) {
-    for (const match of decoded.matchAll(pattern)) {
-      const review = reviewFromSnippet(match[1], sourceUrl, sourceLabelFor(sourceUrl, "Embedded review data"));
-      if (review) reviews.push(review);
-    }
-  }
-
-  const jsonLdBlocks = decoded.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
-  for (const match of jsonLdBlocks) {
-    const block = htmlDecodeLight(match[1] || "");
-    const bodyMatches = block.matchAll(/"reviewBody"\s*:\s*"((?:\\.|[^"\\]){25,1400})"/gi);
-    for (const bodyMatch of bodyMatches) {
-      const review = reviewFromSnippet(bodyMatch[1], sourceUrl, "Structured product review data");
-      if (review) reviews.push(review);
-    }
-  }
-
-  return dedupeReviews(reviews, 40);
-}
-
-function extractParagraphReviewSnippets(text: string, sourceUrl: string): CollectedReview[] {
-  const decoded = htmlDecodeLight(text)
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(?:p|div|li|section|article|h[1-6])>/gi, "\n")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ");
-
-  const plain = decoded.replace(/<[^>]*>/g, " ");
-  const chunks = plain
-    .split(/\n+|(?<=\.)\s+(?=[A-Z0-9])/)
-    .map((chunk) => cleanText(chunk))
-    .filter((chunk) => chunk.length >= 45 && chunk.length <= 1000);
-
-  const source = sourceLabelFor(sourceUrl, "Public review page");
-  const reviews: CollectedReview[] = [];
-
-  for (const chunk of chunks) {
-    const review = reviewFromSnippet(chunk, sourceUrl, source);
-    if (review) reviews.push(review);
-  }
-
-  return dedupeReviews(reviews, 40);
-}
-
 function extractReviewsFromText(text: string, sourceUrl: string): CollectedReview[] {
-  return dedupeReviews(
-    [
-      ...extractJsonReviewFields(text, sourceUrl),
-      ...extractParagraphReviewSnippets(text, sourceUrl),
-    ],
-    60
-  );
+  return extractWrittenReviewsFromHtml(text, sourceUrl);
+}
+
+function nativeSourceMatchesProductImpl(input: NativeReviewRetrievalInput, link: SourceLink) {
+  const asinOf = (url: string) => url.match(/\/(?:dp|gp\/product|product-reviews)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1]?.toUpperCase();
+  const expected = asinOf(input.listingUrl || "");
+  const found = asinOf(link.url);
+  if (expected && found) return expected === found && domainForUrl(link.url) === domainForUrl(input.listingUrl || "");
+  return verifyProductCandidate({
+    scanId: "native-source-adjudication", productName: input.productTitle,
+    brand: input.brand, model: input.model, store: input.store,
+  }, { url: link.url, title: link.label }).canCollectReviews;
 }
 
 function reviewKey(review: CollectedReview) {
-  return cleanText(review.body).toLowerCase().replace(/[^a-z0-9]+/g, " ").slice(0, 200);
+  return cleanText(review.body).toLowerCase().replace(/[^a-z0-9]+/g, " ");
 }
 
 function dedupeReviews(reviews: CollectedReview[], limit: number): CollectedReview[] {
@@ -563,7 +451,7 @@ function dedupeReviews(reviews: CollectedReview[], limit: number): CollectedRevi
     seen.add(key);
     out.push({
       ...review,
-      body: body.slice(0, 1200),
+      body: body.slice(0, 5000),
       title: review.title ? cleanText(review.title).slice(0, 160) : undefined,
     });
     if (out.length >= limit) break;
@@ -612,6 +500,15 @@ function candidateLinksFromInput(input: NativeReviewRetrievalInput): SourceLink[
       url: listingUrl,
       domain: domainForUrl(listingUrl),
     });
+    const asin = listingUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1];
+    const directUrls = asin ? [...buildDirectReviewCandidateUrls(listingUrl), ...buildAmazonReviewPageUrls(listingUrl, asin)] : buildDirectReviewCandidateUrls(listingUrl);
+    for (const url of directUrls) {
+      links.push({
+        label: "Direct marketplace review candidate",
+        url,
+        domain: domainForUrl(url),
+      });
+    }
   }
 
   for (const link of input.sourceLinks || []) {
@@ -646,9 +543,12 @@ function envNumber(name: string, fallback: number, min: number, max: number) {
 export async function runNativeReviewRetrieval(
   input: NativeReviewRetrievalInput
 ): Promise<NativeReviewRetrievalResult> {
-  const maxQueries = Math.max(1, Math.min(input.maxQueries || 8, 12));
-  const maxPages = Math.max(1, Math.min(input.maxPages || 12, 24));
-  const maxSnippets = Math.max(5, Math.min(input.maxSnippets || 80, 120));
+  const startedAt = Date.now();
+  const maxDurationMs = envNumber("REVIEWINTEL_NATIVE_MAX_DURATION_MS", 180000, 1000, 300000);
+  const withinDuration = () => Date.now() - startedAt < maxDurationMs;
+  const maxQueries = Math.max(1, Math.min(input.maxQueries || envNumber("REVIEWINTEL_MAX_REVIEW_QUERIES", 8, 1, 12), 12));
+  const maxPages = Math.max(1, Math.min(input.maxPages || envNumber("REVIEWINTEL_MAX_REVIEW_PAGES", 24, 1, 48), 48));
+  const maxSnippets = Math.max(5, Math.min(input.maxSnippets || envNumber("REVIEWINTEL_MAX_RAW_REVIEW_RECORDS", 240, 5, 500), 500));
   const delayMs =
     typeof input.politeDelayMs === "number"
       ? Math.max(0, Math.min(input.politeDelayMs, 2000))
@@ -665,47 +565,86 @@ export async function runNativeReviewRetrieval(
   let normalFetchFailures = 0;
   let playwrightSuccesses = 0;
   let playwrightFailures = 0;
+  const fetchedPageUrls: string[] = [];
+  const attemptedPageUrls = new Set<string>();
+  const failedFetchUrls: string[] = [];
+  let rejectedCandidates = 0;
+  let blockedProductPages = 0;
+  let playwrightPageAttempts = 0;
+  const pageResults: Array<{ url: string; status: number | null; error: string | null }> = [];
+  const exhaustedPagination = new Set<string>();
+  const stagnantPages = new Map<string, number>();
+  async function collectPage(link: SourceLink) {
+    const pagination = new URL(link.url);
+    const paginationKey = `${pagination.origin}${pagination.pathname.replace(/\/$/, "")}`;
+    if (pagination.searchParams.has("pageNumber") && exhaustedPagination.has(paginationKey)) return;
+    if (!withinDuration() || dedupeReviews(reviews, maxSnippets).length >= maxSnippets || attemptedPageUrls.size >= maxPages || attemptedPageUrls.has(link.url)) return;
+    attemptedPageUrls.add(link.url);
+    sourcesChecked.push(link.url);
+    const page = await fetchText(link.url, attemptedSearches + attemptedPageUrls.size, 9000, input.costTelemetry);
+    pageResults.push({ url: link.url, status: page.status || null, error: page.error || null });
+    captureStage("page", () => ({ sourceUrl: link.url, httpStatus: page.status ?? null, blockedOrChallenged: !page.ok || /captcha|robot check|verify you are human|automated access|access denied/i.test(page.text), page: attemptedPageUrls.size, cursor: new URL(link.url).searchParams.get("pageNumber"), sourceTitle: link.label, records: [] }));
+    const restricted = isBlockedOrSignInReviewPage({ requestedUrl: link.url, finalUrl: page.finalUrl, html: page.text }) || page.status === 401 || page.status === 403 || page.status === 429;
+    const blocked = !page.ok || restricted;
+    captureStage("page", { sourceUrl: link.url, finalUrl: page.finalUrl, httpStatus: page.status ?? null, blockedOrChallenged: blocked, records: [] });
+    if (!blocked && nativeSourceMatchesProduct(input, { ...link, url: page.finalUrl || link.url })) {
+      normalFetchSuccesses += 1;
+      fetchedPageUrls.push(link.url);
+      const before = dedupeReviews(reviews, maxSnippets).length;
+      reviews.push(...extractReviewsFromText(page.text, page.finalUrl || link.url));
+      if (pagination.searchParams.has("pageNumber")) {
+        const stagnant = dedupeReviews(reviews, maxSnippets).length === before ? (stagnantPages.get(paginationKey) || 0) + 1 : 0;
+        stagnantPages.set(paginationKey, stagnant);
+        if (stagnant >= 2) exhaustedPagination.add(paginationKey);
+      }
+    } else {
+      normalFetchFailures += 1;
+      // Authentication/challenge restrictions are terminal for this URL,
+      // not an invitation to retry through a browser or proxy.
+      if (!restricted && !page.ok && (!page.status || page.status >= 500)) failedFetchUrls.push(link.url);
+      blockedProductPages += 1;
+      if (pagination.searchParams.has("pageNumber") && blocked) exhaustedPagination.add(paginationKey);
+    }
+    console.log("[ReviewIntel PIPELINE] native-page", JSON.stringify({ url: link.url, status: page.status || "error", rawReviews: reviews.length, attemptedPages: attemptedPageUrls.size, paginationContinued: attemptedPageUrls.size < maxPages && withinDuration() && dedupeReviews(reviews, maxSnippets).length < maxSnippets }));
+    await politeDelay(delayMs);
+  }
+  // Start with the verified listing and its direct review pages before research.
+  const eligibleInputLinks = inputLinks.filter((link) => {
+    const accepted = nativeSourceMatchesProduct(input, link);
+    if (!accepted) rejectedCandidates += 1;
+    return accepted;
+  });
+  for (const link of eligibleInputLinks) await collectPage(link);
 
   for (const query of queries) {
     for (const provider of providers) {
-      if (reviews.length >= maxSnippets) break;
+      if (dedupeReviews(reviews, maxSnippets).length >= maxSnippets || !withinDuration() || attemptedPageUrls.size >= maxPages) break;
 
       const searchUrl = searchUrlFor(provider, query);
       sourcesChecked.push(`native-search:${provider}:${query}`);
       attemptedSearches += 1;
 
-      const searchPage = await fetchText(searchUrl, attemptedSearches, 8000);
+      const searchPage = await fetchText(searchUrl, attemptedSearches, 8000, input.costTelemetry);
       if (searchPage.ok) {
         normalFetchSuccesses += 1;
-        reviews.push(...extractSearchSnippets(searchPage.text, provider, query));
         searchLinks.push(...extractSearchResultLinks(searchPage.text, provider));
+        console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "native-search", provider, url: searchUrl, page: attemptedSearches, status: searchPage.status || 200, reviewsFound: 0, candidateUrlsDiscovered: searchLinks.length, nextPageDiscovered: true, paginationContinued: true, stopReason: null }));
       } else {
         normalFetchFailures += 1;
+        console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "native-search", provider, url: searchUrl, page: attemptedSearches, status: searchPage.status || "error", reviewsFound: 0, nextPageDiscovered: true, paginationContinued: true, stopReason: "search page unavailable; continued" }));
       }
 
       await politeDelay(delayMs);
     }
   }
 
-  const candidateLinks = prioritizeLinks(inputLinks, searchLinks, maxPages);
-  const failedFetchUrls: string[] = [];
-
-  for (const [index, link] of candidateLinks.entries()) {
-    if (reviews.length >= maxSnippets) break;
-
-    sourcesChecked.push(link.url);
-    const page = await fetchText(link.url, index + attemptedSearches + 1);
-
-    if (page.ok) {
-      normalFetchSuccesses += 1;
-      reviews.push(...extractReviewsFromText(page.text, link.url));
-    } else {
-      normalFetchFailures += 1;
-      failedFetchUrls.push(link.url);
-    }
-
-    await politeDelay(delayMs);
-  }
+  const eligibleSearchLinks = searchLinks.filter((link) => {
+    const accepted = nativeSourceMatchesProduct(input, link);
+    if (!accepted) rejectedCandidates += 1;
+    return accepted;
+  });
+  const candidateLinks = prioritizeLinks(eligibleInputLinks, eligibleSearchLinks, maxPages);
+  for (const link of candidateLinks) await collectPage(link);
 
   const playwrightUrls = failedFetchUrls.slice(0, Math.min(4, maxPages));
   let playwrightAttempted = false;
@@ -714,13 +653,18 @@ export async function runNativeReviewRetrieval(
     playwrightAttempted = true;
 
     for (const [index, url] of playwrightUrls.entries()) {
-      if (reviews.length >= maxSnippets) break;
+      if (!withinDuration()) break;
+      if (dedupeReviews(reviews, maxSnippets).length >= maxSnippets || !withinDuration() || attemptedPageUrls.size >= maxPages) break;
 
-      const page = await fetchTextWithPlaywright(url, index + attemptedSearches + candidateLinks.length + 1);
+      playwrightPageAttempts += 1;
+      const page = await fetchTextWithPlaywright(url, index + attemptedSearches + candidateLinks.length + 1, 12000, input.costTelemetry);
+      captureStage("page", () => ({ sourceUrl: url, httpStatus: page.status ?? null, blockedOrChallenged: !page.ok || /captcha|robot check|verify you are human|automated access|access denied/i.test(page.text), page: index + 1, method: "playwright", records: [] }));
 
-      if (page.ok) {
+      if (page.ok && !isBlockedOrSignInReviewPage({ requestedUrl: url, finalUrl: page.finalUrl, html: page.text })
+        && nativeSourceMatchesProduct(input, { url: page.finalUrl || url, label: input.productTitle })) {
+        fetchedPageUrls.push(url);
         playwrightSuccesses += 1;
-        reviews.push(...extractReviewsFromText(page.text, url));
+        reviews.push(...extractReviewsFromText(page.text, page.finalUrl || url));
       } else {
         playwrightFailures += 1;
       }
@@ -730,14 +674,25 @@ export async function runNativeReviewRetrieval(
   }
 
   const dedupedReviews = dedupeReviews(reviews, maxSnippets);
-  const allSourceLinks = dedupeSourceLinks([...inputLinks, ...candidateLinks, ...searchLinks]).slice(0, 24);
+  const allSourceLinks = dedupeSourceLinks([...eligibleInputLinks, ...candidateLinks, ...eligibleSearchLinks]).slice(0, 24);
   const uniqueSourcesChecked = uniqueStrings(sourcesChecked, 80);
-  const attemptedPages = candidateLinks.length;
+  const attemptedPages = attemptedPageUrls.size;
+  const pagesBlocked = blockedProductPages + playwrightFailures;
+  const stopReason = !withinDuration() ? "duration_cap_reached" : dedupedReviews.length >= maxSnippets
+    ? "corpus_cap_reached"
+    : attemptedPageUrls.size >= maxPages
+      ? "page_cap_reached"
+    : input.costTelemetry && !input.costTelemetry.canStartRetrievalRequest()
+      ? "retrieval_budget_reached"
+      : dedupedReviews.length === 0 && pagesBlocked >= attemptedPages && attemptedPages > 0
+        ? "access_restricted"
+        : "candidate_pages_exhausted";
+  console.log("[ReviewIntel PIPELINE] retrieval-summary", JSON.stringify({ layer: "native-review-retrieval", rawReviewsDiscovered: reviews.length, dedupedReviews: dedupedReviews.length, pagesFetched: fetchedPageUrls.length, sourcesUsed: uniqueStrings(dedupedReviews.map((review) => review.sourceUrl || review.source), 80), stopReason: dedupedReviews.length >= maxSnippets ? "configured corpus cap reached" : "candidate searches/pages exhausted or access restricted" }));
   const normalFetchAttempted = attemptedSearches + attemptedPages > 0;
   const normalFetchFailed = normalFetchAttempted && normalFetchSuccesses <= 0;
   const playwrightFailed = playwrightAttempted && playwrightSuccesses <= 0;
   const coverageNote = dedupedReviews.length
-    ? `Native retrieval collected ${dedupedReviews.length} review-like snippets from public search/pages before any Firecrawl fallback.`
+    ? `Native retrieval collected ${dedupedReviews.length} review-like snippets from public search/pages without an external fallback scraper.`
     : `Native retrieval checked ${uniqueSourcesChecked.length} search/page sources but did not extract usable review-like snippets.`;
 
   return {
@@ -755,13 +710,33 @@ export async function runNativeReviewRetrieval(
     proxyConfigured: Boolean(configuredProxyUrl()),
     coverageNote,
     diagnostics: {
+      pageResults,
+      rawReviewRecords: reviews.length,
+      duplicatesRemoved: reviews.length - dedupedReviews.length,
+      rejectedCandidates,
       searchProviders: providers,
       attemptedSearches,
-      attemptedPages,
+      attemptedPages: attemptedPages + playwrightPageAttempts,
       normalFetchSuccesses,
       normalFetchFailures,
       playwrightSuccesses,
       playwrightFailures,
+      candidateUrlsDiscovered: candidateLinks.length,
+      fetchedPageUrls,
+      writtenReviewSources: uniqueStrings(
+        dedupedReviews.map((review) => review.sourceUrl || review.source),
+        80
+      ),
+      pagesBlocked,
+      stopReason,
     },
+    stopReason,
+    nativeScraperBlocked: stopReason === "access_restricted",
   };
+}
+
+export function nativeSourceMatchesProduct(...args: Parameters<typeof nativeSourceMatchesProductImpl>) {
+  const result = nativeSourceMatchesProductImpl(...args);
+  captureStage("source-match", { args, result });
+  return result;
 }

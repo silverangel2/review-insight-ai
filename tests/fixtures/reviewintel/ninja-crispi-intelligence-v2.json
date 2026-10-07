@@ -1,0 +1,961 @@
+{
+  "schemaVersion": 1,
+  "scanId": "scan_f3611065-00cd-4666-adcc-70a162ef8227-intelligence-v2",
+  "timestamp": "2026-10-06T21:13:53.757Z",
+  "status": "COMPLETED",
+  "events": [
+    {
+      "stage": "telemetry",
+      "data": {
+        "openAiCalls": 1,
+        "openAiInputTokens": null,
+        "openAiOutputTokens": null,
+        "openAiTotalTokens": null,
+        "firecrawlCalls": 0,
+        "firecrawlPages": 0,
+        "firecrawlCreditsUsed": 0,
+        "searchProviderCalls": 0,
+        "otherPaidProviderCalls": 0,
+        "totalRetrievalRequests": 0,
+        "totalScanDurationMs": 326,
+        "estimatedScanCostUsd": null,
+        "ceilings": {
+          "maxOpenAiCalls": 8,
+          "maxOpenAiTotalTokens": 120000,
+          "maxFirecrawlCalls": 0,
+          "maxRetrievalRequests": 160,
+          "maxDurationMs": 180000,
+          "maxAcceptedReviews": 240
+        },
+        "blockedReasons": [],
+        "tokenUsageHigh": false,
+        "providerUsageHigh": false,
+        "scanCostHigh": false,
+        "identityStage": {
+          "searchRequests": 0,
+          "openAiCalls": 0,
+          "openAiTokens": 0,
+          "candidateAttempts": 0,
+          "ceilings": {
+            "maxSearchRequests": 8,
+            "maxOpenAiCalls": 2,
+            "maxOpenAiTokens": 18000,
+            "maxCandidateAttempts": 8
+          }
+        }
+      }
+    },
+    {
+      "stage": "telemetry",
+      "data": {
+        "openAiCalls": 1,
+        "openAiInputTokens": 2887,
+        "openAiOutputTokens": 198,
+        "openAiTotalTokens": 3085,
+        "firecrawlCalls": 0,
+        "firecrawlPages": 0,
+        "firecrawlCreditsUsed": 0,
+        "searchProviderCalls": 0,
+        "otherPaidProviderCalls": 0,
+        "totalRetrievalRequests": 0,
+        "totalScanDurationMs": 4729,
+        "estimatedScanCostUsd": null,
+        "ceilings": {
+          "maxOpenAiCalls": 8,
+          "maxOpenAiTotalTokens": 120000,
+          "maxFirecrawlCalls": 0,
+          "maxRetrievalRequests": 160,
+          "maxDurationMs": 180000,
+          "maxAcceptedReviews": 240
+        },
+        "blockedReasons": [],
+        "tokenUsageHigh": false,
+        "providerUsageHigh": false,
+        "scanCostHigh": false,
+        "identityStage": {
+          "searchRequests": 0,
+          "openAiCalls": 0,
+          "openAiTokens": 0,
+          "candidateAttempts": 0,
+          "ceilings": {
+            "maxSearchRequests": 8,
+            "maxOpenAiCalls": 2,
+            "maxOpenAiTokens": 18000,
+            "maxCandidateAttempts": 8
+          }
+        }
+      }
+    },
+    {
+      "stage": "identity",
+      "data": {
+        "productName": "Ninja Crispi Pro Glass Air Fryer, 6-in-1, Ash Grey, AS101CDG",
+        "brand": "Ninja",
+        "model": null,
+        "store": "Amazon.ca",
+        "visibleFeatures": [
+          "Max crisp, air fry, bake, roast, recrisp, dehydrate",
+          "1800W",
+          "450F/232°C max",
+          "6Qt/5.7L, 2.5Qt/2.4L containers"
+        ],
+        "price": "$329.99",
+        "rating": "4.4",
+        "reviewCount": "235"
+      }
+    },
+    {
+      "stage": "identity",
+      "data": {
+        "productName": "Ninja Crispi Pro Glass Air Fryer 6-in-1 Ash Grey AS101CDG",
+        "brand": "Ninja",
+        "color": "Grey",
+        "store": "Amazon.ca",
+        "price": "$329.99",
+        "rating": "4.4",
+        "reviewCount": "235"
+      }
+    },
+    {
+      "stage": "adjudication",
+      "data": {
+        "args": [
+          [
+            {
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I used to own an instapot vortex airfryer. After 5 years it died and I replaced it with this. I have had the Ninja Crispi pro for a couple weeks now and these are the pros and cons.",
+              "date": "Reviewed in Canada on July 4, 2026",
+              "rating": 5,
+              "source": "Amazon written review",
+              "verified": true,
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+            },
+            {
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Well so far I’m impressed. I had a halogen oven and I broke the glass bowl... couldn’t get a replacement so and after lots of research finally decided on the Ninja Crispy Pro. I used the halogen to cook whole chicken. The Ninja Pro cooks a whole chicken in less time and with a nice browning. A tip when cooking chicken, cook it upside down for the first thirty minutes. You will have a juicier breast. It passed the first test with the chicken and I can’t wait to see what else it will do. It’s an easy clean up and looks nice on the counter. Update. Cooked roast beef to perfection... came out nice and juicy and made delicious roast potatoes. It’s my go to now. Absolutely love it.",
+              "date": "Reviewed in Canada on August 26, 2026",
+              "rating": 5,
+              "source": "Amazon written review",
+              "verified": true,
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+            },
+            {
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Price tag is higher for these, but they’re much healthier for you than a conventional air fryer. It’s worth the hype. The pink is to die for. Love the size options for the containers, and very easy to clean. I love ninja everything",
+              "date": "Reviewed in Canada on September 22, 2026",
+              "rating": 5,
+              "source": "Amazon written review",
+              "verified": true,
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+            },
+            {
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. We have all 3 glass dishes and this thing is awesome,easy to clean and cook pretty well anything you want",
+              "date": "Reviewed in Canada on July 17, 2026",
+              "rating": 5,
+              "source": "Amazon written review",
+              "verified": true,
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+            },
+            {
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. As someone who used to feel totally intimidated in the kitchen, this Ninja Crispi Pro has been an absolute lifesaver. The glass containers are a total game-changer because I can actually see my food cooking in real-time, which means no more constantly opening a traditional air fryer basket just to check if I’m burning my dinner.",
+              "date": "Reviewed in Canada on July 12, 2026",
+              "rating": 5,
+              "source": "Amazon written review",
+              "verified": true,
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+            },
+            {
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This is the best airfryer I’ve used. We had a couple different ones and they were ugly so I hid them under the counter plus they were a real pain to clean so I rarely used them. I bought this one and it’s simply the best thing to cook almost anything in. It’s so easy to clean, just throw it in the dishwasher and you’re done. It also looks nice and the colour matches my kitchen. I used it as trial to cook a steak and I have to say it was the best steak I’ve had, cooked just right. Maybe it was luck but at this point I highly recommend this to anyone.",
+              "date": "Reviewed in Canada on February 15, 2026",
+              "rating": 5,
+              "source": "Amazon written review",
+              "verified": true,
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+            },
+            {
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. The plastic on both my 2.5 quart and my 6 quart glass containers are cracked",
+              "date": "Reviewed in the United States on September 15, 2026",
+              "rating": 2,
+              "source": "Amazon written review",
+              "verified": true,
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+            }
+          ],
+          {
+            "productName": "Ninja Crispi Pro Glass Air Fryer 6-in-1 Ash Grey AS101CDG",
+            "brand": "Ninja",
+            "exactListingAccepted": true,
+            "exactListingUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+            "exactListingTitle": "Ninja Crispi Pro Glass Air Fryer, 6-in-1, Ash Grey, AS101CDG"
+          }
+        ],
+        "result": {
+          "records": [
+            {
+              "id": "evidence-1-f66a3216f3a4",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I used to own an instapot vortex airfryer. After 5 years it died and I replaced it with this. I have had the Ninja Crispi pro for a couple weeks now and these are the pros and cons.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "f66a3216f3a44a8dd1e92cb5f2a6639f28ddc2e0ed49dcfd4afc5b575f561db7",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I used to own an instapot vortex airfryer. After 5 years it died and I replaced it with this. I have had the Ninja Crispi pro for a couple weeks now and these are the pros and cons.",
+                "date": "Reviewed in Canada on July 4, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-2-ab368bbea3f8",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Well so far I’m impressed. I had a halogen oven and I broke the glass bowl... couldn’t get a replacement so and after lots of research finally decided on the Ninja Crispy Pro. I used the halogen to cook whole chicken. The Ninja Pro cooks a whole chicken in less time and with a nice browning. A tip when cooking chicken, cook it upside down for the first thirty minutes. You will have a juicier breast. It passed the first test with the chicken and I can’t wait to see what else it will do. It’s an easy clean up and looks nice on the counter. Update. Cooked roast beef to perfection... came out nice and juicy and made delicious roast potatoes. It’s my go to now. Absolutely love it.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Well so far I’m impressed. I had a halogen oven and I broke the glass bowl... couldn’t get a replacement so and after lots of research finally decided on the Ninja Crispy Pro. I used the halogen to cook whole chicken. The Ninja Pro cooks a whole chicken in less time and with a nice browning. A tip when cooking chicken, cook it upside down for the first thirty minutes. You will have a juicier breast. It passed the first test with the chicken and I can’t wait to see what else it will do. It’s an easy clean up and looks nice on the counter. Update. Cooked roast beef to perfection... came out nice and juicy and made delicious roast potatoes. It’s my go to now. Absolutely love it.",
+                "date": "Reviewed in Canada on August 26, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-3-c587de379623",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Price tag is higher for these, but they’re much healthier for you than a conventional air fryer. It’s worth the hype. The pink is to die for. Love the size options for the containers, and very easy to clean. I love ninja everything",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Price tag is higher for these, but they’re much healthier for you than a conventional air fryer. It’s worth the hype. The pink is to die for. Love the size options for the containers, and very easy to clean. I love ninja everything",
+                "date": "Reviewed in Canada on September 22, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-4-aca69201ee71",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. We have all 3 glass dishes and this thing is awesome,easy to clean and cook pretty well anything you want",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "aca69201ee719618f4510072c88bc580a67ae57c184c302c8c9ff2c25480571a",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. We have all 3 glass dishes and this thing is awesome,easy to clean and cook pretty well anything you want",
+                "date": "Reviewed in Canada on July 17, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-5-2b967653fbfa",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. As someone who used to feel totally intimidated in the kitchen, this Ninja Crispi Pro has been an absolute lifesaver. The glass containers are a total game-changer because I can actually see my food cooking in real-time, which means no more constantly opening a traditional air fryer basket just to check if I’m burning my dinner.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "2b967653fbfa1a111b5a8d0420e8d4edaddb959c2e1c3cb498358d818a2a4c53",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. As someone who used to feel totally intimidated in the kitchen, this Ninja Crispi Pro has been an absolute lifesaver. The glass containers are a total game-changer because I can actually see my food cooking in real-time, which means no more constantly opening a traditional air fryer basket just to check if I’m burning my dinner.",
+                "date": "Reviewed in Canada on July 12, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-6-7b6e34bdbafc",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This is the best airfryer I’ve used. We had a couple different ones and they were ugly so I hid them under the counter plus they were a real pain to clean so I rarely used them. I bought this one and it’s simply the best thing to cook almost anything in. It’s so easy to clean, just throw it in the dishwasher and you’re done. It also looks nice and the colour matches my kitchen. I used it as trial to cook a steak and I have to say it was the best steak I’ve had, cooked just right. Maybe it was luck but at this point I highly recommend this to anyone.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This is the best airfryer I’ve used. We had a couple different ones and they were ugly so I hid them under the counter plus they were a real pain to clean so I rarely used them. I bought this one and it’s simply the best thing to cook almost anything in. It’s so easy to clean, just throw it in the dishwasher and you’re done. It also looks nice and the colour matches my kitchen. I used it as trial to cook a steak and I have to say it was the best steak I’ve had, cooked just right. Maybe it was luck but at this point I highly recommend this to anyone.",
+                "date": "Reviewed in Canada on February 15, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-7-ab61fd361671",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. The plastic on both my 2.5 quart and my 6 quart glass containers are cracked",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "ab61fd361671322f2ff9ade178f030d906b1c403d8b9232c4f19aa42fa81d253",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. The plastic on both my 2.5 quart and my 6 quart glass containers are cracked",
+                "date": "Reviewed in the United States on September 15, 2026",
+                "rating": 2,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            }
+          ],
+          "acceptedRecords": [
+            {
+              "id": "evidence-1-f66a3216f3a4",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I used to own an instapot vortex airfryer. After 5 years it died and I replaced it with this. I have had the Ninja Crispi pro for a couple weeks now and these are the pros and cons.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "f66a3216f3a44a8dd1e92cb5f2a6639f28ddc2e0ed49dcfd4afc5b575f561db7",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I used to own an instapot vortex airfryer. After 5 years it died and I replaced it with this. I have had the Ninja Crispi pro for a couple weeks now and these are the pros and cons.",
+                "date": "Reviewed in Canada on July 4, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-2-ab368bbea3f8",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Well so far I’m impressed. I had a halogen oven and I broke the glass bowl... couldn’t get a replacement so and after lots of research finally decided on the Ninja Crispy Pro. I used the halogen to cook whole chicken. The Ninja Pro cooks a whole chicken in less time and with a nice browning. A tip when cooking chicken, cook it upside down for the first thirty minutes. You will have a juicier breast. It passed the first test with the chicken and I can’t wait to see what else it will do. It’s an easy clean up and looks nice on the counter. Update. Cooked roast beef to perfection... came out nice and juicy and made delicious roast potatoes. It’s my go to now. Absolutely love it.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Well so far I’m impressed. I had a halogen oven and I broke the glass bowl... couldn’t get a replacement so and after lots of research finally decided on the Ninja Crispy Pro. I used the halogen to cook whole chicken. The Ninja Pro cooks a whole chicken in less time and with a nice browning. A tip when cooking chicken, cook it upside down for the first thirty minutes. You will have a juicier breast. It passed the first test with the chicken and I can’t wait to see what else it will do. It’s an easy clean up and looks nice on the counter. Update. Cooked roast beef to perfection... came out nice and juicy and made delicious roast potatoes. It’s my go to now. Absolutely love it.",
+                "date": "Reviewed in Canada on August 26, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-3-c587de379623",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Price tag is higher for these, but they’re much healthier for you than a conventional air fryer. It’s worth the hype. The pink is to die for. Love the size options for the containers, and very easy to clean. I love ninja everything",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Price tag is higher for these, but they’re much healthier for you than a conventional air fryer. It’s worth the hype. The pink is to die for. Love the size options for the containers, and very easy to clean. I love ninja everything",
+                "date": "Reviewed in Canada on September 22, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-4-aca69201ee71",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. We have all 3 glass dishes and this thing is awesome,easy to clean and cook pretty well anything you want",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "aca69201ee719618f4510072c88bc580a67ae57c184c302c8c9ff2c25480571a",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. We have all 3 glass dishes and this thing is awesome,easy to clean and cook pretty well anything you want",
+                "date": "Reviewed in Canada on July 17, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-5-2b967653fbfa",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. As someone who used to feel totally intimidated in the kitchen, this Ninja Crispi Pro has been an absolute lifesaver. The glass containers are a total game-changer because I can actually see my food cooking in real-time, which means no more constantly opening a traditional air fryer basket just to check if I’m burning my dinner.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "2b967653fbfa1a111b5a8d0420e8d4edaddb959c2e1c3cb498358d818a2a4c53",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. As someone who used to feel totally intimidated in the kitchen, this Ninja Crispi Pro has been an absolute lifesaver. The glass containers are a total game-changer because I can actually see my food cooking in real-time, which means no more constantly opening a traditional air fryer basket just to check if I’m burning my dinner.",
+                "date": "Reviewed in Canada on July 12, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-6-7b6e34bdbafc",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This is the best airfryer I’ve used. We had a couple different ones and they were ugly so I hid them under the counter plus they were a real pain to clean so I rarely used them. I bought this one and it’s simply the best thing to cook almost anything in. It’s so easy to clean, just throw it in the dishwasher and you’re done. It also looks nice and the colour matches my kitchen. I used it as trial to cook a steak and I have to say it was the best steak I’ve had, cooked just right. Maybe it was luck but at this point I highly recommend this to anyone.",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This is the best airfryer I’ve used. We had a couple different ones and they were ugly so I hid them under the counter plus they were a real pain to clean so I rarely used them. I bought this one and it’s simply the best thing to cook almost anything in. It’s so easy to clean, just throw it in the dishwasher and you’re done. It also looks nice and the colour matches my kitchen. I used it as trial to cook a steak and I have to say it was the best steak I’ve had, cooked just right. Maybe it was luck but at this point I highly recommend this to anyone.",
+                "date": "Reviewed in Canada on February 15, 2026",
+                "rating": 5,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            },
+            {
+              "id": "evidence-7-ab61fd361671",
+              "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. The plastic on both my 2.5 quart and my 6 quart glass containers are cracked",
+              "source": "Amazon written review",
+              "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "reviewId": null,
+              "retrievedAt": null,
+              "marketplaceProductId": null,
+              "sourceType": "marketplace",
+              "sourceReputation": "high",
+              "stableEvidenceHash": "ab61fd361671322f2ff9ade178f030d906b1c403d8b9232c4f19aa42fa81d253",
+              "independentSourceId": "amazon.ca",
+              "exactProductAccepted": true,
+              "accepted": true,
+              "rejectionReason": null,
+              "duplicateOf": null,
+              "original": {
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. The plastic on both my 2.5 quart and my 6 quart glass containers are cracked",
+                "date": "Reviewed in the United States on September 15, 2026",
+                "rating": 2,
+                "source": "Amazon written review",
+                "verified": true,
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+              }
+            }
+          ],
+          "rejectedRecords": [],
+          "independentSourceIds": [
+            "amazon.ca"
+          ],
+          "independentSourceCount": 1,
+          "deduplicatedRecordCount": 0,
+          "acceptedRecordCount": 7,
+          "rejectedRecordCount": 0,
+          "evidenceSignals": 7,
+          "exactProductAccepted": true,
+          "sufficientByExistingThreshold": true,
+          "deterministicConfidenceInputs": {
+            "acceptedIndependentSourceCount": 1,
+            "usableReviewCount": 7,
+            "averageProductMatchScore": 1,
+            "averageSourceReputationScore": 1
+          }
+        }
+      }
+    },
+    {
+      "stage": "corpus",
+      "data": {
+        "acceptedHashes": [
+          "2b967653fbfa1a111b5a8d0420e8d4edaddb959c2e1c3cb498358d818a2a4c53",
+          "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+          "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e",
+          "ab61fd361671322f2ff9ade178f030d906b1c403d8b9232c4f19aa42fa81d253",
+          "aca69201ee719618f4510072c88bc580a67ae57c184c302c8c9ff2c25480571a",
+          "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9",
+          "f66a3216f3a44a8dd1e92cb5f2a6639f28ddc2e0ed49dcfd4afc5b575f561db7"
+        ],
+        "sourceDistribution": {
+          "amazon.ca": 7
+        },
+        "corpusHash": "c096df462768c2509ff2db7a34bb4265d1380eab1f411bdca40aaf6f717458c1"
+      }
+    },
+    {
+      "stage": "evaluation",
+      "data": {
+        "args": [
+          {
+            "acceptedRecords": [
+              {
+                "id": "evidence-1-f66a3216f3a4",
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I used to own an instapot vortex airfryer. After 5 years it died and I replaced it with this. I have had the Ninja Crispi pro for a couple weeks now and these are the pros and cons.",
+                "source": "Amazon written review",
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+                "reviewId": null,
+                "retrievedAt": null,
+                "marketplaceProductId": null,
+                "sourceType": "marketplace",
+                "sourceReputation": "high",
+                "stableEvidenceHash": "f66a3216f3a44a8dd1e92cb5f2a6639f28ddc2e0ed49dcfd4afc5b575f561db7",
+                "independentSourceId": "amazon.ca",
+                "exactProductAccepted": true,
+                "accepted": true,
+                "rejectionReason": null,
+                "duplicateOf": null,
+                "original": {
+                  "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I used to own an instapot vortex airfryer. After 5 years it died and I replaced it with this. I have had the Ninja Crispi pro for a couple weeks now and these are the pros and cons.",
+                  "date": "Reviewed in Canada on July 4, 2026",
+                  "rating": 5,
+                  "source": "Amazon written review",
+                  "verified": true,
+                  "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+                }
+              },
+              {
+                "id": "evidence-2-ab368bbea3f8",
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Well so far I’m impressed. I had a halogen oven and I broke the glass bowl... couldn’t get a replacement so and after lots of research finally decided on the Ninja Crispy Pro. I used the halogen to cook whole chicken. The Ninja Pro cooks a whole chicken in less time and with a nice browning. A tip when cooking chicken, cook it upside down for the first thirty minutes. You will have a juicier breast. It passed the first test with the chicken and I can’t wait to see what else it will do. It’s an easy clean up and looks nice on the counter. Update. Cooked roast beef to perfection... came out nice and juicy and made delicious roast potatoes. It’s my go to now. Absolutely love it.",
+                "source": "Amazon written review",
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+                "reviewId": null,
+                "retrievedAt": null,
+                "marketplaceProductId": null,
+                "sourceType": "marketplace",
+                "sourceReputation": "high",
+                "stableEvidenceHash": "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e",
+                "independentSourceId": "amazon.ca",
+                "exactProductAccepted": true,
+                "accepted": true,
+                "rejectionReason": null,
+                "duplicateOf": null,
+                "original": {
+                  "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Well so far I’m impressed. I had a halogen oven and I broke the glass bowl... couldn’t get a replacement so and after lots of research finally decided on the Ninja Crispy Pro. I used the halogen to cook whole chicken. The Ninja Pro cooks a whole chicken in less time and with a nice browning. A tip when cooking chicken, cook it upside down for the first thirty minutes. You will have a juicier breast. It passed the first test with the chicken and I can’t wait to see what else it will do. It’s an easy clean up and looks nice on the counter. Update. Cooked roast beef to perfection... came out nice and juicy and made delicious roast potatoes. It’s my go to now. Absolutely love it.",
+                  "date": "Reviewed in Canada on August 26, 2026",
+                  "rating": 5,
+                  "source": "Amazon written review",
+                  "verified": true,
+                  "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+                }
+              },
+              {
+                "id": "evidence-3-c587de379623",
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Price tag is higher for these, but they’re much healthier for you than a conventional air fryer. It’s worth the hype. The pink is to die for. Love the size options for the containers, and very easy to clean. I love ninja everything",
+                "source": "Amazon written review",
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+                "reviewId": null,
+                "retrievedAt": null,
+                "marketplaceProductId": null,
+                "sourceType": "marketplace",
+                "sourceReputation": "high",
+                "stableEvidenceHash": "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9",
+                "independentSourceId": "amazon.ca",
+                "exactProductAccepted": true,
+                "accepted": true,
+                "rejectionReason": null,
+                "duplicateOf": null,
+                "original": {
+                  "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Price tag is higher for these, but they’re much healthier for you than a conventional air fryer. It’s worth the hype. The pink is to die for. Love the size options for the containers, and very easy to clean. I love ninja everything",
+                  "date": "Reviewed in Canada on September 22, 2026",
+                  "rating": 5,
+                  "source": "Amazon written review",
+                  "verified": true,
+                  "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+                }
+              },
+              {
+                "id": "evidence-4-aca69201ee71",
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. We have all 3 glass dishes and this thing is awesome,easy to clean and cook pretty well anything you want",
+                "source": "Amazon written review",
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+                "reviewId": null,
+                "retrievedAt": null,
+                "marketplaceProductId": null,
+                "sourceType": "marketplace",
+                "sourceReputation": "high",
+                "stableEvidenceHash": "aca69201ee719618f4510072c88bc580a67ae57c184c302c8c9ff2c25480571a",
+                "independentSourceId": "amazon.ca",
+                "exactProductAccepted": true,
+                "accepted": true,
+                "rejectionReason": null,
+                "duplicateOf": null,
+                "original": {
+                  "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. We have all 3 glass dishes and this thing is awesome,easy to clean and cook pretty well anything you want",
+                  "date": "Reviewed in Canada on July 17, 2026",
+                  "rating": 5,
+                  "source": "Amazon written review",
+                  "verified": true,
+                  "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+                }
+              },
+              {
+                "id": "evidence-5-2b967653fbfa",
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. As someone who used to feel totally intimidated in the kitchen, this Ninja Crispi Pro has been an absolute lifesaver. The glass containers are a total game-changer because I can actually see my food cooking in real-time, which means no more constantly opening a traditional air fryer basket just to check if I’m burning my dinner.",
+                "source": "Amazon written review",
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+                "reviewId": null,
+                "retrievedAt": null,
+                "marketplaceProductId": null,
+                "sourceType": "marketplace",
+                "sourceReputation": "high",
+                "stableEvidenceHash": "2b967653fbfa1a111b5a8d0420e8d4edaddb959c2e1c3cb498358d818a2a4c53",
+                "independentSourceId": "amazon.ca",
+                "exactProductAccepted": true,
+                "accepted": true,
+                "rejectionReason": null,
+                "duplicateOf": null,
+                "original": {
+                  "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. As someone who used to feel totally intimidated in the kitchen, this Ninja Crispi Pro has been an absolute lifesaver. The glass containers are a total game-changer because I can actually see my food cooking in real-time, which means no more constantly opening a traditional air fryer basket just to check if I’m burning my dinner.",
+                  "date": "Reviewed in Canada on July 12, 2026",
+                  "rating": 5,
+                  "source": "Amazon written review",
+                  "verified": true,
+                  "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+                }
+              },
+              {
+                "id": "evidence-6-7b6e34bdbafc",
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This is the best airfryer I’ve used. We had a couple different ones and they were ugly so I hid them under the counter plus they were a real pain to clean so I rarely used them. I bought this one and it’s simply the best thing to cook almost anything in. It’s so easy to clean, just throw it in the dishwasher and you’re done. It also looks nice and the colour matches my kitchen. I used it as trial to cook a steak and I have to say it was the best steak I’ve had, cooked just right. Maybe it was luck but at this point I highly recommend this to anyone.",
+                "source": "Amazon written review",
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+                "reviewId": null,
+                "retrievedAt": null,
+                "marketplaceProductId": null,
+                "sourceType": "marketplace",
+                "sourceReputation": "high",
+                "stableEvidenceHash": "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+                "independentSourceId": "amazon.ca",
+                "exactProductAccepted": true,
+                "accepted": true,
+                "rejectionReason": null,
+                "duplicateOf": null,
+                "original": {
+                  "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This is the best airfryer I’ve used. We had a couple different ones and they were ugly so I hid them under the counter plus they were a real pain to clean so I rarely used them. I bought this one and it’s simply the best thing to cook almost anything in. It’s so easy to clean, just throw it in the dishwasher and you’re done. It also looks nice and the colour matches my kitchen. I used it as trial to cook a steak and I have to say it was the best steak I’ve had, cooked just right. Maybe it was luck but at this point I highly recommend this to anyone.",
+                  "date": "Reviewed in Canada on February 15, 2026",
+                  "rating": 5,
+                  "source": "Amazon written review",
+                  "verified": true,
+                  "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+                }
+              },
+              {
+                "id": "evidence-7-ab61fd361671",
+                "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. The plastic on both my 2.5 quart and my 6 quart glass containers are cracked",
+                "source": "Amazon written review",
+                "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+                "reviewId": null,
+                "retrievedAt": null,
+                "marketplaceProductId": null,
+                "sourceType": "marketplace",
+                "sourceReputation": "high",
+                "stableEvidenceHash": "ab61fd361671322f2ff9ade178f030d906b1c403d8b9232c4f19aa42fa81d253",
+                "independentSourceId": "amazon.ca",
+                "exactProductAccepted": true,
+                "accepted": true,
+                "rejectionReason": null,
+                "duplicateOf": null,
+                "original": {
+                  "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. The plastic on both my 2.5 quart and my 6 quart glass containers are cracked",
+                  "date": "Reviewed in the United States on September 15, 2026",
+                  "rating": 2,
+                  "source": "Amazon written review",
+                  "verified": true,
+                  "sourceUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ"
+                }
+              }
+            ],
+            "exactProductAccepted": true,
+            "rating": 4.4,
+            "marketplaceReviewCount": 235,
+            "price": null,
+            "verifiedProductMetadata": {
+              "productName": "Ninja Crispi Pro Glass Air Fryer, 6-in-1, Ash Grey, AS101CDG",
+              "brand": "Ninja",
+              "store": "Amazon.ca",
+              "canonicalUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "asin": null
+            },
+            "riskFeatures": {
+              "reviewAuthenticityScore": 0
+            },
+            "summaryModelVersion": "gpt-4.1-mini"
+          }
+        ],
+        "result": {
+          "scorerVersion": "deterministic-evidence-scorer-v2",
+          "verdictPolicyVersion": "buyer-verdict-policy-v1",
+          "acceptedReviewHashes": [
+            "2b967653fbfa1a111b5a8d0420e8d4edaddb959c2e1c3cb498358d818a2a4c53",
+            "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+            "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e",
+            "ab61fd361671322f2ff9ade178f030d906b1c403d8b9232c4f19aa42fa81d253",
+            "aca69201ee719618f4510072c88bc580a67ae57c184c302c8c9ff2c25480571a",
+            "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9",
+            "f66a3216f3a44a8dd1e92cb5f2a6639f28ddc2e0ed49dcfd4afc5b575f561db7"
+          ],
+          "acceptedCorpusHash": "c096df462768c2509ff2db7a34bb4265d1380eab1f411bdca40aaf6f717458c1",
+          "marketplaceMetadataSnapshot": {
+            "rating": 4.4,
+            "reviewCount": 235,
+            "price": null,
+            "exactProductAccepted": true
+          },
+          "deterministicScoringInputs": {
+            "acceptedReviewCount": 7,
+            "positiveSignal": 9,
+            "negativeSignal": 1,
+            "severeComplaintCount": 0,
+            "severeComplaintRatio": 0,
+            "marketplaceScore": 8.8,
+            "sentimentScore": 6.828571428571428,
+            "minimumAcceptedReviews": 5,
+            "sufficient": true,
+            "riskFeatures": {
+              "reviewAuthenticityScore": 0
+            },
+            "verifiedProductMetadata": {
+              "productName": "Ninja Crispi Pro Glass Air Fryer, 6-in-1, Ash Grey, AS101CDG",
+              "brand": "Ninja",
+              "store": "Amazon.ca",
+              "canonicalUrl": "https://www.amazon.ca/dp/B0G1PYDNWJ",
+              "asin": null
+            }
+          },
+          "buyScore": 7.4,
+          "valueForMoney": "Good",
+          "customerVerdict": "BUY",
+          "strengths": [
+            {
+              "claim": "easy to clean or maintain",
+              "supportCount": 4,
+              "sourceIds": [
+                "evidence-2-ab368bbea3f8",
+                "evidence-3-c587de379623",
+                "evidence-4-aca69201ee71",
+                "evidence-6-7b6e34bdbafc"
+              ],
+              "sourceHashes": [
+                "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+                "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e",
+                "aca69201ee719618f4510072c88bc580a67ae57c184c302c8c9ff2c25480571a",
+                "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9"
+              ],
+              "provenance": "ACCEPTED_WRITTEN_REVIEW"
+            },
+            {
+              "claim": "attractive design or appearance",
+              "supportCount": 3,
+              "sourceIds": [
+                "evidence-2-ab368bbea3f8",
+                "evidence-3-c587de379623",
+                "evidence-6-7b6e34bdbafc"
+              ],
+              "sourceHashes": [
+                "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+                "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e",
+                "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9"
+              ],
+              "provenance": "ACCEPTED_WRITTEN_REVIEW"
+            },
+            {
+              "claim": "good cooking results",
+              "supportCount": 2,
+              "sourceIds": [
+                "evidence-2-ab368bbea3f8",
+                "evidence-6-7b6e34bdbafc"
+              ],
+              "sourceHashes": [
+                "7b6e34bdbafc280a18448d04f356f5798a086d1ba9ef70b250978dcf2e7c5892",
+                "ab368bbea3f8003584bbfa7f4b11079a0abe15998c758ff96d91fcfc8120683e"
+              ],
+              "provenance": "ACCEPTED_WRITTEN_REVIEW"
+            },
+            {
+              "claim": "good value for the price",
+              "supportCount": 1,
+              "sourceIds": [
+                "evidence-3-c587de379623"
+              ],
+              "sourceHashes": [
+                "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9"
+              ],
+              "provenance": "ACCEPTED_WRITTEN_REVIEW"
+            },
+            {
+              "claim": "useful features or functions",
+              "supportCount": 1,
+              "sourceIds": [
+                "evidence-3-c587de379623"
+              ],
+              "sourceHashes": [
+                "c587de3796233b1652faba204579dc56f0513868dea80e60d47d94636b9b87d9"
+              ],
+              "provenance": "ACCEPTED_WRITTEN_REVIEW"
+            }
+          ],
+          "complaints": [
+            {
+              "claim": "cracking or material durability problems",
+              "supportCount": 1,
+              "sourceIds": [
+                "evidence-7-ab61fd361671"
+              ],
+              "sourceHashes": [
+                "ab61fd361671322f2ff9ade178f030d906b1c403d8b9232c4f19aa42fa81d253"
+              ],
+              "provenance": "ACCEPTED_WRITTEN_REVIEW"
+            }
+          ],
+          "summaryModelVersion": "gpt-4.1-mini",
+          "evidenceState": "SUFFICIENT",
+          "bottomLine": "Accepted exact-product review evidence supports buying this product.",
+          "finalResultHash": "d9b94c5dda7b2c982b8326fe596101fcd73ea21895b191f1070112de7adda176"
+        }
+      }
+    },
+    {
+      "stage": "final",
+      "data": {
+        "buyScore": 7.4,
+        "verdict": "BUY",
+        "confidence": 55,
+        "value": "Good",
+        "cost": {
+          "openAiCalls": 1,
+          "openAiInputTokens": 2887,
+          "openAiOutputTokens": 198,
+          "openAiTotalTokens": 3085,
+          "firecrawlCalls": 0,
+          "firecrawlPages": 0,
+          "firecrawlCreditsUsed": 0,
+          "searchProviderCalls": 0,
+          "otherPaidProviderCalls": 0,
+          "totalRetrievalRequests": 0,
+          "totalScanDurationMs": 5045,
+          "estimatedScanCostUsd": null,
+          "ceilings": {
+            "maxOpenAiCalls": 8,
+            "maxOpenAiTotalTokens": 120000,
+            "maxFirecrawlCalls": 0,
+            "maxRetrievalRequests": 160,
+            "maxDurationMs": 180000,
+            "maxAcceptedReviews": 240
+          },
+          "blockedReasons": [],
+          "tokenUsageHigh": false,
+          "providerUsageHigh": false,
+          "scanCostHigh": false,
+          "identityStage": {
+            "searchRequests": 0,
+            "openAiCalls": 0,
+            "openAiTokens": 0,
+            "candidateAttempts": 0,
+            "ceilings": {
+              "maxSearchRequests": 8,
+              "maxOpenAiCalls": 2,
+              "maxOpenAiTokens": 18000,
+              "maxCandidateAttempts": 8
+            }
+          }
+        }
+      }
+    }
+  ]
+}

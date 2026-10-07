@@ -12,7 +12,7 @@ import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { canAccessSellerAnalytics } from "@/lib/account";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
 import { getUiTextTranslation, normalizeLocale, readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
-import { clearLatestResult, readActiveScanId, readLatestPreview, readLatestResult, saveLatestResult } from "@/lib/resultStorage";
+import { clearLatestResult, readActiveScanId, readLatestPreview, readLatestResult, saveLatestResult, reviewIntelDevDiagnostic } from "@/lib/resultStorage";
 import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
@@ -23,7 +23,8 @@ function displayShopperVerdict(value: unknown) {
   const verdict = String(value || "").trim().toUpperCase();
 
   if (verdict === "BUY") return "VERIFIED BUY";
-  if (verdict === "REVIEW FIRST" || verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
+  if (verdict === "REVIEW FIRST" || verdict === "CONSIDER" || verdict === "MAYBE") return "DO NOT BUY YET";
+  if (verdict === "DO NOT BUY YET") return "DO NOT BUY YET";
   if (verdict === "AVOID") return "AVOID";
   if (
     verdict === "REVIEW EVIDENCE NOT ENOUGH" ||
@@ -54,17 +55,19 @@ type LocalizedVerdictCopy = { answer: string; title: string; message: string };
 type ShopperProductResult = {
   product: ProductLike;
   verdict: ShopperVerdict;
-  productScore: number;
-  buyingConfidence: number;
+  productScore: number | null;
+  buyingConfidence: number | null;
   valueForMoney: string;
   fakeReviewRisk: string;
-  fakeReviewPercent: number;
+  fakeReviewPercent: number | null;
   strengths: string[];
   complaints: string[];
   bestFor: string[];
   notIdealFor: string[];
   bottomLine: string;
   sourcesUsed: string[];
+  acceptedWrittenReviewCount: number;
+  discoverySourceCount: number;
   researchQuality: {
     evidenceLevel: string;
     exactProductMatch: boolean;
@@ -157,7 +160,7 @@ const resultCopy: Record<
     bestFor: "Best For",
     notIdealFor: "Not Ideal For",
     noStrengths: "No clear strengths found.",
-    noComplaints: "No repeated complaints found.",
+    noComplaints: "No recurring complaint pattern was found in the accepted reviews.",
     bestForEmpty: "No specific buyer group could be confirmed from the collected reviews.",
     notIdealEmpty: "No repeated buyer-specific limitation was found in the collected reviews.",
     priceNotShown: "Price not shown",
@@ -522,7 +525,7 @@ function verdictFromBuyer(value: unknown): ShopperVerdict {
   if (verdict === "BUY") return "BUY";
   if (verdict === "AVOID") return "AVOID";
   if (verdict.includes("REVIEW EVIDENCE") || verdict.includes("NOT ENOUGH")) return "NOT_ENOUGH";
-  return "REVIEW FIRST";
+  return "NOT_ENOUGH";
 }
 
 function optionalVerdictFromBuyer(value: unknown): ShopperVerdict | null {
@@ -786,23 +789,21 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
     optionalVerdictFromBuyer((analysis as Record<string, unknown> | undefined)?.finalVerdict) ||
     optionalVerdictFromBuyer((analysis as Record<string, unknown> | undefined)?.verdict) ||
     verdictFromBuyer(analysis?.buyer_recommendation?.verdict || analysis?.customer_recommendation?.verdict);
-  const productScore = clampScore(
+  const numericOrNull = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? Math.round(value) : null;
+  const productScore = numericOrNull(
     source.productScore ??
       (source as Record<string, unknown>).buyScore ??
       analysis?.product_score ??
-      (analysis as Record<string, unknown> | undefined)?.score,
-    0
+      (analysis as Record<string, unknown> | undefined)?.score
   );
-  const buyingConfidence = clampScore(
+  const buyingConfidence = numericOrNull(
     source.buyingConfidence ??
       (source as Record<string, unknown>).buyerConfidence ??
       (source as Record<string, unknown>).verdictConfidence ??
-      analysis?.confidence_score ??
-      analysis?.product_score ??
-      (analysis as Record<string, unknown> | undefined)?.score,
-    productScore
+      analysis?.confidence_score
   );
-  const valueForMoney = String(source.valueForMoney || analysis?.value_for_money_opinion || "Fair");
+  const valueForMoney = String(source.valueForMoney || analysis?.value_for_money_opinion || "Unknown");
   const strengths = cleanBuyerInsightArray(
     asTextArray(source.topStrengths?.length ? source.topStrengths : analysis?.positive_points?.length ? analysis.positive_points : analysis?.praised_features, 12),
     5
@@ -912,6 +913,18 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
       : cleanBuyerInsightArray(derivedNotIdealFor, 4);
   const sourceRecord = source as Record<string, unknown>;
   const analysisRecord = (analysis || {}) as Record<string, unknown>;
+  const reviewEvidenceRecord =
+    sourceRecord.reviewEvidence && typeof sourceRecord.reviewEvidence === "object"
+      ? (sourceRecord.reviewEvidence as Record<string, unknown>)
+      : {};
+  const evidenceAdjudication =
+    reviewEvidenceRecord.evidenceAdjudication && typeof reviewEvidenceRecord.evidenceAdjudication === "object"
+      ? (reviewEvidenceRecord.evidenceAdjudication as Record<string, unknown>)
+      : {};
+  const acceptedWrittenReviewCount = Number.isFinite(Number(evidenceAdjudication.acceptedRecordCount))
+    ? Math.max(0, Number(evidenceAdjudication.acceptedRecordCount))
+    : 0;
+  const normalizedSources = asTextArray(source.sourcesUsed, 10);
 
   const bottomLine = String(
     sourceRecord.stableVerdictReason ||
@@ -922,10 +935,16 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
       analysis?.overall_summary ||
       "Latest scan loaded."
   );
-  const fakeReviewPercent = clampScore(authenticity?.score ?? analysis?.fake_review_risk_score, 0);
+  const fakeReviewPercent = numericOrNull(authenticity?.score ?? analysis?.fake_review_risk_score);
   const fakeReviewRisk =
     authenticity?.suspiciousReviewRisk ||
-    (fakeReviewPercent >= 70 ? "High" : fakeReviewPercent >= 40 ? "Medium" : "Low");
+    (fakeReviewPercent === null
+      ? "Not scored"
+      : fakeReviewPercent >= 70
+        ? "High"
+        : fakeReviewPercent >= 40
+          ? "Medium"
+          : "Low");
 
   return {
     product,
@@ -940,7 +959,9 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
     bestFor: translateResultArray(locale, bestFor),
     notIdealFor: translateResultArray(locale, notIdealFor),
     bottomLine: translateResultText(locale, bottomLine),
-    sourcesUsed: asTextArray(source.sourcesUsed, 10),
+    sourcesUsed: normalizedSources,
+    acceptedWrittenReviewCount,
+    discoverySourceCount: normalizedSources.length,
     researchQuality: normalizeResearchQuality(source.researchQuality || source.meta?.researchQuality)
   };
 }
@@ -1129,6 +1150,13 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const locale = localeFromResult(result);
   const copy = resultCopy[locale];
   const shopper = shopperProductFromResult(result, locale);
+  const evidenceState = reviewEvidenceDecisionState(result);
+  const strengthEmpty = evidenceState === "not_enough"
+    ? "Not enough written review evidence to determine strengths."
+    : copy.noStrengths;
+  const complaintEmpty = evidenceState === "not_enough"
+    ? "Not enough written review evidence to determine repeated complaints."
+    : copy.noComplaints;
   const verdict = {
     ...shopperVerdictStyle[shopper.verdict],
     ...copy.verdicts[shopper.verdict],
@@ -1146,7 +1174,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const verdictConfidence =
     typeof verdictConfidenceRaw === "number" && Number.isFinite(verdictConfidenceRaw)
       ? Math.round(verdictConfidenceRaw)
-      : clampScore(verdictConfidenceRaw, 0);
+      : null;
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -1200,12 +1228,15 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     hasUsefulReviewEvidence && String(shopper.valueForMoney || "").toLowerCase() === "poor"
       ? "Fair"
       : shopper.valueForMoney;
-  const sourcesLine = shopper.sourcesUsed.length
-    ? copy.sourcesChecked(Math.min(shopper.sourcesUsed.length, 8), shopper.sourcesUsed.slice(0, 4), shopper.sourcesUsed.length > 4)
+  const sourcesLine = shopper.acceptedWrittenReviewCount > 0
+    ? `${shopper.acceptedWrittenReviewCount} exact-product written review${shopper.acceptedWrittenReviewCount === 1 ? "" : "s"} were analyzed from verified review evidence.`
+    : "No verified exact-product written reviews were accepted for scoring.";
+  const supportingSourcesLine = shopper.discoverySourceCount > 0
+    ? `Additional web sources were checked for product matching and supporting context (${shopper.discoverySourceCount} discovery/retrieval source${shopper.discoverySourceCount === 1 ? "" : "s"}).`
     : copy.sourcesLimited;
   const researchLevel = shopper.researchQuality.evidenceLevel;
   const researchLabel = copy.researchLabels[researchLevel] || copy.researchLabels.limited;
-  const researchNotes = shopper.researchQuality.notes.slice(0, 2);
+  const researchNotes = shopper.researchQuality.notes.slice(0, 5);
 
   return (
     <>
@@ -1221,7 +1252,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"} {copy.buyerConfidence}
+            {verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"} {copy.buyerConfidence}
           </div>
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
@@ -1240,8 +1271,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
             <MiniMetric
               label={copy.aiLikeReviews}
-              value={visibleProductScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={visibleProductScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              value={visibleProductScore === null || shopper.fakeReviewPercent === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
+              helper={visibleProductScore === null || shopper.fakeReviewPercent === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
             <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
           </div>
@@ -1280,7 +1311,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               {copy.topStrengths}
             </p>
             <ul className="mt-2 space-y-1.5">
-              {(shopper.strengths.slice(0, 3).length ? shopper.strengths.slice(0, 3) : [copy.noStrengths]).map((item, index) => (
+              {(shopper.strengths.slice(0, 5).length ? shopper.strengths.slice(0, 5) : [strengthEmpty]).map((item, index) => (
                 <li key={`mobile-strength-${index}`} className="text-[10px] font-bold leading-4 text-slate-700 dark:text-slate-200">
                   • {item}
                 </li>
@@ -1293,7 +1324,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               {copy.topComplaints}
             </p>
             <ul className="mt-2 space-y-1.5">
-              {(shopper.complaints.slice(0, 3).length ? shopper.complaints.slice(0, 3) : [copy.noComplaints]).map((item, index) => (
+              {(shopper.complaints.slice(0, 5).length ? shopper.complaints.slice(0, 5) : [complaintEmpty]).map((item, index) => (
                 <li key={`mobile-complaint-${index}`} className="text-[10px] font-bold leading-4 text-slate-700 dark:text-slate-200">
                   • {item}
                 </li>
@@ -1314,7 +1345,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
         <BetterPicksPanel result={result} compact />
 
         <section className="grid grid-cols-2 gap-2">
-          <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 2)} empty={copy.bestForEmpty} />
+          <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 5)} empty={copy.bestForEmpty} />
           <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor} empty={copy.notIdealEmpty} />
         </section>
 
@@ -1323,6 +1354,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             <Badge tone={researchTone(researchLevel)}>{researchLabel}</Badge>
           </div>
           <p>{sourcesLine}</p>
+          <p className="mt-1">{supportingSourcesLine}</p>
           {researchNotes.length ? (
             <ul className="mt-2 space-y-1">
               {researchNotes.map((note, index) => (
@@ -1365,6 +1397,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold leading-5 text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-300/10 dark:text-emerald-100 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-sm sm:leading-6">
             <p>{sourcesLine}</p>
+            <p className="mt-1">{supportingSourcesLine}</p>
             {researchNotes.length ? (
               <ul className="mt-2 space-y-1">
                 {researchNotes.map((note, index) => (
@@ -1388,7 +1421,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence > 0 ? `${verdictConfidence}%` : "Limited"}</p>
+                <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"}</p>
                   <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
@@ -1402,8 +1435,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               <MiniMetric label={copy.value} value={localizedValueLabel(locale, visibleValueForMoney)} helper={shopper.product.price || copy.priceNotShown} />
               <MiniMetric
               label={copy.aiLikeReviews}
-              value={visibleProductScore === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={visibleProductScore === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              value={visibleProductScore === null || shopper.fakeReviewPercent === null ? "Not scored" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
+              helper={visibleProductScore === null || shopper.fakeReviewPercent === null ? "Review text was not analyzed." : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
               <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
             </div>
@@ -1412,8 +1445,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       </section>
 
       <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <SignalList title={copy.topStrengths} tone="good" items={shopper.strengths} empty={copy.noStrengths} />
-        <SignalList title={copy.topComplaints} tone="bad" items={shopper.complaints} empty={copy.noComplaints} />
+        <SignalList title={copy.topStrengths} tone="good" items={shopper.strengths} empty={strengthEmpty} />
+        <SignalList title={copy.topComplaints} tone="bad" items={shopper.complaints} empty={complaintEmpty} />
       </section>
 
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10 sm:rounded-[1.5rem] sm:p-6">
@@ -1558,6 +1591,12 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     false;
 
   const sourcesChecked = getToolProofArray(reviewEvidence, "sourcesChecked");
+  const evidenceAdjudication = reviewEvidence
+    ? getToolProofRecord(reviewEvidence, "evidenceAdjudication")
+    : null;
+  const acceptedEvidenceRecords = getToolProofArray(evidenceAdjudication, "acceptedRecords");
+  const acceptedWrittenReviewCount =
+    getToolProofNumber(evidenceAdjudication, "acceptedRecordCount") ?? acceptedEvidenceRecords.length;
   const commentsAnalyzed = getToolProofNumber(reviewEvidence, "commentsAnalyzed");
   const marketplaceReviewCount =
     getToolProofNumber(raw, "marketplaceReviewCount") ??
@@ -1584,7 +1623,9 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
   const evidenceStrength = getToolProofString(reviewEvidence, "evidenceStrength");
   const aiLikeScore = getToolProofNumber(reviewAuthenticity, "score");
   const exactConfidence = getToolProofString(listingEvidence, "confidence");
+  const insufficientEvidenceState = reviewEvidenceDecisionState(raw) === "not_enough";
   const zeroReviewEvidence =
+    insufficientEvidenceState ||
     !collectorSourceAccepted ||
     (reviewsCollected ?? 0) <= 0 &&
     (commentsAnalyzed ?? 0) <= 0 &&
@@ -1665,7 +1706,8 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Rating" value={rating !== null ? `${rating}/5` : null} />
         <ToolProofPill label="Total marketplace reviews" value={totalMarketplaceReviews} />
         <ToolProofPill label="Reviews analyzed by ReviewIntel" value={reviewsAnalyzedByReviewIntel} />
-        <ToolProofPill label="Sources checked" value={sourcesChecked.length} />
+        <ToolProofPill label="Discovery sources checked" value={sourcesChecked.length} />
+        <ToolProofPill label="Accepted written reviews" value={acceptedWrittenReviewCount} />
         <ToolProofPill label="Coverage ratio" value={formatCoverageRatio(reviewCoverageRatio)} />
         <ToolProofPill
           label="Evidence mode"
@@ -1706,14 +1748,14 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 
       {sourcesChecked.length > 0 ? (
         <div className="mt-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Sources checked</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Discovery / supporting sources checked</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {sourcesChecked.slice(0, 8).map((source, index) => (
               <span
                 key={`${String(source)}-${index}`}
                 className="rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-black text-sky-700 dark:border-sky-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-sky-200"
               >
-                {String(source).slice(0, 44)}
+                Discovery/context: {String(source).slice(0, 36)}
               </span>
             ))}
           </div>
@@ -1731,7 +1773,7 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
   const result = value as Record<string, unknown>;
 
   if (String(result.analysisVersion || "") !== "review-evidence-v2") {
-    return null;
+    return "not_enough";
   }
 
   const trace =
@@ -1747,21 +1789,34 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
   );
 
   const decisionStatus = String(result.decisionStatus || "");
+  const reviewEvidence = result.reviewEvidence && typeof result.reviewEvidence === "object"
+    ? (result.reviewEvidence as Record<string, unknown>)
+    : null;
+  const sufficiencyStatus = String(
+    result.evidenceSufficiency ||
+      result.sufficiency ||
+      result.researchStatus ||
+      reviewEvidence?.evidenceSufficiency ||
+      reviewEvidence?.sufficiency ||
+      ""
+  );
+  const semanticReason = String(
+    result.finalReason ||
+      result.reason ||
+      result.bottomLine ||
+      result.summary ||
+      reviewEvidence?.finalReason ||
+      ""
+  );
   const verdict = String(
     result.verdict ||
       result.finalVerdict ||
       result.recommendation ||
       ""
   ).toUpperCase();
-  const reviewEvidence = result.reviewEvidence && typeof result.reviewEvidence === "object"
-    ? (result.reviewEvidence as Record<string, unknown>)
-    : null;
   const reviewCollector = reviewEvidence?.reviewCollector && typeof reviewEvidence.reviewCollector === "object"
     ? (reviewEvidence.reviewCollector as Record<string, unknown>)
     : null;
-  const sourcesChecked = Array.isArray(reviewEvidence?.sourcesChecked)
-    ? reviewEvidence.sourcesChecked.length
-    : 0;
   const commentsAnalyzed = Number(reviewEvidence?.commentsAnalyzed ?? result.commentsAnalyzed ?? 0);
   const reviewsCollected = Number(
     reviewEvidence?.reviewsCollected ??
@@ -1770,20 +1825,34 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
       0
   );
   const reviewSignals = Number(reviewEvidence?.reviewIntelligenceSignals ?? result.reviewIntelligenceSignals ?? 0);
+  const exactListingAccepted =
+    result.exactListingAccepted === true &&
+    Boolean(
+      reviewEvidence?.listingEvidence &&
+      typeof reviewEvidence.listingEvidence === "object" &&
+      String((reviewEvidence.listingEvidence as Record<string, unknown>).exactListingUrl || "").trim()
+    );
   const zeroEvidence =
     reviewsCollected <= 0 &&
     commentsAnalyzed <= 0 &&
-    sourcesChecked <= 0 &&
     reviewSignals <= 0;
 
   if (
     zeroEvidence ||
+    !exactListingAccepted ||
+    commentsAnalyzed < 3 ||
+    reviewSignals < 3 ||
     finalDecisionSource === "reviewEvidenceNotEnough" ||
     finalDecisionSource === "reviewEvidenceRecoveryFailed" ||
     decisionStatus === "not_enough_evidence" ||
     verdict === "REVIEW EVIDENCE NOT ENOUGH" ||
+    verdict === "NOT_ENOUGH" ||
     verdict === "REVIEW EVIDENCE NOT FOUND" ||
     decisionStatus === "review_evidence_not_found" ||
+    /not[_ -]?enough|insufficient|inadequate/.test(decisionStatus.toLowerCase()) ||
+    /not[_ -]?enough|insufficient|inadequate/.test(sufficiencyStatus.toLowerCase()) ||
+    /not enough (?:written )?review evidence|insufficient (?:written )?review evidence|could not access enough .*review evidence/i.test(semanticReason) ||
+    /not[_ -]?enough|insufficient|inadequate/.test(finalDecisionSource.toLowerCase()) ||
     finalDecisionSource === "listing_metadata"
   ) {
     return "not_enough";
@@ -1876,6 +1945,10 @@ function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>
 function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
   result = enforceReviewEvidenceDisplayContract(result as unknown as Record<string, unknown>) as AnalyzeResponse;
 
+  if (reviewEvidenceDecisionState(result) === "not_enough") {
+    return result;
+  }
+
   const source = result as AnalyzeResponse & {
     analysis?: Record<string, unknown>;
     topStrengths?: string[];
@@ -1957,6 +2030,7 @@ export function ResultsClient() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [preview, setPreview] = useState("");
   const [accountPlan, setAccountPlan] = useState<SubscriptionPlan | null>(null);
+  const [requestedScanId, setRequestedScanId] = useState<string | null>(null);
 
   const dashboardHref =
     result?.meta.audience === "seller" ||
@@ -2010,18 +2084,30 @@ export function ResultsClient() {
         typeof window !== "undefined"
           ? new URLSearchParams(window.location.search).get("history")
           : null;
-      const activeScanId = selectedHistoryId ? "" : readActiveScanId();
-      let parsed: AnalyzeResponse | null = readLatestResult(
+      const requestedScanId =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("scanId")
+          : null;
+      setRequestedScanId(requestedScanId);
+      const activeScanId = requestedScanId || (selectedHistoryId ? "" : readActiveScanId());
+      reviewIntelDevDiagnostic("RESULTS_SCAN_ID", {
+        activeScanId: activeScanId || null,
+        requestedScanId: requestedScanId || null,
+        selectedHistoryId: selectedHistoryId || null,
+      });
+      let parsed: AnalyzeResponse | null = requestedScanId || selectedHistoryId ? null : readLatestResult(
         account,
         activeScanId ? { scanId: activeScanId } : { allowAnyScan: Boolean(selectedHistoryId) }
       );
 
-      if (account?.email && account.plan !== "free_buyer") {
+      if (account?.email && (activeScanId || selectedHistoryId)) {
         const params = new URLSearchParams({
           email: account.email,
           plan: account.plan,
           role: account.role
         });
+        if (activeScanId) params.set("scanId", activeScanId);
+        else if (selectedHistoryId) params.set("historyId", selectedHistoryId);
 
         const response = await fetch(`/api/account/analyses?${params.toString()}`, { cache: "no-store" }).catch(() => null);
         const data = response?.ok ? await response.json().catch(() => null) : null;
@@ -2070,23 +2156,44 @@ export function ResultsClient() {
             ? reviewEvidenceAnalyses
             : analyses;
 
-        const latest = selectedHistoryId
+        const latest = activeScanId || selectedHistoryId
           ? availableAnalyses.find((item: Record<string, unknown>) => {
               const analysisJson =
                 item.analysis_json && typeof item.analysis_json === "object"
                   ? (item.analysis_json as Record<string, unknown>)
                   : {};
 
+              const restored =
+                analysisJson.result && typeof analysisJson.result === "object"
+                  ? (analysisJson.result as Record<string, unknown>)
+                  : analysisJson;
+              const restoredMeta =
+                restored.meta && typeof restored.meta === "object"
+                  ? (restored.meta as Record<string, unknown>)
+                  : {};
+              const persistedScanId = String(
+                restored.scanId || restoredMeta.scanId || ""
+              ).trim();
+              const requestedIdentity = activeScanId || selectedHistoryId || "";
+
+              const rowScanId = String(
+                item.scan_id ??
+                item.scanId ??
+                ""
+              ).trim();
+
               return (
-                String(item.id ?? "") === selectedHistoryId ||
-                String(analysisJson.analysisId ?? "") === selectedHistoryId ||
-                String(analysisJson.serverId ?? "") === selectedHistoryId ||
-                String(analysisJson.compareId ?? "") === selectedHistoryId
+                String(item.id ?? "") === requestedIdentity ||
+                rowScanId === requestedIdentity ||
+                String(analysisJson.analysisId ?? "") === requestedIdentity ||
+                String(analysisJson.serverId ?? "") === requestedIdentity ||
+                String(analysisJson.compareId ?? "") === requestedIdentity ||
+                persistedScanId === requestedIdentity
               );
-            }) ?? availableAnalyses[0] ?? null
+            }) ?? null
           : parsed
             ? null
-            : availableAnalyses[0] ?? null;
+            : null;
 
         const stored = latest?.analysis_json && typeof latest.analysis_json === "object"
           ? (latest.analysis_json as Record<string, unknown>)
@@ -2096,6 +2203,7 @@ export function ResultsClient() {
         if (restored && typeof restored === "object") {
           const serverParsed = {
             ...(restored as AnalyzeResponse),
+            scanId: String((restored as Record<string, unknown>).scanId || latest?.scan_id || latest?.scanId || "") || undefined,
             resultSource: selectedHistoryId ? "history" : "history",
             analysisId: latest?.id,
             createdAt: latest?.created_at
@@ -2108,34 +2216,47 @@ export function ResultsClient() {
             String((serverParsed as Record<string, unknown>).mode || "").toLowerCase().includes("compare") ||
             Boolean((serverParsed as Record<string, unknown>).compareId);
 
-          if (!parsed || serverIsCompare || serverTime >= localTime) {
+          if (requestedScanId || selectedHistoryId || !parsed || serverIsCompare || serverTime >= localTime) {
             parsed = serverParsed;
-            if (selectedHistoryId || !activeScanId) {
+            if (selectedHistoryId || requestedScanId || !activeScanId) {
               saveLatestResult(serverParsed, account);
             }
           }
         }
       }
 
-      if (!parsed) {
+      if (!parsed && !requestedScanId && !selectedHistoryId) {
         parsed = readLatestResult(
           account,
           activeScanId ? { scanId: activeScanId } : { allowAnyScan: Boolean(selectedHistoryId) }
         );
       }
 
-      if (!parsed) return;
+      if (!parsed) {
+        reviewIntelDevDiagnostic("RESULTS_RESULT_FOUND", {
+          activeScanId: activeScanId || null,
+          resultScanId: null,
+          source: "none",
+        });
+        reviewIntelDevDiagnostic("RESULTS_RENDER_BRANCH", { branch: "no_scan_loaded" });
+        return;
+      }
 
-      // An old active scan ID must never blank a newer valid result.
-      // The analysis API and account history are the source of truth.
+      reviewIntelDevDiagnostic("RESULTS_RESULT_FOUND", {
+        activeScanId: activeScanId || null,
+        resultScanId: scanIdFromAnalyzeResponse(parsed),
+        source: parsed.resultSource || "unknown",
+      });
+
+      // The URL/active scan ID is authoritative. A result from another scan
+      // is stale or misrouted and must not be rendered.
       const parsedScanId = scanIdFromAnalyzeResponse(parsed);
-      // A stale local scan ID must never prevent a completed analysis
-      // from rendering. The newest API/account result is authoritative.
-      if (activeScanId && parsedScanId && parsedScanId !== activeScanId) {
-        console.warn("Using completed analysis despite stale scan ID", {
+      if (activeScanId && parsedScanId !== activeScanId) {
+        console.warn("Rejecting result because scan identity does not match", {
           activeScanId,
           parsedScanId,
         });
+        parsed = null;
       }
 
       if (isImpossibleCachedShopperResult(parsed)) {
@@ -2217,18 +2338,7 @@ export function ResultsClient() {
       const zeroWrittenReviewEvidence =
         Number(reviewEvidenceRecord.reviewsCollected ?? sourceRecord.reviewsCollected ?? 0) <= 0 &&
         Number(reviewEvidenceRecord.commentsAnalyzed ?? sourceRecord.commentsAnalyzed ?? 0) <= 0 &&
-        Number(reviewEvidenceRecord.reviewIntelligenceSignals ?? sourceRecord.reviewIntelligenceSignals ?? 0) <= 0 &&
-        (
-          !Array.isArray(reviewEvidenceRecord.sourcesChecked) ||
-          reviewEvidenceRecord.sourcesChecked.length === 0
-        ) &&
-        (
-          reviewEvidenceRecord.evidenceStrength === "none" ||
-          reviewEvidenceRecord.reviewIntelligenceMode === "listing_metadata" ||
-          sourceRecord.decisionStatus === "not_enough_evidence" ||
-          sourceRecord.decisionStatus === "review_evidence_not_found" ||
-          sourceRecord.finalDecisionSource === "reviewEvidenceRecoveryFailed"
-        );
+        Number(reviewEvidenceRecord.reviewIntelligenceSignals ?? sourceRecord.reviewIntelligenceSignals ?? 0) <= 0;
 
       const zeroEvidenceVerdict = "REVIEW EVIDENCE NOT ENOUGH";
 
@@ -2354,6 +2464,11 @@ export function ResultsClient() {
 
       const reconciled = reconcileResponse(normalized);
       saveLatestResult(reconciled, account);
+      reviewIntelDevDiagnostic("RESULTS_RENDER_BRANCH", {
+        branch: isShopperCompareResult(reconciled) ? "compare" : "shopper",
+        scanId: scanIdFromAnalyzeResponse(reconciled),
+        verdict: (reconciled as Record<string, unknown>).verdict || null,
+      });
       if (!cancelled) setResult(reconciled);
 
       const audience = reconciled.meta?.audience || "buyer";
@@ -2361,6 +2476,7 @@ export function ResultsClient() {
       saveActiveMode(sellerAccount && (audience === "both" || audience === "seller") ? "seller" : audience);
       } catch (error) {
         console.error("Results page failed to load latest scan", error);
+        reviewIntelDevDiagnostic("RESULTS_RENDER_BRANCH", { branch: "load_error" });
         if (!cancelled) setResult(null);
       }
     }
@@ -2374,20 +2490,39 @@ export function ResultsClient() {
 
   // Final server-authoritative recovery:
   // when browser cache, scan IDs, or old result-format checks fail,
-  // load the newest completed account analysis directly from the server.
+  // Recover only the requested account-owned result, never a newest scan.
   useEffect(() => {
     let cancelled = false;
 
     const timer = window.setTimeout(async () => {
       try {
         const account = getClientAccount();
-        if (!account?.email || account.plan === "free_buyer") return;
+        if (!account?.email) return;
+
+        const selectedHistoryId = new URLSearchParams(window.location.search).get("history");
+        const requestedScanId = new URLSearchParams(window.location.search).get("scanId");
+        const activeScanId = requestedScanId || readActiveScanId();
+        const currentResult = selectedHistoryId
+          ? null
+          : readLatestResult(
+              account,
+              activeScanId ? { scanId: activeScanId } : {}
+            );
+
+        // A freshly completed scan is authoritative. This delayed server
+        // recovery exists only for a missing local result and must never
+        // relabel or overwrite the current scan with account history.
+        if (currentResult) return;
 
         const params = new URLSearchParams({
           email: account.email,
           plan: account.plan,
           role: account.role,
         });
+        if (requestedScanId) params.set("scanId", requestedScanId);
+        else if (selectedHistoryId) params.set("historyId", selectedHistoryId);
+        else if (activeScanId) params.set("scanId", activeScanId);
+        else return;
 
         const response = await fetch(
           `/api/account/analyses?${params.toString()}`,
@@ -2401,6 +2536,9 @@ export function ResultsClient() {
           ? payload.analyses
           : [];
 
+        const requestedIdentity = selectedHistoryId || requestedScanId || activeScanId;
+        if (!requestedIdentity) return;
+
         const latest = [...analyses]
           .sort(
             (a, b) =>
@@ -2410,10 +2548,36 @@ export function ResultsClient() {
           .find(
             (item) =>
               item?.analysis_json &&
-              typeof item.analysis_json === "object"
+              typeof item.analysis_json === "object" &&
+              (() => {
+                const analysisJson = item.analysis_json as Record<string, unknown>;
+                const restored =
+                  analysisJson.result && typeof analysisJson.result === "object"
+                    ? (analysisJson.result as Record<string, unknown>)
+                    : analysisJson;
+                const meta =
+                  restored.meta && typeof restored.meta === "object"
+                    ? (restored.meta as Record<string, unknown>)
+                    : {};
+                const persistedScanId = String(restored.scanId || meta.scanId || "").trim();
+                return (
+                  String(item.id || "") === requestedIdentity ||
+                  String(analysisJson.analysisId || "") === requestedIdentity ||
+                  String(analysisJson.serverId || "") === requestedIdentity ||
+                  persistedScanId === requestedIdentity
+                );
+              })()
           );
 
         if (!latest || cancelled) return;
+
+        const currentResultAfterFetch = selectedHistoryId
+          ? null
+          : readLatestResult(
+              account,
+              activeScanId ? { scanId: activeScanId } : {}
+            );
+        if (currentResultAfterFetch) return;
 
         const stored = latest.analysis_json as Record<string, unknown>;
         const restored =
@@ -2426,10 +2590,17 @@ export function ResultsClient() {
             ? restored.analysis
             : restored;
 
+        const recoveredScanId = scanIdFromAnalyzeResponse(restored as AnalyzeResponse);
+        const recoveredIsCurrentScan = Boolean(
+          activeScanId && recoveredScanId && recoveredScanId === activeScanId
+        );
+        if (requestedScanId && recoveredScanId !== requestedScanId) return;
+        const recoveredResultSource = recoveredIsCurrentScan ? "analyze" : "history";
+
         const serverResult = {
           ...restored,
           analysis: restoredAnalysis as AnalyzeResponse["analysis"],
-          resultSource: "history",
+          resultSource: recoveredResultSource,
           analysisId: latest.id,
           createdAt: latest.created_at,
           meta: {
@@ -2447,6 +2618,7 @@ export function ResultsClient() {
                     "buyer"
                   )
                 : "buyer",
+            resultSource: recoveredResultSource,
           },
         } as unknown as AnalyzeResponse;
 
@@ -2487,10 +2659,14 @@ export function ResultsClient() {
         {accountPlan !== "free_buyer" ? customerNav : null}
         <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-5 text-center shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-8">
         <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-teal via-ocean to-amber" />
-        <Badge tone="warn">No scan loaded</Badge>
-        <h1 className="mx-auto mt-4 max-w-2xl text-2xl font-black text-ink dark:text-white sm:text-4xl">Run a real analysis to see ReviewIntel results.</h1>
+        <Badge tone="warn">{requestedScanId ? "Requested scan unavailable" : "No scan loaded"}</Badge>
+        <h1 className="mx-auto mt-4 max-w-2xl text-2xl font-black text-ink dark:text-white sm:text-4xl">
+          {requestedScanId ? "That scan is not available for this account." : "Run a real analysis to see ReviewIntel results."}
+        </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Public sample results have been removed from the customer experience. Upload a product screenshot or paste a product link to generate a fresh buying verdict.
+          {requestedScanId
+            ? "ReviewIntel did not find a persisted result for the requested scan. No other scan was substituted."
+            : "Public sample results have been removed from the customer experience. Upload a product screenshot or paste a product link to generate a fresh buying verdict."}
         </p>
         <Link href="/analyze" className="mt-6 inline-flex rounded-2xl bg-ink px-6 py-4 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
           Run AI Analysis

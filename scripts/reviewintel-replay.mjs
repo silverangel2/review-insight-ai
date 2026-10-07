@@ -1,0 +1,72 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { installOfflineGuard } from './reviewintel-offline-guard.mjs';
+installOfflineGuard();
+if (process.argv.includes('--probe-network')) await fetch('http://127.0.0.1:1');
+const require = createRequire(import.meta.url);
+const jiti = require('jiti')(new URL('../', import.meta.url).pathname, { alias: { '@': new URL('../', import.meta.url).pathname } });
+const { extractProductIdentityTokenRoles } = jiti('./lib/productIdentityTokens.ts');
+const { verifyProductCandidate } = jiti('./lib/productSearchVerifier.ts');
+const { nativeSourceMatchesProduct } = jiti('./lib/nativeReviewRetrieval.ts');
+const { normalizeProductUrl } = jiti('./lib/productUrlRetrieval.ts');
+const { adjudicateReviewEvidence } = jiti('./lib/reviewEvidenceAdjudication.ts');
+const { deriveDeterministicEvidenceResult, DETERMINISTIC_SCORER_VERSION } = jiti('./lib/reviewEvidenceDeterminism.ts');
+const scanId = process.argv.find(a => a.startsWith('--scan='))?.slice(7);
+if (scanId) {
+  if (!/^[a-zA-Z0-9_-]{1,160}$/.test(scanId)) throw new Error('Invalid scan ID');
+  const capture = JSON.parse(readFileSync(`/private/tmp/reviewintel-replay-captures/${scanId}.json`, 'utf8'));
+  const { replayScan } = await import('./reviewintel-replay-scan.mjs');
+  const replayed = replayScan(capture, { verifyProductCandidate, adjudicateReviewEvidence, deriveDeterministicEvidenceResult, extractProductIdentityTokenRoles, nativeSourceMatchesProduct, DETERMINISTIC_SCORER_VERSION });
+  console.log(`SCAN_ID=${scanId}`);
+  console.log(`REPLAY_EXACT=${replayed.exactReplay ? 'YES' : 'NO'}`);
+  for (const event of capture.events) console.log(`${event.stage.toUpperCase()}=${JSON.stringify(event.data)}`);
+  console.log(`CORPUS_HASH=${replayed.final?.acceptedCorpusHash ?? 'UNKNOWN'}`);
+  console.log(`BUY_SCORE=${replayed.final?.buyScore ?? 'UNKNOWN'}`);
+  console.log(`VERDICT=${replayed.final?.customerVerdict ?? 'UNKNOWN'}`);
+  console.log(`ANALYSIS_CORPUS_HANDOFF=${replayed.final?.acceptedReviewHashes.length ? 'YES' : 'NO'}`);
+  console.log(`FINAL_EVALUATION_COMPLETED=${replayed.final ? 'YES' : 'UNKNOWN_CAPTURE_MISSING'}`);
+  for (const key of ['NETWORK_CALLS','OPENAI_CALLS','OPENAI_TOTAL_TOKENS','FIRECRAWL_CALLS','SEARCH_PROVIDER_CALLS']) console.log(`${key}=0`);
+} else {
+const directory = new URL('../tests/fixtures/reviewintel-captured/', import.meta.url);
+const selected = process.argv.find(a => a.startsWith('--fixture='))?.split('=')[1];
+const print = (key, value) => console.log(`${key}=${value === undefined || value === null ? 'UNKNOWN' : typeof value === 'object' ? JSON.stringify(value) : value}`);
+for (const filename of readdirSync(directory).filter(f => f.endsWith('.json')).sort()) {
+  const fixture = JSON.parse(readFileSync(new URL(filename, directory), 'utf8'));
+  if (selected && fixture.id !== selected) continue;
+  const p = fixture.product;
+  const identity = extractProductIdentityTokenRoles({ ...p, title:p.productName });
+  print('FIXTURE',fixture.id); print('CAPTURE_PROVENANCE',fixture.provenance); print('REPORTED_COUNTS',fixture.reportedCounts);
+  console.log('=== PRODUCT IDENTITY ===');
+  for (const [key,value] of Object.entries({PRODUCT_NAME:p.productName,BRAND:identity.primaryBrand,MODEL_SKU:identity.primaryModels,CAPACITY:identity.capacityOrSize,VARIANT:identity.colors,MARKETPLACE:p.store})) print(key,value);
+  console.log('=== CANDIDATE VERIFICATION ===');
+  const candidates = Array.isArray(fixture.candidates) ? fixture.candidates : [];
+  const decisions = candidates.map(candidate => {
+    const normalized = normalizeProductUrl(candidate.url);
+    const decision = verifyProductCandidate({ ...p, scanId:`offline-${fixture.id}` },{...candidate,url:normalized || candidate.url});
+    print('SOURCE',candidate.url); print('SOURCE_PRODUCT_IDENTITY',candidate.title); print('VERIFIER_STATUS',decision.verifierStatus); print('VERIFIER_REASON',decision.verifierReasons);
+    return {...decision,title:candidate.title};
+  });
+  const exact = decisions.find(d => d.canCollectReviews && d.verifiedListingUrl);
+  if (!candidates.length) print('VERIFIER_STATUS',fixture.candidates === 'UNKNOWN' ? 'UNKNOWN_CAPTURE_MISSING' : 'NO_CAPTURED_EXACT_LISTING');
+  console.log('=== RETRIEVAL ===');
+  const records = Array.isArray(fixture.rawRecords) ? fixture.rawRecords : [];
+  const recordsCaptured = Array.isArray(fixture.rawRecords);
+  const inputsCaptured = recordsCaptured && Array.isArray(fixture.candidates);
+  print('SOURCE',exact?.verifiedListingUrl); print('RAW_RECORDS',recordsCaptured?records.length:'UNKNOWN_CAPTURE_MISSING'); print('BLOCKED_PAGE',fixture.pages); print('VALID_REVIEW_RECORDS',recordsCaptured ? records.filter(r=>typeof r.body==='string' && r.body.length>=12).length : 'UNKNOWN_CAPTURE_MISSING');
+  const corpus = inputsCaptured ? adjudicateReviewEvidence(records,{productName:p.productName,brand:p.brand,model:p.model,exactListingAccepted:Boolean(exact),exactListingUrl:exact?.verifiedListingUrl,exactListingTitle:exact?.title}) : null;
+  const evaluation = corpus ? deriveDeterministicEvidenceResult({acceptedRecords:corpus.acceptedRecords,exactProductAccepted:Boolean(exact),rating:p.rating??null,marketplaceReviewCount:p.reviewCount??0,price:p.price??null,verifiedProductMetadata:{listingUrl:exact?.verifiedListingUrl??null}}) : null;
+  const reasons = corpus?.rejectedRecords.map(r=>r.rejectionReason||'');
+  console.log('=== EVIDENCE FUNNEL ===');
+  for (const [key,value] of Object.entries({RAW_REVIEW_CANDIDATES:recordsCaptured?records.length:'UNKNOWN_CAPTURE_MISSING',BLOCKED_PAGE_REJECTED:reasons?.filter(r=>/blocked|challenged/.test(r)).length,MALFORMED_REJECTED:reasons?.filter(r=>/unusable/.test(r)).length,DUPLICATES_REMOVED:corpus?.deduplicatedRecordCount,WRONG_PRODUCT_REJECTED:reasons?.filter(r=>/different product/.test(r)).length,AMBIGUOUS_PRODUCT_REJECTED:reasons?.filter(r=>/identity|ambiguous/.test(r)).length,ACCEPTED_EXACT_PRODUCT_REVIEWS:corpus?.acceptedRecordCount})) print(key,value);
+  console.log('=== CORPUS ===');
+  const distribution = corpus ? {} : null; if (corpus) for (const record of corpus.acceptedRecords) distribution[record.independentSourceId]=(distribution[record.independentSourceId]||0)+1;
+  print('SOURCE_DISTRIBUTION',distribution); print('CORPUS_HASH',evaluation?.acceptedCorpusHash);
+  console.log('=== ANALYSIS ===');
+  print('STRENGTH_CLUSTERS',evaluation?.strengths); print('COMPLAINT_CLUSTERS',evaluation?.complaints); print('RELIABILITY_SIGNALS',evaluation?.deterministicScoringInputs); print('VALUE_SIGNALS',evaluation?.valueForMoney);
+  console.log('=== SCORING ===');
+  print('SCORING_INPUTS',evaluation?.deterministicScoringInputs); print('BUY_SCORE',evaluation?.buyScore); print('CONFIDENCE',corpus?.deterministicConfidenceInputs); print('VALUE',evaluation?.valueForMoney); print('VERDICT',evaluation?.customerVerdict);
+  console.log('=== FINAL ===');
+  print('PRODUCT_VERIFIED',Array.isArray(fixture.candidates)?Boolean(exact):'UNKNOWN_CAPTURE_MISSING'); print('ANALYSIS_CORPUS_HANDOFF',evaluation?(evaluation.acceptedReviewHashes.length?'YES':'NO'):'UNKNOWN_CAPTURE_MISSING'); print('FINAL_EVALUATION_COMPLETED',evaluation?'YES':'UNKNOWN_CAPTURE_MISSING');
+}
+for (const key of ['NETWORK_CALLS','OPENAI_CALLS','OPENAI_TOTAL_TOKENS','FIRECRAWL_CALLS','SEARCH_PROVIDER_CALLS']) print(key,0);
+}

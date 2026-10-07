@@ -1,3 +1,4 @@
+import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -15,11 +16,22 @@ import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
+import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
+import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
+import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
+import { completeAccountScan, assertPersistedScan } from "@/lib/scanCompletion";
+import {
+  beginDurableScanOperation,
+  budgetAccountKey,
+  finishDurableScanOperation,
+  requestFingerprint,
+  scanOperationKey,
+} from "@/lib/scanBudget";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
-type Verdict = "BUY" | "REVIEW FIRST" | "AVOID";
+type Verdict = "BUY" | "REVIEW FIRST" | "AVOID" | "DO NOT BUY YET";
 type JsonRecord = Record<string, unknown>;
 
 function normalizeOptionalShopperVerdict(value: unknown): Verdict | null {
@@ -27,14 +39,17 @@ function normalizeOptionalShopperVerdict(value: unknown): Verdict | null {
 
   if (verdict === "BUY") return "BUY";
   if (verdict === "AVOID") return "AVOID";
+  if (verdict === "DO NOT BUY YET" || verdict === "NOT_ENOUGH" || verdict === "REVIEW EVIDENCE NOT ENOUGH") {
+    return "DO NOT BUY YET";
+  }
   if (verdict === "REVIEW FIRST" || verdict === "MAYBE" || verdict === "CONSIDER") {
-    return "REVIEW FIRST";
+    return "DO NOT BUY YET";
   }
 
   return null;
 }
 
-function normalizeShopperVerdict(value: unknown, fallback: Verdict = "REVIEW FIRST"): Verdict {
+function normalizeShopperVerdict(value: unknown, fallback: Verdict = "DO NOT BUY YET"): Verdict {
   return normalizeOptionalShopperVerdict(value) || fallback;
 }
 
@@ -1474,12 +1489,14 @@ function collectWebCitations(value: unknown, citations = new Map<string, string>
   return citations;
 }
 
-async function openAIResponse(payload: JsonRecord) {
+async function openAIResponse(payload: JsonRecord, costTelemetry?: ScanCostTelemetry) {
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is missing.");
   }
+
+  costTelemetry?.recordOpenAiCall();
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -1491,11 +1508,20 @@ async function openAIResponse(payload: JsonRecord) {
   });
 
   if (!response.ok) {
+    costTelemetry?.recordOpenAiUsage();
     const message = await response.text().catch(() => "");
     throw new Error(message || "OpenAI request failed.");
   }
 
   const data = await response.json();
+  costTelemetry?.recordOpenAiUsage(
+    data && typeof data === "object" && (data as JsonRecord).usage && typeof (data as JsonRecord).usage === "object"
+      ? {
+          inputTokens: ((data as JsonRecord).usage as JsonRecord).input_tokens,
+          outputTokens: ((data as JsonRecord).usage as JsonRecord).output_tokens,
+        }
+      : undefined
+  );
   const dataRecord = asRecord(data);
 
   const outputTextFromField = typeof dataRecord.output_text === "string" ? dataRecord.output_text : "";
@@ -1557,7 +1583,7 @@ function normalizeVision(rawValue: unknown): VisionFacts {
   };
 }
 
-async function extractScreenshotFacts(imageDataUrl: string) {
+async function extractScreenshotFacts(imageDataUrl: string, costTelemetry?: ScanCostTelemetry) {
   const raw = await openAIResponse({
     model: process.env.OPENAI_MODEL || "gpt-4.1",
     input: [
@@ -1605,7 +1631,7 @@ Important:
       }
     },
     temperature: 0
-  });
+  }, costTelemetry);
 
   return normalizeVision(raw);
 }
@@ -1616,7 +1642,8 @@ async function researchAndVerdict(
   outputLanguage = "English",
   locale = "en",
   scanId = "",
-  detectedProductKey = ""
+  detectedProductKey = "",
+  costTelemetry?: ScanCostTelemetry
 ) {
   // The shopper verdict is now owned by reviewEvidence-v2 only. Keeping the old
   // broad web verdict here made scans slower and could leak stale screenshot-only
@@ -1625,12 +1652,8 @@ async function researchAndVerdict(
 
   const productForReviewEvidence = uniqueIdentityText(
     uniqueTextArray([
-      vision.normalizedSearchQuery,
       vision.brand,
-      vision.name,
-      vision.category,
-      ...vision.visibleFeatures,
-      ...vision.visibleBadges,
+      vision.name || vision.normalizedSearchQuery,
     ].filter(Boolean), 18),
     28
   );
@@ -1657,20 +1680,6 @@ async function researchAndVerdict(
     vision.reviewCountBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
       ? vision.reviewCount
       : undefined;
-
-  const reviewEvidenceTimeoutCeilingMs = Math.max(1000, maxDuration * 1000 - 5000);
-  const configuredReviewEvidenceTimeoutMs = Number(
-    process.env.REVIEW_EVIDENCE_TIMEOUT_MS || reviewEvidenceTimeoutCeilingMs
-  );
-  const reviewEvidenceTimeoutMs = Math.max(
-    1000,
-    Math.min(
-      Number.isFinite(configuredReviewEvidenceTimeoutMs)
-        ? configuredReviewEvidenceTimeoutMs
-        : reviewEvidenceTimeoutCeilingMs,
-      reviewEvidenceTimeoutCeilingMs
-    )
-  );
 
   const fallbackReviewEvidence = (reason: string) =>
     ({
@@ -1742,35 +1751,28 @@ async function researchAndVerdict(
       bottomLine: PUBLIC_REVIEW_EVIDENCE_FAILURE,
     }) as Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>;
 
-  const reviewEvidence = await Promise.race([
-    collectAndAnalyzeReviewEvidence({
+  const reviewEvidence = await collectAndAnalyzeReviewEvidence({
       productName: productForReviewEvidence || vision.category || "unknown product",
       brand: vision.brand,
       model: undefined,
+      color: [...vision.visibleFeatures, vision.name].join(" ").match(/\b(white|black|gray|grey|silver|blue|red|gold)\b/i)?.[1],
+      categoryBreadcrumbs: [vision.category].filter(Boolean),
+      marketingText: vision.visibleBadges,
       store: vision.store,
       price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
         ? vision.price
         : undefined,
       rating: screenshotRating,
       reviewCount: screenshotReviewCount,
+      listingUrl: productLink || null,
       locale,
       outputLanguage,
       forceRefresh: false,
+      costTelemetry,
     }).catch((error) => {
       console.error("[ReviewIntel reviewEvidence error]", error);
       return fallbackReviewEvidence("Automatic public review evidence recovery failed during the scan.");
-    }),
-    new Promise<Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>>((resolve) => {
-      setTimeout(() => {
-        const timeoutSeconds = Math.round(reviewEvidenceTimeoutMs / 1000);
-        resolve(
-          fallbackReviewEvidence(
-            `Automatic public review evidence recovery reached the ${timeoutSeconds} second search limit.`
-          )
-        );
-      }, reviewEvidenceTimeoutMs);
-    }),
-  ]);
+    });
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
   const reviewAuthenticity =
@@ -2075,6 +2077,16 @@ function cleanDetectedProductKey(value: unknown) {
   return words.join(" ").replace(/\s+/g, " ").trim();
 }
 
+function asinFromMarketplaceUrl(value: unknown): string | null {
+  try {
+    const url = new URL(String(value || ""));
+    if (!url.hostname.toLowerCase().includes("amazon.")) return null;
+    return url.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|product-reviews)\/([A-Z0-9]{10})(?:[/?#]|$)/i)?.[1]?.toUpperCase() || null;
+  } catch {
+    return null;
+  }
+}
+
 function buildReviewEvidenceShopperResult(input: {
   vision: Record<string, unknown>;
   reviewEvidence: Record<string, unknown>;
@@ -2087,12 +2099,25 @@ function buildReviewEvidenceShopperResult(input: {
   const evidence = input.reviewEvidence || {};
   const rawRecord = input.rawRecord || {};
 
+  const evidenceAdjudication =
+    evidence.evidenceAdjudication && typeof evidence.evidenceAdjudication === "object"
+      ? (evidence.evidenceAdjudication as Record<string, unknown>)
+      : null;
+
   const listingEvidence =
     evidence.listingEvidence && typeof evidence.listingEvidence === "object"
       ? (evidence.listingEvidence as Record<string, unknown>)
       : null;
   const rawExactListingUrl = String(listingEvidence?.exactListingUrl || listingEvidence?.url || "").trim();
-  const exactListingAccepted = evidence.exactListingAccepted === true && Boolean(rawExactListingUrl);
+  const rawListingAsin = asinFromMarketplaceUrl(rawExactListingUrl);
+  const rawListingIsAmazon = /amazon\.[a-z.]+/i.test(rawExactListingUrl);
+  const exactListingAccepted =
+    evidence.exactListingAccepted === true &&
+    Boolean(rawExactListingUrl) &&
+    (!rawListingIsAmazon || Boolean(rawListingAsin || listingEvidence?.asin));
+  const canonicalSufficiencyPassed =
+    evidenceAdjudication?.sufficientByExistingThreshold === true;
+  const canonicalEvidenceEligible = exactListingAccepted && canonicalSufficiencyPassed;
   const exactListingRejectedReason = String(evidence.exactListingRejectedReason || "").trim() || null;
   // Written reviews may come from an exact listing or from identity-verified
   // public review recovery. Do not erase recovered review bodies when the
@@ -2121,6 +2146,9 @@ function buildReviewEvidenceShopperResult(input: {
   const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
   const price = String(vision.price || listingEvidence?.price || "").trim();
   const exactListingUrl = exactListingAccepted ? rawExactListingUrl : "";
+  const asin = exactListingAccepted
+    ? String(listingEvidence?.asin || rawListingAsin || "").trim() || null
+    : null;
   const stableProductKey = createProductKey([
     exactListingUrl,
     store,
@@ -2128,15 +2156,15 @@ function buildReviewEvidenceShopperResult(input: {
     productName,
   ]);
 
-  const reviewSnippets = collectorSourceAccepted && Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
-  const repeatedPraises = collectorSourceAccepted && Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
-  const repeatedComplaints = collectorSourceAccepted && Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints : [];
-  const aiPatternSignals = collectorSourceAccepted && Array.isArray(evidence.aiPatternSignals) ? evidence.aiPatternSignals.map(String).filter(Boolean) : [];
-  const buyerExperienceSignals = collectorSourceAccepted && Array.isArray(evidence.buyerExperienceSignals) ? evidence.buyerExperienceSignals.map(String).filter(Boolean) : [];
-  const productPros = collectorSourceAccepted && Array.isArray(evidence.productPros) ? evidence.productPros.map(String).filter(Boolean) : [];
-  const productCons = collectorSourceAccepted && Array.isArray(evidence.productCons) ? evidence.productCons.map(String).filter(Boolean) : [];
-  const overallImpact = collectorSourceAccepted ? String(evidence.overallImpact || "").trim() : "";
-  const buyAssessment = collectorSourceAccepted ? String(evidence.buyAssessment || "").trim() : "";
+  const reviewSnippets = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
+  const repeatedPraises = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
+  const repeatedComplaints = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints : [];
+  const aiPatternSignals = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.aiPatternSignals) ? evidence.aiPatternSignals.map(String).filter(Boolean) : [];
+  const buyerExperienceSignals = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.buyerExperienceSignals) ? evidence.buyerExperienceSignals.map(String).filter(Boolean) : [];
+  const productPros = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.productPros) ? evidence.productPros.map(String).filter(Boolean) : [];
+  const productCons = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.productCons) ? evidence.productCons.map(String).filter(Boolean) : [];
+  const overallImpact = canonicalEvidenceEligible && collectorSourceAccepted ? String(evidence.overallImpact || "").trim() : "";
+  const buyAssessment = canonicalEvidenceEligible && collectorSourceAccepted ? String(evidence.buyAssessment || "").trim() : "";
 
   const reviewsFound = Number(evidence.reviewsFound || 0);
   const marketplaceReviewCount = Number(evidence.marketplaceReviewCount || evidence.reviewsFound || 0);
@@ -2236,11 +2264,7 @@ function buildReviewEvidenceShopperResult(input: {
   // RI can give BUY / REVIEW FIRST / AVOID from exact-product review intelligence.
   // Direct written review bodies are best; OpenAI web-search review intelligence is allowed
   // when marketplaces block review bodies, with lower confidence shown in the audit.
-  const hasUsableReviewEvidence =
-    hasReadableReviewEvidence &&
-    commentsAnalyzed >= 3 &&
-    evidenceReviewSignalCount >= 3 &&
-    evidenceStrength !== "none";
+  const hasUsableReviewEvidence = canonicalEvidenceEligible && hasReadableReviewEvidence;
 
   // If RI found the product/review count but only reached thin review intelligence,
   // it must stay cautious and transparent, but it should still provide a useful score.
@@ -2252,10 +2276,22 @@ function buildReviewEvidenceShopperResult(input: {
       evidenceStrength === "limited"
     );
 
+  // The adjudicated exact-product corpus is authoritative. Older
+  // heuristic counters must never erase real accepted written reviews.
+  const acceptedExactProductReviewCountForGate =
+    evidenceAdjudication && Array.isArray(evidenceAdjudication.acceptedRecords)
+      ? evidenceAdjudication.acceptedRecords.length
+      : 0;
+  const hasAcceptedExactProductReviewEvidence =
+    acceptedExactProductReviewCountForGate > 0;
+
   const noPublicReviewEvidence =
-    collectorReviewsCollected <= 0 &&
-    commentsAnalyzed <= 0 &&
-    evidenceReviewSignalCount <= 0;
+    !hasAcceptedExactProductReviewEvidence &&
+    (
+      collectorReviewsCollected <= 0 &&
+          commentsAnalyzed <= 0 &&
+          evidenceReviewSignalCount <= 0
+    );
 
   const praiseThemes = repeatedPraises
     .map((item) =>
@@ -2300,7 +2336,10 @@ function buildReviewEvidenceShopperResult(input: {
     buyScore = null;
     valueForMoney = "Unknown";
     bottomLine = PUBLIC_REVIEW_EVIDENCE_FAILURE;
-  } else if (hasUsableReviewEvidence) {
+  } else if (
+    hasUsableReviewEvidence ||
+    hasAcceptedExactProductReviewEvidence
+  ) {
     finalDecisionSource = "reviewEvidence";
     decisionStatus = "evidence_based";
 
@@ -2431,7 +2470,7 @@ function buildReviewEvidenceShopperResult(input: {
   const researchQuality = {
     evidenceLevel: noPublicReviewEvidence
       ? "screenshot_only"
-      : hasUsableReviewEvidence
+      : (hasUsableReviewEvidence || hasAcceptedExactProductReviewEvidence)
       ? "verified"
       : hasLimitedReviewEvidence || exactListingUrl || hasRecognizedProductEvidence
         ? "limited"
@@ -2450,7 +2489,107 @@ function buildReviewEvidenceShopperResult(input: {
         : "ReviewIntel did not access usable review-intelligence signals for this scan.",
     ],
   };
-  const displayedVerdictConfidence = noPublicReviewEvidence ? null : verdictConfidence;
+  const displayedVerdictConfidence = finalDecisionSource === "reviewEvidence" ? verdictConfidence : null;
+  const displayedReviewAuthenticity = finalDecisionSource === "reviewEvidence"
+    ? input.reviewAuthenticity
+    : {
+        score: null,
+        label: "Review evidence not enough",
+        suspiciousReviewRisk: "Not scored",
+        reasons: [PUBLIC_REVIEW_EVIDENCE_FAILURE],
+        suspiciousComments: [],
+      };
+  const customerReviewEvidence = canonicalEvidenceEligible
+    ? evidence
+    : {
+        ...evidence,
+        reviewSnippets: [],
+        repeatedPraises: [],
+        repeatedComplaints: [],
+        aiPatternSignals: [],
+        buyerExperienceSignals: [],
+        productPros: [],
+        productCons: [],
+        strengths: [],
+        complaints: [],
+        overallImpact: "",
+        buyAssessment: "",
+        reviewAuthenticity: displayedReviewAuthenticity,
+        evidenceAdjudication: evidenceAdjudication
+          ? {
+              ...evidenceAdjudication,
+              records: [],
+              acceptedRecords: [],
+              rejectedRecords: [],
+              acceptedRecordCount: 0,
+              independentSourceCount: 0,
+              sufficientByExistingThreshold: false,
+              claimVerification: undefined,
+            }
+      : undefined,
+      };
+
+  // Customer-facing score and verdict are derived exclusively from the
+  // adjudicated accepted corpus. Model-generated themes remain explanatory
+  // data and cannot alter these fields.
+  const acceptedRecords = evidenceAdjudication && Array.isArray(evidenceAdjudication.acceptedRecords)
+    ? evidenceAdjudication.acceptedRecords as AdjudicatedEvidenceRecord[]
+    : [];
+  const deterministic = deriveDeterministicEvidenceResult({
+    acceptedRecords,
+    exactProductAccepted: exactListingAccepted,
+    rating: listingRatingForMetadataScore,
+    marketplaceReviewCount,
+    price: Number.isFinite(Number(price)) ? Number(price) : null,
+    verifiedProductMetadata: {
+      productName,
+      brand,
+      store,
+      canonicalUrl: exactListingUrl || null,
+      asin: listingEvidence?.asin || null,
+    },
+    riskFeatures: {
+      reviewAuthenticityScore: input.reviewAuthenticity && typeof input.reviewAuthenticity === "object"
+        ? (input.reviewAuthenticity as Record<string, unknown>).score ?? null
+        : null,
+    },
+    summaryModelVersion: process.env.OPENAI_REVIEW_SEARCH_MODEL || process.env.OPENAI_MODEL || null,
+  });
+  const acceptedSourceDistribution = acceptedRecords.reduce<Record<string, number>>((counts, record) => {
+    const source = String(record.sourceType || record.independentSourceId || "unknown");
+    counts[source] = (counts[source] || 0) + 1;
+    return counts;
+  }, {});
+  verdict = deterministic.customerVerdict;
+  decisionStatus = deterministic.evidenceState === "SUFFICIENT" ? "evidence_based" : "not_enough_written_review_evidence";
+  finalDecisionSource = "deterministicAcceptedReviewCorpus";
+  buyScore = deterministic.buyScore;
+  valueForMoney = deterministic.valueForMoney;
+  bottomLine = deterministic.bottomLine;
+  scoreAudit = deterministic.deterministicScoringInputs;
+
+  console.log("[ReviewIntel PIPELINE] exact-product-gate", JSON.stringify({
+    acceptedExactProductReviews: deterministic.acceptedReviewHashes.length,
+    rejectedReviews: evidenceAdjudication && typeof evidenceAdjudication.rejectedRecordCount === "number" ? evidenceAdjudication.rejectedRecordCount : null,
+    rejectionReasons: evidenceAdjudication && Array.isArray(evidenceAdjudication.rejectedRecords)
+      ? Object.fromEntries((evidenceAdjudication.rejectedRecords as Array<Record<string, unknown>>).reduce((counts, record) => {
+          const reason = String(record.rejectionReason || "unknown");
+          counts.set(reason, (counts.get(reason) || 0) + 1);
+          return counts;
+        }, new Map<string, number>()))
+      : {},
+    wrongVariantCount: null,
+    ambiguousProductCount: null,
+    corpusHash: deterministic.acceptedCorpusHash,
+  }));
+  console.log("[ReviewIntel PIPELINE] structured-signals", JSON.stringify({
+    strengths: deterministic.strengths,
+    complaints: deterministic.complaints,
+    qualityReliability: deterministic.deterministicScoringInputs,
+    valueSignals: { rating: listingRatingForMetadataScore, price },
+    fakeManipulationIndicators: { reviewAuthenticityScore: asRecord(input.reviewAuthenticity).score ?? null },
+  }));
+  console.log("[ReviewIntel PIPELINE] scoring-inputs", JSON.stringify(deterministic.deterministicScoringInputs));
 
   console.log("[ReviewIntel DEBUG verdictAudit]", {
     verdict,
@@ -2528,10 +2667,23 @@ function buildReviewEvidenceShopperResult(input: {
       rating: evidence.rating ?? null,
       reviewCount: (evidence.reviewCount ?? marketplaceReviewCount) || null,
       exactListingUrl: exactListingUrl || null,
+      asin,
     },
 
-    reviewEvidence: evidence,
-    reviewAuthenticity: input.reviewAuthenticity,
+    verifiedProductMetadata: exactListingAccepted
+      ? {
+          marketplace: store || null,
+          canonicalListingUrl: exactListingUrl || null,
+          asin,
+          brand: brand || null,
+          normalizedProduct: productName || null,
+          capacity: listingEvidence?.capacity || null,
+          color: listingEvidence?.color || null,
+        }
+      : null,
+
+    reviewEvidence: customerReviewEvidence,
+    reviewAuthenticity: displayedReviewAuthenticity,
     stableProductKey,
     productKey: stableProductKey,
     researchQuality,
@@ -2549,6 +2701,7 @@ function buildReviewEvidenceShopperResult(input: {
       exactListingEvidence: listingEvidence,
       reviewEvidence: {
         exactListingUrl: exactListingUrl || null,
+        asin,
         exactListingAccepted,
         exactListingRejectedReason,
         collectorSourceAccepted,
@@ -2563,6 +2716,9 @@ function buildReviewEvidenceShopperResult(input: {
         reviewSnippets: reviewSnippets.length,
         repeatedPraises: repeatedPraises.length,
         repeatedComplaints: repeatedComplaints.length,
+        sourceDistribution: acceptedSourceDistribution,
+        acceptedReviewHashes: deterministic.acceptedReviewHashes,
+        acceptedCorpusHash: deterministic.acceptedCorpusHash,
       },
       finalDecisionSource,
       scoreAudit,
@@ -2597,14 +2753,25 @@ function buildReviewEvidenceShopperResult(input: {
     collectorHasWrittenReviews,
     exactListingUrl: exactListingUrl || null,
 
-    topStrengths: hasReadableReviewEvidence && !noPublicReviewEvidence ? strengthHighlights : [],
-    topComplaints: hasReadableReviewEvidence && !noPublicReviewEvidence ? complaintHighlights : [],
-    strengths: hasReadableReviewEvidence && !noPublicReviewEvidence ? strengthHighlights : [],
-    complaints: hasReadableReviewEvidence && !noPublicReviewEvidence ? complaintHighlights : [],
-    aiPatternSignals: noPublicReviewEvidence ? [] : aiPatternSignals,
-    buyerExperienceSignals: noPublicReviewEvidence ? [] : buyerExperienceSignals,
-    overallImpact: noPublicReviewEvidence ? "" : overallImpact,
-    buyAssessment: noPublicReviewEvidence ? "" : buyAssessment,
+    topStrengths: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.strengths.map((item) => item.claim) : [],
+    topComplaints: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.complaints.map((item) => item.claim) : [],
+    strengths: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.strengths.map((item) => item.claim) : [],
+    complaints: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.complaints.map((item) => item.claim) : [],
+    strengthProvenance: deterministic.strengths,
+    complaintProvenance: deterministic.complaints,
+    acceptedReviewHashes: deterministic.acceptedReviewHashes,
+    sourceDistribution: acceptedSourceDistribution,
+    acceptedCorpusHash: deterministic.acceptedCorpusHash,
+    marketplaceMetadataSnapshot: deterministic.marketplaceMetadataSnapshot,
+    deterministicScoringInputs: deterministic.deterministicScoringInputs,
+    scorerVersion: deterministic.scorerVersion,
+    verdictPolicyVersion: deterministic.verdictPolicyVersion,
+    summaryModelVersion: process.env.OPENAI_REVIEW_SEARCH_MODEL || process.env.OPENAI_MODEL || null,
+    finalResultHash: deterministic.finalResultHash,
+    aiPatternSignals: canonicalEvidenceEligible && !noPublicReviewEvidence ? aiPatternSignals : [],
+    buyerExperienceSignals: canonicalEvidenceEligible && !noPublicReviewEvidence ? buyerExperienceSignals : [],
+    overallImpact: canonicalEvidenceEligible && !noPublicReviewEvidence ? overallImpact : "",
+    buyAssessment: canonicalEvidenceEligible && !noPublicReviewEvidence ? buyAssessment : "",
 
     screenshotOnly: false,
     screenshotOnlyWarning: false,
@@ -2616,8 +2783,10 @@ function buildReviewEvidenceShopperResult(input: {
 }
 
 
-export async function POST(request: Request) {
-  const serverScanId = createAnalyzeScanId();
+async function analyzePost(request: Request, serverScanId: string) {
+  const costTelemetry = new ScanCostTelemetry();
+  let operationKey = "";
+  let operationCreated = false;
   let scanId = serverScanId;
   let detectedProductKey = "";
 
@@ -2682,57 +2851,13 @@ export async function POST(request: Request) {
       !isBetaPlanForAnalyze &&
       normalizedPlanForAnalyze === "free_buyer";
 
-    if (isShopperFree) {
-      if (!email) {
-        return NextResponse.json(
-          { error: "Please log in again before analyzing a product.", scanId, resultSource: "analyze" },
-          { status: 401 }
-        );
-      }
-
-      const quota = await readPersistentQuota({
-        email,
-        plan: "free_buyer"
-      });
-
-      if (!quota) {
-        return NextResponse.json(
-          {
-            error: "We could not verify your daily scan allowance. Please try again.",
-            code: "QUOTA_UNAVAILABLE",
-            scanId,
-            resultSource: "analyze"
-          },
-          { status: 503 }
-        );
-      }
-
-      if ((quota.remaining ?? 0) <= 0) {
-        return NextResponse.json(
-          {
-            error: "You have used all 3 free scans for today. Upgrade to Premium for more scans and the fuller buying-confidence report.",
-            code: "DAILY_SCAN_LIMIT_REACHED",
-            upgradeRequired: true,
-            upgradeUrl: "/pricing?plan=shopper_premium",
-            cta: "Try Premium",
-            quota,
-            scanId,
-            resultSource: "analyze"
-          },
-          { status: 429 }
-        );
-      }
-    }
-
     const recordCompletedScan = async (scanResult: JsonRecord) => {
-      if (!email) {
-        return scanResult;
-      }
-
       const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
-      const shouldSaveHistory = role === "admin" || accountPlan !== "free_buyer";
-      const analysisRecord = shouldSaveHistory
-        ? (await saveAnalysisRecord({
+      const completed = await completeAccountScan({
+        email,
+        scanId,
+        result: scanResult,
+        save: () => saveAnalysisRecord({
             profile_email: email,
             mode: "buyer",
             product_name: asRecord(scanResult.product).name ?? "Product scan",
@@ -2745,28 +2870,27 @@ export async function POST(request: Request) {
               analysisVersion: "review-evidence-v2",
             },
             account: { email, plan: accountPlan, role }
-          }) as { id?: string; created_at?: string } | null)
-        : null;
-
-      const usage = await consumePersistentQuota(
+          }),
+        read: async (id) => {
+          const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json,created_at&id=eq.${encodeURIComponent(id)}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
+          return rows[0];
+        },
+        consume: (id) => consumePersistentQuota(
         {
           email,
           plan: accountPlan
         },
         {
-          analysis_id: analysisRecord?.id ?? null,
+          analysis_id: id,
           audience: "buyer",
           product_name: asRecord(scanResult.product).name ?? null,
           verdict: scanResult.verdict ?? null
         }
-      );
-
-      return {
-        ...scanResult,
-        analysisId: analysisRecord?.id ?? null,
-        createdAt: analysisRecord?.created_at ?? new Date().toISOString(),
-        quota: usage.quota ?? null
-      };
+        ),
+        finish: (result) => finishDurableScanOperation({ operationKey, status: "COMPLETED", result }),
+      });
+      captureStage("persistence", { scanId, analysisId: completed.analysisId, accountKey: budgetAccountKey(email), accountVisible: true, durableCompleted: true });
+      return completed;
     };
 
     const contentType = request.headers.get("content-type") || "";
@@ -2780,6 +2904,7 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     scanId = sanitizeScanId(formData.get("scanId")) || serverScanId;
+    captureScanId(scanId);
     const file = formData.get("image");
     const productLink = String(formData.get("productLink") || "").trim();
     const locale = normalizedLocaleCode(String(formData.get("locale") || readCookie("reviewintel_locale") || "en").trim());
@@ -2804,7 +2929,50 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const imageDataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
 
-    const vision = await extractScreenshotFacts(imageDataUrl);
+    operationKey = scanOperationKey(
+      `${email || "unknown"}:${normalizedPlanForAnalyze || "unknown"}`,
+      scanId,
+      requestFingerprint(Buffer.concat([buffer, Buffer.from(`\n${productLink || ""}`)])),
+    );
+    const operation = await beginDurableScanOperation({
+      operationKey,
+      accountKey: budgetAccountKey(`${email || "unknown"}:${normalizedPlanForAnalyze || "unknown"}`),
+      scanId,
+    });
+    operationCreated = "created" in operation && operation.created === true;
+    if (operation.status === "BLOCKED") {
+      return NextResponse.json({ error: operation.errorCode || "Scan operation unavailable.", code: operation.errorCode, scanId }, { status: 503 });
+    }
+    if (operation.status === "COMPLETED" && operation.result) {
+      if (operation.result.scanId !== scanId) throw new Error("RESULT_PERSISTENCE_IDENTITY_MISMATCH");
+      const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json&id=eq.${encodeURIComponent(String(operation.result.analysisId || ""))}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
+      assertPersistedScan(rows[0], email, scanId);
+      return NextResponse.json(operation.result);
+    }
+    if (operation.status === "FAILED") {
+      return NextResponse.json({ error: "This scan operation already failed. Start a new explicit scan to retry.", code: "SCAN_ALREADY_FAILED", scanId: operation.scanId }, { status: 409 });
+    }
+    if (operation.status === "RUNNING" && operation.created === false) {
+      return NextResponse.json({ status: "RUNNING", scanId: operation.scanId }, { status: 202 });
+    }
+
+    if (isShopperFree) {
+      if (!email) {
+        await finishDurableScanOperation({ operationKey, status: "FAILED", errorCode: "AUTH_REQUIRED" });
+        return NextResponse.json({ error: "Please log in again before analyzing a product.", scanId, resultSource: "analyze" }, { status: 401 });
+      }
+      const quota = await readPersistentQuota({ email, plan: "free_buyer" });
+      if (!quota) {
+        await finishDurableScanOperation({ operationKey, status: "FAILED", errorCode: "QUOTA_UNAVAILABLE" });
+        return NextResponse.json({ error: "We could not verify your daily scan allowance. Please try again.", code: "QUOTA_UNAVAILABLE", scanId, resultSource: "analyze" }, { status: 503 });
+      }
+      if ((quota.remaining ?? 0) <= 0) {
+        await finishDurableScanOperation({ operationKey, status: "FAILED", errorCode: "DAILY_SCAN_LIMIT_REACHED" });
+        return NextResponse.json({ error: "You have used all 3 free scans for today. Upgrade to Premium for more scans and the fuller buying-confidence report.", code: "DAILY_SCAN_LIMIT_REACHED", upgradeRequired: true, upgradeUrl: "/pricing?plan=shopper_premium", cta: "Try Premium", quota, scanId, resultSource: "analyze" }, { status: 429 });
+      }
+    }
+
+    const vision = await extractScreenshotFacts(imageDataUrl, costTelemetry);
     detectedProductKey = createStableProductKey(vision, productLink);
 
     const hasVisibleProductIdentity =
@@ -2829,10 +2997,10 @@ export async function POST(request: Request) {
           reviewCount: vision.reviewCount,
           imageConfidence: vision.imageConfidence
         },
-        verdict: "REVIEW EVIDENCE NOT ENOUGH",
-        recommendation: "REVIEW EVIDENCE NOT ENOUGH",
-        finalVerdict: "REVIEW EVIDENCE NOT ENOUGH",
-        stableVerdict: "REVIEW EVIDENCE NOT ENOUGH",
+        verdict: "DO NOT BUY YET",
+        recommendation: "DO NOT BUY YET",
+        finalVerdict: "DO NOT BUY YET",
+        stableVerdict: "DO NOT BUY YET",
         productScore: null,
         buyScore: null,
         score: null,
@@ -2884,11 +3052,10 @@ export async function POST(request: Request) {
           },
         }};
 
-      return NextResponse.json(
-        await recordCompletedScan(
-          attachLanguageMeta(fallbackResult, locale, outputLanguage, scanId, cleanDetectedProductKey(detectedProductKey), "analyze")
-        )
+      const completedFallback = await recordCompletedScan(
+        attachLanguageMeta(fallbackResult, locale, outputLanguage, scanId, cleanDetectedProductKey(detectedProductKey), "analyze")
       );
+      return NextResponse.json(completedFallback);
     }
 
     const productKey = cleanDetectedProductKey(detectedProductKey || createStableProductKey(vision, productLink));
@@ -2896,11 +3063,12 @@ export async function POST(request: Request) {
     const memory = await getProductMemory(productKey);
     void memory;
 
-    const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale, scanId, productKey);
+    captureStage("identity", { productName: vision.name, brand: vision.brand, model: null, store: vision.store, visibleFeatures: vision.visibleFeatures, price: vision.price, rating: vision.rating, reviewCount: vision.reviewCount });
+    const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale, scanId, productKey, costTelemetry);
 
     // Shopper v2: do not re-score, normalize, or apply old product memory after the review-evidence result is built.
     const result = attachLanguageMeta(
-      freshResult,
+      { ...freshResult, costTelemetry: costTelemetry.snapshot() },
       locale,
       outputLanguage,
       scanId,
@@ -2923,9 +3091,14 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json(await recordCompletedScan(result));
+    captureStage("final", () => ({ buyScore: result.buyScore, verdict: result.verdict, confidence: result.verdictConfidence, value: result.valueForMoney, cost: costTelemetry.snapshot() }));
+    const completed = await recordCompletedScan(result);
+    return NextResponse.json(completed);
   } catch (error) {
     console.error("Analyze product failed:", error);
+    if (operationKey && operationCreated) {
+      await finishDurableScanOperation({ operationKey, status: "FAILED", errorCode: "ANALYZE_FAILED" });
+    }
 
     return NextResponse.json(
       {
@@ -2940,4 +3113,9 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: Request) {
+  const scanId = createAnalyzeScanId();
+  return withDevScanCapture(scanId, () => analyzePost(request, scanId));
 }

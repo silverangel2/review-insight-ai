@@ -4,7 +4,11 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const jiti = require("jiti")(new URL("../review-evidence-scoring-test.js", import.meta.url).pathname);
-const { scoreReviewEvidenceSignals } = jiti("./lib/reviewEvidenceScoring.ts");
+const {
+  hasSufficientReviewEvidenceRecord,
+  isSufficientReviewEvidence,
+  scoreReviewEvidenceSignals,
+} = jiti("./lib/reviewEvidenceScoring.ts");
 
 function shopperVerdict(result) {
   return result.verdict;
@@ -144,4 +148,103 @@ test("not enough is reserved for insufficient written-review evidence", () => {
 
   assert.equal(shopperVerdict(result), "REVIEW EVIDENCE NOT ENOUGH");
   assert.equal(result.buyScore, null);
+});
+
+test("unstructured recovered snippets cannot masquerade as a normal scored verdict", () => {
+  const result = scoreReviewEvidenceSignals({
+    rating: 4.1,
+    marketplaceReviewCount: 2366,
+    commentsAnalyzed: 3,
+    evidenceStrength: "weak",
+    reviewSnippets: [
+      { sentiment: "mixed", snippet: "mixed buyer experience" },
+      { sentiment: "mixed", snippet: "some buyers liked it and others did not" },
+      { sentiment: "mixed", snippet: "results varied by use case" },
+    ],
+    repeatedPraises: [],
+    repeatedComplaints: [],
+    productPros: [],
+    productCons: [],
+    buyerExperienceSignals: [],
+    aiPatternSignals: [],
+  });
+
+  assert.equal(result.verdict, "REVIEW EVIDENCE NOT ENOUGH");
+  assert.equal(result.buyScore, null);
+  assert.match(result.bottomLine, /could not normalize enough product strengths or complaints/i);
+});
+
+test("three limited reviews without corroborated themes cannot unlock scoring", () => {
+  const result = scoreReviewEvidenceSignals({
+    rating: 4.3,
+    marketplaceReviewCount: 17426,
+    commentsAnalyzed: 3,
+    evidenceStrength: "limited",
+    reviewSnippets: [
+      { sentiment: "mixed", snippet: "TEST PRODUCT ALPHA review one" },
+      { sentiment: "mixed", snippet: "TEST PRODUCT ALPHA review two" },
+      { sentiment: "mixed", snippet: "TEST PRODUCT ALPHA review three" },
+    ],
+    productPros: [],
+    productCons: [],
+    repeatedPraises: [],
+    repeatedComplaints: [],
+    buyerExperienceSignals: [],
+  });
+
+  assert.equal(result.verdict, "REVIEW EVIDENCE NOT ENOUGH");
+  assert.equal(result.buyScore, null);
+});
+
+test("exact listing acceptance does not override insufficient independent evidence", () => {
+  assert.equal(isSufficientReviewEvidence({
+    exactListingAccepted: true,
+    commentsAnalyzed: 3,
+    evidenceSignals: 2,
+    evidenceStrength: "limited",
+  }), false);
+  assert.equal(isSufficientReviewEvidence({
+    exactListingAccepted: false,
+    commentsAnalyzed: 12,
+    evidenceSignals: 8,
+    evidenceStrength: "usable",
+  }), false);
+  assert.equal(isSufficientReviewEvidence({
+    exactListingAccepted: false,
+    commentsAnalyzed: 50,
+    evidenceSignals: 50,
+    evidenceStrength: "strong",
+  }), false);
+  assert.equal(isSufficientReviewEvidence({
+    exactListingAccepted: true,
+    commentsAnalyzed: 3,
+    evidenceSignals: 3,
+    evidenceStrength: "limited",
+  }), true);
+});
+
+test("record-level gate requires exact listing acceptance and existing sufficiency", () => {
+  const evidence = {
+    commentsAnalyzed: 50,
+    evidenceStrength: "strong",
+    reviewIntelligenceSignals: 50,
+    listingEvidence: { exactListingUrl: "https://example.test/product" },
+    reviewCollector: { reviewsCollected: 50 },
+    reviewSnippets: ["one", "two", "three"],
+  };
+
+  assert.equal(hasSufficientReviewEvidenceRecord({
+    reviewEvidence: { ...evidence, exactListingAccepted: false },
+  }), false);
+  assert.equal(hasSufficientReviewEvidenceRecord({
+    reviewEvidence: {
+      ...evidence,
+      exactListingAccepted: true,
+      evidenceStrength: "none",
+      reviewIntelligenceSignals: 1,
+    },
+  }), false);
+  assert.equal(hasSufficientReviewEvidenceRecord({
+    reviewEvidence: { ...evidence, exactListingAccepted: true },
+  }), true);
 });

@@ -1,0 +1,21 @@
+{
+  "id": "philips",
+  "provenance": {
+    "artifact": "rollout-2026-10-06T12-05-28-01a111bf-8a8f-7c90-9675-39aa95804440.jsonl",
+    "lines": [
+      129,
+      210
+    ],
+    "limitations": "Final captured adjudication had zero records; earlier retrieved counts have no saved bodies."
+  },
+  "product": {
+    "productName": "Philips Premium Airfryer XXL Healthy Air Fryer, Digital Touchscreen, 2.75 lb Capacity, 4.4 QT, Black",
+    "brand": "Philips",
+    "store": "Amazon.ca",
+    "rating": "4.6/5",
+    "reviewCount": "1847"
+  },
+  "candidates": [],
+  "rawRecords": [],
+  "pages": "UNKNOWN"
+}

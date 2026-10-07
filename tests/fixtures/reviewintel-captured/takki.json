@@ -1,0 +1,139 @@
+{
+  "id": "takki",
+  "provenance": {
+    "artifact": "rollout-2026-10-06T10-04-55-01a11151-2c06-7570-b955-73abc5d9310a.jsonl",
+    "lines": [
+      132,
+      764
+    ],
+    "sha256": "e4937a3b83f5d6f4243db813f1af7f463722031b432b3a745fc3151d68d71d27",
+    "limitations": "Review bodies captured by native scraper; HTTP/challenge status UNKNOWN. Listing title from earlier captured scan metadata; no HTML capture.",
+    "aggregateMetadataArtifact": {
+      "artifact": "rollout-2026-10-06T08-50-50-01a1110d-5a19-71a2-95ee-100ee5fc8417.jsonl",
+      "line": 378,
+      "note": "Earlier captured exact-listing aggregate rating 3.8 and count2368; combined snapshot, not proof of simultaneous capture."
+    }
+  },
+  "product": {
+    "productName": "Takki 150W Peak Portable Power Station 88.8Wh Small Generator Power Bank with 100W/110V AC Outlet and Flshlight for Camping Home Use Laptop Emergency Backup (Solar Panel Optional)",
+    "brand": "Takki",
+    "store": "Amazon.ca",
+    "rating": 3.8,
+    "reviewCount": 2368,
+    "price": 129.99
+  },
+  "candidates": [
+    {
+      "url": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "title": "Takki 150W Peak Portable Power Station 88.8Wh Small Generator Power Bank with 100W/110V AC Outlet and Flshlight for Camping Home Use Laptop Emergency Backup (Solar Panel Optional)",
+      "source": "captured listing metadata"
+    }
+  ],
+  "rawRecords": [
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This thing is a beast! The first time we used it it worked awesome, then I put it outside with the solar panel to charge and unbeknownst to me. I put it right on a sprinkler head. The poor thing absolutely filled with water. I was choked because I thought it was a goner. But I shook/blue as much water out of it as I could and left it alone for a few hours to dry out. The next morning it worked.",
+      "date": "Reviewed in Canada on August 21, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Bought this for a backup for power outages in emergencies it holds a charge for a long time so you can charge your phones turn on a light that’s built into it. It’s amazing product bit heavy but it works very well and it’s my back up like I said for emergencies when there’s power outages great to have around the house for those moments condo living. ! Definitely think everybody should have one of these and that’s not expensive. It’s not a huge generator, but it’s gonna give you power for several hours for charging phones even plugging in a lamp or giving you a light around the house.!",
+      "date": "Reviewed in Canada on May 29, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 4,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Used it for camping. Had to charge it at the bathroom during the day, but overall it was pretty great. The light is incredibly bright and it helps charging my phone over night when I sleep in a tent. Only downside is that it will automatically turn off when unused, which would be great if it could actually tell when it’s unused. It turned off a few times when I still needed it…",
+      "date": "Reviewed in Canada on February 21, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Runs a small lamp for days. We tried t with regular floor fan and it does work just not on high speed. Good for basics during power outage. Cell phones small devices. Solar panel is really tiny and would take forever to charge it back up. Got it for my daughter for her bday as she didn't have any.",
+      "date": "Reviewed in Canada on August 18, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 1,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. Was initially very happy. Started to discharge while in storage and after a few recharges has now stopped accepting a charge at all. Return window has since closed so this is heading to recycling. Colossal waste of money.",
+      "date": "Reviewed in Canada on September 25, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I love this product! The unit itself is very nicely designed, well built, and extremely easy to use. The indicators on the device are stylistic and easy to read. I purchased this unit before heading out on a family camping trip. I know...I know...who needs phones or charging!? You're camping! If you're like me though - with teenaged kids, you know how important their phones are to them! We charged it up before we left and it held it's charge very well. Between my wife and I and our 3 teens, we were able to charge all of our phones more than once before needing to recharge the unit with it's handy car adapter. At home, it's a cinch to recharge as well - simply plug into the wall and after a reasonable amount of time your portable charger is full and ready to go. We also found the built in LED light very handy at night for times when you had to walk away from the campfire or just for inside the tent. It puts off a surprising amount of light! We bring this with us practically everywhere we go now, whether it's to the soccer field or in the car on long trips. Great for a fami",
+      "date": "Reviewed in Canada on August 29, 2024",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. J'adore! J'ai été en mesure de gonfler un matelas queen de camping sans problème et j'ai charger un téléphone et un termacel a plusieurs reprises avant que la batterie soir vide.",
+      "date": "Reviewed in Canada on July 16, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 3,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I got this unit for its versatility - while being 3x the price of an average 20mah power bank, it has the advantage of AC output if needed, a handy light, and supposed to be extra durable.",
+      "date": "Reviewed in Canada on February 17, 2025",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. This Takki S81 is great! I need 120V AC on/near my kitchen table for laptop when battery dies. It takes up less room than the older Anker unit I used. This power station provided an additional 11 hours of laptop runtime from \"dead to dead agajn\". The S81 provides 80 watts of 120 volts continiually, but laptop charger only draws 40-42 watts until laptop reaches 85%, then draws 25 watts. S81 didnt run 11 hours, but I charged laptop partially twice ran it 11 hours more from dead. Best part, S81 doesnt shut off automatically when AC power draw is under 20 watts like my older Anker unit. It kept AC output on with a 1 watt load, as well as nothing plugged in. The USB outputs will shut off after 20 seconds though if the DC draw is too low as with smaller devices or approaching full charge. Luckily the manual stated that to avoid this, simply turn on the AC outlet, even though no AC cord needs to be plugged into it. Cooling fan didnt come on until running AC for 1 hour, but was extremely quiet. My Anker unit fan comes on right away with same laptop, based on sensing power draw, n",
+      "date": "Reviewed in the United States on March 13, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I got this in the beginning of the week before my camping trip and I absolutely love it! I tested it days before and it was able to charge my phone and iPad no problem. I used it for my camping trip and it was able to fully charge my phone and iPad again, and inflate my air mattress. It eventually ran out of battery on the second day of my trip, so I had to charge it again, which took a few hours. I might buy the solar powered one next time so I’m able to recharge it on the spot. It’s very easy to use, portable, great for camping, and worth my money. Though the “car charger” isn’t really a charger. It’s just an adapter to plug something into, so it’s useless. The wall charger works as it should.",
+      "date": "Reviewed in the United States on July 6, 2025",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 4,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I purchased the smaller version a year ago to keep my phone charged when I travel or camp. It's been phenomenal. Couldn't be happier. Then I decided to get this version to use during power outages, as we've been having a lot of them lately. Anyway, I knew it wouldn't power the refrigerator, but I was hoping it could at least power the coffee pot. Nope. It's not strong enough for that, but it does keep my motorcycle trickle charger going, so that's good.",
+      "date": "Reviewed in the United States on August 12, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 1,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I never used it ONCE. It's been stored in my cabinet to use for camping and power outages that happened quite often in the summertime in Los angeles. I just went to check it to make sure that it was fully charged so I could take it down to my boat and it will not charge. I've tried troubleshooting and everything I could possibly do to figure out why it won't charge and nothing is working. I know that in the past it would work both with the solar panel and being plugged into an outlet because I always checked it to make sure that it was fully charged in case of emergencies. For the price that I paid for this unit I'm going to try and see if the company will refund me but like most overseas companies, it's like beating a dead horse trying to get them to take responsibility for their defective products.",
+      "date": "Reviewed in the United States on May 20, 2026",
+      "verified": true
+    },
+    {
+      "source": "Amazon written review",
+      "sourceUrl": "https://www.amazon.ca/dp/B0DY3XB4WZ",
+      "rating": 5,
+      "body": "Brief content visible, double tap to read full content. Full content visible, double tap to read brief content. I am thrilled to provide a positive review for the Portable Power Station by Takki. This camping solar generator power bank is a fantastic addition to any camping or emergency kit, offering versatility and reliability.",
+      "date": "Reviewed in the United States on March 18, 2023",
+      "verified": true
+    }
+  ],
+  "pages": "UNKNOWN"
+}
