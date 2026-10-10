@@ -108,9 +108,9 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
 
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
           {fraction === null ? (
-            <div className="animate-pulse rounded-full" style={{ width: "33%", height: "100%", background: "rgba(15,159,154,0.5)" }} />
+            <div className="animate-pulse rounded-full motion-reduce:animate-none" style={{ width: "33%", height: "100%", background: "rgba(11,124,120,0.45)" }} />
           ) : (
-            <div className="rounded-full transition-[width] duration-700" style={{ width: `${Math.round(fraction * 100)}%`, height: "100%", background: "#0f9f9a" }} />
+            <div className="h-full w-full origin-left rounded-full transition-transform duration-500 ease-out motion-reduce:transition-none" style={{ transform: `scaleX(${Math.max(0.02, fraction)})`, background: "#0b7c78" }} />
           )}
         </div>
         <p className="mt-2 text-xs text-slate-500">
@@ -147,8 +147,8 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
           <div className="mt-6 space-y-2">
             <p className="text-xs font-semibold text-slate-500">Real reviews we kept</p>
             {live.snippets.slice(0, 3).map((snippet, index) => (
-              <blockquote key={index} className="rounded-2xl border-l-4 border-teal bg-slate-50 px-4 py-2 text-sm text-slate-700">
-                “{snippet.text}”{snippet.host ? <span className="block text-xs text-slate-400">{snippet.host}</span> : null}
+              <blockquote key={`${index}-${snippet.text.slice(0, 40)}`} className="ri-fade-in rounded-2xl border-l-4 border-teal bg-slate-50 px-4 py-2 text-sm text-slate-700" style={{ ["--ri-delay" as string]: `${index * 120}ms` }}>
+                “{snippet.text}”{snippet.host ? <span className="block text-xs text-slate-500">{snippet.host}</span> : null}
               </blockquote>
             ))}
           </div>

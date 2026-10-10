@@ -157,7 +157,7 @@ export function BetterPicksPanel({
             <p className="mt-1 text-sm text-slate-500">{primary.whyBetter}</p>
           </div>
           <a href={primary.affiliateUrl || primary.url} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(primary)}
-            className="inline-flex shrink-0 items-center justify-center rounded-full bg-teal px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-teal/90">
+            className="inline-flex shrink-0 items-center justify-center ri-lift rounded-full bg-teal px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-teal/90">
             Check price on {primary.store}
           </a>
         </div>

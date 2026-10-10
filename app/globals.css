@@ -11061,3 +11061,15 @@ form,
     line-height: 1.25rem !important;
   }
 }
+
+/* ReviewIntel motion: short (200-600ms), transform/opacity only, off for reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .ri-lift { transition: transform 200ms ease-out, box-shadow 200ms ease-out, background-color 200ms ease-out; will-change: transform; }
+  .ri-lift:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -14px rgba(11, 124, 120, 0.55); }
+  .ri-lift:active { transform: translateY(0); }
+  .ri-fade-in { opacity: 0; animation: ri-fade-in 450ms ease-out forwards; animation-delay: var(--ri-delay, 0ms); }
+  .ri-reveal { animation: ri-reveal 500ms cubic-bezier(.2,.8,.2,1) both; }
+  .ri-cycle-word { animation: ri-reveal 400ms ease-out both; }
+}
+@keyframes ri-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ri-reveal { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }

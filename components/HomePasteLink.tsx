@@ -27,7 +27,7 @@ export function HomePasteLink() {
           onChange={(e) => { setValue(e.target.value); if (error) setError(""); }}
           aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined}
           className="min-h-12 w-full flex-1 rounded-2xl bg-transparent px-4 text-base text-slate-900 placeholder:text-slate-500 focus:outline-none" />
-        <button type="submit" className="min-h-12 rounded-2xl bg-teal px-6 text-base font-semibold text-white transition hover:bg-teal/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">
+        <button type="submit" className="ri-lift min-h-12 rounded-2xl bg-teal px-6 text-base font-semibold text-white transition hover:bg-teal/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">
           Check reviews
         </button>
       </div>

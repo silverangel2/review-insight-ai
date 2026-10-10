@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { FeaturedReviews } from "@/components/FeaturedReviews";
 import { HomePasteLink } from "@/components/HomePasteLink";
 import { VerdictSummaryCard } from "@/components/VerdictSummaryCard";
+import { HeroVerdictCycle } from "@/components/motion/HeroVerdictCycle";
 import homeSample from "@/lib/homeSample.json";
 import { supabaseCount } from "@/lib/supabaseServer";
 import { HomepageInstructionVideo } from "@/components/HomepageInstructionVideo";
@@ -54,17 +55,18 @@ export default async function LandingPage() {
           <div>
             <p className="text-sm font-semibold text-teal">Real buyer reviews. Plain answers.</p>
             <h1 className="mt-3 text-4xl font-semibold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl">
-              Should you buy it? Ask the people who already did.
+              Should you buy it? <span className="text-teal" style={{ fontSize: "inherit", fontWeight: "inherit" }}>We read the reviews</span> so you don&apos;t have to.
             </h1>
             <p className="mt-4 max-w-xl text-lg leading-8 text-slate-600">
-              ReviewIntel reads the written reviews for the exact product and tells you Buy, Wait or Skip, with the quotes to back it up.
+              Paste a product link. We read what real buyers wrote about that exact product and give you a straight answer, with their own words to back it up.
             </p>
-            <div className="mt-7 max-w-xl"><HomePasteLink /></div>
+            <HeroVerdictCycle />
+            <div className="mt-5 max-w-xl"><HomePasteLink /></div>
             <p className="text-sm text-slate-500">
               Or <Link href="/analyze" className="font-medium text-slate-700 underline underline-offset-2 hover:text-teal">upload review screenshots</Link> instead.
             </p>
           </div>
-          <div>
+          <div className="ri-reveal">
             <VerdictSummaryCard summary={homeSample} eyebrow="A real result" />
             <p className="mt-3 text-xs text-slate-500">
               From a saved ReviewIntel scan of {homeSample.reviewCount} real Amazon.ca buyer reviews. Quotes are shown as written.

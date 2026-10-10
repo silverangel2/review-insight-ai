@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { deriveShopperAnswer, type ShopperPoint } from "@/lib/shopperAnswer";
+import { CountUp } from "./motion/CountUp";
 
 const TONE = {
-  buy: { chip: "bg-teal text-white", ring: "ring-teal/20" },
-  wait: { chip: "bg-slate-900 text-white", ring: "ring-slate-900/10" },
-  skip: { chip: "bg-slate-900 text-white", ring: "ring-slate-900/10" },
+  buy: { chip: "bg-emerald-700 text-white", ring: "ring-emerald-700/20" },
+  wait: { chip: "bg-[#fdf0d5] text-[#7a4a06]", ring: "ring-amber-500/20" },
+  skip: { chip: "bg-rose-700 text-white", ring: "ring-rose-700/20" },
   not_enough: { chip: "bg-slate-100 text-slate-700", ring: "ring-slate-900/5" },
 } as const;
 
@@ -24,7 +25,7 @@ function PointList({ title, points, empty }: { title: string; points: ShopperPoi
                 <span className="ml-2 text-xs font-normal text-slate-400">{point.count} review{point.count === 1 ? "" : "s"}</span>
               </p>
               {point.quote ? (
-                <blockquote className="mt-2 border-l-2 border-teal pl-3 text-sm leading-6 text-slate-600">
+                <blockquote className="ri-fade-in mt-2 border-l-2 border-teal pl-3 text-sm leading-6 text-slate-600">
                   “{point.quote}”
                   {point.sourceHost ? (
                     <span className="mt-1 block text-xs text-slate-400">
@@ -61,7 +62,7 @@ function ScreenshotUpload({ productName }: { productName: string }) {
   }
   return (
     <div className="mt-3">
-    <label className="inline-flex cursor-pointer items-center rounded-full bg-teal px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal/90">
+    <label className="ri-lift inline-flex cursor-pointer items-center rounded-full bg-teal px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal/90">
       <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="sr-only" onChange={onChange} disabled={busy} />
       {busy ? "Reading…" : "Upload screenshots"}
     </label>
@@ -78,14 +79,14 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
       <section className={`rounded-[2rem] bg-white p-6 ring-1 ${tone.ring} sm:p-10`}>
         <p className="text-sm text-slate-500">Our answer</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className={`rounded-full px-5 py-2 text-2xl font-bold tracking-tight sm:text-3xl ${tone.chip}`}>{answer.label}</span>
-          {answer.score !== null ? <span className="text-sm text-slate-500">Score {answer.score.toFixed(1)} / 10</span> : null}
+          <span className={`ri-reveal rounded-full px-5 py-2 text-2xl font-bold tracking-tight sm:text-3xl ${tone.chip}`}>{answer.label}</span>
+          {answer.score !== null ? <span className="text-sm text-slate-500">Score <CountUp value={answer.score} /> / 10</span> : null}
         </div>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-800 sm:text-xl">{answer.why}</p>
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-3">
-          <div><dt className="text-slate-500">Confidence</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{answer.confidencePercent !== null ? `${answer.confidencePercent}% · ${answer.confidenceWords}` : "Unknown"}</dd></div>
+          <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{answer.confidencePercent !== null ? `${answer.confidencePercent}% · ${answer.confidenceWords}` : "Unknown"}</dd></div>
           <div><dt className="text-slate-500">Value for money</dt><dd className="mt-1 font-semibold text-slate-900">{answer.value}</dd></div>
-          <div className="col-span-2 sm:col-span-1"><dt className="text-slate-500">Evidence</dt><dd className="mt-1 font-semibold text-slate-900">{answer.reviewCount ? `${answer.reviewCount} real reviews` : "None yet"}</dd></div>
+          <div className="col-span-2 sm:col-span-1"><dt className="text-slate-500">Based on</dt><dd className="mt-1 font-semibold text-slate-900">{answer.reviewCount ? `${answer.reviewCount} real reviews` : "None yet"}</dd></div>
         </dl>
         <p className="mt-5 text-sm text-slate-500">{answer.trustLine}</p>
       </section>

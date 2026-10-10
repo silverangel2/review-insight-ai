@@ -68,11 +68,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
-        {/* Resolve the layout mode before first paint so mobile CSS doesn't shift the page after hydration (CLS). */}
-        <script
-          id="reviewintel-layout-mode-init"
-          dangerouslySetInnerHTML={{ __html: `(function(){try{var d=document.documentElement;var m=${process.env.NODE_ENV !== "production" ? 'localStorage.getItem("reviewintel_layout_mode")' : "null"};if(m!=="mobile"&&m!=="desktop"&&m!=="desktop-mini"){m="auto"}var r=m==="auto"?(matchMedia("(max-width: 767px)").matches?"mobile":"desktop"):m;d.dataset.layoutMode=r;d.dataset.layoutPreference=m;}catch(e){}})();` }}
-        />
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
         <script
@@ -83,6 +78,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         />
       </head>
       <body>
+        {/* Resolve the layout mode before first paint so mobile CSS doesn't shift the page after hydration (CLS). */}
+        <script
+          suppressHydrationWarning
+          id="reviewintel-layout-mode-init"
+          dangerouslySetInnerHTML={{ __html: `(function(){try{var d=document.documentElement;var m=${process.env.NODE_ENV !== "production" ? 'localStorage.getItem("reviewintel_layout_mode")' : "null"};if(m!=="mobile"&&m!=="desktop"&&m!=="desktop-mini"){m="auto"}var r=m==="auto"?(matchMedia("(max-width: 767px)").matches?"mobile":"desktop"):m;d.dataset.layoutMode=r;d.dataset.layoutPreference=m;}catch(e){}})();` }}
+        />
         <NextIntlClientProvider locale={locale} messages={messages}>
         <LocaleSync initialLocale={locale} />
         <ClientTextLocalizer />
