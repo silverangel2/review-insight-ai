@@ -46,9 +46,9 @@ function daysLeft(value?: string | null) {
 
 function planLabel(plan?: string | null) {
   if (plan === "buyer_beta") return "Beta Shopper Premium";
-  if (plan === "seller_beta") return "Beta Seller Premium";
+  if (plan === "seller_beta") return "Beta Seller Starter";
   if (plan === "buyer_pro") return "Shopper Premium";
-  if (plan === "seller_premium") return "Seller Premium";
+  if (plan === "seller_premium") return "Seller Starter";
   if (plan === "seller_pro") return "Seller Pro";
   return plan || "Unknown";
 }

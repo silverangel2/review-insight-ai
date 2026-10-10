@@ -45,7 +45,7 @@ const planOptions: Array<{
   },
   {
     plan: "seller_premium",
-    title: "Seller Premium",
+    title: "Seller Starter",
     detail: "Seller analytics, complaint clustering, product improvement suggestions, and export-ready insights."
   },
   {

@@ -29,6 +29,7 @@ function resolveLayoutMode(mode: LayoutMode): ResolvedLayoutMode {
 
 export default function LayoutModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<LayoutMode>("auto");
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [resolvedMode, setResolvedMode] = useState<ResolvedLayoutMode>("desktop");
   const showTester = process.env.NODE_ENV !== "production";
 
@@ -87,10 +88,29 @@ export default function LayoutModeProvider({ children }: { children: ReactNode }
 
   if (!showTester) return <>{children}</>;
 
+  // Collapsed by default so the tester control never covers page content on phones.
+  if (!switcherOpen) {
+    return (
+      <>
+        {children}
+        <button
+          type="button"
+          aria-label="Open layout switcher"
+          onClick={() => setSwitcherOpen(true)}
+          style={{ right: "auto" }}
+          className="reviewintel-view-switcher-toggle fixed bottom-[calc(0.5rem+env(safe-area-inset-bottom))] left-2 z-[9999] rounded-full border border-slate-300 bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-700 shadow-md"
+        >
+          Layout · {resolvedMode}
+        </button>
+      </>
+    );
+  }
+
   return (
     <>
       {children}
-      <div className="reviewintel-view-switcher fixed bottom-3 right-3 z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-1 rounded-full border border-slate-300 bg-white/95 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-800 shadow-2xl backdrop-blur-sm">
+      <div style={{ right: "auto", left: "0.5rem", bottom: "calc(0.5rem + env(safe-area-inset-bottom))" }} className="reviewintel-view-switcher fixed bottom-[calc(0.5rem+env(safe-area-inset-bottom))] left-2 z-[9999] flex max-w-[calc(100vw-1rem)] flex-wrap items-center gap-1 rounded-2xl border border-slate-300 bg-white/95 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-800 shadow-2xl backdrop-blur-sm">
+      <button type="button" aria-label="Close layout switcher" onClick={() => setSwitcherOpen(false)} className="rounded-full px-1.5 text-slate-500 hover:text-slate-900">×</button>
       <span className="text-slate-700">Layout:</span>
       <button
         type="button"

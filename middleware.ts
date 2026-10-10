@@ -116,15 +116,25 @@ export async function middleware(request: NextRequest) {
     return withSecurityHeaders(NextResponse.redirect(target));
   }
 
+  // Signed-in shoppers never see seller tools: show a clean seller upsell at the same URL.
+  // (Seller APIs enforce the verified session separately; this cookie check only shapes the page.)
+  if (isProtectedSellerPath && isLoggedIn && !isSellerAccount) {
+    const target = request.nextUrl.clone();
+    target.pathname = "/seller-upsell";
+    target.search = "";
+    return withSecurityHeaders(NextResponse.rewrite(target));
+  }
+
+  // Seller Starter: competitor compare is Seller Pro. Show a locked preview, not a silent redirect.
   if (
     (pathname === "/dashboard/seller/compare" || pathname.startsWith("/dashboard/seller/compare/")) &&
     isPaidSellerAccount &&
     normalizedPlan !== "seller_pro"
   ) {
     const target = request.nextUrl.clone();
-    target.pathname = "/seller/analyze";
-    target.search = "";
-    return withSecurityHeaders(NextResponse.redirect(target));
+    target.pathname = "/seller-upsell";
+    target.search = "?feature=compare";
+    return withSecurityHeaders(NextResponse.rewrite(target));
   }
 
   if (
@@ -137,16 +147,7 @@ export async function middleware(request: NextRequest) {
     return withSecurityHeaders(NextResponse.redirect(target));
   }
 
-  if (
-    (pathname === "/dashboard/customer" || pathname.startsWith("/dashboard/customer/")) &&
-    isBuyerAccount &&
-    !isShopperPremium
-  ) {
-    const target = request.nextUrl.clone();
-    target.pathname = "/analyze";
-    target.search = "";
-    return withSecurityHeaders(NextResponse.redirect(target));
-  }
+  // Free shoppers now see the hub as a preview (Premium tiles are shown locked with an upgrade path).
 
   try {
     const response = await fetch(`${origin}/api/app-settings`, {

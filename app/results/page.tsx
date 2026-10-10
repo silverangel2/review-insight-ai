@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { ResultsClient } from "@/components/ResultsClient";
+
+export const metadata: Metadata = {
+  title: "Your ReviewIntel result",
+  description: "A plain Buy, Wait or Skip answer built only from real written buyer reviews of this exact product.",
+  robots: { index: false },
+};
 
 export default function ResultsPage() {
   return (

@@ -2698,8 +2698,8 @@ export function ResultsClient() {
     accountPlan === "seller_pro"
       ? "Seller Pro"
       : accountPlan === "seller_premium"
-        ? "Seller Premium"
-        : "Seller Premium";
+        ? "Seller Starter"
+        : "Seller Starter";
   const isCompareResult = !isSellerAudience && isShopperCompareResult(result);
   const resultRecord = result as unknown as Record<string, unknown>;
   const resultMeta = (resultRecord.meta && typeof resultRecord.meta === "object" ? resultRecord.meta : {}) as Record<string, unknown>;

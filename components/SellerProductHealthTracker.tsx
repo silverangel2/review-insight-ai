@@ -22,7 +22,7 @@ import type { ReviewPlatform, SubscriptionPlan } from "@/lib/types";
 
 const toneClasses: Record<SellerProductScanTone, string> = {
   positive: "border-teal/25 bg-teal/10 text-teal",
-  mixed: "border-amber/25 bg-amber/10 text-amber",
+  mixed: "border-amber/25 bg-amber/10 text-[#8a5a12]",
   negative: "border-coral/25 bg-coral/10 text-coral",
   improvement: "border-ocean/25 bg-ocean/10 text-ocean dark:text-cyan-300"
 };

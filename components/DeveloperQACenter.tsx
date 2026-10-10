@@ -23,7 +23,7 @@ type Diagnostics = {
 const validationItems = [
   "Shopper Free flow",
   "Shopper Premium simulation",
-  "Seller Premium simulation",
+  "Seller Starter simulation",
   "Seller Pro simulation",
   "Admin access guard",
   "Screenshot upload",
@@ -78,7 +78,7 @@ const testModes: Array<{
     detail: "Unlimited shopper verdicts, still no seller analytics interface."
   },
   {
-    label: "Seller Premium",
+    label: "Seller Starter",
     email: "seller.premium@reviewintel.test",
     profileId: "SELL-PREMIUM-001",
     role: "seller",

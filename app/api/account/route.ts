@@ -25,7 +25,7 @@ function testAccountOverride(email: string) {
   if (normalizedEmail === "seller.starter@reviewintel.test") {
     return {
       email: normalizedEmail,
-      name: "Seller Premium Test",
+      name: "Seller Starter Test",
       role: "seller",
       plan: "seller_premium",
       subscriptionStatus: "active",

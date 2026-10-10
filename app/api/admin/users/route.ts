@@ -37,8 +37,8 @@ type ProfileRow = {
 
 function planLabel(plan?: string | null) {
   if (plan === "seller_pro") return "Seller Pro";
-  if (plan === "seller_starter" || plan === "seller_premium") return "Seller Premium";
-  if (plan === "seller_beta") return "Beta Seller Premium";
+  if (plan === "seller_starter" || plan === "seller_premium") return "Seller Starter";
+  if (plan === "seller_beta") return "Beta Seller Starter";
   if (plan === "buyer_pro") return "Shopper Premium";
   if (plan === "buyer_beta") return "Beta Shopper Premium";
   return "Shopper Free";
@@ -262,7 +262,7 @@ export async function POST(request: Request) {
   await logAdminAction(adminSession.email, action, email, reason || note);
 
   if (action === "make_beta_shopper" || action === "make_beta_seller") {
-    const betaPlanName = action === "make_beta_shopper" ? "Beta Shopper Premium" : "Beta Seller Premium";
+    const betaPlanName = action === "make_beta_shopper" ? "Beta Shopper Premium" : "Beta Seller Starter";
     const betaExpiry = update.beta_expires_at ? new Date(String(update.beta_expires_at)).toLocaleDateString() : "in 30 days";
 
     await sendReviewIntelEmail({
@@ -297,7 +297,7 @@ export async function POST(request: Request) {
     unban: "Account restored to active.",
     note: "Admin note saved.",
     make_beta_shopper: "Beta Shopper Premium started. Welcome email sent if email delivery is configured.",
-    make_beta_seller: "Beta Seller Premium started. Welcome email sent if email delivery is configured.",
+    make_beta_seller: "Beta Seller Starter started. Welcome email sent if email delivery is configured.",
     remove_beta: "Beta access removed."
   };
 

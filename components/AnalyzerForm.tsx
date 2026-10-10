@@ -213,8 +213,11 @@ export default function AnalyzerForm() {
 
   const canAnalyze = Boolean(image) && !isLoading;
   const scanLimitMessage = analyzerFormCopy(readStoredLocale()).scanLimitMessage;
-  const clientAccount = getClientAccount();
-  const isAnonymousVisitor = !clientAccount?.email || clientAccount.email === "guest";
+  // Read the browser-stored account only after hydration so server and first client render match.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+  const clientAccount = hydrated ? getClientAccount() : null;
+  const isAnonymousVisitor = hydrated && (!clientAccount?.email || clientAccount.email === "guest");
   const anonLimitReached = isAnonymousVisitor && anonScansUsed >= ANON_SCAN_LIMIT_CLIENT;
   const anonScansLeft = Math.max(0, ANON_SCAN_LIMIT_CLIENT - anonScansUsed);
   const isBetaAccount = clientAccount?.plan === "buyer_beta" || clientAccount?.plan === "seller_beta";

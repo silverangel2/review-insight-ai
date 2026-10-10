@@ -16,8 +16,8 @@ export default async function DashboardPage() {
     redirect("/pricing?plan=seller_premium");
   }
 
-  if (role === "buyer" && (plan === "buyer_pro" || plan === "buyer_beta")) {
-    redirect("/dashboard/customer");
+  if (role === "buyer") {
+    redirect("/dashboard/customer"); // Premium hub, or the Free preview of it
   }
 
   redirect("/analyze");

@@ -6,6 +6,12 @@ import { normalizeLocale } from "@/lib/i18n";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
+import { freeSellerCompare } from "@/lib/sellerCompareFree";
+
+/** Legacy OpenAI comparison is kept but OFF unless REVIEWINTEL_SELLER_COMPARE_OPENAI=on. */
+function sellerCompareOpenAiEnabled(env: Record<string, string | undefined> = process.env) {
+  return ["on", "1", "true"].includes(String(env.REVIEWINTEL_SELLER_COMPARE_OPENAI || "").toLowerCase());
+}
 
 export const dynamic = "force-dynamic";
 
@@ -273,6 +279,10 @@ export async function POST(request: Request) {
         executiveSummary: "Not enough verified written review evidence was available to compare these products.",
         comparabilityWarning: "At least one product lacks verified written review evidence.",
       }));
+    }
+
+    if (!sellerCompareOpenAiEnabled()) {
+      return NextResponse.json(freeSellerCompare(asRecord(yourProductWithReviewEvidence), asRecord(competitorProductWithReviewEvidence), { yours: yourLabel, competitor: competitorLabel }));
     }
 
     const prompt = `

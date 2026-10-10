@@ -40,7 +40,7 @@ function itemsForAccount(account: Account): NavItem[] {
     ];
   }
 
-  // Seller Premium
+  // Seller Starter
   if (role === "seller" && plan === "seller_premium") {
     return [
       { href: "/dashboard/seller/upload", label: "Scan" },

@@ -71,9 +71,9 @@ const ownerAccounts: OwnerAccount[] = [
     description: "Premium shopper account."
   },
   {
-    label: "Seller Premium",
+    label: "Seller Starter",
     email: "seller.premium@reviewintel.test",
-    name: "Seller Premium",
+    name: "Seller Starter",
     role: "seller",
     plan: "seller_premium",
     route: "/dashboard/seller",

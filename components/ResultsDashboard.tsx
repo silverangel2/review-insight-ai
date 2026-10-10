@@ -908,7 +908,7 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
           <Badge tone="info">{t("trustSnapshot", { plan: sellerPlanLabel })}</Badge>
           <h2 className="mt-4 text-3xl font-black leading-tight text-ink dark:text-white">{t("coreSellerTrustRead")}</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Seller Premium gets the growth diagnosis and buyer confidence summary. Seller Pro unlocks deeper evidence, blockers, action sequencing, command tools, and full criteria detail.
+            Seller Starter gets the growth diagnosis and buyer confidence summary. Seller Pro unlocks deeper evidence, blockers, action sequencing, command tools, and full criteria detail.
           </p>
           <div className="mt-5 rounded-2xl border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{t("overallTrust")}</p>
@@ -967,7 +967,7 @@ function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; i
       <div className="ri-result-firework absolute right-12 top-8 hidden md:block" />
       <div className="relative grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
         <div>
-          <Badge tone={isSellerPro ? "warn" : "info"}>{isSellerPro ? "Seller Pro magic moment" : "Seller Premium insight"}</Badge>
+          <Badge tone={isSellerPro ? "warn" : "info"}>{isSellerPro ? "Seller Pro magic moment" : "Seller Starter insight"}</Badge>
           <h2 className="mt-5 text-3xl font-black leading-tight lg:text-3xl">Turn review pain into product revenue moves.</h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
             This report is not a shopper verdict. It is a {isSellerPro ? "seller operating map" : "seller review snapshot"} built from {meta.review_count_estimate} valid reviews.

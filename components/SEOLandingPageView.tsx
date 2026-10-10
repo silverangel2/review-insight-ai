@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Badge } from "@/components/Badge";
 import type { SEOLandingPage } from "@/lib/seoLandingPages";
 
 export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
@@ -18,7 +17,6 @@ export function SEOLandingPageView({ page }: { page: SEOLandingPage }) {
         <div className="ri-scan-beam absolute inset-x-0 top-0 h-28 opacity-70" />
         <div className="relative grid gap-8 lg:grid-cols-[1fr_0.82fr] lg:items-center">
           <div>
-            <Badge tone={page.audience === "Seller" ? "warn" : "good"}>{page.audience} SEO landing page</Badge>
             <h1 className="mt-5 max-w-4xl text-4xl font-black leading-tight md:text-7xl">{page.title}</h1>
             <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-slate-100">{page.description}</p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">

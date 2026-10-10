@@ -64,9 +64,9 @@ const actionCopy: Record<AdminAction, { label: string; busy: string; done: strin
   },
   make_beta_seller: {
     label: "Beta Seller",
-    busy: "Granting Beta Seller Premium...",
-    done: "Beta Seller Premium granted.",
-    helper: "Gives this customer beta seller premium access with unlimited scans.",
+    busy: "Granting Beta Seller Starter...",
+    done: "Beta Seller Starter granted.",
+    helper: "Gives this customer beta seller starter access with unlimited scans.",
   },
   remove_beta: {
     label: "Remove Beta",

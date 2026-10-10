@@ -14,7 +14,7 @@ function hasSellerAccess(account: ClientAccount | null) {
     role === "seller" ||
     role === "admin" ||
     plan.includes("seller_pro") ||
-    plan.includes("seller premium") ||
+    plan.includes("seller starter") || plan.includes("seller premium") ||
     plan.includes("seller_premium") ||
     plan.includes("seller_beta")
   );

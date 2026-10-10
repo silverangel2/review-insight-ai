@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FREE_DAILY_REVIEW_LIMIT } from "@/lib/account";
 import { useEffect, useMemo, useState } from "react";
 import { getClientAccount } from "@/lib/clientAccount";
 import { displayCodeForResult } from "@/lib/productDisplay";
@@ -164,8 +165,7 @@ export default function CustomerDashboardPage() {
       if (!premium) {
         clearHistory(account);
         setHistory([]);
-        window.location.replace("/analyze");
-        return;
+        return; // Free shoppers stay here and see the Premium preview.
       }
 
       setHistory(readHistory(account));
@@ -187,27 +187,44 @@ export default function CustomerDashboardPage() {
   }, [history]);
 
   if (dashboardAllowed !== true) {
+    // Free shoppers get an honest preview of what Premium adds, not a dead end.
+    const premiumAdds = [
+      ["Saved scans", "Every product you check is kept for 30 days, so you can come back to it."],
+      ["Compare products", "Put two products side by side using their real buyer reviews."],
+      ["Avoid list", "Products whose reviews showed warning signs, in one place."],
+      ["Unlimited scans", `Free includes ${FREE_DAILY_REVIEW_LIMIT} scans a day; Premium has no daily limit.`],
+    ];
     return (
-      <main className="min-h-screen bg-paper px-6 py-12 text-ink dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
-        <section className="mx-auto max-w-xl rounded-[2rem] border border-line bg-white p-8 text-center shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-teal dark:text-cyan-200">Shopper Free</p>
-          <h1 className="mt-3 text-3xl font-black">Dashboard is premium-only.</h1>
-          <p className="mt-3 text-sm font-bold leading-6 text-slate-500 dark:text-slate-400">
-            Free shoppers can analyze products and view the current scan result, but saved dashboards are not enabled.
+      <main className="min-h-screen bg-slate-50 px-5 py-12 text-slate-900">
+        <section className="mx-auto max-w-3xl rounded-[1.75rem] bg-white p-6 ring-1 ring-slate-900/5 sm:p-10" data-testid="free-hub-preview">
+          <p className="text-sm font-semibold text-teal">Your shopping hub</p>
+          <h1 className="mt-2 text-3xl font-semibold leading-tight">Keep track of everything you check</h1>
+          <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
+            You&apos;re on Shopper Free: scan any product and see its result. Shopper Premium adds:
           </p>
-          <Link href="/analyze" className="mt-6 inline-flex rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white dark:bg-white dark:text-ink">
-            Go to Analyze
-          </Link>
+          <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+            {premiumAdds.map(([title, body]) => (
+              <li key={title} className="rounded-2xl bg-slate-50 p-4">
+                <p className="flex items-center gap-2 font-semibold"><span aria-hidden="true" className="text-slate-400">🔒</span>{title}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link href="/pricing" className="inline-flex rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white hover:bg-teal/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">See Shopper Premium</Link>
+            <Link href="/analyze" className="inline-flex rounded-full border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal">Scan a product</Link>
+          </div>
         </section>
       </main>
     );
   }
 
-  const todayCount = history.length;
-  const scanLimitLabel = isPremium ? `${todayCount}/10` : "3/day";
+  // Matches the enforced limits in lib/account.ts: Premium is unlimited, Free is FREE_DAILY_REVIEW_LIMIT per day.
+  const savedCount = history.length;
+  const scanLimitLabel = isPremium ? String(savedCount) : `${FREE_DAILY_REVIEW_LIMIT} a day`;
   const historyWindowLabel = isPremium ? "30 days" : "Off";
   const historyHelper = isPremium
-    ? "Premium keeps 10 scans per week"
+    ? "Saved scans. Premium scans are unlimited."
     : "Free does not save scan history";
 
   return (
@@ -275,7 +292,7 @@ export default function CustomerDashboardPage() {
 
         <section className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-3">
           <div className="rounded-[1.5rem] border border-line bg-white p-4 sm:rounded-[2rem] sm:p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Today</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{isPremium ? "Your scans" : "Free scans"}</p>
             <p className="mt-1 text-3xl font-black sm:mt-2 sm:text-4xl text-ink dark:text-white">{scanLimitLabel}</p>
             <p className="mt-2 text-sm font-bold text-slate-500">{historyHelper}</p>
           </div>
@@ -342,8 +359,9 @@ export default function CustomerDashboardPage() {
               ))
             ) : (
               <div className="rounded-2xl bg-slate-50 p-6 text-center dark:bg-white/5">
-                <p className="text-xl font-black text-ink dark:text-white">No scans yet.</p>
-                <p className="mt-2 text-sm font-bold text-slate-500">Analyze a product to start your saved history.</p>
+                <p className="text-lg font-semibold text-slate-900 dark:text-white">Nothing saved yet</p>
+                <p className="mt-1 text-sm text-slate-600">Paste a product link and its verdict is saved here for 30 days.</p>
+                <Link href="/analyze" className="mt-4 inline-flex rounded-full bg-teal px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal/90">Scan a product</Link>
               </div>
             )}
           </div>
@@ -369,8 +387,8 @@ export default function CustomerDashboardPage() {
                   </div>
                 ))
             ) : (
-              <div className="rounded-2xl bg-slate-50 p-5 text-sm font-bold text-slate-500 dark:bg-white/5">
-                No avoid products yet.
+              <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-600 dark:bg-white/5">
+                Good news: none of your scanned products had warning signs. Anything rated Skip will appear here.
               </div>
             )}
           </div>

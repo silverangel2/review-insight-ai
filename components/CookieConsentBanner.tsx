@@ -95,27 +95,25 @@ export function CookieConsentBanner() {
 
   return (
     <section
-      className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[9997] mx-auto max-w-3xl overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/85 p-4 text-ink shadow-[0_24px_90px_rgba(15,23,42,0.20)] backdrop-blur-2xl"
+      className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-[9997] mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-[0_12px_40px_rgba(15,23,42,0.14)]"
       aria-label="Cookie consent"
     >
-      <div className="pointer-events-none absolute -left-10 -top-12 h-28 w-28 rounded-full bg-cyan-300/35 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-14 right-6 h-32 w-32 rounded-full bg-amber-300/35 blur-2xl" />
-      <div className="relative grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-ocean">{text.eyebrow}</p>
-          <h2 className="mt-1 text-base font-black text-ink md:text-lg">{text.title}</h2>
-          <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">{text.body}</p>
-          <Link href="/cookies" className="mt-2 inline-flex text-xs font-black text-ocean underline underline-offset-4">
+          
+          <h2 className="sr-only">{text.title}</h2>
+          <p className="text-sm leading-5 text-slate-600">{text.body}</p>
+          <Link href="/cookies" className="mt-1 inline-flex text-xs font-medium text-teal underline underline-offset-4">
             {text.policy}
           </Link>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row md:flex-col">
+        <div className="flex shrink-0 gap-2">
           <button
             type="button"
             onClick={() => choose("accepted")}
             disabled={Boolean(saving)}
-            className="rounded-2xl bg-[linear-gradient(135deg,#08b7a8,#2356a3)] px-4 py-3 text-sm font-black text-white shadow-[0_14px_35px_rgba(35,86,163,0.20)] disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
+            className="rounded-full bg-teal px-4 py-2 text-sm font-semibold text-white disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
           >
             {saving === "accepted" ? "Saving..." : text.accept}
           </button>
@@ -123,7 +121,7 @@ export function CookieConsentBanner() {
             type="button"
             onClick={() => choose("essential")}
             disabled={Boolean(saving)}
-            className="rounded-2xl border border-line bg-white px-4 py-3 text-sm font-black text-ink shadow-sm disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
           >
             {saving === "essential" ? "Saving..." : text.essential}
           </button>

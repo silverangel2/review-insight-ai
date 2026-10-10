@@ -42,7 +42,7 @@ const qaAccounts: Array<{
   },
   {
     email: "seller.starter@reviewintel.test",
-    name: "Seller Premium Tester",
+    name: "Seller Starter Tester",
     role: "seller",
     plan: "seller_premium",
     profileId: "SELL-PREM-001",

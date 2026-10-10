@@ -60,7 +60,7 @@ const coreSeoPages: AutomatedSeoPage[] = [
     label: "Pricing",
     path: "/pricing",
     title: "ReviewIntel Pricing | Shopper and Seller Plans",
-    description: "Choose Shopper Premium, Seller Premium, or Seller Pro for AI review analysis, seller intelligence, competitor comparison, and growth tracking.",
+    description: "Choose Shopper Premium, Seller Starter, or Seller Pro for AI review analysis, seller intelligence, competitor comparison, and growth tracking.",
     keywords: ["ReviewIntel pricing", "seller review analytics pricing", "shopper review AI pricing"],
     robots: "index,follow",
     priority: 0.82,

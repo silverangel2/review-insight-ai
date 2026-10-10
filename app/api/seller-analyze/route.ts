@@ -416,7 +416,7 @@ export async function POST(request: Request) {
 
     if (!sellerAccess.allowed) {
       return NextResponse.json(
-        { error: "Seller analysis requires an active Seller Premium or Seller Pro subscription.", code: "SELLER_PLAN_REQUIRED" },
+        { error: "Seller analysis requires an active Seller Starter or Seller Pro subscription.", code: "SELLER_PLAN_REQUIRED" },
         { status: 402 }
       );
     }

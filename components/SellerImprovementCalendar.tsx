@@ -450,7 +450,7 @@ export function SellerImprovementCalendar() {
         <Badge tone="warn">Seller Pro feature</Badge>
         <h2 className="mt-4 text-3xl font-black text-ink dark:text-white">Daily product improvement journal</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          The saved scan calendar is reserved for Seller Pro. Seller Premium keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.
+          The saved scan calendar is reserved for Seller Pro. Seller Starter keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.
         </p>
       </section>
     );

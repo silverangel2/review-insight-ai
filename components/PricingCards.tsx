@@ -50,10 +50,10 @@ const tiers: Array<{
   },
   {
     plan: "seller_premium",
-    name: "Seller Premium",
+    name: "Seller Starter",
     label: "Seller intelligence",
     description: "For sellers who need to understand what buyers keep praising or complaining about.",
-    cta: "Upgrade Seller Premium",
+    cta: "Upgrade Seller Starter",
     bestFor: "Finding product issues, review patterns, and listing fixes.",
     features: [
       "Seller product health scan",

@@ -1,21 +1,22 @@
+import { unstable_cache } from "next/cache";
 import { AdSlot } from "@/components/advertising/AdSlot";
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
-import { Badge } from "@/components/Badge";
+import { getTranslations } from "next-intl/server";
 import { FeaturedReviews } from "@/components/FeaturedReviews";
 import { HomePasteLink } from "@/components/HomePasteLink";
 import { VerdictSummaryCard } from "@/components/VerdictSummaryCard";
 import homeSample from "@/lib/homeSample.json";
 import { supabaseCount } from "@/lib/supabaseServer";
 import { HomepageInstructionVideo } from "@/components/HomepageInstructionVideo";
-import { PlatformLogoOrbit } from "@/components/PlatformLogoOrbit";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { getHomepageVideo } from "@/lib/homepageVideo";
 
 
 
 /** Real scan count from the database only; 0 (hidden) when unavailable. Bounded so it never slows the page. */
-async function realScanCount(): Promise<number> {
+// Cached for 10 minutes so the homepage never waits on the database per request (TTFB).
+const realScanCount = unstable_cache(realScanCountUncached, ["reviewintel-home-scan-count"], { revalidate: 600 });
+async function realScanCountUncached(): Promise<number> {
   try {
     const count = await Promise.race([
       supabaseCount("analyses", "select=id&limit=1"),
@@ -27,9 +28,7 @@ async function realScanCount(): Promise<number> {
 
 export default async function LandingPage() {
   const t = await getTranslations("Home");
-  const locale = await getLocale();
-  const homepageVideo = await getHomepageVideo();
-  const scanCount = await realScanCount();
+  const [homepageVideo, scanCount] = await Promise.all([getHomepageVideo(), realScanCount()]);
 
   const buyerWins = [
     t("buyerWins.verdict"),
@@ -47,7 +46,7 @@ export default async function LandingPage() {
 
   return (
     <>
-    <main className="reviewintel-home-main bg-[linear-gradient(135deg,#a8eee8_0%,#e7fbff_34%,#c7e2ff_66%,#fff0c9_100%)] text-ink">
+    <main className="reviewintel-home-main bg-white text-ink">
       <SponsorAnalytics placement="landing" />
 
       <section className="ri-home-hero border-b border-slate-200/70 bg-[linear-gradient(180deg,#f2fbfa_0%,#ffffff_100%)]">
@@ -99,69 +98,52 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <PlatformLogoOrbit initialLocale={locale} />
+      {/* Platform logo orbit removed: it implied TikTok/eBay coverage we do not scan. */}
 
-      <section className="home-premium-payoff min-h-[100svh] snap-start overflow-visible bg-[linear-gradient(180deg,#f6fdff_0%,#ffffff_100%)] px-5 py-10 text-ink sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-12">
-        <div className="home-premium-payoff-grid mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+      <section aria-labelledby="home-video" className="home-premium-payoff bg-slate-50 px-5 py-16 sm:px-6">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_1fr] lg:items-center">
           <div>
-            <Badge tone="warn">{t("instructionVideo.eyebrow")}</Badge>
-            <h2 className="mt-4 text-4xl font-black leading-tight md:text-5xl">{t("instructionVideo.title")}</h2>
-            <p className="mt-4 text-base leading-7 text-slate-600">
-              {t("instructionVideo.body")}
-            </p>
+            <p className="text-sm font-semibold text-teal">{t("instructionVideo.eyebrow")}</p>
+            <h2 id="home-video" className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl">{t("instructionVideo.title")}</h2>
+            <p className="mt-4 max-w-lg text-base leading-7 text-slate-600">{t("instructionVideo.body")}</p>
           </div>
-          <div className="home-instruction-video-frame mx-auto w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/82 p-3 shadow-[0_30px_100px_rgba(12,36,68,0.16)] backdrop-blur">
+          <div className="home-instruction-video-frame mx-auto w-full max-w-[400px] overflow-hidden rounded-[1.75rem] bg-white p-2.5 ring-1 ring-slate-900/5 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
             <HomepageInstructionVideo video={homepageVideo} />
           </div>
         </div>
       </section>
 
-      <section className="home-premium-audience min-h-[100svh] snap-start overflow-visible bg-[linear-gradient(135deg,#e7fbff_0%,#f8f2ff_48%,#fff4d8_100%)] px-5 py-10 text-ink sm:min-h-[calc(100vh-73px)] sm:px-6 sm:py-10">
-        <div className="home-premium-audience-grid mx-auto grid max-w-7xl gap-4 md:grid-cols-2">
-          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
-            <Badge tone="good">{t("shopperMode")}</Badge>
-            <h2 className="mt-4 text-3xl font-black">{t("fastShoppingVerdict")}</h2>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              {buyerWins.map((item) => (
-                <span key={item} className="rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm font-black">
-                  {item}
-                </span>
-              ))}
-            </div>
-            <Link href="/analyze" className="mt-6 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
-              {t("tryShopperScan")}
-            </Link>
-          </article>
-
-          <article className="home-premium-audience-card rounded-[2rem] border border-white/70 bg-white/54 p-6 shadow-soft backdrop-blur">
-            <Badge tone="warn">{t("sellerPro")}</Badge>
-            <h2 className="mt-4 text-3xl font-black">{t("businessIntelligence")}</h2>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              {sellerWins.map((item) => (
-                <span key={item} className="rounded-2xl border border-line bg-white/70 px-4 py-3 text-sm font-black">
-                  {item}
-                </span>
-              ))}
-            </div>
-            <Link href="/pricing" className="mt-6 inline-flex rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white sm:bg-ink">
-              {t("seeSellerPlans")}
-            </Link>
-          </article>
+      <section aria-labelledby="home-audience" className="home-premium-audience bg-white px-5 py-16 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <h2 id="home-audience" className="text-2xl font-semibold text-slate-900">Built for both sides of the purchase</h2>
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            {[
+              { eyebrow: t("shopperMode"), title: t("fastShoppingVerdict"), items: buyerWins, href: "/analyze", cta: t("tryShopperScan"), primary: true },
+              { eyebrow: t("sellerPro"), title: t("businessIntelligence"), items: sellerWins, href: "/pricing", cta: t("seeSellerPlans"), primary: false },
+            ].map((card) => (
+              <article key={card.href} className="home-premium-audience-card flex flex-col rounded-[1.75rem] bg-slate-50 p-6 sm:p-8">
+                <p className="text-sm font-semibold text-teal">{card.eyebrow}</p>
+                <h3 className="mt-1 text-2xl font-semibold text-slate-900">{card.title}</h3>
+                <ul className="mt-5 grid gap-2.5">
+                  {card.items.map((item) => (
+                    <li key={item} className="flex gap-2.5 text-[15px] leading-6 text-slate-700">
+                      <span aria-hidden="true" className="mt-0.5 text-teal">✓</span>{item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-auto pt-7">
+                  <Link href={card.href} className={card.primary
+                    ? "inline-flex rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white hover:bg-teal/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                    : "inline-flex rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"}>
+                    {card.cta}
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="home-premium-mode hidden min-h-0 bg-mist px-5 py-8 text-ink sm:block sm:min-h-0 sm:px-6 sm:py-12">
-        <div className="home-premium-mode-card mx-auto max-w-5xl rounded-[2rem] border border-line bg-white p-6 shadow-soft md:p-8">
-          <Badge tone="info">{t("modeIntro.eyebrow")}</Badge>
-          <h2 className="mt-4 text-3xl font-black tracking-tight text-ink md:text-4xl">{t("modeIntro.title")}</h2>
-          <p className="mt-4 text-base font-semibold leading-7 text-slate-700 sm:hidden">
-            Shopper mode helps buyers decide. Seller mode finds product signals.
-          </p>
-          <p className="mt-4 hidden text-base font-semibold leading-8 text-slate-700 sm:block md:text-lg md:leading-9">
-            {t("modeIntro.body")}
-          </p>
-        </div>
-      </section>
       <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
     
       <section className="home-premium-ad-section hidden mx-auto max-w-6xl px-6 pb-12 sm:block">
