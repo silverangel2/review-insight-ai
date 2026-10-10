@@ -6,7 +6,7 @@ import {
   type RetrievedProductUrl,
 } from "./productUrlRetrieval";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
-import { extractProductIdentityTokenRoles, stableProductSearchTerms } from "./productIdentityTokens";
+import { PRODUCT_COLOR_WORDS, extractProductIdentityTokenRoles, stableProductSearchTerms } from "./productIdentityTokens";
 
 export type ProductSearchJob = {
   scanId: string;
@@ -51,7 +51,6 @@ export type ProductVerifierDecision =
   | "rejected_similar_product"
   | "rejected_wrong_store"
   | "rejected_wrong_variant"
-  | "rejected_rating_review_count_mismatch"
   | "rejected_missing_distinctive_terms"
   | "rejected_non_product_page";
 
@@ -186,7 +185,6 @@ export async function prepareCandidateForVerification(
     (initialDecision.verifierStatus === "rejected_missing_distinctive_terms" &&
       (normalize(initiallyEnriched.title).includes(normalize(job.brand)) ||
         String(initiallyEnriched.title || "").split(/\s+/).length < 4)) ||
-    initialDecision.verifierStatus === "rejected_rating_review_count_mismatch" ||
     initialDecision.verifierStatus === "rejected_wrong_variant" ||
     initialDecision.verifierReasons.some((reason) => /bundle|packaged variant/i.test(reason)) ||
     (() => {
@@ -223,26 +221,7 @@ function storeDomain(store: unknown) {
   return s;
 }
 
-const COLOR_WORDS = new Set([
-  "black",
-  "white",
-  "gray",
-  "grey",
-  "pink",
-  "blue",
-  "green",
-  "red",
-  "purple",
-  "yellow",
-  "orange",
-  "silver",
-  "gold",
-  "beige",
-  "brown",
-  "navy",
-  "cream",
-  "clear",
-]);
+const COLOR_WORDS = new Set(PRODUCT_COLOR_WORDS);
 
 function colorsIn(value: unknown) {
   const colors = new Set<string>();
@@ -429,7 +408,14 @@ export function buildProductRetryQueries(job: ProductSearchJob, reason?: string)
     : "";
   const store = cleanDisplayToken(job.store || storeDomain(job.store) || "Amazon.ca");
   const modelTokens = identity.models;
-  const productType = identity.family ? [identity.family] : productTypeTermsForJob(job);
+  // Family is a bag of distinctive words, not a coherent phrase. Emit it as
+  // separate unquoted terms so the search engine ANDs them instead of
+  // requiring an adjacency that never occurs in real titles (e.g., quoting
+  // "ring life size galaxy" produces dead queries that waste search budget).
+  const productTypeTerms = identity.family
+    ? identity.family.split(" ").filter(Boolean)
+    : productTypeTermsForJob(job);
+  const productTypePhrase = productTypeTerms.join(" ");
   const variant = identity.variants.join(" ");
   const siteTarget = storeDomain(store) || store.toLowerCase();
 
@@ -437,16 +423,16 @@ export function buildProductRetryQueries(job: ProductSearchJob, reason?: string)
 
   const queries = effectiveModelTokens.length > 0
     ? [
-        `site:${siteTarget} "${brand}" "${effectiveModelTokens.join(" ")}" "${productType.join(" ")}"`,
-        `site:${siteTarget} "${brand}" "${effectiveModelTokens.join(" ")}" ${identity.roles.capacityOrSize.map((size) => `"${size}"`).join(" ")} "${productType.join(" ")}"`,
-        `"${brand} ${effectiveModelTokens.join(" ")} ${productType.join(" ")}" ${store}`,
-        `${parent} "${brand}" "${effectiveModelTokens.join(" ")}" ${productType.join(" ")} ${variant} ${store}`,
+        `site:${siteTarget} "${brand}" "${effectiveModelTokens.join(" ")}" ${productTypePhrase}`,
+        `site:${siteTarget} "${brand}" "${effectiveModelTokens.join(" ")}" ${identity.roles.capacityOrSize.map((size) => `"${size}"`).join(" ")} ${productTypePhrase}`,
+        `"${brand} ${effectiveModelTokens.join(" ")}" ${productTypePhrase} ${store}`,
+        `${parent} "${brand}" "${effectiveModelTokens.join(" ")}" ${productTypePhrase} ${variant} ${store}`,
       ]
     : [
-        `site:${siteTarget} "${brand}" ${identity.roles.capacityOrSize.map((size) => `"${size}"`).join(" ")} "${productType.join(" ")}"`,
-        `site:${siteTarget} "${brand}" "${productType.join(" ")}"`,
-        `"${brand} ${productType.join(" ")}" ${store}`,
-        `${brand} ${productType.join(" ")} ${variant} ${store}`,
+        `site:${siteTarget} "${brand}" ${identity.roles.capacityOrSize.map((size) => `"${size}"`).join(" ")} ${productTypePhrase}`,
+        `site:${siteTarget} "${brand}" ${productTypePhrase}`,
+        `"${brand}" ${productTypePhrase} ${store}`,
+        `${brand} ${productTypePhrase} ${variant} ${store}`,
       ];
 
   return Array.from(
@@ -520,6 +506,13 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
     const canonicalSize = (value: string) => normalize(value).replace(/cubic feet|cu\.?\s*ft\.?/g, "cuft").replace(/\d+(?:\.\d+)?/g, (number) => String(Number(number))).replace(/\s+/g, "");
     if (!canonicalSize(identityText).includes(canonicalSize(size))) reasons.push(`Candidate has missing or conflicting capacity identity: ${size}.`);
   }
+  // A selected child size cannot inherit exact identity from a parent title.
+  for (const variant of stableIdentity.roles.primaryVariants.filter(value => /^size\s+\d|^(?:xl|xxl)$/i.test(value))) {
+    const normalizedVariant = normalize(variant);
+    if (!new RegExp(`(?:^|\\s)${normalizedVariant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|$)`, "i").test(candidateText)) {
+      reasons.push(`Candidate has missing or conflicting child variant: ${variant}.`);
+    }
+  }
   const pageEnrichmentFailed = candidate.enrichmentAttempted && !candidate.enrichmentSucceeded && !candidate.identityFetched;
 
   const requestedColors = colorsIn(jobText);
@@ -552,7 +545,10 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
 
   if (candidate.model && requestedModel.length) {
     const fetchedModel = normalize(candidate.model).replace(/^(?:model|sku|item model number)\s+/, "").replace(/[^a-z0-9]/g, "");
-    if (!requestedModel.some((model) => model.replace(/[^a-z0-9]/g, "") === fetchedModel)) {
+    const supplementarySkuForNamedModel = requestedModel.some(model => /\s/.test(model)) &&
+      /^[a-z]+\d[a-z0-9_-]*$/i.test(String(candidate.model)) &&
+      requestedModel.every(model => normalize(candidate.title).includes(model));
+    if (!supplementarySkuForNamedModel && !requestedModel.some((model) => model.replace(/[^a-z0-9]/g, "") === fetchedModel)) {
       reasons.push("Fetched candidate model conflicts with the requested primary model.");
     }
   }
@@ -590,7 +586,16 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
   }
   if (stableIdentity.models.some((model) => /\s/.test(model))) {
     const candidateModels = extractProductIdentityTokenRoles({ brand: job.brand, productName: candidate.title }).primaryModels;
-    if (candidateModels.length && !candidateModels.some((model) => normalize(model).replace(/[^a-z0-9]/g, "") === requestedModel.join(" ").replace(/[^a-z0-9]/g, ""))) {
+    // A named model can be followed by family words on a less richly
+    // described page. Only the requested family vocabulary may be removed;
+    // generation/tier suffixes and unrelated model words stay conflicts.
+    const namedCore = (model: string) => {
+      const words = normalize(model).split(" ");
+      const familyWords = new Set(stableIdentity.roles.primaryProductFamily);
+      while (words.length > 1 && familyWords.has(words[words.length - 1])) words.pop();
+      return words.join(" ").replace(/[^a-z0-9]/g, "");
+    };
+    if (candidateModels.length && !candidateModels.some((model) => namedCore(model) === namedCore(requestedModel.join(" ")))) {
       reasons.push("Candidate has a conflicting named product model/family.");
     }
   }
@@ -614,14 +619,11 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
 
   if (reasons.length > 0) {
     const variantProblem = reasons.some((r) => /color\/variant/i.test(r));
-    const ratingProblem = reasons.some((r) => /rating|review count/i.test(r));
 
     return {
       verifierStatus: variantProblem
         ? "rejected_wrong_variant"
-        : ratingProblem
-          ? "rejected_rating_review_count_mismatch"
-          : "rejected_missing_distinctive_terms",
+        : "rejected_missing_distinctive_terms",
       verifierConfidence: Math.max(0, Math.round(termCoverage * 45)),
       verifierReasons: reasons,
       verifiedListingUrl: null,

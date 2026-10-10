@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 const require = createRequire(import.meta.url);
 
@@ -40,7 +41,7 @@ test("recommendations are isolated from the main scan result", () => {
   const panel = source("components/BetterPicksPanel.tsx");
   const route = source("app/api/product-recommendations/route.ts");
 
-  assert.match(panel, /cacheKeyFor\(productName, verdict, locale, scanId\)/);
+  // Free picks are fetched per scan (no shared cache key); stale responses for another scan are ignored.
   assert.match(panel, /scanId,\s*locale,\s*affiliatePlacement/s);
   assert.match(panel, /data\.scanId && scanId && data\.scanId !== scanId/);
 
@@ -321,7 +322,8 @@ test("collector removes duplicate and unusable review text", () => {
 
   assert.match(evidence, /normalizedReviewFingerprint/);
   assert.match(evidence, /seenExact\.has\(fingerprint\)/);
-  assert.match(evidence, /seenNearDuplicate\.has\(nearDuplicateKey\)/);
+  assert.doesNotMatch(evidence, /seenNearDuplicate\.has\(nearDuplicateKey\)/);
+  assert.doesNotMatch(evidence, /fingerprint\s*\.split\(" "\)\s*\.slice\(0, 80\)/);
   assert.match(evidence, /fingerprint\.length < 12/);
   assert.match(evidence, /\.normalize\("NFKC"\)/);
 });
@@ -388,4 +390,43 @@ test("OpenAI Web Search calls are centralized and budgeted", () => {
     assert.doesNotMatch(file, /tools:\s*\[\s*\{\s*type:\s*["']web_search/);
     assert.doesNotMatch(file, /tools:\s*\[\s*\{\s*type:\s*["']web_search_preview/);
   }
+});
+
+test("canonical scored evidence exposes deterministic verdict confidence instead of forcing null", async () => {
+  const source = await readFile(
+    new URL("../app/api/analyze/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /const displayedVerdictConfidence\s*=\s*canonicalEvidenceEligible\s*&&\s*Number\.isFinite\(verdictConfidence\)\s*\?\s*verdictConfidence\s*:\s*null;/s,
+  );
+
+  assert.doesNotMatch(
+    source,
+    /const displayedVerdictConfidence\s*=\s*null\s*;/,
+  );
+
+  assert.match(
+    source,
+    /buyerConfidence:\s*displayedVerdictConfidence/,
+  );
+
+  assert.match(
+    source,
+    /verdictConfidence:\s*displayedVerdictConfidence/,
+  );
+});
+
+test("confidence ratification recognizes DO NOT BUY YET as a real evidence verdict", async () => {
+  const source = await readFile(
+    new URL("../app/api/analyze/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /\["BUY",\s*"DO NOT BUY YET",\s*"REVIEW FIRST",\s*"AVOID"\]\.includes\(verdict\)/,
+  );
 });

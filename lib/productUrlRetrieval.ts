@@ -93,6 +93,18 @@ export function normalizeProductUrl(url: string) {
       const asin = parsed.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|product-reviews)\/([A-Z0-9]{10})(?:\/|$)/i)?.[1];
       if (asin) return `${parsed.origin}/dp/${asin.toUpperCase()}`;
     }
+    // Tracking/search params do not change product identity. Strip them so
+    // legitimate product pages with tracking params (e.g., ?q=track) are not
+    // discarded before verification. Search-shaped PATHS are still rejected
+    // by the candidate gate below.
+    let stripped = false;
+    for (const key of ["q", "k", "keyword", "search"]) {
+      if (parsed.searchParams.has(key)) {
+        parsed.searchParams.delete(key);
+        stripped = true;
+      }
+    }
+    if (stripped) decoded = parsed.toString();
   } catch { /* An invalid URL is rejected by the candidate gate. */ }
 
   return decoded.split("#")[0].replace(/[)\].,;]+$/g, "");
@@ -143,11 +155,11 @@ export function isProductUrl(url: string) {
     ) {
       return false;
     }
-    if (["q", "k", "keyword", "search"].some((key) => parsed.searchParams.has(key))) return false;
-
     // Manufacturer and retailer product-page shapes may proceed to the
     // existing exact-product verifier. Passing this gate does NOT make
     // the page trusted evidence or prove exact identity.
+    // Note: q/k/keyword/search PARAMS are stripped during URL normalization,
+    // so only search-shaped PATHS are rejected here.
     return (
       /\/products?\/[^/?#]+/i.test(path) ||
       /\/product[-_/][^/?#]+/i.test(path) ||
@@ -157,7 +169,17 @@ export function isProductUrl(url: string) {
       /\/dp\/[^/?#]+/i.test(path) ||
       /\/(?:gp\/product|gp\/aw\/d|product-reviews)\/[a-z0-9]{10}(?:\/|$)/i.test(path) ||
       /\.product\.[^/?#]+/i.test(path) ||
-      /\/ip\/[^/?#]+/i.test(path)
+      /\/ip\/[^/?#]+/i.test(path) ||
+      /\/site\/[^/?#]+\/[^/?#]+\.p$/i.test(path) ||
+      /\/p\/[^/?#]+\/-\/A-\d+/i.test(path) ||
+      /\/pd\/[^/?#]+\/\d+/i.test(path) ||
+      // Manufacturer deep product-page conventions (e.g., samsung.com/us/
+      // smartphones/galaxy-s24-ultra/, sony.com/electronics/...). Requires a
+      // known product-category segment followed by a specific product slug,
+      // so bare category listing pages do not pass. The verifier remains the
+      // backstop for exact identity.
+      /\/[a-z]{2}\/(?:smartphones?|mobile|tvs?|television|refrigerators?|appliances?|electronics?|computers?|laptops?|tablets?|headphones?|earbuds?|speakers?|cameras?|watches?)\/[^/?#]+\/?$/i.test(path) ||
+      /\/(?:electronics?|appliances?)\/[^/?#]+\/[^/?#]+\/?$/i.test(path)
     );
   } catch {
     return false;
@@ -354,8 +376,18 @@ export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
   for (const block of html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
     try { visit(JSON.parse(block[1])); } catch { /* Malformed JSON is not identity evidence. */ }
   }
-  const product = products.find((item) => usableTitle && typeof item.name === "string" && usableTitle.toLowerCase().includes(item.name.toLowerCase()))
-    || (products.length === 1 ? products[0] : undefined);
+  const product = (() => {
+    if (!usableTitle) return products.length === 1 ? products[0] : undefined;
+    const titleLower = usableTitle.toLowerCase();
+    const matches = products.filter(
+      (item) => typeof item.name === "string" && titleLower.includes((item.name as string).toLowerCase())
+    );
+    // Prefer the most specific (longest) product name contained in the title,
+    // so "RingConn Gen 2 Air" wins over "RingConn Gen 2" when a page lists
+    // multiple Product nodes (e.g., variant/recommended products).
+    matches.sort((a, b) => String(b.name).length - String(a.name).length);
+    return matches[0] || (products.length === 1 ? products[0] : undefined);
+  })();
   const structuredBrand = product?.brand;
   const brand = (typeof structuredBrand === "string" ? structuredBrand
     : structuredBrand && typeof structuredBrand === "object" ? (structuredBrand as Record<string, unknown>).name : null) ||
@@ -502,10 +534,12 @@ export async function retrieveProductUrls(input: ProductUrlRetrievalInput) {
     unique.map((candidate) => {
       const normalizedUrl = normalizeProductUrl(candidate.url).toLowerCase();
       if (input.enrichmentAttemptedUrls?.has(normalizedUrl)) {
+        // A previous round already attempted this URL. Do not assert a
+        // succeeded/failed outcome we did not observe in this round; leave
+        // the prior enrichment state unknown rather than inventing false.
         return {
           ...candidate,
           enrichmentAttempted: true,
-          enrichmentSucceeded: false,
         };
       }
       input.enrichmentAttemptedUrls?.add(normalizedUrl);

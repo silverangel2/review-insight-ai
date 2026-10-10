@@ -5,6 +5,7 @@ import { normalizeLocale } from "@/lib/i18n";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
+import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
 
 export const dynamic = "force-dynamic";
 
@@ -60,18 +61,25 @@ function normalizeWinner(value: unknown) {
 
 function normalize(rawValue: unknown) {
   const raw = recordOf(rawValue);
-  const winner = normalizeWinner(raw.winner);
+  const winnerValue = String(raw.winner || "").trim().toUpperCase();
+  const hasWinner = ["A", "B", "TIE", "INCOMPARABLE"].includes(winnerValue);
+  const winner = hasWinner ? normalizeWinner(winnerValue) : "INCOMPARABLE";
   const directSubstitutes = winner === "INCOMPARABLE" ? false : raw.directSubstitutes !== false;
+  const hasConfidence = typeof raw.confidence === "number" && Number.isFinite(raw.confidence);
 
   return {
     winner,
     directSubstitutes,
-    confidence: typeof raw.confidence === "number" ? Math.max(0, Math.min(100, Math.round(raw.confidence))) : 70,
-    verdictHeadline: text(raw.verdictHeadline, winner === "INCOMPARABLE" ? "Not directly comparable" : "Comparison complete"),
-    summary: text(raw.summary, "ReviewIntel compared both products using the available AI scan results."),
-    reasons: list(raw.reasons, ["Compare score, complaints, value, review trust, and evidence quality."]).slice(0, 4),
-    nextSteps: list(raw.nextSteps, ["Check exact use case, return policy, warranty, and recent reviews before buying."]).slice(0, 3),
+    confidence: hasConfidence ? Math.max(0, Math.min(100, Math.round(raw.confidence as number))) : null,
+    verdictHeadline: text(raw.verdictHeadline, "Comparison not scored"),
+    summary: text(raw.summary, "Not enough verified written review evidence was available to compare these products."),
+    reasons: list(raw.reasons, ["Not enough verified written review evidence was available to establish a comparison."]).slice(0, 4),
+    nextSteps: list(raw.nextSteps, ["Collect and verify written reviews for both products before comparing them."]).slice(0, 3),
   };
+}
+
+function hasWrittenReviewEvidence(value: unknown) {
+  return hasSufficientReviewEvidenceRecord(value);
 }
 
 
@@ -242,6 +250,17 @@ export async function POST(request: Request) {
       attachRealReviewEvidence(productA),
       attachRealReviewEvidence(productB),
     ]);
+
+    if (!hasWrittenReviewEvidence(productAWithReviewEvidence) || !hasWrittenReviewEvidence(productBWithReviewEvidence)) {
+      return NextResponse.json(normalize({
+        winner: "INCOMPARABLE",
+        directSubstitutes: false,
+        verdictHeadline: "Comparison not scored",
+        summary: "Not enough verified written review evidence was available to compare these products.",
+        reasons: ["At least one product lacks verified written review evidence."],
+        nextSteps: ["Collect and verify written reviews for both products before comparing them."],
+      }));
+    }
 
     const prompt = `
 You are ReviewIntel Shopper Premium Compare.

@@ -18,7 +18,7 @@ export type ProductIdentityTokenRoles = {
 
 const MODEL_TOKEN = /(?<![A-Za-z0-9])(?:[A-Za-z]+\d[A-Za-z0-9]*(?:[-_/][A-Za-z0-9]+)*|\d+[A-Za-z]+[A-Za-z0-9-]*)(?![A-Za-z0-9])/g;
 const MODEL_MARKER = /\b(?:xxl|xl|mini|pro|max|plus)\b/gi;
-const SPECIFICATION = /\b(?:\d[\d,]*(?:\.\d+)?\s*-?\s*(?:pa|kpa|mah|wh|kw|w|v|days?|hours?|hrs?)\b|ip\d{2,3}\b|(?:19|20)\d{2}\b|ultra[- ]thin\b|\d+-in-\d+\b)/gi;
+const SPECIFICATION = /\b(?:(?:full\s*hd|ultra\s*hd|pro[- ]uhd|uhd|hd)|\d+(?:k|p)\b|\d[\d,]*(?:\.\d+)?\s*-?\s*(?:pa|kpa|mah|wh|kw|w|v|days?|hours?|hrs?)\b|ip\d{2,3}\b|(?:19|20)\d{2}\b|ultra[- ]thin\b|\d+-in-\d+\b)/gi;
 const COMPATIBILITY_CONTEXT = /(?:compatible\s+with|works\s+with|requires|supports|homebase|accessory|optional)\b([^.;,)]*)/gi;
 const MARKETING_WORDS = new Set([
   "premium", "smart", "new", "latest", "best", "official", "amazon", "choice",
@@ -27,10 +27,16 @@ const MARKETING_WORDS = new Set([
   "ultra", "thin", "sleep", "fitness", "health", "tracking", "tracker",
   "for", "with", "and", "the", "of", "to", "featuring", "compatible",
 ]);
+export const PRODUCT_COLOR_WORDS = ["black", "white", "gray", "grey", "pink", "blue", "green", "red", "purple", "yellow", "orange", "silver", "gold", "beige", "brown", "navy", "cream", "clear"];
 const VARIANT_WORDS = new Set([
   "battery", "powered", "wired", "wireless", "dual", "camera", "cameras", "black",
   "white", "blue", "red", "silver", "gold", "mini", "plus", "max", "pro", "ultra",
+  "xl", "xxl", ...PRODUCT_COLOR_WORDS,
 ]);
+
+// Bare size-tier markers are variant/size attributes, not model identity.
+// They must not become primary models (e.g., "XL" in "Connected XL").
+const SIZE_TIER_MARKERS = new Set(["XL", "XXL"]);
 
 function text(value: unknown) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -159,6 +165,7 @@ function derivedNamedModelPhrase(productName: unknown, brand: unknown) {
 
   for (let i = start; i < sourceTokens.length; i += 1) {
     const raw = sourceTokens[i];
+    if (raw === "|") break;
     const token = normalized(raw);
 
     if (!token) continue;
@@ -193,8 +200,7 @@ function derivedNamedModelPhrase(productName: unknown, brand: unknown) {
   const joined = phrase.join(" ").trim();
 
   // A single ordinary word is more likely a family/category than a model.
-  // Multi-word names such as "Gen 2 Air" and "Qrevo S Pro" are useful
-  // identity phrases.
+  // Multi-word named models are useful identity phrases.
   const hasDigit = /\d/.test(joined);
 
   if (phrase.length < 2 && !hasDigit) {
@@ -226,14 +232,37 @@ export function extractProductIdentityTokenRoles(input: {
     .replace(/\b\d+(?:\.\d+)?\s*(?:out of\s*5|stars?|ratings?|reviews?)\b/gi, " ")
     .replace(/\b(?:rating|price|review count|sales rank)\s*[:=]?\s*#?\d[\d,.]*/gi, " ");
   const stableTitle = title.replace(SPECIFICATION, " ").replace(COMPATIBILITY_CONTEXT, " ");
-  const modelField = text(input.model).replace(SPECIFICATION, " ").trim();
+  const rawModelField = text(input.model).replace(SPECIFICATION, " ").trim();
+  // An explicit model field can still carry trailing marketing/spec language
+  // (e.g., "Gen 2 Air AI"). Truncate at the same marketing boundary the
+  // derived named-model path uses, so the explicit path cannot absorb "AI"
+  // or other promotional tokens into model identity. Legitimate suffixes
+  // (Pro/Max/Plus/Mini/Ultra) are preserved because they are not stop words.
+  const modelField = (() => {
+    if (!rawModelField || !input.brand) return rawModelField;
+    const derived = derivedNamedModelPhrase(`${text(input.brand)} ${rawModelField}`, input.brand);
+    if (derived && rawModelField.toLowerCase().startsWith(derived.toLowerCase())) {
+      return derived;
+    }
+    return rawModelField;
+  })();
   const key = text(input.productKey);
   const allText = [title, modelField, key, ...(input.compatibilityText || [])].filter(Boolean).join(" ");
-  const compatibility = compatibilityTokens(allText);
+  // Compatibility scopes end at a field boundary. Concatenating a title
+  // ending in "compatible with ..." with the explicit primary model field
+  // used to reclassify that primary model as an accessory.
+  const compatibility = new Set([title, modelField, key, ...(input.compatibilityText || [])]
+    .flatMap(value => [...compatibilityTokens(value)]));
   const allModels = Array.from(new Set(modelTokens(allText.replace(capacityPattern, " ")).map((token) => token.toUpperCase())))
     .filter((token) => !numericToken(token));
   const titleModels = new Set(modelTokens((stableTitle || key).replace(capacityPattern, " ")).map((token) => token.toUpperCase()));
-  const primaryModels = allModels.filter((token) => titleModels.has(token) && !compatibility.has(token));
+  // Bare size-tier markers (XL, XXL) are variant attributes, not model identity —
+  // but only demote them when a stronger (digit-bearing) model token exists.
+  // If XL/XXL is the sole model-like token (a size-tier family with
+  // no model number), it remains the key variant discriminator.
+  const hasStrongModelToken = allModels.some((token) => !SIZE_TIER_MARKERS.has(token) && /\d/.test(token));
+  const isSizeTierWithoutStrongModel = (token: string) => SIZE_TIER_MARKERS.has(token) && hasStrongModelToken;
+  const primaryModels = allModels.filter((token) => titleModels.has(token) && !compatibility.has(token) && !isSizeTierWithoutStrongModel(token));
   const secondaryModels = allModels.filter((token) => !primaryModels.includes(token));
 
   // If there is no explicit model field, derive a bounded named model
@@ -242,7 +271,7 @@ export function extractProductIdentityTokenRoles(input: {
   const derivedModel = modelField
     ? null
     : derivedNamedModelPhrase(
-        title.replace(capacityPattern, " ").replace(SPECIFICATION, " | "),
+        title.replace(capacityPattern, " | ").replace(SPECIFICATION, " | "),
         input.brand,
       );
 
@@ -264,7 +293,7 @@ export function extractProductIdentityTokenRoles(input: {
     : primaryModels.length
       ? primaryModels
       : allModels
-          .filter((token) => !compatibility.has(token))
+          .filter((token) => !compatibility.has(token) && !isSizeTierWithoutStrongModel(token))
           .slice(0, 1);
 
   const finalSecondaryModels = Array.from(new Set([...secondaryModels, ...compatibility])).filter(
@@ -273,9 +302,13 @@ export function extractProductIdentityTokenRoles(input: {
 
   const brandWords = stableWords(input.brand);
   const titleWords = normalized(stableTitle.replace(capacityPattern, " ")).split(" ").filter((word) => word.length >= 3);
+  // A colour word inside a feature phrase ("crystal clear calling", "clear
+  // sound") describes performance, not the variant's colour.
+  const descriptiveWord = (index: number) => titleWords[index - 1] === "crystal" ||
+    /^(?:calling|calls?|sound|audio|voice|view|picture|image|display|vision|bass)$/.test(titleWords[index + 1] || "");
   const manufacturerOrParent = normalized(input.brand) || null;
   // An explicit upstream brand is authoritative. Never replace it with
-  // the next product-title token (for example RingConn -> "gen").
+  // the next product-title token.
   // Secondary title tokens belong to product family/model context, not brand.
   const primaryBrand = manufacturerOrParent;
 
@@ -290,9 +323,19 @@ export function extractProductIdentityTokenRoles(input: {
     ),
     ...VARIANT_WORDS,
   ]);
-  const primaryProductFamily = titleWords.filter((word) => !excluded.has(word) && !numericToken(word) && !MARKETING_WORDS.has(word)).slice(0, 6);
+  // Unitless variant sizes (e.g., ring "Size 10") are variant attributes,
+  // not model identity and not product family. Capture the phrase so it can
+  // aid discovery queries and variant ranking. The bare number is dropped by
+  // the title-words length filter, so extract the phrase explicitly.
+  const sizeVariantPhrases = Array.from(
+    new Set([
+      ...(rawTitle.match(/\bsize\s+\d+(?:\.\d+)?\b/gi) || []),
+      ...(rawTitle.match(/\b(?:xxl|xl)\b/gi) || []),
+    ].map((v) => v.toLowerCase()))
+  );
+  const primaryProductFamily = titleWords.filter((word) => !excluded.has(word) && !numericToken(word) && !MARKETING_WORDS.has(word) && word !== "size").slice(0, 6);
   const modelWords = new Set(finalPrimaryModels.flatMap((model) => normalized(model).split(" ")));
-  const primaryVariants = titleWords.filter((word) => VARIANT_WORDS.has(word) && !modelWords.has(word)).slice(0, 6);
+  const primaryVariants = [...sizeVariantPhrases, ...titleWords.filter((word, index) => VARIANT_WORDS.has(word) && !modelWords.has(word) && !(PRODUCT_COLOR_WORDS.includes(word) && descriptiveWord(index)))].slice(0, 6);
 
   return {
     primaryBrand: primaryBrand || null,
@@ -301,7 +344,7 @@ export function extractProductIdentityTokenRoles(input: {
     primaryModels: finalPrimaryModels,
     primaryVariants,
     capacityOrSize,
-    colors: Array.from(new Set([text(input.color).toLowerCase(), ...titleWords.filter((word) => ["white", "black", "blue", "red", "silver", "gold", "gray", "grey"].includes(word))].filter(Boolean))),
+    colors: Array.from(new Set([text(input.color).toLowerCase(), ...titleWords.filter((word, index) => PRODUCT_COLOR_WORDS.includes(word) && !descriptiveWord(index))].filter(Boolean))),
     categoryBreadcrumbs: input.categoryBreadcrumbs || [],
     compatibleWith: finalSecondaryModels,
     accessoryModels: finalSecondaryModels,

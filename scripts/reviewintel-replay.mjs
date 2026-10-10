@@ -1,6 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { installOfflineGuard } from './reviewintel-offline-guard.mjs';
+// Offline replay never launches a browser or reads machine-local indexes.
+process.env.REVIEWINTEL_HEADLESS_RENDER = "off"; process.env.REVIEWINTEL_SITEMAP_INDEX_DIR ||= "/nonexistent-reviewintel-index";
 installOfflineGuard();
 if (process.argv.includes('--probe-network')) await fetch('http://127.0.0.1:1');
 const require = createRequire(import.meta.url);

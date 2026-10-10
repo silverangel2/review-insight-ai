@@ -1,5 +1,6 @@
 "use client";
 
+import "./results-stagger.css";
 import { ResultIntelligencePanel } from "@/components/ResultIntelligencePanel";
 import { BetterPicksPanel } from "@/components/BetterPicksPanel";
 import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
@@ -8,6 +9,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { ResultsDashboard } from "@/components/ResultsDashboard";
+import { ShopperAnswerCard } from "@/components/ShopperAnswerCard";
 import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { canAccessSellerAnalytics } from "@/lib/account";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
@@ -500,7 +502,7 @@ function clampScore(value: unknown, fallback = 0) {
 
 function formatBuyScore(value: number | null) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "Not scored";
-  const score = value > 10 ? Math.round(value / 10) : Math.round(value);
+  const score = Math.round((value > 10 ? value / 10 : value) * 10) / 10;
   return `${Math.max(1, Math.min(10, score))}/10`;
 }
 
@@ -804,12 +806,26 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
       analysis?.confidence_score
   );
   const valueForMoney = String(source.valueForMoney || analysis?.value_for_money_opinion || "Unknown");
+  const claimLabels = (key: string): string[] => {
+    const claims = (source as Record<string, unknown>)[key];
+    if (!Array.isArray(claims)) return [];
+    return claims.flatMap(item => {
+      if (!item || typeof item !== "object") return [];
+      const claim = item as Record<string, unknown>;
+      const count = Number(claim.supportCount);
+      return typeof claim.claim === "string" && Number.isInteger(count) && count > 0
+        ? [`${claim.claim} (${count} written review${count === 1 ? "; one-off report" : "s"})`]
+        : [];
+    });
+  };
+  const canonicalStrengths = claimLabels("strengthProvenance");
+  const canonicalComplaints = claimLabels("complaintProvenance");
   const strengths = cleanBuyerInsightArray(
-    asTextArray(source.topStrengths?.length ? source.topStrengths : analysis?.positive_points?.length ? analysis.positive_points : analysis?.praised_features, 12),
+    asTextArray(canonicalStrengths.length ? canonicalStrengths : source.topStrengths?.length ? source.topStrengths : analysis?.positive_points?.length ? analysis.positive_points : analysis?.praised_features, 12),
     5
   );
   const complaints = cleanBuyerInsightArray(
-    asTextArray(source.topComplaints?.length ? source.topComplaints : analysis?.common_complaints?.length ? analysis.common_complaints : analysis?.negative_points, 14),
+    asTextArray(canonicalComplaints.length ? canonicalComplaints : source.topComplaints?.length ? source.topComplaints : analysis?.common_complaints?.length ? analysis.common_complaints : analysis?.negative_points, 14),
     6
   );
   const suppliedBestFor = cleanBuyerInsightArray(
@@ -1224,16 +1240,16 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           ? rawResultForScore.score
           : null;
 
-  const visibleValueForMoney =
-    hasUsefulReviewEvidence && String(shopper.valueForMoney || "").toLowerCase() === "poor"
-      ? "Fair"
-      : shopper.valueForMoney;
+  const visibleValueForMoney = shopper.valueForMoney;
+  const acceptedSourceCount = Number((result as Record<string, unknown>).sourceDiversity ??
+    ((result as Record<string, unknown>).deterministicScoringInputs as Record<string, unknown> | undefined)?.independentSourceCount);
   const sourcesLine = shopper.acceptedWrittenReviewCount > 0
-    ? `${shopper.acceptedWrittenReviewCount} exact-product written review${shopper.acceptedWrittenReviewCount === 1 ? "" : "s"} were analyzed from verified review evidence.`
+    ? `${shopper.acceptedWrittenReviewCount} exact-product written review${shopper.acceptedWrittenReviewCount === 1 ? "" : "s"} were analyzed${Number.isFinite(acceptedSourceCount) ? ` from ${acceptedSourceCount} source domain${acceptedSourceCount === 1 ? "" : "s"}` : " from verified review evidence"}.${acceptedSourceCount === 1 ? " Single-source evidence; other sources did not corroborate these reviews." : ""}`
     : "No verified exact-product written reviews were accepted for scoring.";
   const supportingSourcesLine = shopper.discoverySourceCount > 0
     ? `Additional web sources were checked for product matching and supporting context (${shopper.discoverySourceCount} discovery/retrieval source${shopper.discoverySourceCount === 1 ? "" : "s"}).`
     : copy.sourcesLimited;
+  const confidenceMeaning = "Confidence measures evidence quality, not your probability of satisfaction.";
   const researchLevel = shopper.researchQuality.evidenceLevel;
   const researchLabel = copy.researchLabels[researchLevel] || copy.researchLabels.limited;
   const researchNotes = shopper.researchQuality.notes.slice(0, 5);
@@ -1342,7 +1358,6 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
         <AffiliateSourcePanel result={result} compact />
 
-        <BetterPicksPanel result={result} compact />
 
         <section className="grid grid-cols-2 gap-2">
           <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 5)} empty={copy.bestForEmpty} />
@@ -1355,6 +1370,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </div>
           <p>{sourcesLine}</p>
           <p className="mt-1">{supportingSourcesLine}</p>
+          <p className="mt-1">{confidenceMeaning}</p>
           {researchNotes.length ? (
             <ul className="mt-2 space-y-1">
               {researchNotes.map((note, index) => (
@@ -1398,6 +1414,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold leading-5 text-emerald-900 dark:border-emerald-300/20 dark:bg-emerald-300/10 dark:text-emerald-100 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-sm sm:leading-6">
             <p>{sourcesLine}</p>
             <p className="mt-1">{supportingSourcesLine}</p>
+          <p className="mt-1">{confidenceMeaning}</p>
             {researchNotes.length ? (
               <ul className="mt-2 space-y-1">
                 {researchNotes.map((note, index) => (
@@ -1460,7 +1477,6 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
           <AffiliateSourcePanel result={result} />
 
-          <BetterPicksPanel result={result} />
 
       <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor} empty={copy.bestForEmpty} />
@@ -2402,7 +2418,7 @@ export function ResultsClient() {
                     source.buyingConfidence ??
                     sourceRecord.confidence ??
                     null,
-              valueForMoney: zeroWrittenReviewEvidence ? "Unknown" : source.valueForMoney || "Fair",
+              valueForMoney: zeroWrittenReviewEvidence ? "Unknown" : source.valueForMoney || "Unknown",
               reviewAuthenticity: zeroWrittenReviewEvidence
                 ? {
                     ...(source.reviewAuthenticity || {}),
@@ -2431,7 +2447,7 @@ export function ResultsClient() {
                     ),
                 score: zeroWrittenReviewEvidence ? null : source.productScore ?? null,
                 buyingConfidence: zeroWrittenReviewEvidence ? null : source.buyingConfidence ?? null,
-                valueForMoney: zeroWrittenReviewEvidence ? "Unknown" : source.valueForMoney || "Fair",
+                valueForMoney: zeroWrittenReviewEvidence ? "Unknown" : source.valueForMoney || "Unknown",
                 summary: zeroWrittenReviewEvidence
                   ? "ReviewIntel could not access enough public review evidence for this product."
                   : source.bottomLine || "Latest scan loaded.",
@@ -2695,7 +2711,7 @@ export function ResultsClient() {
       : shortProductName(productTitle, "Analyzed product");
 
   return (
-    <div className="space-y-5">
+    <div className="ri-stagger space-y-5">
       {accountPlan !== "free_buyer" ? customerNav : null}
       {!isSellerAudience && ["buyer_pro", "buyer_beta", "shopper_beta"].includes(String(accountPlan)) ? <ShopperResultHistoryCorner /> : null}
       <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.6rem] sm:p-4">
@@ -2722,7 +2738,19 @@ export function ResultsClient() {
       ) : isCompareResult ? (
         <ShopperCompareDetail result={result} />
       ) : (
-        <ShopperProductDetail result={result} preview={preview} />
+        <>
+          <ShopperAnswerCard result={result} productName={productTitle} />
+          <BetterPicksPanel result={result as unknown as Record<string, unknown>} productName={productTitle} />
+          <details className="group rounded-3xl bg-white ring-1 ring-slate-900/5 dark:bg-slate-900">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200 sm:px-6">
+              How we checked
+              <span className="text-slate-400 transition group-open:rotate-180" aria-hidden="true">⌄</span>
+            </summary>
+            <div className="px-2 pb-4 sm:px-4">
+              <ShopperProductDetail result={result} preview={preview} />
+            </div>
+          </details>
+        </>
       )}
       <style jsx global>{`
         @media (max-width: 640px) {

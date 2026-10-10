@@ -163,13 +163,180 @@ test("retrieval continues after minimum evidence and is bounded by cap", () => {
   assert.equal(buildAmazonReviewPageUrls("https://amazon.ca/dp/ALPHA15000", "ALPHA15000").length, 24);
 });
 
-test('missing marketplace rating cannot turn a null score into AVOID', () => {
+test('missing marketplace rating does not prevent a written-evidence decision', () => {
   const result = deriveDeterministicEvidenceResult({
     acceptedRecords: corpus().acceptedRecords,
     exactProductAccepted: true,
     rating: null,
     marketplaceReviewCount: 92,
   });
-  assert.equal(result.buyScore, null);
-  assert.equal(result.customerVerdict, 'DO NOT BUY YET');
+  assert.equal(result.buyScore, 8);
+  assert.equal(result.customerVerdict, 'BUY');
+});
+
+test("mixed sufficient evidence does not collapse directly into AVOID", () => {
+  const asin = "B0DWK4QQ7H";
+
+  const records = [
+    {
+      body: "My RingConn Gen 2 Air battery lasts a long time and sleep tracking works well.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=1`,
+      marketplaceProductId: asin,
+      rating: 5,
+    },
+    {
+      body: "The RingConn Gen 2 Air is very comfortable and easy to wear every day.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=2`,
+      marketplaceProductId: asin,
+      rating: 5,
+    },
+    {
+      body: "My RingConn Gen 2 Air has good battery life and useful health tracking.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=3`,
+      marketplaceProductId: asin,
+      rating: 4,
+    },
+    {
+      body: "The RingConn Gen 2 Air is comfortable and gives useful sleep insights.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=4`,
+      marketplaceProductId: asin,
+      rating: 4,
+    },
+    {
+      body: "My RingConn Gen 2 Air works well overall and the battery life has been good.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=5`,
+      marketplaceProductId: asin,
+      rating: 4,
+    },
+    {
+      body: "My RingConn Gen 2 Air battery stopped working after a few weeks.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=6`,
+      marketplaceProductId: asin,
+      rating: 1,
+    },
+    {
+      body: "My RingConn Gen 2 Air had connection problems and I needed to reconnect it several times.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=7`,
+      marketplaceProductId: asin,
+      rating: 2,
+    },
+  ];
+
+  const adjudication = adjudicateReviewEvidence(records, {
+    brand: "RingConn",
+    productName: "RingConn Gen 2 Air Smart Ring",
+    model: "Gen 2 Air",
+    exactListingAccepted: true,
+    exactListingUrl: `https://www.amazon.ca/dp/${asin}`,
+    exactListingTitle: "RingConn Gen 2 Air Smart Ring",
+  });
+
+  assert.equal(adjudication.acceptedRecordCount, 7);
+  assert.equal(adjudication.sufficientByExistingThreshold, true);
+
+  const result = deriveDeterministicEvidenceResult({
+    acceptedRecords: adjudication.acceptedRecords,
+    exactProductAccepted: true,
+    rating: 4.1,
+    marketplaceReviewCount: 1048,
+    price: null,
+  });
+
+  assert.equal(
+    result.customerVerdict,
+    "DO NOT BUY YET",
+    "mixed sufficient evidence must not collapse directly into AVOID",
+  );
+});
+
+test("clearly poor sufficient evidence still reaches AVOID", () => {
+  const asin = "B0DWK4QQ7H";
+
+  const records = [
+    {
+      body: "My RingConn Gen 2 Air broke after two days and completely stopped working.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=11`,
+      marketplaceProductId: asin,
+      rating: 1,
+    },
+    {
+      body: "The RingConn Gen 2 Air battery failed completely after one week of use.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=12`,
+      marketplaceProductId: asin,
+      rating: 1,
+    },
+    {
+      body: "My RingConn Gen 2 Air broke and would not charge again.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=13`,
+      marketplaceProductId: asin,
+      rating: 1,
+    },
+    {
+      body: "The RingConn Gen 2 Air stopped working and support could not fix the problem.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=14`,
+      marketplaceProductId: asin,
+      rating: 1,
+    },
+    {
+      body: "My RingConn Gen 2 Air failed quickly and I returned it because it would not work.",
+      source: "Amazon",
+      sourceUrl: `https://www.amazon.ca/product-reviews/${asin}?pageNumber=15`,
+      marketplaceProductId: asin,
+      rating: 1,
+    },
+  ];
+
+  const adjudication = adjudicateReviewEvidence(records, {
+    brand: "RingConn",
+    productName: "RingConn Gen 2 Air Smart Ring",
+    model: "Gen 2 Air",
+    exactListingAccepted: true,
+    exactListingUrl: `https://www.amazon.ca/dp/${asin}`,
+    exactListingTitle: "RingConn Gen 2 Air Smart Ring",
+  });
+
+  assert.equal(adjudication.acceptedRecordCount, 5);
+  assert.equal(adjudication.sufficientByExistingThreshold, true);
+
+  const result = deriveDeterministicEvidenceResult({
+    acceptedRecords: adjudication.acceptedRecords,
+    exactProductAccepted: true,
+    rating: 2.1,
+    marketplaceReviewCount: 500,
+    price: null,
+  });
+
+  assert.equal(result.customerVerdict, "AVOID");
+});
+
+test("v10: zero-weight marketplace metadata cannot change evidence-derived identity; corpus changes still do", () => {
+  const accepted = corpus().acceptedRecords;
+  const base = deriveDeterministicEvidenceResult({ acceptedRecords: accepted, exactProductAccepted: true, rating: 4.1, marketplaceReviewCount: 2366, price: 129.99 });
+  assert.equal(base.deterministicScoringInputs.marketplaceWeight, 0);
+  for (const [rating, marketplaceReviewCount, price] of [[1, 3, 9999], [5, 100000, 1], [null, 0, null], [2.7, 62, 54.5]]) {
+    const changed = deriveDeterministicEvidenceResult({ acceptedRecords: accepted, exactProductAccepted: true, rating, marketplaceReviewCount, price });
+    for (const key of ["acceptedCorpusHash", "finalResultHash", "buyScore", "customerVerdict", "valueForMoney"]) assert.equal(changed[key], base[key], key);
+    assert.deepEqual(changed.acceptedReviewHashes, base.acceptedReviewHashes);
+    assert.deepEqual(changed.strengths, base.strengths);
+    assert.deepEqual(changed.complaints, base.complaints);
+    // Metadata stays available for display/telemetry.
+    assert.equal(changed.marketplaceMetadataSnapshot.rating, rating);
+    assert.equal(changed.marketplaceMetadataSnapshot.reviewCount, marketplaceReviewCount);
+    assert.equal(changed.marketplaceMetadataSnapshot.price, price);
+  }
+  // Control: one accepted written review removed changes corpus identity and result hash.
+  const smaller = deriveDeterministicEvidenceResult({ acceptedRecords: accepted.slice(1), exactProductAccepted: true, rating: 4.1, marketplaceReviewCount: 2366, price: 129.99 });
+  assert.notEqual(smaller.acceptedCorpusHash, base.acceptedCorpusHash);
+  assert.notEqual(smaller.finalResultHash, base.finalResultHash);
 });

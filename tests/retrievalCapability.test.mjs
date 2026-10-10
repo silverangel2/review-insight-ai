@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import test from "node:test";
+import { installOfflineGuard } from "../scripts/reviewintel-offline-guard.mjs";
+installOfflineGuard();
 
 const require = createRequire(import.meta.url);
 const repoRoot = new URL("../", import.meta.url).pathname;
@@ -414,13 +416,18 @@ test("known synthetic Amazon.ca ASIN produces same-origin review URLs", async ()
   assert.equal(urls[0], "https://www.amazon.ca/product-reviews/B0ALPH1234/?reviewerType=all_reviews");
   assert.equal(urls[1], "https://www.amazon.ca/product-reviews/B0ALPH1234/?sortBy=recent&reviewerType=all_reviews");
 
-  const result = await findExactProductCandidates({
-    productName: "TEST PRODUCT ALPHA",
-    brand: "TEST BRAND",
-    store: "Amazon.ca",
-    listingUrl: "https://www.amazon.ca/product-reviews/B0ALPH1234",
-  });
-  assert.equal(result.candidates[0].url, "https://www.amazon.ca/dp/B0ALPH1234");
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("Synthetic unavailable page", { status: 404 });
+  try {
+    const result = await findExactProductCandidates({
+      productName: "TEST PRODUCT ALPHA",
+      brand: "TEST BRAND",
+      store: "Amazon.ca",
+      listingUrl: "https://www.amazon.ca/product-reviews/B0ALPH1234",
+    });
+    assert.equal(result.candidates[0].url, "https://www.amazon.ca/dp/B0ALPH1234");
+  } finally { globalThis.fetch = previousFetch; }
+
 });
 
 test("metadata-poor Amazon candidate is enriched before existing verification", async () => {
@@ -732,15 +739,15 @@ test("adaptive recovery remains native-first and bounded", () => {
   assert.match(reviewEvidence, /maxCalls: 5/);
   assert.match(reviewEvidence, /stagnantPasses: 2/);
   assert.match(reviewEvidence, /const canonicalSufficiencyFor =/);
-  assert.match(reviewEvidence, /if \(webResearchEnabled && !canonicalSufficiencyFor\(\)/);
+  assert.match(reviewEvidence, /if \(webResearchEnabled && collectedWrittenReviewCount\(\) < 240/);
   assert.match(reviewEvidence, /sufficient: \(records\) => canonicalSufficiencyFor\(records\)/);
-  assert.match(reviewEvidence, /evidenceSatisfied: \(\) => canonicalSufficiencyFor\(\)/);
+  assert.match(reviewEvidence, /evidenceSatisfied: \(\) => collectedWrittenReviewCount\(\) >= 240/);
   assert.doesNotMatch(reviewEvidence, /if \(webResearchEnabled && collectedWrittenReviewCount\(\) < reliableSignalTarget/);
 });
 
-test("raw review volume cannot suppress unresolved or canonically insufficient recovery", () => {
+test("depth recovery retains canonical adjudication independently of sufficiency", () => {
   assert.match(reviewEvidence, /sufficientByExistingThreshold/);
-  assert.match(reviewEvidence, /!canonicalSufficiencyFor\(\)/);
+  assert.match(reviewEvidence, /corpusCap: Math.max\(1, 240 - collectedWrittenReviewCount\(\)\)/);
   assert.match(reviewEvidence, /exactListingAccepted,/);
 });
 
@@ -750,9 +757,9 @@ test("recovered records still pass canonical adjudication", () => {
   assert.match(reviewEvidence, /evidenceAdjudication = adjudicateReviewEvidence\(collectedWrittenReviews\.reviews/);
 });
 
-test("insufficient serialized evidence cannot report accepted records", () => {
-  assert.match(analyzeRoute, /acceptedRecords: \[\]/);
-  assert.match(analyzeRoute, /acceptedRecordCount: 0/);
+test("insufficient serialized evidence preserves actual review counts without claiming sufficiency", () => {
+  assert.match(analyzeRoute, /acceptedRecordCount: deterministic\.acceptedReviewHashes\.length/);
+  assert.doesNotMatch(analyzeRoute, /acceptedRecords: \[\]/);
   assert.match(analyzeRoute, /sufficientByExistingThreshold: false/);
 });
 

@@ -73,7 +73,7 @@ test('I-L: Amazon redirects canonicalize, ASIN is captured, Tier B tolerates mut
 test('M: native retrieval starts with the verified listing and rejects conflicting discovery links', async () => {
   const previous = globalThis.fetch;
   const requests = [];
-  globalThis.fetch = async (value) => { requests.push(String(value)); return new Response('Access denied', { status: 403 }); };
+  globalThis.fetch = async (value) => { if (!String(value).endsWith('/robots.txt')) requests.push(String(value));/* robots.txt policy fetches are not page requests */ return new Response('Access denied', { status: 403 }); };
   try {
     const result = await runNativeReviewRetrieval({
       productTitle: fixture.productName, brand: fixture.brand, store: fixture.store,

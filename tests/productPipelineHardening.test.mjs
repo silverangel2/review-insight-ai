@@ -157,13 +157,16 @@ test("native pagination continues beyond a tiny corpus while new exact reviews a
   const pages = [];
   globalThis.fetch = async (url) => {
     const parsed = new URL(String(url));
+    // The verified locale sibling is probed once for identity; this fixture
+    // serves it nothing, so only the verified marketplace supplies reviews.
+    if (parsed.hostname === "www.amazon.com" && parsed.pathname === "/dp/B0TEST0001") return new Response("", { status: 404 });
     assert.equal(parsed.hostname, "www.amazon.ca");
-    pages.push(parsed.toString());
+    if (!parsed.pathname.endsWith('/robots.txt')) pages.push(parsed.toString()); // robots.txt policy fetches are not page requests
     const prefix = parsed.searchParams.toString() || parsed.pathname;
     return new Response(Array.from({ length: 10 }, (_, index) => `<div data-hook="review"><span data-hook="review-body">Synthetic pagination fixture ${prefix} reviewer ${index}: I used this smart ring daily and it was comfortable and reliable.</span></div>`).join(""));
   };
   try {
-    const result = await runNativeReviewRetrieval({ productTitle: ring.productName, brand: ring.brand, model: "Gen 2 Air", listingUrl: "https://www.amazon.ca/dp/B0TEST0001", maxPages: 7, maxQueries: 1, maxSnippets: 65, politeDelayMs: 0 });
+    const result = await runNativeReviewRetrieval({ productTitle: ring.productName, brand: ring.brand, model: "Gen 2 Air", listingUrl: "https://www.amazon.ca/dp/B0TEST0001", maxPages: 8, maxQueries: 1, maxSnippets: 65, politeDelayMs: 0 });
     assert.equal(pages.length, 7);
     assert.equal(result.reviewsCollected, 65);
   } finally { globalThis.fetch = oldFetch; }
@@ -218,9 +221,14 @@ test("failed enrichment cannot invent brand or turn sign-in content into identit
 });
 
 test("candidate gates reject category, social, private, and deceptive URLs", () => {
-  for (const url of ["https://www.walmart.com/search/product", "https://facebook.com/products/target", "http://127.0.0.1/products/target", "https://amazon.ca.attacker.example/search/products/target", "https://example.com/products/target?q=reviews"]) {
+  for (const url of ["https://www.walmart.com/search/product", "https://facebook.com/products/target", "http://127.0.0.1/products/target", "https://amazon.ca.attacker.example/search/products/target"]) {
     assert.equal(isProductUrl(url), false, url);
   }
+  // Tracking/filter params (q/k/keyword/search) on a legitimate product path
+  // are stripped during normalization, not treated as deceptive. Search-shaped
+  // PATHS are still rejected.
+  assert.equal(isProductUrl("https://example.com/products/target?q=reviews"), true);
+  assert.equal(isProductUrl("https://example.com/search?q=phone"), false);
   const target = "https://ringconn.com/products/ringconn-gen-2-air";
   assert.equal(normalizeProductUrl(`https://www.bing.com/ck/a?u=a1${Buffer.from(target).toString("base64url")}`), target);
   const arbitrary = `https://example.com/products/target?url=${encodeURIComponent(target)}`;
@@ -231,7 +239,7 @@ test("native retrieval rejects HTTP-200 Amazon sign-in redirects without browser
   const originalFetch = globalThis.fetch;
   const urls = [];
   globalThis.fetch = async (url) => {
-    urls.push(String(url));
+    if (!String(url).endsWith('/robots.txt')) urls.push(String(url)); // robots.txt policy fetches are not page requests
     const response = new Response('<div data-hook="review"><span data-hook="review-body">I love this product and it works reliably for everyday use.</span></div>', { status: 200 });
     Object.defineProperty(response, "url", { value: "https://www.amazon.ca/ax/claim" });
     return response;

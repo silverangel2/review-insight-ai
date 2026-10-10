@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { noteScanProgressEvent } from "./scanProgress";
 import { mkdir, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -37,6 +38,7 @@ function schedule(current: CaptureContext) {
   current.timer = setTimeout(() => { current.timer = undefined; void persist(current); }, 100);
 }
 export function captureStage(stage: string, data: unknown) {
+  noteScanProgressEvent(stage, data);
   const current = context.getStore();
   if (!current || process.env.NODE_ENV !== "development") return;
   try { current.capture.events.push({ stage, data: sanitize(typeof data === "function" ? data() : data) }); schedule(current); } catch { /* observation only */ }

@@ -1,0 +1,25 @@
+{
+ "source": "tests/fixtures/reviewintel/ringconn-existing-capture-inputs.json (accepted records)",
+ "productName": "RingConn Gen 2 Air Smart Ring",
+ "acceptedCount": 7,
+ "quotes": [
+  {
+   "text": "Don’t buy. I ordered one for both my husband and myself. We used both regularly with success however both of them lost their ability to…",
+   "host": "amazon.ca",
+   "sourceUrl": "https://www.amazon.ca/dp/B0DWK4QQ7H",
+   "evidenceId": "evidence-0a804c4b7704284e9e219916"
+  },
+  {
+   "text": "Bague très confortable à porter. l'autonomie est très intéressante, plus de 10 jours. elle se recharge rapidement. l'application est en…",
+   "host": "amazon.ca",
+   "sourceUrl": "https://www.amazon.ca/dp/B0DWK4QQ7H",
+   "evidenceId": "evidence-a82f7be03cadfff58c844d75"
+  },
+  {
+   "text": "I’m really enjoying my new ring. So shiny and eye catching. It came 74% charged, but I ended up charging it to 100% which took 20 minutes.…",
+   "host": "amazon.ca",
+   "sourceUrl": "https://www.amazon.ca/dp/B0DWK4QQ7H",
+   "evidenceId": "evidence-efb0eabddc21490ac2830fa3"
+  }
+ ]
+}

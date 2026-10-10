@@ -1,0 +1,41 @@
+{
+  "kind": "STRUCTURAL_TEST_METADATA_NOT_REVIEW_EVIDENCE",
+  "profiles": [
+    {
+      "brand": "Arden",
+      "productName": "Arden VX-730 Document Scanner",
+      "model": "VX-730",
+      "category": "Document Scanner"
+    },
+    {
+      "brand": "Morrow",
+      "productName": "Morrow Haven Plus Desk Lamp",
+      "model": null,
+      "category": "Desk Lamp"
+    },
+    {
+      "brand": "Tundra",
+      "productName": "Tundra Woven Cotton Blanket Size 8 Blue",
+      "model": null,
+      "category": "Blanket"
+    },
+    {
+      "brand": "Solace",
+      "productName": "Solace Gen 4 Lite Fitness Watch",
+      "model": "Gen 4 Lite",
+      "category": "Fitness Watch"
+    },
+    {
+      "brand": "Cobalt",
+      "productName": "Cobalt P20 Mirrorless Camera Compatible with K90",
+      "model": "P20",
+      "category": "Mirrorless Camera"
+    },
+    {
+      "brand": "Mariner",
+      "productName": "Mariner Glass Bottle 750 ml Green",
+      "model": null,
+      "category": "Bottle"
+    }
+  ]
+}

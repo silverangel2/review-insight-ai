@@ -1,25 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
 import type { AffiliatePartnerPlacement } from "@/lib/adConfig";
-import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
+import { readStoredLocale } from "@/lib/i18n";
 
 type ResultRecord = Record<string, unknown>;
 
-type BetterPick = {
-  title: string;
-  store: string;
-  url: string;
-  affiliateUrl: string;
-  imageUrl?: string | null;
-  rating?: number | null;
-  reviewCount?: number | null;
-  price?: string | null;
-  badge: string;
-  whyBetter: string;
-  aiLikeRisk?: string | null;
-};
 
 function getRecord(value: unknown): ResultRecord {
   return value && typeof value === "object" ? (value as ResultRecord) : {};
@@ -54,7 +41,7 @@ function getVerdict(result: ResultRecord) {
     "REVIEW FIRST"
   ).toUpperCase();
 
-  if (verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
+  if (verdict === "CONSIDER" || verdict === "MAYBE" || verdict === "REVIEW FIRST") return "DO NOT BUY YET";
   return verdict;
 }
 
@@ -63,9 +50,6 @@ function getScanId(result: ResultRecord) {
   return getString(result.scanId) || getString(meta.scanId);
 }
 
-function cacheKeyFor(productName: string, verdict: string, locale: string, scanId: string) {
-  return `reviewintel_better_picks:${scanId || "no-scan"}:${locale}:${productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 90)}:${verdict}`;
-}
 
 async function amazonAffiliateIsVisible(placement: AffiliatePartnerPlacement) {
   try {
@@ -84,473 +68,139 @@ async function amazonAffiliateIsVisible(placement: AffiliatePartnerPlacement) {
   }
 }
 
-function copyForVerdict(verdict: string, locale: ReviewIntelLocale) {
-  const copy = {
-    en: {
-      searching: "Searching Amazon...",
-      view: "See Amazon deal",
-      imageFallback: "Image unavailable",
-      price: "Price",
-      rating: "Rating",
-      reviews: "Reviews",
-      aiLikeRisk: "AI-like risk",
-      buy: {
-        eyebrow: "Amazon value check",
-        title: "Better Amazon picks",
-        detail: "Even on a BUY, ReviewIntel looks for cheaper or stronger-quality Amazon options before checkout.",
-        button: "Refresh picks",
-      },
-      avoid: {
-        eyebrow: "Amazon replacement",
-        title: "Safer Amazon alternatives",
-        detail: "The scanned item looks risky, so these are better replacement options from Amazon.",
-        button: "Refresh alternatives",
-      },
-      reviewFirst: {
-        eyebrow: "Amazon upgrade check",
-        title: "Cleaner Amazon options",
-        detail: "For a REVIEW FIRST result, ReviewIntel looks for nicer, more proven Amazon alternatives.",
-        button: "Refresh picks",
-      },
-    },
-    fr: {
-      searching: "Recherche sur Amazon...",
-      view: "Voir l'offre Amazon",
-      imageFallback: "Image Amazon en chargement",
-      price: "Prix",
-      rating: "Note",
-      reviews: "Avis",
-      aiLikeRisk: "Risque IA",
-      buy: {
-        eyebrow: "Vérification Amazon",
-        title: "Meilleurs choix Amazon",
-        detail: "Même avec un verdict BUY, ReviewIntel cherche des options Amazon moins chères ou de meilleure qualité avant l'achat.",
-        button: "Actualiser",
-      },
-      avoid: {
-        eyebrow: "Remplacement Amazon",
-        title: "Alternatives Amazon plus sûres",
-        detail: "L'article scanné semble risqué, alors voici de meilleures options de remplacement sur Amazon.",
-        button: "Actualiser",
-      },
-      reviewFirst: {
-        eyebrow: "Option Amazon supérieure",
-        title: "Options Amazon plus propres",
-        detail: "Pour un résultat REVIEW FIRST, ReviewIntel cherche des alternatives plus fiables et mieux prouvées.",
-        button: "Actualiser",
-      },
-    },
-    es: {
-      searching: "Buscando en Amazon...",
-      view: "Ver oferta en Amazon",
-      imageFallback: "Imagen de Amazon cargando",
-      price: "Precio",
-      rating: "Calificación",
-      reviews: "Reseñas",
-      aiLikeRisk: "Riesgo tipo IA",
-      buy: {
-        eyebrow: "Chequeo de valor Amazon",
-        title: "Mejores opciones de Amazon",
-        detail: "Incluso con BUY, ReviewIntel busca opciones de Amazon más baratas o de mejor calidad antes de comprar.",
-        button: "Actualizar",
-      },
-      avoid: {
-        eyebrow: "Reemplazo en Amazon",
-        title: "Alternativas Amazon más seguras",
-        detail: "El producto escaneado parece riesgoso, así que estas son mejores opciones de reemplazo en Amazon.",
-        button: "Actualizar",
-      },
-      reviewFirst: {
-        eyebrow: "Mejora en Amazon",
-        title: "Opciones Amazon más claras",
-        detail: "Para un resultado REVIEW FIRST, ReviewIntel busca alternativas más probadas y confiables.",
-        button: "Actualizar",
-      },
-    },
-    zh: {
-      searching: "正在搜索 Amazon...",
-      view: "查看 Amazon 优惠",
-      imageFallback: "Amazon 图片加载中",
-      price: "价格",
-      rating: "评分",
-      reviews: "评论",
-      aiLikeRisk: "AI 风险",
-      buy: {
-        eyebrow: "Amazon 价值检查",
-        title: "更好的 Amazon 选择",
-        detail: "即使结果是 BUY，ReviewIntel 也会先寻找更便宜或质量更强的 Amazon 选择。",
-        button: "刷新选择",
-      },
-      avoid: {
-        eyebrow: "Amazon 替代品",
-        title: "更安全的 Amazon 替代选择",
-        detail: "扫描商品看起来有风险，所以这里提供更好的 Amazon 替代品。",
-        button: "刷新替代品",
-      },
-      reviewFirst: {
-        eyebrow: "Amazon 升级检查",
-        title: "更可靠的 Amazon 选择",
-        detail: "对于 REVIEW FIRST 结果，ReviewIntel 会寻找更好、更有证据支持的替代品。",
-        button: "刷新选择",
-      },
-    },
-    de: {
-      searching: "Amazon wird durchsucht...",
-      view: "Amazon-Angebot ansehen",
-      imageFallback: "Amazon-Bild wird geladen",
-      price: "Preis",
-      rating: "Bewertung",
-      reviews: "Bewertungen",
-      aiLikeRisk: "KI-ähnliches Risiko",
-      buy: {
-        eyebrow: "Amazon-Wertprüfung",
-        title: "Bessere Amazon-Auswahl",
-        detail: "Auch bei BUY sucht ReviewIntel vor dem Kauf nach günstigeren oder hochwertigeren Amazon-Optionen.",
-        button: "Auswahl aktualisieren",
-      },
-      avoid: {
-        eyebrow: "Amazon-Ersatz",
-        title: "Sicherere Amazon-Alternativen",
-        detail: "Der gescannte Artikel wirkt riskant, daher sind dies bessere Ersatzoptionen von Amazon.",
-        button: "Alternativen aktualisieren",
-      },
-      reviewFirst: {
-        eyebrow: "Amazon-Upgrade-Check",
-        title: "Klarere Amazon-Optionen",
-        detail: "Bei REVIEW FIRST sucht ReviewIntel nach besser belegten und zuverlässigeren Alternativen.",
-        button: "Auswahl aktualisieren",
-      },
-    },
-    hi: {
-      searching: "Amazon खोज रहा है...",
-      view: "Amazon डील देखें",
-      imageFallback: "Amazon इमेज लोड हो रही है",
-      price: "कीमत",
-      rating: "रेटिंग",
-      reviews: "रिव्यू",
-      aiLikeRisk: "AI जैसा जोखिम",
-      buy: {
-        eyebrow: "Amazon वैल्यू चेक",
-        title: "बेहतर Amazon विकल्प",
-        detail: "BUY होने पर भी ReviewIntel खरीदने से पहले सस्ते या बेहतर गुणवत्ता वाले Amazon विकल्प खोजता है.",
-        button: "विकल्प रीफ्रेश करें",
-      },
-      avoid: {
-        eyebrow: "Amazon रिप्लेसमेंट",
-        title: "सुरक्षित Amazon विकल्प",
-        detail: "स्कैन किया गया आइटम जोखिम भरा लगता है, इसलिए ये बेहतर Amazon विकल्प हैं.",
-        button: "विकल्प रीफ्रेश करें",
-      },
-      reviewFirst: {
-        eyebrow: "Amazon अपग्रेड चेक",
-        title: "बेहतर Amazon विकल्प",
-        detail: "REVIEW FIRST परिणाम के लिए ReviewIntel ज्यादा भरोसेमंद और बेहतर विकल्प खोजता है.",
-        button: "विकल्प रीफ्रेश करें",
-      },
-    },
-  }[locale];
+export type BetterPickView = {
+  kind?: "buy_scanned" | "reviewed" | "search";
+  label?: string;
+  title: string;
+  store: string;
+  url: string;
+  affiliateUrl?: string;
+  badge?: string;
+  whyBetter?: string;
+  evidence?: { verdict: string; acceptedReviews: number; score: number | null } | null;
+};
 
-  const variant = verdict === "BUY" ? copy.buy : verdict === "AVOID" ? copy.avoid : copy.reviewFirst;
-
-  return {
-    ...copy,
-    ...variant,
-  };
-}
-
+/**
+ * Shopper-first affiliate panel (no OpenAI). Order: the scanned product's own
+ * "Check price on Amazon" CTA, then alternatives that our REAL-review data
+ * rates higher, then plainly labeled Amazon search links. Never calls a
+ * search link "better" or "reviewed".
+ */
 export function BetterPicksPanel({
   result,
-  compact = false,
   autoLoad = false,
   affiliatePlacement = "results",
+  initialPicks,
+  productName: productNameProp,
 }: {
   result: ResultRecord;
   compact?: boolean;
   autoLoad?: boolean;
   affiliatePlacement?: AffiliatePartnerPlacement;
+  /** Test/preview hook: render these picks instead of fetching. */
+  initialPicks?: { recommendations: BetterPickView[]; disclosure: string } | null;
+  /** The display title the results page already resolved (preferred over guessing from result). */
+  productName?: string;
 }) {
-  const [loading, setLoading] = useState(false);
-  const [picks, setPicks] = useState<BetterPick[]>([]);
-  const [error, setError] = useState("");
-  const [brokenImageUrls, setBrokenImageUrls] = useState<Record<string, boolean>>({});
-  const [locale, setLocale] = useState<ReviewIntelLocale>("en");
-  const [affiliateDisabled, setAffiliateDisabled] = useState(false);
-  const [disclosure, setDisclosure] = useState(
-    "ReviewIntel may earn a commission from qualifying purchases through affiliate links. This does not affect our verdicts or review analysis."
-  );
-
-  const productName = useMemo(() => getProductName(result || {}), [result]);
+  const [picks, setPicks] = useState<BetterPickView[]>(initialPicks?.recommendations || []);
+  const [disclosure, setDisclosure] = useState(initialPicks?.disclosure || "ReviewIntel may earn a commission from qualifying purchases through affiliate links. This does not affect our verdicts or review analysis.");
+  const [hidden, setHidden] = useState(false);
+  const [loading, setLoading] = useState(!initialPicks);
+  const productName = useMemo(() => (productNameProp || "").trim() || getProductName(result || {}), [productNameProp, result]);
   const verdict = useMemo(() => getVerdict(result || {}), [result]);
   const scanId = useMemo(() => getScanId(result || {}), [result]);
-  const panelCopy = copyForVerdict(verdict, locale);
-  const requestKey = useMemo(() => cacheKeyFor(productName, verdict, locale, scanId), [productName, verdict, locale, scanId]);
-
-  const fallbackPicks = useMemo<BetterPick[]>(() => {
-    if (!productName) return [];
-
-    const suggestions = [
-      {
-        badge: "Best-rated search",
-        suffix: "best rated alternative",
-        whyBetter:
-          "Compare highly rated Amazon products in the same category.",
-      },
-      {
-        badge: "Better-value search",
-        suffix: "better value alternative",
-        whyBetter:
-          "Compare similar products that may offer better value for the price.",
-      },
-      {
-        badge: "Premium alternative",
-        suffix: "premium quality alternative",
-        whyBetter:
-          "Compare stronger-quality options with more established buyer feedback.",
-      },
-    ];
-
-    return suggestions.map((suggestion) => {
-      const query = `${productName} ${suggestion.suffix}`;
-      const url = `https://www.amazon.ca/s?k=${encodeURIComponent(query)}`;
-
-      return {
-        title: suggestion.badge,
-        store: "Amazon.ca",
-        url,
-        affiliateUrl: url,
-        imageUrl: null,
-        rating: null,
-        reviewCount: null,
-        price: null,
-        badge: suggestion.badge,
-        whyBetter: suggestion.whyBetter,
-        aiLikeRisk: null,
-      };
-    });
-  }, [productName]);
-
-  const visiblePicks =
-    picks.length > 0
-      ? picks.slice(0, 3)
-      : !loading && !error
-        ? fallbackPicks
-        : [];
+  // The parent re-creates `result` on renders; key the fetch on identity, not object reference.
+  const resultRef = useRef(result);
+  resultRef.current = result;
 
   useEffect(() => {
-    setLocale(readStoredLocale());
-  }, []);
-
-  async function findBetterPicks(options?: { useCache?: boolean }) {
-    if (!productName) return;
-
-    const amazonVisible = await amazonAffiliateIsVisible(affiliatePlacement);
-    if (!amazonVisible) {
-      setAffiliateDisabled(true);
-      setPicks([]);
-      setError("");
-      window.sessionStorage.removeItem(requestKey);
-      return;
-    }
-
-    setAffiliateDisabled(false);
-
-    const cached = window.sessionStorage.getItem(requestKey);
-    if (cached && options?.useCache) {
+    if (initialPicks) return;
+    if (!productName) { setLoading(false); return; }
+    let cancelled = false;
+    // Deferred so it never competes with the initial scan-result load (free path: no OpenAI).
+    const timer = window.setTimeout(async () => {
       try {
-        const parsed = JSON.parse(cached);
-        if (getString(parsed?.scanId) && getString(parsed.scanId) !== scanId) {
-          window.sessionStorage.removeItem(requestKey);
-          return;
-        }
-        if (Array.isArray(parsed?.recommendations)) setPicks(parsed.recommendations);
-        if (typeof parsed?.disclosure === "string") setDisclosure(parsed.disclosure);
-        return;
-      } catch {
-        window.sessionStorage.removeItem(requestKey);
-      }
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/product-recommendations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          productName,
-          result,
-          scanId,
-          locale,
-          affiliatePlacement,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.error || "Could not find better picks.");
-      }
-
-      if (data.affiliateDisabled) {
+        if (!(await amazonAffiliateIsVisible(affiliatePlacement))) { if (!cancelled) setHidden(true); return; }
+        const locale = readStoredLocale();
+        const response = await fetch("/api/product-recommendations", {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify({ productName, result: resultRef.current, scanId, locale, affiliatePlacement }),
+        });
+        const data = await response.json().catch(() => null);
+        if (cancelled) return;
+        if (!response.ok || !data?.ok || data.affiliateDisabled) { setHidden(true); return; }
         if (data.scanId && scanId && data.scanId !== scanId) return;
-        setAffiliateDisabled(true);
-        setPicks([]);
-        setError("");
-        window.sessionStorage.removeItem(requestKey);
-        return;
-      }
+        setPicks(Array.isArray(data.recommendations) ? data.recommendations : []);
+        if (typeof data.disclosure === "string") setDisclosure(data.disclosure);
+      } catch { if (!cancelled) setHidden(true); } finally { if (!cancelled) setLoading(false); }
+    }, autoLoad ? 0 : 1800);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [affiliatePlacement, autoLoad, initialPicks, productName, scanId]);
 
-      setAffiliateDisabled(false);
-      if (data.scanId && scanId && data.scanId !== scanId) return;
-      const nextPicks = Array.isArray(data.recommendations) ? data.recommendations : [];
-      setPicks(nextPicks);
-      setDisclosure(data.disclosure || disclosure);
+  if (hidden || (!loading && picks.length === 0)) return null;
 
-      window.sessionStorage.setItem(
-        requestKey,
-        JSON.stringify({
-          recommendations: nextPicks,
-          disclosure: data.disclosure || disclosure,
-          scanId,
-          savedAt: new Date().toISOString(),
-        })
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not find better picks.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!autoLoad || !productName) return;
-
-    const timer = window.setTimeout(() => {
-      void findBetterPicks({ useCache: true });
-    }, 1800);
-
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [affiliatePlacement, autoLoad, productName, requestKey]);
-
-  if (affiliateDisabled) return null;
+  const primary = picks.find(pick => pick.kind === "buy_scanned");
+  const reviewed = picks.filter(pick => pick.kind === "reviewed");
+  const searches = picks.filter(pick => pick.kind === "search" || !pick.kind);
+  const track = (pick: BetterPickView) => trackTrafficEvent({
+    eventType: "affiliate_click",
+    metadata: { source: "better_picks", kind: pick.kind || "legacy", provider: pick.store, productName, recommendedProduct: pick.title, verdict },
+  });
 
   return (
-    <section className={`${compact ? "mt-3 rounded-2xl p-3" : "mt-6 rounded-[2rem] p-5"} border border-emerald-200 bg-emerald-50 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className={`${compact ? "text-[10px]" : "text-xs"} font-black uppercase tracking-[0.22em] text-emerald-700 dark:text-emerald-200`}>
-            {panelCopy.eyebrow}
-          </p>
-          <h3 className={`${compact ? "mt-1 text-base" : "mt-1 text-xl"} font-black text-slate-950 dark:text-white`}>
-            {panelCopy.title}
-          </h3>
-          <p className={`${compact ? "mt-1 text-[11px] leading-4" : "mt-1 text-sm"} font-bold text-emerald-900/70 dark:text-emerald-100/80`}>
-            {panelCopy.detail}
-          </p>
+    <section className="rounded-[2rem] bg-white p-6 ring-1 ring-slate-900/5 sm:p-8" data-testid="better-picks" aria-busy={loading}>
+      <p className="text-sm text-slate-500">Where to buy</p>
+      {primary ? (
+        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="truncate text-lg font-semibold text-slate-900">{primary.title}</p>
+            <p className="mt-1 text-sm text-slate-500">{primary.whyBetter}</p>
+          </div>
+          <a href={primary.affiliateUrl || primary.url} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(primary)}
+            className="inline-flex shrink-0 items-center justify-center rounded-full bg-teal px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-teal/90">
+            Check price on {primary.store}
+          </a>
         </div>
+      ) : loading ? <div className="mt-3 h-12 animate-pulse rounded-2xl bg-slate-100" /> : null}
 
-        <button
-          type="button"
-          onClick={() => void findBetterPicks()}
-          disabled={loading || !productName}
-          className={`${compact ? "px-4 py-2 text-[10px]" : "px-5 py-3 text-xs"} rounded-full border border-emerald-700 bg-emerald-600 font-black uppercase tracking-[0.16em] text-white shadow-sm transition hover:scale-[1.02] hover:bg-emerald-700 disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300`}
-        >
-          {loading ? panelCopy.searching : panelCopy.button}
-        </button>
-      </div>
-
-      {error ? (
-        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200">
-          {error}
-        </div>
-      ) : null}
-
-      {loading && picks.length === 0 ? (
-        <div className={`${compact ? "mt-3" : "mt-5"} grid gap-3 ${compact ? "grid-cols-1" : "md:grid-cols-3"}`}>
-          {[0, 1, 2].map((item) => (
-            <div key={item} className="h-36 animate-pulse rounded-[1.5rem] border border-white/70 bg-white/70 dark:border-white/10 dark:bg-gradient-to-r from-teal-600 to-emerald-500/60" />
-          ))}
-        </div>
-      ) : null}
-
-      {visiblePicks.length > 0 ? (
-        <div className={`${compact ? "mt-3 flex snap-x gap-3 overflow-x-auto pb-1" : "mt-5 grid gap-4 md:grid-cols-3"}`}>
-          {visiblePicks.map((pick) => {
-            const imageUrl = typeof pick.imageUrl === "string" ? pick.imageUrl : "";
-            const showImage = Boolean(imageUrl && !brokenImageUrls[imageUrl]);
-
-            return (
-            <article
-              key={`${pick.badge}-${pick.title}`}
-              className={`${compact ? "min-w-[230px] snap-start p-3" : "p-4"} rounded-[1.5rem] border border-white/70 bg-white shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-teal-600 to-emerald-500/80`}
-            >
-              {showImage ? (
-                <div className={`${compact ? "h-24" : "h-36"} relative mb-3 overflow-hidden rounded-2xl bg-slate-50 dark:bg-white/5`}>
-                  <img
-                    src={imageUrl}
-                    alt={pick.title}
-                    loading="lazy"
-                    onError={() => {
-                      if (imageUrl) {
-                        setBrokenImageUrls((current) => ({ ...current, [imageUrl]: true }));
-                      }
-                    }}
-                    className="h-full w-full object-contain p-2"
-                  />
+      {reviewed.length ? (
+        <div className="mt-8">
+          <h3 className="text-base font-semibold text-slate-900">Rated higher in our real-review scans</h3>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {reviewed.map(pick => (
+              <li key={pick.url} className="flex flex-col justify-between rounded-2xl bg-slate-50 p-4">
+                <div>
+                  <p className="font-semibold text-slate-900">{pick.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">{pick.whyBetter}</p>
                 </div>
-              ) : null}
-
-              <p className={`${compact ? "text-[10px]" : "text-xs"} font-black uppercase tracking-[0.18em] text-emerald-600`}>
-                {pick.badge}
-              </p>
-              <h4 className={`${compact ? "line-clamp-2 text-sm leading-4" : "text-base"} mt-2 font-black text-slate-950 dark:text-white`}>
-                {pick.title}
-              </h4>
-
-              <div className={`${compact ? "mt-2 text-[11px]" : "mt-3 text-xs"} space-y-1 font-bold text-slate-600 dark:text-slate-300`}>
-                <p>{pick.store}</p>
-                {pick.price ? <p>{panelCopy.price}: {pick.price}</p> : null}
-                {pick.rating ? <p>{panelCopy.rating}: {pick.rating}/5</p> : null}
-                {pick.reviewCount ? <p>{panelCopy.reviews}: {pick.reviewCount.toLocaleString()}</p> : null}
-                {pick.aiLikeRisk ? <p>{panelCopy.aiLikeRisk}: {pick.aiLikeRisk}</p> : null}
-              </div>
-
-              <p className={`${compact ? "line-clamp-3 text-[11px] leading-4" : "text-sm leading-relaxed"} mt-3 font-bold text-slate-700 dark:text-slate-200`}>
-                {pick.whyBetter}
-              </p>
-
-              <a
-                href={pick.affiliateUrl || pick.url}
-                target="_blank"
-                rel="sponsored noopener noreferrer"
-                onClick={() =>
-                  trackTrafficEvent({
-                    eventType: "affiliate_click",
-                    metadata: {
-                      source: "better_picks",
-                      provider: pick.store,
-                      productName,
-                      recommendedProduct: pick.title,
-                      verdict,
-                    },
-                  })
-                }
-                className={`${compact ? "px-3 py-2 text-[10px]" : "px-4 py-2 text-xs"} mt-4 inline-flex rounded-full border border-emerald-700 bg-emerald-600 font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 dark:border-emerald-500 dark:bg-emerald-600 dark:text-white`}
-              >
-                {panelCopy.view}
-              </a>
-            </article>
-            );
-          })}
+                <a href={pick.affiliateUrl || pick.url} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(pick)}
+                  className="mt-3 inline-flex w-fit rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal">
+                  Check price on {pick.store}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
-      <p className={`${compact ? "mt-3 text-[10px] leading-4" : "mt-4 text-xs leading-relaxed"} font-bold text-emerald-900/70 dark:text-emerald-100/70`}>
-        {disclosure}
-      </p>
+      {searches.length ? (
+        <div className="mt-8">
+          <h3 className="text-base font-semibold text-slate-900">Keep browsing</h3>
+          <p className="mt-1 text-xs text-slate-500">Amazon search links. These aren&apos;t reviewed picks; ReviewIntel hasn&apos;t checked these results.</p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {searches.map(pick => (
+              <li key={pick.url}>
+                <a href={pick.affiliateUrl || pick.url} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(pick)}
+                  className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:border-teal hover:text-teal">
+                  {pick.title} <span aria-hidden="true" className="ml-1">↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <p className="mt-6 border-t border-slate-100 pt-4 text-xs leading-5 text-slate-500">{disclosure}</p>
     </section>
   );
 }

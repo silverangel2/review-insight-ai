@@ -98,3 +98,82 @@ test('same marketplace host does not authorize a different ASIN corpus', () => {
   assert.equal(result.acceptedRecordCount, 0);
   assert.match(result.rejectedRecords[0].rejectionReason, /different product ID/);
 });
+
+test("verified exact listing does not bless a sizing-kit accessory review", () => {
+  const result = adjudicateReviewEvidence(
+    [
+      {
+        body: "I used this sizing kit for 24 hours and tried several different sizes before choosing the right one. The kit was helpful and easy to use.",
+        source: "Amazon",
+        sourceUrl: "https://www.amazon.ca/product-reviews/B0DWJDFLT8",
+        marketplaceProductId: "B0DWJDFLT8",
+        rating: 5,
+      },
+    ],
+    {
+      brand: "RingConn",
+      productName: "RingConn Gen 2 Air Smart Ring",
+      model: "Gen 2 Air",
+      exactListingAccepted: true,
+      exactListingUrl: "https://www.amazon.ca/dp/B0DWJDFLT8",
+      exactListingTitle: "RingConn Gen 2 Air Smart Ring",
+    },
+  );
+
+  assert.equal(result.acceptedRecordCount, 0);
+  assert.equal(result.rejectedRecordCount, 1);
+  assert.match(
+    result.rejectedRecords[0]?.rejectionReason || "",
+    /sizing-kit accessory/i,
+  );
+});
+
+test("verified exact listing still accepts a genuine product review", () => {
+  const result = adjudicateReviewEvidence(
+    [
+      {
+        body: "My RingConn Gen 2 Air battery lasted about nine days and sleep tracking has been consistent.",
+        source: "Amazon",
+        sourceUrl: "https://www.amazon.ca/product-reviews/B0DWJDFLT8",
+        marketplaceProductId: "B0DWJDFLT8",
+        rating: 5,
+      },
+    ],
+    {
+      brand: "RingConn",
+      productName: "RingConn Gen 2 Air Smart Ring",
+      model: "Gen 2 Air",
+      exactListingAccepted: true,
+      exactListingUrl: "https://www.amazon.ca/dp/B0DWJDFLT8",
+      exactListingTitle: "RingConn Gen 2 Air Smart Ring",
+    },
+  );
+
+  assert.equal(result.acceptedRecordCount, 1);
+  assert.equal(result.rejectedRecordCount, 0);
+});
+
+test("mentioning a sizing kit does not reject a review that explicitly identifies the requested model", () => {
+  const result = adjudicateReviewEvidence(
+    [
+      {
+        body: "I used the sizing kit first, then bought the RingConn Gen 2 Air. The ring itself has been comfortable and the battery lasts over a week.",
+        source: "Amazon",
+        sourceUrl: "https://www.amazon.ca/product-reviews/B0DWJDFLT8",
+        marketplaceProductId: "B0DWJDFLT8",
+        rating: 5,
+      },
+    ],
+    {
+      brand: "RingConn",
+      productName: "RingConn Gen 2 Air Smart Ring",
+      model: "Gen 2 Air",
+      exactListingAccepted: true,
+      exactListingUrl: "https://www.amazon.ca/dp/B0DWJDFLT8",
+      exactListingTitle: "RingConn Gen 2 Air Smart Ring",
+    },
+  );
+
+  assert.equal(result.acceptedRecordCount, 1);
+  assert.equal(result.rejectedRecordCount, 0);
+});

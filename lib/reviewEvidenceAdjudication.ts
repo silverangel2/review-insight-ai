@@ -87,6 +87,7 @@ function clean(value: unknown): string {
     .replace(/<[^>]*>/g, " ")
     .replace(/\\u0026/g, "&")
     .replace(/\\n/g, " ")
+    .replace(/Brief content visible, double tap to read full content\. Full content visible, double tap to read brief content\./gi, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -101,7 +102,7 @@ function normalized(value: unknown): string {
   return clean(value)
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -140,7 +141,7 @@ function sourceTypeOf(url: string | null, source: string): EvidenceSourceType {
   if (/manufacturer|official|brand/.test(value)) return "manufacturer";
   if (/reddit\.|forum|community|quora/.test(value)) return "forum";
   if (/youtube\.|tiktok\.|instagram\.|ugc/.test(value)) return "ugc";
-  if (/review|wirecutter|rtings|cnet|tom'?s hardware/.test(value)) return "professional_review";
+  if (/professional|editorial|wirecutter|rtings|cnet|tom'?s hardware/.test(value)) return "professional_review";
   return "unknown";
 }
 
@@ -174,16 +175,23 @@ function identityAccepted(body: string, record: AdjudicationInputRecord, options
   }
   if (!body || body.length < 12) return { accepted: false, reason: "missing or unusable written review text" };
   if (!record.body && !record.text && record.snippet) return { accepted: false, reason: "search snippet is not extracted written review evidence" };
-  if (/specification|metadata|search.snippet|aggregate/i.test(clean(record.evidenceType || record.evidenceKind))) {
+  if (/specification|metadata|search.snippet|aggregate|ai.summary|model.summary|product.description/i.test(clean(record.evidenceType || record.evidenceKind))) {
     return { accepted: false, reason: "specification or discovery metadata is not written review evidence" };
   }
-  if (!hasWrittenCustomerExperience(body)) {
+  if ((!hasWrittenCustomerExperience(body) && /\b(?:specifications?|technical specs|product description)\b/i.test(body)) || (record.reviewStructureVerified !== true && !hasWrittenCustomerExperience(body))) {
     return { accepted: false, reason: "text has no written customer review structure or experience" };
   }
 
+  // Listing chrome (the product title itself) is not a customer's words.
+  const titleWordsSet = new Set(normalized([options.exactListingTitle, options.productName].filter(Boolean).join(" ")).split(" ").filter(Boolean));
+  const bodyWords = normalized(body).split(" ").filter(Boolean);
+  if (bodyWords.length >= 4 && titleWordsSet.size >= 4 && bodyWords.filter(word => titleWordsSet.has(word)).length / bodyWords.length >= 0.9) {
+    return { accepted: false, reason: "text repeats the product title rather than a customer review" };
+  }
   const sourceUrl = sourceUrlOf(record);
+  if (!sourceUrl || !hostOf(sourceUrl)) return { accepted: false, reason: "written review has no traceable source URL" };
   const source = clean(record.source);
-  const haystack = normalized([body, record.title, source, sourceUrl].filter(Boolean).join(" "));
+  const haystack = normalized([body, record.title, record.reviewStructureVerified === true ? record.reviewedProductName : null, source, sourceUrl].filter(Boolean).join(" "));
   const identityTokens = tokens([options.brand, options.productName, options.model, options.exactListingTitle].filter(Boolean).join(" "));
   const requestedBrand = normalized(options.brand);
   const modelTokens = stableProductSearchTerms({ brand: options.brand, productName: options.productName, model: options.model }).models;
@@ -204,7 +212,11 @@ function identityAccepted(body: string, record: AdjudicationInputRecord, options
   const listingAssociation = options.exactListingAccepted === true && exactHost && host === exactHost
     && ((exactAsin && sourceAsin && exactAsin === sourceAsin)
       || sourcePath(sourceUrl) === sourcePath(options.exactListingUrl));
-  if (record.reviewedProductName) {
+  // On the verified listing (same host + same stable id/path), a product name
+  // inherited from the page title is listing identity, not a per-review claim
+  // of a different model; per-review variants are still checked below.
+  const pageInheritedName = (record as { reviewedProductNameSource?: unknown }).reviewedProductNameSource === "page";
+  if (record.reviewedProductName && !(listingAssociation && pageInheritedName && !record.reviewedModel)) {
     const reviewed = normalized(record.reviewedProductName).replace(/\s/g, "");
     if (modelTokens.some((model) => !reviewed.includes(normalized(model).replace(/\s/g, "")))) {
       return { accepted: false, reason: "structured review identifies a different product model" };
@@ -213,6 +225,85 @@ function identityAccepted(body: string, record: AdjudicationInputRecord, options
   if (record.reviewedBrand && requestedBrand && normalized(record.reviewedBrand) !== requestedBrand) {
     return { accepted: false, reason: "structured review identifies a different product brand" };
   }
+
+  const requestedRoles = stableProductSearchTerms({brand: options.brand, productName: options.productName, model: options.model}).roles;
+  // Owner policy (2026-10-10): colour/finish is cosmetic. A review of the same
+  // model in another colour counts; size, capacity, model, generation, bundle and
+  // accessory differences are still rejected. Limitation: categories where colour
+  // changes function are not special-cased.
+  const requestedVariants = [...requestedRoles.capacityOrSize,
+    ...requestedRoles.primaryVariants.filter(value => /^size\s+\d|^(?:xl|xxl)$/i.test(value))];
+  const explicitVariant = clean([record.reviewedVariant || record.variant, record.reviewedColor,
+    record.reviewedSize ? `size ${record.reviewedSize}` : null, record.reviewedCapacity].filter(Boolean).join(" "));
+  const reviewedRoles = stableProductSearchTerms({brand: options.brand,
+    productName: [record.reviewedProductName, explicitVariant].filter(Boolean).join(" "),
+    model: typeof record.reviewedModel === "string" ? record.reviewedModel : null}).roles;
+  const canonicalVariant = (value: string) => normalized(value).replace(/grey/g, "gray").replace(/quarts?|qts?/g, "qt").replace(/litres?|liters?/g, "l").replace(/\s+/g, "");
+  if (record.sharedReviewPool === true && !record.reviewedProductName && !(record.reviewedModel && modelTokens.length)) {
+    return {accepted: false, reason: "shared parent review pool lacks explicit child product identity"};
+  }
+  if (record.reviewedModel && modelTokens.length && !modelTokens.some(model => normalized(model) === normalized(record.reviewedModel))) {
+    return {accepted: false, reason: "structured review identifies a different product model"};
+  }
+  if (explicitVariant) {
+    const explicitRoles = stableProductSearchTerms({productName: explicitVariant}).roles;
+    const requestedSize = normalized(options.productName).match(/\bsize\s+(\d+(?:\.\d+)?)/)?.[1];
+    const explicitSize = normalized(explicitVariant).match(/\bsize\s+(\d+(?:\.\d+)?)/)?.[1];
+    if (requestedSize && explicitSize && requestedSize !== explicitSize) {
+      return {accepted: false, reason: "structured review identifies a different size variant"};
+    }
+    if (requestedRoles.capacityOrSize.length && explicitRoles.capacityOrSize.some(size => !requestedRoles.capacityOrSize.some(requested => canonicalVariant(requested) === canonicalVariant(size)))) {
+      return {accepted: false, reason: "structured review identifies a different capacity variant"};
+    }
+  }
+  if (explicitVariant || record.sharedReviewPool === true) {
+    const explicitContext = normalized([record.reviewedProductName, explicitVariant].filter(Boolean).join(" "));
+    if (requestedVariants.some(variant => !canonicalVariant(explicitContext).includes(canonicalVariant(variant)))) {
+      return {accepted: false, reason: "shared or variant review lacks the requested child size or capacity"};
+    }
+  }
+  const reviewedColors = reviewedRoles.colors;
+  void reviewedColors; // colour differences are cosmetic and never reject
+
+  // A verified listing association is strong product context, but it must not
+  // automatically bless text that explicitly reviews a separate sizing-kit
+  // accessory. Marketplaces can expose accessory/parent-child review content
+  // under the same listing context.
+  const reviewSubjectText = normalized([
+    body,
+    record.title,
+    record.reviewedProductName,
+  ].filter(Boolean).join(" "));
+
+  const accessory = /\b(?:sizing kit|size kit|kit de tailles?|kit de mesures?|replacement filter|replacement part|charging case|(?:the|wall|car|replacement) charger|mount|accessory)\b/i;
+  const requestedIsAccessory = accessory.test(normalized([options.productName, options.model].join(" ")));
+  const accessoryMention = accessory.test(reviewSubjectText);
+  // Derive product anchors from the requested identity, rather than a list
+  // of previously seen product categories. Accessory compatibility alone is
+  // not primary-product use; a primary anchor needs its own experience verb.
+  const excludedAnchors = new Set(normalized([options.brand, ...modelTokens, ...requestedVariants, "smart new premium personal ultra thin health fitness tracking for with and the"].join(" ")).split(" "));
+  const anchors = normalized(options.productName).split(" ").filter(token => token.length >= 3 && !excludedAnchors.has(token) && !/\d/.test(token));
+  const anchorPattern = [...anchors, "device", "product", "unit"].map(token => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const productExperience = new RegExp(`\\b(?:${anchorPattern})\\b.{0,65}\\b(?:works?|worked|using|used|comfortable|battery|charge|failed|died|broke|clean|cooks?|cooked|performance)\\b|\\b(?:using|used|wear|wore|bought|purchased)\\b.{0,20}\\b(?:${anchorPattern})\\b`, "i").test(reviewSubjectText)
+    || /\b(?:this|current|new)\s+(?:version|one|unit|product)\b.{0,180}\b(?:works?|used|use|power|keeps?|charge)\b/i.test(reviewSubjectText);
+  const accessorySubject = accessory.test(normalized(record.reviewedProductName));
+  // The reviewer's own words (not the listing title) naming the requested
+  // product's category/identity words (singular or plural) show the review is about it; an incidental accessory mention
+  // (e.g. "I have a ceiling mount") must not discard that review.
+  const anchorMention = anchors.length > 0 && new RegExp(`\\b(?:${anchors.map(token => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?:s|es)?\\b`, "i").test(normalized([body, record.title].filter(Boolean).join(" ")));
+  if (!requestedIsAccessory && accessoryMention && (accessorySubject || (!productExperience && !anchorMention))) {
+    return { accepted: false, reason: /sizing|size kit|kit de/.test(reviewSubjectText)
+      ? "review text identifies a sizing-kit accessory rather than the requested product"
+      : "review text identifies an accessory rather than the requested product" };
+  }
+  // Explicit contradictory generation/model text overrides a shared listing.
+  const generations = normalized(options.model || options.productName).match(/\bgen(?:eration)?\s+(\d+)\b/);
+  const bodyGeneration = normalized(body).match(/\bgen(?:eration)?\s+(\d+)\b/);
+  const explicitComparison = /\b(?:upgraded?|switched|compared)\s+(?:from|to|with)|\b(?:previous|before)\b/i.test(body);
+  if (generations && bodyGeneration && generations[1] !== bodyGeneration[1] && !explicitComparison) {
+    return { accepted: false, reason: "review text identifies a different product generation or variant" };
+  }
+
   if (listingAssociation) {
     return { accepted: true, reason: null };
   }
@@ -242,8 +333,12 @@ function adjudicateReviewEvidenceImpl(
 ): ReviewEvidenceAdjudication {
   const records: AdjudicatedEvidenceRecord[] = [];
   const byHash = new Map<string, AdjudicatedEvidenceRecord>();
+  const byReviewId = new Map<string, AdjudicatedEvidenceRecord>();
 
-  for (const original of inputRecords) {
+  const orderedInputs = [...inputRecords].sort((a, b) =>
+    bodyOf(b).length - bodyOf(a).length || hash(bodyOf(a)).localeCompare(hash(bodyOf(b))) ||
+    (sourceUrlOf(a) || "").localeCompare(sourceUrlOf(b) || "") || clean(a.reviewId).localeCompare(clean(b.reviewId)));
+  for (const original of orderedInputs) {
     const body = bodyOf(original);
     const source = clean(original.source) || "Unknown evidence source";
     const sourceUrl = sourceUrlOf(original);
@@ -251,7 +346,8 @@ function adjudicateReviewEvidenceImpl(
     const sourceReputation = reputationOf(sourceType, sourceUrl);
     const stableEvidenceHash = hash(body);
     const id = `evidence-${stableEvidenceHash.slice(0, 24)}`;
-    const duplicate = stableEvidenceHash ? byHash.get(stableEvidenceHash) || null : null;
+    const reviewKey = clean(original.reviewId) && hostOf(sourceUrl) ? `${hostOf(sourceUrl)}:${clean(original.reviewId)}` : null;
+    const duplicate = byHash.get(stableEvidenceHash) || (reviewKey ? byReviewId.get(reviewKey) : null) || null;
     const identity = identityAccepted(body, original, options);
     const accepted = identity.accepted && !duplicate;
     const record: AdjudicatedEvidenceRecord = {
@@ -275,7 +371,10 @@ function adjudicateReviewEvidenceImpl(
       original,
     };
     records.push(record);
-    if (accepted) byHash.set(stableEvidenceHash, record);
+    if (accepted) {
+      byHash.set(stableEvidenceHash, record);
+      if (reviewKey) byReviewId.set(reviewKey, record);
+    }
   }
 
   const acceptedRecords = records.filter((record) => record.accepted);

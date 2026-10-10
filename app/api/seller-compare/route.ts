@@ -5,6 +5,7 @@ import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import { normalizeLocale } from "@/lib/i18n";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
+import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ function readText(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function readNumber(value: unknown, fallback = 70) {
+function readNumber(value: unknown, fallback: number | null = null) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
@@ -47,11 +48,11 @@ function normalize(raw: Record<string, unknown>) {
   const oldActionPlan = textArray(raw.sellerActionPlan);
 
   return {
-    competitivePosition: readText(raw.competitivePosition, "Close but needs fixes"),
-    confidence: readNumber(raw.confidence, 70),
-    executiveSummary: readText(raw.executiveSummary, "AI comparison completed."),
-    marketMove: readText(raw.marketMove, readText(raw.fixFirst, "Close the strongest competitor advantage first.")),
-    fixFirst: readText(raw.fixFirst, "Fix the most repeated buyer objection first."),
+    competitivePosition: readText(raw.competitivePosition, "Comparison not scored"),
+    confidence: readNumber(raw.confidence),
+    executiveSummary: readText(raw.executiveSummary, "Not enough verified written review evidence was available to compare these products."),
+    marketMove: readText(raw.marketMove, readText(raw.fixFirst, "Collect and verify written review evidence before making a competitive claim.")),
+    fixFirst: readText(raw.fixFirst, "Collect and verify written review evidence before choosing a priority fix."),
     outgrowStrategy: textArray(raw.outgrowStrategy).length ? textArray(raw.outgrowStrategy, 4) : oldActionPlan.slice(0, 4),
     competitorAdvantages: textArray(raw.competitorAdvantages, 4),
     yourAdvantages: textArray(raw.yourAdvantages, 4),
@@ -64,6 +65,10 @@ function normalize(raw: Record<string, unknown>) {
     ninetyDayPlan: textArray(raw.ninetyDayPlan, 4),
     comparabilityWarning: readText(raw.comparabilityWarning),
   };
+}
+
+function hasWrittenReviewEvidence(value: unknown) {
+  return hasSufficientReviewEvidenceRecord(value);
 }
 
 
@@ -260,6 +265,15 @@ export async function POST(request: Request) {
       attachRealReviewEvidence(yourProduct),
       attachRealReviewEvidence(competitorProduct),
     ]);
+
+    if (!hasWrittenReviewEvidence(yourProductWithReviewEvidence) || !hasWrittenReviewEvidence(competitorProductWithReviewEvidence)) {
+      return NextResponse.json(normalize({
+        competitivePosition: "Comparison not scored",
+        confidence: null,
+        executiveSummary: "Not enough verified written review evidence was available to compare these products.",
+        comparabilityWarning: "At least one product lacks verified written review evidence.",
+      }));
+    }
 
     const prompt = `
 You are ReviewIntel Seller Pro Compare.

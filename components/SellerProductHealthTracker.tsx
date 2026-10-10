@@ -255,7 +255,7 @@ export function SellerProductHealthTracker() {
                   >
                     <div className="flex items-start gap-3">
                       <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-ink text-xs font-black text-white">
-                        {product.imageUrl ? <img src={product.imageUrl} alt="" className="h-full w-full object-cover" /> : product.name.slice(0, 2).toUpperCase()}
+                        {product.imageUrl ? <img src={product.imageUrl} alt="" className="h-full w-full object-cover" /> : product.name.slice(0, 5).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-black text-ink dark:text-white">{product.name}</p>

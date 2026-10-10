@@ -46,7 +46,9 @@ test('production cannot save capture, even with explicit directory',async()=>{
 });
 test('captured bodies and hashes reconstruct identical corpus, score and verdict',()=>{
  const replayed=replayScan(capture,production);assert.deepEqual(replayed.final,expected);
- assert.equal(replayed.adjudications[0].acceptedRecords[0].body,fixture.rawRecords[0].body);
+ const original=replayed.adjudications[0].acceptedRecords.find(record=>record.original.body===fixture.rawRecords[0].body);
+ assert.ok(original,"Captured record must survive deterministic ordering");
+ assert.equal(original.body,production.normalizeReviewCandidate(fixture.rawRecords[0]).normalizedBody);
  const broken=structuredClone(capture);broken.events.find(e=>e.stage==='adjudication').data.args[0][0].body='Tampered body';assert.throws(()=>replayScan(broken,production),/drift/);
 });
 test('capture replay under tripwire performs zero external I/O',()=>{

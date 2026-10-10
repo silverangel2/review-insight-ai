@@ -75,7 +75,11 @@ export type CollectedReview = {
   verified?: boolean | null;
   reviewStructureVerified?: boolean;
   reviewedProductName?: string | null;
+  reviewedModel?: string | null;
+  reviewedVariant?: string | null;
+  sharedReviewPool?: boolean;
   reviewedBrand?: string | null;
+  reviewedProductNameSource?: "page" | "review";
 };
 
 export type ReviewExtractorName = "amazon" | "walmart" | "generic" | "none";
@@ -107,7 +111,7 @@ function normalizeRating(value: unknown): number | null {
 }
 
 function reviewKey(text: string) {
-  return cleanText(text).toLowerCase().replace(/[^a-z0-9]+/g, " ");
+  return cleanText(text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
 }
 
 function extractorForUrl(url: string | null | undefined): ReviewExtractorName {
@@ -124,11 +128,11 @@ function extractorForUrl(url: string | null | undefined): ReviewExtractorName {
   return "generic";
 }
 
-function isLikelyWrittenReviewBody(value: string): boolean {
+function isLikelyWrittenReviewBody(value: string, structured = false): boolean {
   const text = cleanText(value);
   const lower = text.toLowerCase();
 
-  if (text.length < 25 || text.length > 5000) return false;
+  if (text.length < (structured ? 12 : 25) || text.length > 5000) return false;
   if (
     /privacy policy|terms of use|add to cart|sponsored|advertisement|subscribe|cookie policy|write a review/i.test(
       lower
@@ -137,20 +141,21 @@ function isLikelyWrittenReviewBody(value: string): boolean {
     return false;
   }
 
-  return hasWrittenCustomerExperience(text);
+  return structured || hasWrittenCustomerExperience(text);
 }
 
-function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedReview[], productName: string | null = null, productBrand: string | null = null) {
+function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedReview[], productName: string | null = null, productBrand: string | null = null, sharedReviewPool = false) {
   if (!node || typeof node !== "object") return;
 
   if (Array.isArray(node)) {
-    for (const item of node) collectFromJsonLdNode(item, sourceUrl, out, productName, productBrand);
+    for (const item of node) collectFromJsonLdNode(item, sourceUrl, out, productName, productBrand, sharedReviewPool);
     return;
   }
 
   const record = node as Record<string, unknown>;
   const type = record["@type"];
   const types = Array.isArray(type) ? type.map(String) : [String(type)];
+  const sharedPool = types.some(value => value.toLowerCase() === "productgroup") || sharedReviewPool;
   const contextName = types.some((value) => value.toLowerCase() === "product") ? cleanText(record.name) || null : productName;
   const brandName = (value: unknown) => typeof value === "string" ? cleanText(value)
     : value && typeof value === "object" ? cleanText((value as Record<string, unknown>).name) : "";
@@ -167,7 +172,7 @@ function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedR
       cleanText(record.text) ||
       cleanText(record.name);
 
-    if (isLikelyWrittenReviewBody(body)) {
+    if (isLikelyWrittenReviewBody(body, true)) {
       const ratingValue =
         record.reviewRating && typeof record.reviewRating === "object"
           ? (record.reviewRating as Record<string, unknown>).ratingValue
@@ -183,7 +188,10 @@ function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedR
         verified: null,
         reviewStructureVerified: true,
         reviewedProductName: record.itemReviewed && typeof record.itemReviewed === "object"
-          ? cleanText((record.itemReviewed as Record<string, unknown>).name) || contextName : contextName,
+          ? cleanText((record.itemReviewed as Record<string, unknown>).name) || null : sharedPool ? null : contextName,
+        sharedReviewPool: sharedPool,
+        reviewedModel: record.itemReviewed && typeof record.itemReviewed === "object" ? cleanText((record.itemReviewed as Record<string, unknown>).model) || null : null,
+        reviewedVariant: record.itemReviewed && typeof record.itemReviewed === "object" ? ["color", "size", "capacity"].map(key => cleanText((record.itemReviewed as Record<string, unknown>)[key])).filter(Boolean).join(" ") || null : null,
         reviewedBrand: record.itemReviewed && typeof record.itemReviewed === "object"
           ? brandName((record.itemReviewed as Record<string, unknown>).brand) || contextBrand : contextBrand,
       });
@@ -191,7 +199,7 @@ function collectFromJsonLdNode(node: unknown, sourceUrl: string, out: CollectedR
   }
 
   for (const value of Object.values(record)) {
-    if (value && typeof value === "object") collectFromJsonLdNode(value, sourceUrl, out, contextName, contextBrand);
+    if (value && typeof value === "object") collectFromJsonLdNode(value, sourceUrl, out, contextName, contextBrand, sharedPool);
   }
 }
 
@@ -202,7 +210,9 @@ function collectJsonLdReviews(html: string, sourceUrl: string): CollectedReview[
   );
 
   for (const match of matches) {
-    const raw = cleanText(match[1]);
+    // Parse the serialized document before normalizing its text fields.
+    // Unescaping quotes here corrupts valid JSON containing quoted review text.
+    const raw = match[1].trim();
     if (!raw) continue;
 
     try {
@@ -234,7 +244,7 @@ function collectEmbeddedReviewText(html: string, sourceUrl: string): CollectedRe
     for (const match of unstructuredScripts.matchAll(pattern)) {
       const body = cleanText(match[1]);
       if (
-        isLikelyWrittenReviewBody(body) &&
+        isLikelyWrittenReviewBody(body, true) &&
         !/privacy policy|terms of use|add to cart|sponsored|advertisement/i.test(body)
       ) {
         reviews.push({
@@ -253,13 +263,31 @@ function collectEmbeddedReviewText(html: string, sourceUrl: string): CollectedRe
   return reviews;
 }
 
+// schema.org microdata: only reviewBody inside an itemscope typed Review counts;
+// product descriptions and other itemprops are never promoted to reviews.
+function collectMicrodataReviews(html: string, sourceUrl: string): CollectedReview[] {
+  const reviews: CollectedReview[] = [];
+  const opener = /<[a-z]+\b[^>]*\bitemtype=["']https?:\/\/schema\.org\/Review["'][^>]*>/gi;
+  const starts = [...html.matchAll(opener)].map((m) => m.index || 0);
+  starts.forEach((start, i) => {
+    const block = html.slice(start, starts[i + 1] ?? Math.min(html.length, start + 20000));
+    const bodyMatch = block.match(/<([a-z]+)\b[^>]*\bitemprop=["']reviewBody["'][^>]*?(?:content=["']([^"']+)["'][^>]*)?>([\s\S]*?)<\/\1>/i);
+    const body = bodyMatch ? cleanText(htmlDecodeLight(bodyMatch[2] || bodyMatch[3] || "")) : "";
+    if (!isLikelyWrittenReviewBody(body, true)) return;
+    const rating = Number(block.match(/itemprop=["']ratingValue["'][^>]*?(?:content=["']([\d.]+)["']|>\s*([\d.]+))/i)?.slice(1).find(Boolean));
+    const date = block.match(/itemprop=["']datePublished["'][^>]*?(?:content=["']([^"']+)["']|>([^<]+))/i)?.slice(1).find(Boolean) || null;
+    reviews.push({ source: "Listing microdata review", sourceUrl, rating: Number.isFinite(rating) ? normalizeRating(rating) : null, body, date: date ? cleanText(date) : null, verified: null, reviewStructureVerified: true });
+  });
+  return reviews;
+}
+
 function dedupeReviews(reviews: CollectedReview[], maxReviews: number): CollectedReview[] {
   const seen = new Set<string>();
   const cleaned: CollectedReview[] = [];
 
   for (const review of reviews) {
     const body = cleanText(review.body);
-    if (body.length < 25) continue;
+    if (body.length < (review.reviewStructureVerified ? 12 : 25)) continue;
 
     const key = reviewKey(body);
     if (!key || seen.has(key)) continue;
@@ -354,7 +382,7 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
   }
 
   const types = Array.isArray(record["@type"]) ? record["@type"] : [record["@type"]];
-  if (!types.some((type) => String(type).toLowerCase() === "product") && hasReviewShape && isLikelyWrittenReviewBody(body)) {
+  if (!types.some((type) => String(type).toLowerCase() === "product") && hasReviewShape && isLikelyWrittenReviewBody(body, true)) {
     const ratingKey = Object.keys(record).find((candidate) =>
       ratingKeys.includes(candidate.toLowerCase())
     );
@@ -491,15 +519,32 @@ function amazonReviewUrls(listingUrl: string, html: string): string[] {
 function collectAmazonHtmlReviews(html: string, sourceUrl: string): CollectedReview[] {
   const decoded = htmlDecodeLight(html);
   const reviews: CollectedReview[] = [];
-  const blocks = decoded.match(/<div[^>]+data-hook=["']review["'][\s\S]*?(?=<div[^>]+data-hook=["']review["']|$)/gi) || [];
+  // Review containers are identified by the data-hook attribute, not the tag:
+  // marketplace product pages render top reviews as <li>, list pages as <div>.
+  const blocks = decoded.match(/<(?:div|li|article|section)\b[^>]*\bdata-hook=["']review["'][\s\S]*?(?=<(?:div|li|article|section)\b[^>]*\bdata-hook=["']review["']|$)/gi) || [];
 
   for (const block of blocks) {
-    const bodyMatch =
-      block.match(/data-hook=["']review-body["'][^>]*>([\s\S]*?)<\/span>/i) ||
+    // The body element nests spans/divs/<br>; read until the next non-body
+    // review hook instead of the first </span>, which truncates multi-part text.
+    // Both legacy (review-body) and current (reviewText / reviewRichContentContainer)
+    // body containers; read every paragraph until the next non-body hook.
+    const bodyHook = /data-hook=["'](?:review-body|reviewTextContainer|reviewText|reviewRichContentContainer)["'][^>]*>/i;
+    const bodyStart = block.search(bodyHook);
+    const nestedBody = bodyStart >= 0 ? (() => {
+      const rest = block.slice(bodyStart).replace(bodyHook, "");
+      const end = rest.search(/data-hook=["'](?!review-collapsed|review-body|reviewTextContainer|reviewText|reviewRichContentContainer)[^"']+["']/i);
+      return (end >= 0 ? rest.slice(0, rest.lastIndexOf("<", end)) : rest).replace(/<br\s*\/?>|<\/p>/gi, " ")
+        .replace(/<div[^>]*a-teaser-describedby[^>]*>[\s\S]*?<\/div>/gi, " ");
+    })() : null;
+    const bodyMatch = (nestedBody !== null ? [nestedBody, nestedBody] as unknown as RegExpMatchArray : null) ||
       block.match(/class=["'][^"']*review-text[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
-    const body = bodyMatch ? cleanText(bodyMatch[1]) : "";
+    // Accessibility expander prompts are interface text, not the reviewer's words.
+    const body = bodyMatch ? cleanText(bodyMatch[1])
+      .replace(/(?:brief|full) content visible,? double tap to read (?:full|brief) content\.?/gi, " ")
+      .replace(/\b(?:read more|read less|see more|see less|translate review to english|see original)\s*$/i, " ")
+      .replace(/\s+/g, " ").trim() : "";
 
-    if (!isLikelyWrittenReviewBody(body)) continue;
+    if (!isLikelyWrittenReviewBody(body, true)) continue;
 
     const titleMatch =
       block.match(/data-hook=["']review-title["'][^>]*>([\s\S]*?)<\/a>/i) ||
@@ -511,6 +556,7 @@ function collectAmazonHtmlReviews(html: string, sourceUrl: string): CollectedRev
       source: "Amazon written review",
       reviewStructureVerified: true,
       sourceUrl,
+      reviewedVariant: block.match(/data-hook=["']format-strip["'][^>]*>([\s\S]*?)<\/a>/i)?.[1] ? cleanText(block.match(/data-hook=["']format-strip["'][^>]*>([\s\S]*?)<\/a>/i)![1]) : null,
       reviewId: block.match(/data-(?:review-id|hook-review-id)=["']([^"']+)/i)?.[1] || null,
       marketplaceProductId: extractAmazonAsin(sourceUrl, decoded),
       rating: ratingMatch?.[1] ? normalizeRating(Number(ratingMatch[1])) : null,
@@ -541,13 +587,14 @@ function marketplaceReviewUrls(extractor: ReviewExtractorName, html: string, lis
   return discovered;
 }
 
-async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, costTelemetry?: ScanCostTelemetry): Promise<CollectedReview[]> {
-  const reviews: CollectedReview[] = [];
+async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, costTelemetry?: ScanCostTelemetry, initialReviews: CollectedReview[] = []): Promise<{ reviews: CollectedReview[]; requestAttempts: number; pagesFetched: number; rawReviewCount: number }> {
+  const reviews: CollectedReview[] = [...initialReviews];
 
+  let requestAttempts = 0;
   let pagesFetched = 0;
   let stopReason = "candidate review URLs exhausted";
   for (const [index, url] of urls.entries()) {
-    if (reviews.length >= maxReviews) {
+    if (dedupeReviews(reviews, maxReviews).length >= maxReviews) {
       stopReason = "configured corpus cap reached";
       break;
     }
@@ -555,6 +602,7 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, cos
     try {
       if (costTelemetry && !costTelemetry.canStartRetrievalRequest()) break;
       costTelemetry?.recordRetrievalRequest("other");
+      requestAttempts += 1;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -564,6 +612,7 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, cos
           "accept-language": "en-CA,en;q=0.9",
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(9000),
       });
 
       pagesFetched += 1;
@@ -612,7 +661,7 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, cos
             blockedOrChallenged: true,
             selectorMismatch: false,
             paginationContinued:
-              index + 1 < urls.length && reviews.length < maxReviews,
+              index + 1 < urls.length && dedupeReviews(reviews, maxReviews).length < maxReviews,
             stopReason: "sign-in/challenge response rejected",
           })
         );
@@ -629,7 +678,7 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, cos
         reviews.push(...collectEmbeddedJsonReviews(decoded, response.url || url));
       }
       captureStage("extraction", () => ({ sourceUrl: url, httpStatus: response.status, page: index + 1, blockedOrChallenged, records: reviews.slice(before).map(record => ({ ...record, ...normalizeReviewCandidate(record), sourceDomain: new URL(url).hostname })) }));
-      console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "discovered-review-url", url, page: index + 1, status: response.status, contentType, reviewNodesFound: reviews.length - before, validReviewTexts: reviews.length - before, nextPageFound: index + 1 < urls.length, nextPageUrl: urls[index + 1] || null, blockedOrChallenged, selectorMismatch: /html/i.test(contentType) && reviews.length === before, paginationContinued: index + 1 < urls.length && reviews.length < maxReviews, stopReason: index + 1 < urls.length && reviews.length < maxReviews ? null : reviews.length >= maxReviews ? "configured corpus cap reached" : "candidate review URLs exhausted" }));
+      console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "discovered-review-url", url, page: index + 1, status: response.status, contentType, reviewNodesFound: reviews.length - before, validReviewTexts: reviews.length - before, nextPageFound: index + 1 < urls.length, nextPageUrl: urls[index + 1] || null, blockedOrChallenged, selectorMismatch: /html/i.test(contentType) && reviews.length === before, paginationContinued: index + 1 < urls.length && dedupeReviews(reviews, maxReviews).length < maxReviews, stopReason: index + 1 < urls.length && dedupeReviews(reviews, maxReviews).length < maxReviews ? null : dedupeReviews(reviews, maxReviews).length >= maxReviews ? "configured corpus cap reached" : "candidate review URLs exhausted" }));
     } catch {
       console.log("[ReviewIntel PIPELINE] retrieval", JSON.stringify({ layer: "discovered-review-url", url, page: index + 1, status: "error", reviewsFound: 0, nextPageDiscovered: index + 1 < urls.length, paginationContinued: index + 1 < urls.length, stopReason: "fetch error; continued" }));
     }
@@ -637,7 +686,7 @@ async function fetchDiscoveredReviewUrls(urls: string[], maxReviews: number, cos
 
   const deduped = dedupeReviews(reviews, maxReviews);
   console.log("[ReviewIntel PIPELINE] retrieval-summary", JSON.stringify({ layer: "discovered-review-url", pagesFetched, rawReviewsDiscovered: reviews.length, dedupedReviews: deduped.length, maxReviews, stopReason }));
-  return deduped;
+  return { reviews: deduped, requestAttempts, pagesFetched, rawReviewCount: reviews.length - initialReviews.length };
 }
 
 
@@ -691,7 +740,8 @@ export async function collectWrittenReviewsFromUrls(input: {
     };
   }
 
-  const reviews = await fetchDiscoveredReviewUrls(urls, maxReviews, input.costTelemetry);
+  const discoveredRetrieval = await fetchDiscoveredReviewUrls(urls, maxReviews, input.costTelemetry);
+  const reviews = discoveredRetrieval.reviews;
 
   return {
     sourceUrl: urls[0],
@@ -751,6 +801,7 @@ export function extractWrittenReviewsFromHtml(html: string, sourceUrl: string, m
     ...collectJsonLdReviews(html, sourceUrl),
     ...collectEmbeddedReviewText(html, sourceUrl),
     ...collectEmbeddedJsonReviews(html, sourceUrl),
+    ...collectMicrodataReviews(html, sourceUrl),
   ];
   captureStage("extraction", () => ({ sourceUrl, records: rawRecords.map(record => ({ ...record, ...normalizeReviewCandidate(record), sourceDomain: new URL(sourceUrl).hostname })) }));
   return dedupeReviews(rawRecords, maxReviews);
@@ -802,6 +853,7 @@ export async function collectWrittenReviewsFromListing(input: {
         "accept-language": "en-CA,en;q=0.9",
       },
       cache: "no-store",
+      signal: AbortSignal.timeout(9000),
     });
 
     captureStage("page", () => ({ sourceUrl: listingUrl, httpStatus: response.status, page: 1, blockedOrChallenged: !response.ok, records: [] }));
@@ -874,26 +926,31 @@ export async function collectWrittenReviewsFromListing(input: {
     captureStage("extraction", () => ({ sourceUrl: listingUrl, httpStatus: response.status, page: 1, blockedOrChallenged: listingBlockedOrChallenged, records: listingRawReviews.map(record => ({ ...record, ...normalizeReviewCandidate(record), sourceDomain: new URL(listingUrl).hostname })) }));
     console.log("[ReviewIntel PIPELINE] normalization", JSON.stringify({ layer: "listing-page", rawCount: listingReviews.length, malformedRemoved: 0, duplicatesRemoved: 0, remainingUnique: listingReviews.length }));
 
-    const discoveredReviews = await fetchDiscoveredReviewUrls(
+    const discoveredRetrieval = await fetchDiscoveredReviewUrls(
       discoveredReviewUrls,
-      Math.max(0, maxReviews - listingReviews.length),
+      maxReviews,
       input.costTelemetry,
+      listingReviews,
     );
 
-    const reviews = dedupeReviews([...listingReviews, ...discoveredReviews], maxReviews);
+    const reviews = discoveredRetrieval.reviews;
+    const discoveredReviewCount = Math.max(0, reviews.length - listingReviews.length);
+    const rawReviewsDiscovered = listingReviews.length + discoveredRetrieval.rawReviewCount;
 
-    console.log("[ReviewIntel PIPELINE] normalization", JSON.stringify({ layer: "listing-plus-pagination", rawCount: listingReviews.length + discoveredReviews.length, malformedRemoved: 0, duplicatesRemoved: Math.max(0, listingReviews.length + discoveredReviews.length - reviews.length), remainingUnique: reviews.length }));
+    console.log("[ReviewIntel PIPELINE] normalization", JSON.stringify({ layer: "listing-plus-pagination", rawCount: rawReviewsDiscovered, malformedRemoved: 0, duplicatesRemoved: Math.max(0, rawReviewsDiscovered - reviews.length), remainingUnique: reviews.length }));
 
     console.log("[ReviewIntel DEBUG reviewCollector]", {
       listingUrl,
       extractor,
       discoveredReviewUrls: discoveredReviewUrls.length,
       listingReviews: listingReviews.length,
-      discoveredReviews: discoveredReviews.length,
+      discoveredReviews: discoveredReviewCount,
       publicFallbackReviews: 0,
       reviewsCollected: reviews.length,
-      rawReviewsDiscovered: listingReviews.length + discoveredReviews.length,
-      pagesFetched: discoveredReviewUrls.length,
+      rawReviewsDiscovered,
+      discoveredReviewUrlCount: discoveredReviewUrls.length,
+      discoveredReviewRequestAttempts: discoveredRetrieval.requestAttempts,
+      discoveredReviewResponsesReceived: discoveredRetrieval.pagesFetched,
       sourcesUsed: Array.from(new Set(reviews.map((review) => review.sourceUrl || review.source))),
     });
 

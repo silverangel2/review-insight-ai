@@ -128,7 +128,8 @@ test("analyze result serialization uses canonical eligibility for all substantiv
   assert.match(analyzeRouteSource, /aiPatternSignals: canonicalEvidenceEligible &&/);
   assert.match(analyzeRouteSource, /const customerReviewEvidence = canonicalEvidenceEligible/);
   assert.match(analyzeRouteSource, /reviewEvidence: customerReviewEvidence/);
-  assert.match(analyzeRouteSource, /acceptedRecords: \[\]/);
+  assert.match(analyzeRouteSource, /acceptedRecordCount: deterministic\.acceptedReviewHashes\.length/);
+  assert.match(analyzeRouteSource, /sufficientByExistingThreshold: false/);
   assert.doesNotMatch(analyzeRouteSource, /isSufficientReviewEvidence\(/);
 });
 

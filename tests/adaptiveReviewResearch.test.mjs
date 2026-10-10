@@ -34,18 +34,18 @@ function run({ batches, sufficientAt = 3, maxCalls = 5, stagnantPasses = 2 } = {
   }).then((result) => ({ result, searches }));
 }
 
-test("native sufficient path needs no adaptive provider call", async () => {
+test("minimum sufficiency does not suppress bounded depth recovery", async () => {
   const { result, searches } = await run({ batches: [], sufficientAt: 0 });
-  assert.equal(searches, 0);
-  assert.equal(result.stopReason, "no_research_passes_available");
+  assert.equal(searches, 2);
+  assert.equal(result.stopReason, "stagnant_pass_limit");
 });
 
-test("native insufficiency recovers exact-product written reviews and stops when sufficient", async () => {
+test("recovery continues beyond minimum sufficiency until marginal evidence is exhausted", async () => {
   const { result, searches } = await run({ batches: [[record("1")], [record("2"), record("3")]] });
-  assert.equal(searches, 2);
+  assert.equal(searches, 4);
   assert.equal(result.records.length, 3);
-  assert.equal(result.stopReason, "sufficient");
-  assert.deepEqual(result.diagnostics.map((item) => item.SUFFICIENCY), ["NOT_ENOUGH", "SUFFICIENT"]);
+  assert.equal(result.stopReason, "stagnant_pass_limit");
+  assert.deepEqual(result.diagnostics.map((item) => item.SUFFICIENCY), ["NOT_ENOUGH", "SUFFICIENT", "SUFFICIENT", "SUFFICIENT"]);
 });
 
 test("two stagnant passes stop without inventing evidence", async () => {

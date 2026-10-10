@@ -20,6 +20,7 @@ import { getUiTextTranslation, readStoredLocale, type ReviewIntelLocale } from "
 import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
 import { makeSellerAdvice, makeSellerAction, makeSellerHeadline } from "@/lib/sellerAdviceEngine";
+import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
 import { AdSlot } from "@/components/advertising/AdSlot";
 
 
@@ -1701,8 +1702,63 @@ function safeStringArray(value: unknown): string[] {
   return [];
 }
 
-function safeNumber(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+function hasGroundedSellerResult(result: AnalyzeResponse) {
+  if (!hasSufficientReviewEvidenceRecord(result)) return false;
+
+  const raw = (result.analysis || {}) as Record<string, unknown>;
+  const resultRecord = result as unknown as Record<string, unknown>;
+  const evidence = resultRecord.reviewEvidence && typeof resultRecord.reviewEvidence === "object"
+    ? resultRecord.reviewEvidence as Record<string, unknown>
+    : null;
+  const collector = evidence?.reviewCollector && typeof evidence.reviewCollector === "object"
+    ? evidence.reviewCollector as Record<string, unknown>
+    : null;
+  const writtenReviewCount = Number(
+    evidence?.commentsAnalyzed ??
+      evidence?.reviewsCollected ??
+      collector?.reviewsCollected ??
+      resultRecord.commentsAnalyzed ??
+      resultRecord.reviewsCollected ??
+      0
+  );
+  const writtenMode = String(evidence?.reviewIntelligenceMode || "").toLowerCase();
+  const writtenEvidence = writtenReviewCount > 0 && writtenMode !== "listing_metadata";
+  const sellerInsights = raw.seller_insights && typeof raw.seller_insights === "object"
+    ? raw.seller_insights as Record<string, unknown>
+    : null;
+  const numericFields = [
+    raw.product_score,
+    raw.confidence_score,
+    raw.fake_review_risk_score,
+    raw.value_score,
+    raw.sentiment_score,
+    raw.sentiment_percentage,
+    raw.complaint_severity_score,
+    raw.buyingConfidence,
+    sellerInsights?.customer_satisfaction_score
+  ];
+  const completeNumbers = numericFields.every((value) => typeof value === "number" && Number.isFinite(value));
+  const recommendation = raw.buyer_recommendation || raw.customer_recommendation;
+  const completeRecommendation = recommendation && typeof recommendation === "object" &&
+    ["Buy", "Maybe", "Avoid"].includes(String((recommendation as Record<string, unknown>).verdict));
+  const hasSummary = typeof raw.overall_summary === "string" || typeof raw.summary === "string";
+  const hasStrengthField = ["positive_points", "positivePoints", "praised_features", "strengths"]
+    .some((key) => Array.isArray(raw[key]));
+  const hasComplaintField = ["common_complaints", "negative_points", "complaints", "mainConcerns"]
+    .some((key) => Array.isArray(raw[key]));
+  const hasValueOpinion = typeof raw.value_for_money_opinion === "string" || typeof raw.valueForMoney === "string";
+
+  return writtenEvidence && completeNumbers && completeRecommendation && hasSummary && hasStrengthField && hasComplaintField && hasValueOpinion;
+}
+
+function SellerEvidenceUnavailable() {
+  return (
+    <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200">Review evidence unavailable</p>
+      <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">Not enough verified written review evidence</h2>
+      <p className="mt-3 text-sm leading-7 text-slate-700 dark:text-slate-200">ReviewIntel did not render seller scores, recommendations, or review themes because the completed result did not contain a grounded written-review analysis.</p>
+    </section>
+  );
 }
 
 function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
@@ -1750,11 +1806,11 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
     feature_requests: safeStringArray(sellerInsightsRaw.feature_requests),
     competitor_opportunity_insights: safeStringArray(sellerInsightsRaw.competitor_opportunity_insights),
     seller_recommendations: safeStringArray(sellerInsightsRaw.seller_recommendations),
-    customer_satisfaction_score: safeNumber(sellerInsightsRaw.customer_satisfaction_score, 70)
+    customer_satisfaction_score: sellerInsightsRaw.customer_satisfaction_score as number
   };
 
-  const productScore = safeNumber(raw.product_score, safeNumber(raw.score, safeNumber(raw.buyingConfidence, 70)));
-  const confidence = safeNumber(raw.confidence_score, 0.7);
+  const productScore = raw.product_score as number;
+  const confidence = raw.confidence_score as number;
 
   return {
     ...result,
@@ -1771,17 +1827,17 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
       summary: raw.summary || raw.overall_summary || "Latest scan loaded.",
 
       product_score: productScore,
-      score: safeNumber(raw.score, productScore),
-      buyingConfidence: safeNumber(raw.buyingConfidence, productScore),
+      score: typeof raw.score === "number" && Number.isFinite(raw.score) ? raw.score : productScore,
+      buyingConfidence: raw.buyingConfidence as number,
       confidence_score: confidence > 1 ? confidence / 100 : confidence,
-      sentiment_score: safeNumber(raw.sentiment_score, 0.65),
-      sentiment_percentage: safeNumber(raw.sentiment_percentage, Math.round((confidence > 1 ? confidence : confidence * 100))),
-      value_score: safeNumber(raw.value_score, productScore),
-      complaint_severity_score: safeNumber(raw.complaint_severity_score, Math.min(100, negatives.length * 14)),
-      fake_review_risk_score: safeNumber(raw.fake_review_risk_score, 35),
+      sentiment_score: raw.sentiment_score as number,
+      sentiment_percentage: raw.sentiment_percentage as number,
+      value_score: raw.value_score as number,
+      complaint_severity_score: raw.complaint_severity_score as number,
+      fake_review_risk_score: raw.fake_review_risk_score as number,
 
-      value_for_money_opinion: raw.value_for_money_opinion || raw.valueForMoney || "Fair",
-      valueForMoney: raw.valueForMoney || raw.value_for_money_opinion || "Fair",
+      value_for_money_opinion: String(raw.value_for_money_opinion ?? raw.valueForMoney),
+      valueForMoney: String(raw.valueForMoney ?? raw.value_for_money_opinion),
 
       positive_points: positives,
       positivePoints: positives,
@@ -1814,20 +1870,10 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
       not_ideal_for: safeStringArray(raw.not_ideal_for),
 
       buyer_recommendation:
-        raw.buyer_recommendation ||
-        raw.customer_recommendation ||
-        {
-          verdict: productScore >= 75 ? "Buy" : productScore >= 55 ? "Maybe" : "Avoid",
-          rationale: String(raw.summary || raw.overall_summary || "Review positives and complaints before buying.")
-        },
+        raw.buyer_recommendation || raw.customer_recommendation,
 
       customer_recommendation:
-        raw.customer_recommendation ||
-        raw.buyer_recommendation ||
-        {
-          verdict: productScore >= 75 ? "Buy" : productScore >= 55 ? "Maybe" : "Avoid",
-          rationale: String(raw.summary || raw.overall_summary || "Review positives and complaints before buying.")
-        },
+        raw.customer_recommendation || raw.buyer_recommendation,
 
       seller_insights: sellerInsights,
 
@@ -1839,6 +1885,10 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
 
 
 export function ResultsDashboard({ result, accountPlan }: { result: AnalyzeResponse; accountPlan?: SubscriptionPlan | null }) {
+  if (!hasGroundedSellerResult(result)) {
+    return <SellerEvidenceUnavailable />;
+  }
+
   const safeResult = withDashboardSafeAnalysis(result);
 
   if (safeResult.meta.audience === "seller" || safeResult.meta.audience === "both") {

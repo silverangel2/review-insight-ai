@@ -143,6 +143,12 @@ function makeId(result: unknown) {
   );
 }
 
+function scanIdFromResult(result: unknown) {
+  const payload = result as { scanId?: unknown; meta?: { scanId?: unknown } } | null;
+  const scanId = String(payload?.scanId || payload?.meta?.scanId || "").trim();
+  return scanId || null;
+}
+
 function resultTitle(result: unknown) {
   const payload = result as {
     product?: { name?: string; title?: string; brand?: string };
@@ -298,7 +304,11 @@ export function ShopperResultHistoryCorner() {
 
     window.localStorage.setItem("reviewintel_selected_history_id", item.id);
     window.localStorage.setItem("reviewintel_selected_history_result", JSON.stringify(item.result));
-    window.location.href = `/results?history=${encodeURIComponent(item.id)}`;
+    const scanId = scanIdFromResult(item.result);
+    const query = scanId
+      ? `scanId=${encodeURIComponent(scanId)}&history=${encodeURIComponent(item.id)}`
+      : `history=${encodeURIComponent(item.id)}`;
+    window.location.href = `/results?${query}`;
     return;
   }
 

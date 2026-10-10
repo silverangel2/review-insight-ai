@@ -27,6 +27,8 @@ export type AdaptiveResearchResult<T extends AdaptiveReviewRecord> = {
 type AdaptiveResearchOptions<T extends AdaptiveReviewRecord> = {
   queries: string[];
   maxCalls?: number;
+  corpusCap?: number;
+  budgetExhausted?: () => boolean;
   stagnantPasses?: number;
   sufficient: (records: T[]) => boolean;
   search: (query: string, passNumber: number) => Promise<string[]>;
@@ -43,7 +45,7 @@ function defaultFingerprint(record: AdaptiveReviewRecord) {
     .normalize("NFKC")
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -56,6 +58,7 @@ export async function runAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
   const queries = Array.from(new Set(options.queries.map((query) => query.trim()).filter(Boolean))).slice(0, maxCalls);
   const fingerprint = options.fingerprint || defaultFingerprint;
   const records: T[] = [];
+  const corpusCap = Math.max(1, Math.min(Math.floor(options.corpusCap ?? 240), 500));
   const seen = new Set<string>();
   const diagnostics: AdaptiveResearchDiagnostic[] = [];
   let stagnant = 0;
@@ -65,8 +68,8 @@ export async function runAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
   for (let index = 0; index < queries.length; index += 1) {
     const passNumber = index + 1;
     const query = queries[index];
-    if (options.sufficient(records)) {
-      stopReason = "sufficient_before_next_pass";
+    if (records.length >= corpusCap || options.budgetExhausted?.()) {
+      stopReason = records.length >= corpusCap ? "corpus_cap_reached" : "resource_budget_reached";
       break;
     }
 
@@ -95,6 +98,7 @@ export async function runAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
       seen.add(key);
       records.push(record);
       newRecords += 1;
+      if (records.length >= corpusCap) break;
     }
 
     if (newRecords === 0) stagnant += 1;
@@ -102,7 +106,7 @@ export async function runAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
 
     const sufficient = options.sufficient(records);
     if (retrievalFailure) stopReason = "retrieval_failure";
-    else if (sufficient) stopReason = "sufficient";
+    else if (records.length >= corpusCap) stopReason = "corpus_cap_reached";
     else if (stagnant >= stagnantLimit) stopReason = "stagnant_pass_limit";
     else if (passNumber >= maxCalls || passNumber >= queries.length) stopReason = "max_web_search_calls";
     else stopReason = "continue_useful_research";
@@ -119,7 +123,7 @@ export async function runAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
     diagnostics.push(diagnostic);
     options.onDiagnostic?.(diagnostic);
 
-    if (retrievalFailure || sufficient || stagnant >= stagnantLimit || passNumber >= maxCalls || passNumber >= queries.length) break;
+    if (retrievalFailure || records.length >= corpusCap || stagnant >= stagnantLimit || passNumber >= maxCalls || passNumber >= queries.length) break;
   }
 
   if (!records.length && !diagnostics.length) stopReason = "no_research_passes_available";

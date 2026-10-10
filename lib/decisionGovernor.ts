@@ -1,8 +1,8 @@
 import { scoreEvidenceBundle } from "@/lib/evidenceBundle";
 export type GovernedDecision = {
   verdict: string;
-  buyerConfidence: number;
-  buyScore: number;
+  buyerConfidence: number | null;
+  buyScore: number | null;
   valueForMoney: string;
   bottomLine: string;
 };
@@ -73,6 +73,8 @@ export function governBuyerDecision(input: {
   reviewCount?: number | null;
   aiLikeRisk?: number | null;
   commentsAnalyzed?: number | null;
+  canonicalSufficiencyPassed?: boolean;
+  exactListingAccepted?: boolean;
   severeComplaints?: boolean;
   currentVerdict?: string | null;
   bottomLine?: string | null;
@@ -84,7 +86,6 @@ export function governBuyerDecision(input: {
   const text = `${input.currentVerdict || ""} ${input.bottomLine || ""} ${input.productText || ""}`;
   const actualDanger = hasActualDangerSignal(text);
 
-  const hasListingIdentity = hasExactListing(input.productText);
   const sourcesChecked = countSources(input.productText);
 
   const evidenceBundle = scoreEvidenceBundle({
@@ -105,22 +106,18 @@ export function governBuyerDecision(input: {
   });
 
   const hasVerifiedReviewEvidence =
-    (rating !== null && rating > 0) ||
-    (reviewCount !== null && reviewCount > 0) ||
-    (typeof input.commentsAnalyzed === "number" && input.commentsAnalyzed >= 10);
+    input.canonicalSufficiencyPassed === true &&
+    input.exactListingAccepted === true &&
+    typeof input.commentsAnalyzed === "number" && input.commentsAnalyzed >= 3;
 
-  // Product identity without readable reviews is not a product recommendation.
-  // It is an evidence-limited state.
-  if (
-    hasListingIdentity &&
-    !hasVerifiedReviewEvidence &&
-    !actualDanger &&
-    !(aiLikeRisk !== null && aiLikeRisk >= 75)
-  ) {
+  // Canonical adjudicated evidence is the mandatory authority for every
+  // product verdict. Unverified danger or AI-like signals cannot authorize a
+  // verdict when exact identity or sufficiency is absent.
+  if (!hasVerifiedReviewEvidence) {
     return {
       verdict: "REVIEW EVIDENCE NOT ENOUGH",
-      buyerConfidence: 82,
-      buyScore: 0,
+      buyerConfidence: null,
+      buyScore: null,
       valueForMoney: "Unknown",
       bottomLine:
         "ReviewIntel found the product listing, but did not find enough readable review evidence to judge the product quality. This is not an Avoid verdict; it means the review evidence is limited.",
@@ -154,6 +151,7 @@ export function governBuyerDecision(input: {
 
   // Excellent rating + strong review count can become Buy when no severe risk is present.
   if (
+    hasVerifiedReviewEvidence &&
     rating !== null &&
     rating >= 4.6 &&
     reviewCount !== null &&
@@ -203,8 +201,8 @@ export function governBuyerDecision(input: {
   ) {
     return {
       verdict: "REVIEW EVIDENCE NOT ENOUGH",
-      buyerConfidence: 0,
-      buyScore: 0,
+      buyerConfidence: null,
+      buyScore: null,
       valueForMoney: "Unknown",
       bottomLine:
         "ReviewIntel could not confirm enough public review evidence after the available product match/search. This is not an Avoid verdict; it means the app needs stronger listing or review evidence before recommending.",

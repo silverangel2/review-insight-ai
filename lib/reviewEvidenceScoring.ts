@@ -41,6 +41,59 @@ export type ReviewEvidenceScoreResult = {
   };
 };
 
+export function isSufficientReviewEvidence(input: {
+  exactListingAccepted?: boolean | null;
+  commentsAnalyzed?: number | null;
+  evidenceSignals?: number | null;
+  evidenceStrength?: string | null;
+}) {
+  const commentsAnalyzed = Math.max(0, Math.round(finiteNumber(input.commentsAnalyzed) || 0));
+  const evidenceSignals = Math.max(0, Math.round(finiteNumber(input.evidenceSignals) || 0));
+  const strength = String(input.evidenceStrength || "").toLowerCase();
+
+  return (
+    input.exactListingAccepted === true &&
+    commentsAnalyzed >= 3 &&
+    evidenceSignals >= 3 &&
+    strength !== "none" &&
+    Boolean(strength)
+  );
+}
+
+export function hasSufficientReviewEvidenceRecord(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+  const evidence = record.reviewEvidence && typeof record.reviewEvidence === "object" && !Array.isArray(record.reviewEvidence)
+    ? (record.reviewEvidence as Record<string, unknown>)
+    : {};
+  const listingEvidence = evidence.listingEvidence && typeof evidence.listingEvidence === "object" && !Array.isArray(evidence.listingEvidence)
+    ? (evidence.listingEvidence as Record<string, unknown>)
+    : {};
+  const arrayLength = (key: string) => Array.isArray(evidence[key]) ? evidence[key].length : 0;
+  const commentsAnalyzed = Number(evidence.commentsAnalyzed ?? record.commentsAnalyzed ?? 0);
+  const evidenceSignals = Math.max(
+    arrayLength("reviewSnippets"),
+    arrayLength("repeatedPraises") + arrayLength("repeatedComplaints"),
+    arrayLength("productPros") + arrayLength("productCons"),
+    arrayLength("buyerExperienceSignals"),
+    arrayLength("aiPatternSignals"),
+    Number.isFinite(Number(evidence.reviewIntelligenceSignals))
+      ? Number(evidence.reviewIntelligenceSignals)
+      : 0
+  );
+
+  return isSufficientReviewEvidence({
+    exactListingAccepted:
+      evidence.exactListingAccepted === true &&
+      typeof listingEvidence.exactListingUrl === "string" &&
+      listingEvidence.exactListingUrl.trim().length > 0,
+    commentsAnalyzed,
+    evidenceSignals,
+    evidenceStrength: typeof evidence.evidenceStrength === "string" ? evidence.evidenceStrength : null,
+  });
+}
+
 const CRITICAL_COMPLAINT_TERMS = [
   "unsafe",
   "danger",
@@ -413,6 +466,15 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
   const productCons = uniqueThemeTexts(input.productCons || [], 8);
   const buyerSignals = uniqueTexts(input.buyerExperienceSignals || [], 10);
 
+  const structuredSignalCount =
+    repeatedPraises.length +
+    repeatedComplaints.length +
+    productPros.length +
+    productCons.length +
+    buyerSignals.length;
+  const snippetsWithoutStructuredSignals =
+    reviewSnippets.length > 0 && structuredSignalCount === 0;
+
   const writtenEvidenceCount = Math.max(
     commentsAnalyzed,
     reviewSnippets.length,
@@ -424,6 +486,7 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
   const notEnough =
     writtenEvidenceCount < 3 ||
     evidenceStrength === "none" ||
+    snippetsWithoutStructuredSignals ||
     (
       reviewSnippets.length === 0 &&
       repeatedPraises.length === 0 &&
@@ -439,7 +502,9 @@ export function scoreReviewEvidenceSignals(input: ReviewEvidenceScoreInput): Rev
       buyScore: null,
       valueForMoney: "Unknown",
       bottomLine:
-        "ReviewIntel did not find enough written-review evidence to calculate a trustworthy Buy Score.",
+        snippetsWithoutStructuredSignals
+          ? "ReviewIntel collected review material but could not normalize enough product strengths or complaints to calculate a trustworthy Buy Score."
+          : "ReviewIntel did not find enough written-review evidence to calculate a trustworthy Buy Score.",
       audit: {
         writtenEvidenceCount,
         positiveSignal: 0,

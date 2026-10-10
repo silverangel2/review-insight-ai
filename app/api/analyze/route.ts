@@ -1,4 +1,5 @@
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
+import { aliasScanProgress, runWithScanProgress } from "@/lib/scanProgress";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -1844,6 +1845,7 @@ function computeVerdictConfidenceAudit(input: {
   buyScore?: number | null;
   verdict?: string;
   finalDecisionSource?: string;
+  independentSourceCount?: number;
 }) {
   const exactListingUrl = String(input.exactListingUrl || "").trim();
   const screenshotTitle = String(input.screenshotTitle || "").trim();
@@ -1989,8 +1991,8 @@ function computeVerdictConfidenceAudit(input: {
     verdictRatificationScore = commentsAnalyzed > 0 ? 7 : 5;
   } else if (
     hasEnoughReviewCoverage &&
-    ["BUY", "REVIEW FIRST", "AVOID"].includes(verdict) &&
-    finalDecisionSource === "reviewEvidence"
+    ["BUY", "DO NOT BUY YET", "REVIEW FIRST", "AVOID"].includes(verdict) &&
+    ["reviewEvidence", "deterministicAcceptedReviewCorpus"].includes(finalDecisionSource)
   ) {
     verdictRatificationScore = 10;
   }
@@ -2022,6 +2024,11 @@ function computeVerdictConfidenceAudit(input: {
     verdictConfidence = Math.min(verdictConfidence, 85);
   }
 
+  // Many reviews from one domain are still single-source evidence.
+  const independentSourceCount = Math.max(0, input.independentSourceCount ?? 0);
+  const sourceDiversityCap = independentSourceCount <= 1 ? 65 : independentSourceCount === 2 ? 75 : 100;
+  verdictConfidence = Math.min(verdictConfidence, sourceDiversityCap);
+
   const exactListingConfidence = String(
     input.exactListingConfirmed || ""
   ).toLowerCase();
@@ -2049,7 +2056,9 @@ function computeVerdictConfidenceAudit(input: {
       marketplaceReviewCount,
       commentsAnalyzed,
       reviewCoverageRatio,
-      reason: "Verdict Confidence is based on product match, listing accuracy, review coverage, pros/cons extraction, score calculation, and verdict ratification.",
+      independentSourceCount,
+      sourceDiversityCap,
+      reason: "Verdict Confidence is an evidence-quality audit score, not a probability of satisfaction. It is capped by accepted written-review coverage and independent source diversity.",
     },
   };
 }
@@ -2117,7 +2126,6 @@ function buildReviewEvidenceShopperResult(input: {
     (!rawListingIsAmazon || Boolean(rawListingAsin || listingEvidence?.asin));
   const canonicalSufficiencyPassed =
     evidenceAdjudication?.sufficientByExistingThreshold === true;
-  const canonicalEvidenceEligible = exactListingAccepted && canonicalSufficiencyPassed;
   const exactListingRejectedReason = String(evidence.exactListingRejectedReason || "").trim() || null;
   // Written reviews may come from an exact listing or from identity-verified
   // public review recovery. Do not erase recovered review bodies when the
@@ -2156,6 +2164,44 @@ function buildReviewEvidenceShopperResult(input: {
     productName,
   ]);
 
+  const reviewsFound = Number(evidence.reviewsFound || 0);
+  const marketplaceReviewCount = Number(evidence.marketplaceReviewCount || evidence.reviewsFound || 0);
+
+  const listingRatingForMetadataScore = (() => {
+    const value = evidence.rating ?? listingEvidence?.rating ?? vision.rating;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  })();
+
+  // Customer-facing score and verdict are derived exclusively from the
+  // adjudicated accepted corpus. Model-generated themes remain explanatory
+  // data and cannot alter these fields.
+  const acceptedRecords = evidenceAdjudication && Array.isArray(evidenceAdjudication.acceptedRecords)
+    ? evidenceAdjudication.acceptedRecords as AdjudicatedEvidenceRecord[]
+    : [];
+  const deterministic = deriveDeterministicEvidenceResult({
+    acceptedRecords,
+    exactProductAccepted: exactListingAccepted,
+    rating: listingRatingForMetadataScore,
+    marketplaceReviewCount,
+    price: Number.isFinite(Number(price)) ? Number(price) : null,
+    verifiedProductMetadata: {
+      productName,
+      brand,
+      store,
+      canonicalUrl: exactListingUrl || null,
+      asin: listingEvidence?.asin || null,
+    },
+    riskFeatures: {
+      reviewAuthenticityScore: input.reviewAuthenticity && typeof input.reviewAuthenticity === "object"
+        ? (input.reviewAuthenticity as Record<string, unknown>).score ?? null
+        : null,
+    },
+    summaryModelVersion: process.env.OPENAI_REVIEW_SEARCH_MODEL || process.env.OPENAI_MODEL || null,
+  });
+  const canonicalEvidenceEligible = exactListingAccepted && canonicalSufficiencyPassed && deterministic.evidenceState === "SUFFICIENT";
+
   const reviewSnippets = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
   const repeatedPraises = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
   const repeatedComplaints = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.repeatedComplaints) ? evidence.repeatedComplaints : [];
@@ -2166,8 +2212,6 @@ function buildReviewEvidenceShopperResult(input: {
   const overallImpact = canonicalEvidenceEligible && collectorSourceAccepted ? String(evidence.overallImpact || "").trim() : "";
   const buyAssessment = canonicalEvidenceEligible && collectorSourceAccepted ? String(evidence.buyAssessment || "").trim() : "";
 
-  const reviewsFound = Number(evidence.reviewsFound || 0);
-  const marketplaceReviewCount = Number(evidence.marketplaceReviewCount || evidence.reviewsFound || 0);
 
   const rawCommentsAnalyzed = Number(evidence.commentsAnalyzed || 0);
 
@@ -2202,21 +2246,11 @@ function buildReviewEvidenceShopperResult(input: {
     aiPatternSignals.length
   );
 
-  const commentsAnalyzed =
-    rawCommentsAnalyzed > 0 &&
-    rawCommentsAnalyzed !== marketplaceReviewCount &&
-    rawCommentsAnalyzed !== reviewsFound &&
-    rawCommentsAnalyzed <= Math.max(groundedCommentsAnalyzed, reviewSnippets.length)
-      ? rawCommentsAnalyzed
-      : groundedCommentsAnalyzed;
+  // Only distinct accepted exact-product written records count as analyzed.
+  const commentsAnalyzed = deterministic.acceptedReviewHashes.length;
   const evidenceStrength = String(evidence.evidenceStrength || "none").toLowerCase();
 
-  const listingRatingForMetadataScore = (() => {
-    const value = evidence.rating ?? listingEvidence?.rating ?? vision.rating;
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    const parsed = Number(String(value || "").replace(/[^0-9.]/g, ""));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  })();
+
 
   const hasVerifiedListingMetadata =
     collectorSourceAccepted &&
@@ -2413,13 +2447,14 @@ function buildReviewEvidenceShopperResult(input: {
     rating: evidence.rating ?? listingEvidence?.rating ?? null,
     marketplaceReviewCount,
     commentsAnalyzed,
-    repeatedPraisesCount: repeatedPraises.length,
-    repeatedComplaintsCount: repeatedComplaints.length,
-    productProsCount: productPros.length,
-    productConsCount: productCons.length,
-    buyScore,
-    verdict,
-    finalDecisionSource,
+    repeatedPraisesCount: 0,
+    repeatedComplaintsCount: 0,
+    productProsCount: deterministic.strengths.length,
+    productConsCount: deterministic.complaints.length,
+    buyScore: deterministic.buyScore,
+    verdict: deterministic.customerVerdict,
+    finalDecisionSource: "deterministicAcceptedReviewCorpus",
+    independentSourceCount: Number(deterministic.deterministicScoringInputs.independentSourceCount),
   });
 
   const verdictConfidence = verdictConfidenceAudit.verdictConfidence;
@@ -2489,7 +2524,14 @@ function buildReviewEvidenceShopperResult(input: {
         : "ReviewIntel did not access usable review-intelligence signals for this scan.",
     ],
   };
-  const displayedVerdictConfidence = finalDecisionSource === "reviewEvidence" ? verdictConfidence : null;
+  // Expose ReviewIntel's deterministic evidence-confidence audit only when
+  // canonical written-review evidence is eligible. This is an audit score of
+  // extraction/decision quality, not a probabilistic prediction.
+  const displayedVerdictConfidence =
+    canonicalEvidenceEligible &&
+    Number.isFinite(verdictConfidence)
+      ? verdictConfidence
+      : null;
   const displayedReviewAuthenticity = finalDecisionSource === "reviewEvidence"
     ? input.reviewAuthenticity
     : {
@@ -2500,9 +2542,23 @@ function buildReviewEvidenceShopperResult(input: {
         suspiciousComments: [],
       };
   const customerReviewEvidence = canonicalEvidenceEligible
-    ? evidence
+    ? {
+        ...evidence,
+        commentsAnalyzed,
+        productPros: deterministic.strengths.map(item => item.claim),
+        productCons: deterministic.complaints.map(item => item.claim),
+        strengths: deterministic.strengths.map(item => item.claim),
+        complaints: deterministic.complaints.map(item => item.claim),
+        repeatedPraises: deterministic.strengths.filter(item => item.supportCount >= 2).map(item => ({ theme: item.claim, evidenceCount: item.supportCount })),
+        repeatedComplaints: deterministic.complaints.filter(item => item.supportCount >= 2).map(item => ({ theme: item.claim, evidenceCount: item.supportCount })),
+        overallImpact: deterministic.bottomLine,
+        buyAssessment: deterministic.customerVerdict,
+        evidenceState: deterministic.evidenceState,
+      }
     : {
         ...evidence,
+        commentsAnalyzed,
+        evidenceState: deterministic.evidenceState,
         reviewSnippets: [],
         repeatedPraises: [],
         repeatedComplaints: [],
@@ -2518,45 +2574,18 @@ function buildReviewEvidenceShopperResult(input: {
         evidenceAdjudication: evidenceAdjudication
           ? {
               ...evidenceAdjudication,
-              records: [],
-              acceptedRecords: [],
-              rejectedRecords: [],
-              acceptedRecordCount: 0,
-              independentSourceCount: 0,
+              // Insufficient semantic coverage withholds claims and scores,
+              // not the actual accepted/rejected review ledger.
+              acceptedRecordCount: deterministic.acceptedReviewHashes.length,
+              independentSourceCount: deterministic.deterministicScoringInputs.independentSourceCount,
               sufficientByExistingThreshold: false,
               claimVerification: undefined,
             }
       : undefined,
       };
 
-  // Customer-facing score and verdict are derived exclusively from the
-  // adjudicated accepted corpus. Model-generated themes remain explanatory
-  // data and cannot alter these fields.
-  const acceptedRecords = evidenceAdjudication && Array.isArray(evidenceAdjudication.acceptedRecords)
-    ? evidenceAdjudication.acceptedRecords as AdjudicatedEvidenceRecord[]
-    : [];
-  const deterministic = deriveDeterministicEvidenceResult({
-    acceptedRecords,
-    exactProductAccepted: exactListingAccepted,
-    rating: listingRatingForMetadataScore,
-    marketplaceReviewCount,
-    price: Number.isFinite(Number(price)) ? Number(price) : null,
-    verifiedProductMetadata: {
-      productName,
-      brand,
-      store,
-      canonicalUrl: exactListingUrl || null,
-      asin: listingEvidence?.asin || null,
-    },
-    riskFeatures: {
-      reviewAuthenticityScore: input.reviewAuthenticity && typeof input.reviewAuthenticity === "object"
-        ? (input.reviewAuthenticity as Record<string, unknown>).score ?? null
-        : null,
-    },
-    summaryModelVersion: process.env.OPENAI_REVIEW_SEARCH_MODEL || process.env.OPENAI_MODEL || null,
-  });
   const acceptedSourceDistribution = acceptedRecords.reduce<Record<string, number>>((counts, record) => {
-    const source = String(record.sourceType || record.independentSourceId || "unknown");
+    const source = String(record.independentSourceId || "unknown");
     counts[source] = (counts[source] || 0) + 1;
     return counts;
   }, {});
@@ -2619,6 +2648,10 @@ function buildReviewEvidenceShopperResult(input: {
     scanId: input.scanId || null,
     detectedProductKey: cleanDetectedProductKey(input.detectedProductKey || stableProductKey),
     exactListingAccepted,
+    canonicalEvidenceEligible,
+    evidenceState: deterministic.evidenceState,
+    sourceDiversity: Number(deterministic.deterministicScoringInputs.independentSourceCount),
+    finalDecisionSource,
     exactListingRejectedReason,
     collectorSourceAccepted,
     collectorSourceRejectedReason,
@@ -2770,8 +2803,8 @@ function buildReviewEvidenceShopperResult(input: {
     finalResultHash: deterministic.finalResultHash,
     aiPatternSignals: canonicalEvidenceEligible && !noPublicReviewEvidence ? aiPatternSignals : [],
     buyerExperienceSignals: canonicalEvidenceEligible && !noPublicReviewEvidence ? buyerExperienceSignals : [],
-    overallImpact: canonicalEvidenceEligible && !noPublicReviewEvidence ? overallImpact : "",
-    buyAssessment: canonicalEvidenceEligible && !noPublicReviewEvidence ? buyAssessment : "",
+    overallImpact: canonicalEvidenceEligible ? deterministic.bottomLine : "",
+    buyAssessment: canonicalEvidenceEligible ? deterministic.customerVerdict : "",
 
     screenshotOnly: false,
     screenshotOnlyWarning: false,
@@ -2904,6 +2937,7 @@ async function analyzePost(request: Request, serverScanId: string) {
 
     const formData = await request.formData();
     scanId = sanitizeScanId(formData.get("scanId")) || serverScanId;
+    aliasScanProgress(scanId);
     captureScanId(scanId);
     const file = formData.get("image");
     const productLink = String(formData.get("productLink") || "").trim();
@@ -3117,5 +3151,5 @@ async function analyzePost(request: Request, serverScanId: string) {
 
 export async function POST(request: Request) {
   const scanId = createAnalyzeScanId();
-  return withDevScanCapture(scanId, () => analyzePost(request, scanId));
+  return runWithScanProgress(scanId, () => withDevScanCapture(scanId, () => analyzePost(request, scanId)));
 }

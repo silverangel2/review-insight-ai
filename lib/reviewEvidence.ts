@@ -532,12 +532,15 @@ const PRODUCT_COLOR_TOKENS = new Set([
   "clear",
 ]);
 
-function extractRequestedColors(value: unknown) {
-  const text = String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ");
+function extractRequestedColors(value: unknown, excludeWords?: Set<string>) {
+  const text = String(value || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
   const found = new Set<string>();
 
   for (const token of text.split(/\s+/)) {
     const normalized = token === "grey" ? "gray" : token;
+    // Brand words are authoritative identity, not variant signals. A brand
+    // like "Black+Decker" must not make "black" a requested color.
+    if (excludeWords?.has(normalized)) continue;
     if (PRODUCT_COLOR_TOKENS.has(normalized)) found.add(normalized);
   }
 
@@ -549,7 +552,7 @@ function meaningfulTitleTokens(value: unknown) {
     new Set(
       String(value || "")
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
         .split(/\s+/)
         .map((token) => token.trim())
         .filter((token) => token.length >= 4 && !GENERIC_PRODUCT_TOKENS.has(token))
@@ -604,7 +607,14 @@ function listingMatchesRequestedSignals(
   const notes = Array.isArray(listingEvidence.notes) ? listingEvidence.notes : [];
   const mismatchNotes: string[] = [];
   const titleMatch = titleIdentityMatch(input, listingEvidence);
-  const requestedColors = extractRequestedColors([input.productName, input.brand, input.model].filter(Boolean).join(" "));
+  const brandColorExclusions = new Set(
+    String(input.brand || "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+  );
+  const requestedColors = extractRequestedColors([input.productName, input.brand, input.model].filter(Boolean).join(" "), brandColorExclusions);
   const listingColors = extractRequestedColors(listingEvidence.exactListingTitle || "");
 
   let mismatchCount = 0;
@@ -1435,17 +1445,15 @@ function normalizedReviewFingerprint(review: unknown): string {
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/\bverified purchase\b/g, " ")
     .replace(/\bhelpful\b/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 1000);
+    .trim();
 }
 
 function hardenedCollectorReviews(
   reviews: ReviewCollectorResult["reviews"]
 ): ReviewCollectorResult["reviews"] {
   const seenExact = new Set<string>();
-  const seenNearDuplicate = new Set<string>();
 
   return reviews.filter((review) => {
     const fingerprint = normalizedReviewFingerprint(review);
@@ -1466,23 +1474,6 @@ function hardenedCollectorReviews(
     }
 
     seenExact.add(fingerprint);
-
-    // Catch syndicated copies that differ only in trailing metadata.
-    const nearDuplicateKey = fingerprint
-      .split(" ")
-      .slice(0, 80)
-      .join(" ");
-
-    if (
-      nearDuplicateKey.length >= 80 &&
-      seenNearDuplicate.has(nearDuplicateKey)
-    ) {
-      return false;
-    }
-
-    if (nearDuplicateKey.length >= 80) {
-      seenNearDuplicate.add(nearDuplicateKey);
-    }
 
     return true;
   }) as ReviewCollectorResult["reviews"];
@@ -2671,16 +2662,18 @@ export async function collectAndAnalyzeReviewEvidence(
   };
 
   let openAiReviewUrlDiscoveryNote =
-    "OpenAI Web Search URL discovery was not needed because written evidence was sufficient.";
+    "Bounded review URL discovery was not run because it was disabled, exhausted, or lacked usable queries.";
   let usedOpenAiReviewUrlDiscovery = false;
   let openAiDiscoveredReviewUrls: string[] = [];
   let openAiReviewUrlDiscoveryLinks: Array<{ label: string; url: string; domain?: string }> = [];
 
   const webResearchEnabled = isOpenAiWebSearchEnabled();
-  if (webResearchEnabled && !canonicalSufficiencyFor() && researchQueries.length > 0) {
+  if (webResearchEnabled && collectedWrittenReviewCount() < 240 && researchQueries.length > 0) {
     const adaptiveResearch = await runAdaptiveReviewResearch<ReviewCollectorResult["reviews"][number]>({
       queries: researchQueries,
       maxCalls: 5,
+      corpusCap: Math.max(1, 240 - collectedWrittenReviewCount()),
+      budgetExhausted: () => input.costTelemetry ? !input.costTelemetry.canStartRetrievalRequest() : false,
       stagnantPasses: 2,
       sufficient: (records) => canonicalSufficiencyFor(records),
       search: async (query, passNumber) => {
@@ -2694,7 +2687,7 @@ export async function collectAndAnalyzeReviewEvidence(
           checkedShortTitle,
           nativeRetrievalNote,
           context: openAiWebSearchContext,
-          evidenceSatisfied: () => canonicalSufficiencyFor(),
+          evidenceSatisfied: () => collectedWrittenReviewCount() >= 240,
           query,
           passNumber,
         });
@@ -2729,7 +2722,7 @@ export async function collectAndAnalyzeReviewEvidence(
         reviews: mergeUnknownArrays<ReviewCollectorResult["reviews"][number]>(
           collectedWrittenReviews.reviews,
           adaptiveResearch.records,
-          80
+          240
         ),
         coverageNote: `${collectedWrittenReviews.coverageNote} ${openAiReviewUrlDiscoveryNote}`,
         fallbackUrlsTried: openAiDiscoveredReviewUrls,
@@ -2772,16 +2765,8 @@ export async function collectAndAnalyzeReviewEvidence(
       : `${collectedWrittenReviews.coverageNote} Collected ${preAdjudicationRecordCount} written-review candidate record(s); canonical exact-product association is not yet established, so none are accepted evidence.`,
   });
 
-  // Recompute after normalizing the collector object so downstream prompt,
-  // recovery, and persistence paths all consume exactly the same records.
-  evidenceAdjudication = adjudicateReviewEvidence(collectedWrittenReviews.reviews, {
-    productName: input.productName,
-    brand: input.brand,
-    model: input.model,
-    exactListingAccepted,
-    exactListingUrl: checkedListingUrl,
-    exactListingTitle: checkedListingTitle,
-  });
+  // Keep the original adjudication ledger. Re-adjudicating accepted-only
+  // records erases rejection and duplication counts before persistence.
 
   hasCollectedWrittenReviewEvidence =
     collectorSourceAccepted &&
