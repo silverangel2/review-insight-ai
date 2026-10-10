@@ -83,3 +83,40 @@ test("a search provider returning the same organic results for unrelated queries
   } finally { globalThis.fetch = original; }
   assert.equal(calls.filter(c => c.includes("bing.com/search")).length, 3, "first + two repeats, then stop");
 });
+
+test("verified Best Buy CA page: its public review JSON inherits identity, is paged and de-duplicated; unverified store gets nothing", async () => {
+  const policy = jiti("./lib/reviewRetrievalPolicy.ts");
+  const page = "https://www.bestbuy.ca/en-ca/product/unrelatedmaker-portable-station-qx-7000/18000001";
+  const api = policy.buildRetailerReviewPageUrls(page).filter(u => u.includes("/api/reviews/v2/"));
+  assert.equal(api.length, 3);
+  assert.equal(policy.retailerStableProductId(page), policy.retailerStableProductId(api[0]));
+  assert.notEqual(policy.retailerStableProductId(page), policy.retailerStableProductId("https://www.bestbuy.ca/en-ca/product/x/18000002"));
+
+  const productOnly = (gtin, title) => `<html><head><title>${title}</title><script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "Product", name: title, brand: { "@type": "Brand", name: "UnrelatedMaker" }, gtin12: gtin })}</script></head><body><h1>${title}</h1></body></html>`;
+  const apiJson = (bodies) => JSON.stringify({ reviews: bodies.map((comment, i) => ({ id: `r${comment.length}-${i}`, title: "Review", comment, rating: 4, reviewerName: `Buyer ${i}`, submissionTime: "2026-05-01T00:00:00Z", isVerifiedPurchaser: true })), totalPages: 2 });
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = new URL(String(url)); if (!u.pathname.endsWith("/robots.txt")) calls.push(u.href);
+    const reply = (body, status = 200, type = "text/html") => { const r = new Response(body, { status, headers: { "content-type": type } }); Object.defineProperty(r, "url", { value: u.href }); return r; };
+    if (u.hostname === "www.amazon.ca" && u.pathname === "/dp/B0TESTLIST") return reply(listingHtml);
+    if (u.hostname === "www.bing.com") return reply(bingHtml);
+    if (u.hostname === "duckduckgo.com") return reply("<html>anomaly-modal</html>", 202);
+    if (u.hostname === "www.bestbuy.ca" && /\/api\/reviews\/v2\/products\/18000001\/reviews$/.test(u.pathname)) {
+      const p = u.searchParams.get("page");
+      return reply(p === "1" ? apiJson(captured.slice(0, 2)) : p === "2" ? apiJson(captured.slice(1, 4)) : apiJson([]), 200, "application/json");
+    }
+    if (u.hostname === "www.bestbuy.ca" && /18000001$/.test(u.pathname)) return reply(productOnly(GTIN, "UnrelatedMaker Portable Station QX-7000"));
+    if (u.hostname === "www.walmart.ca" && /ip\//.test(u.pathname)) return reply(productOnly(OTHER, "UnrelatedMaker Q7 Portable Station"));
+    if (u.hostname === "www.walmart.ca" && /reviews\/product/.test(u.pathname)) return reply(apiJson(captured), 200, "application/json");
+    return reply("", 404);
+  };
+  let result;
+  try {
+    result = await runNativeReviewRetrieval({ productTitle: "UnrelatedMaker Q7 Portable Station", brand: "UnrelatedMaker", listingUrl: "https://www.amazon.ca/dp/B0TESTLIST", maxPages: 20, maxQueries: 4, politeDelayMs: 0 });
+  } finally { globalThis.fetch = original; }
+  const fromBestBuy = result.reviews.filter(r => /bestbuy\.ca/.test(r.sourceUrl || r.url || ""));
+  assert.equal(fromBestBuy.length, captured.length, "pages 1+2 merged, the overlapping review counted once");
+  assert.ok(calls.some(c => c.includes("/api/reviews/v2/products/18000001/reviews")), "public review JSON was requested");
+  assert.equal(result.reviews.filter(r => /walmart\.ca/.test(r.sourceUrl || r.url || "")).length, 0, "GTIN-conflicting store's review JSON never inherits identity");
+});

@@ -74,8 +74,28 @@ export function buildRetailerReviewPageUrls(productUrl: string): string[] {
   const bestbuyUs = host === "bestbuy.com" && path.match(/^\/site\/([^/]+)\/(\d{5,9})\.p$/i);
   if (bestbuyUs) out.push(`${url.origin}/site/reviews/${bestbuyUs[1]}/${bestbuyUs[2]}`, `${url.origin}/site/reviews/${bestbuyUs[1]}/${bestbuyUs[2]}?page=2`);
   const bestbuyCa = host === "bestbuy.ca" && path.match(/^\/(en-ca|fr-ca)\/(?:product|produit)\/([^/]+)\/(\d{5,9})$/i);
-  if (bestbuyCa) out.push(`${url.origin}${path}/review`);
+  if (bestbuyCa) {
+    out.push(`${url.origin}${path}/review`);
+    // Public review JSON the product page itself loads (allowed by bestbuy.ca robots.txt).
+    const lang = bestbuyCa[1].toLowerCase() === "fr-ca" ? "fr-CA" : "en-CA";
+    for (const page of [1, 2, 3]) out.push(`${url.origin}/api/reviews/v2/products/${bestbuyCa[3]}/reviews?source=all&lang=${lang}&pageSize=25&page=${page}&sortBy=relevancy`);
+  }
   return out;
+}
+
+/** Stable retailer product id (Walmart item id, Best Buy SKU) shared by a product page and its review URLs. */
+export function retailerStableProductId(productUrl: string): string | null {
+  let url: URL;
+  try { url = new URL(productUrl); } catch { return null; }
+  const host = url.hostname.replace(/^www\./, "");
+  const path = url.pathname.replace(/\/$/, "");
+  const walmart = /^walmart\.(?:com|ca)$/.test(host) && (path.match(/\/ip\/(?:[^/]+\/)?([A-Z0-9]{6,14})$/i) || path.match(/\/reviews\/product\/([A-Z0-9]{6,14})$/i));
+  if (walmart) return `${host}:${walmart[1].toUpperCase()}`;
+  const bbUs = host === "bestbuy.com" && (path.match(/^\/site\/(?:reviews\/)?[^/]+\/(\d{5,9})(?:\.p)?$/i));
+  if (bbUs) return `${host}:${bbUs[1]}`;
+  const bbCa = host === "bestbuy.ca" && (path.match(/\/(?:product|produit)\/[^/]+\/(\d{5,9})(?:\/review)?$/i) || path.match(/^\/api\/reviews\/v2\/products\/(\d{5,9})\/reviews$/i));
+  if (bbCa) return `${host}:${bbCa[1]}`;
+  return null;
 }
 
 /** Sibling marketplace locales sharing a stable listing id; identity must still verify by title. */

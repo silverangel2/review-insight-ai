@@ -10,7 +10,7 @@ import { stableProductSearchTerms, type ProductIdentityTokenRoles } from "./prod
 import { extractProductEvidenceFromHtml, normalizeProductUrl, isProductUrl } from "./productUrlRetrieval";
 import type { CollectedReview } from "@/lib/reviewCollector";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
-import { buildAmazonReviewPageUrls, discoverPublicReviewFollowups, reviewPaginationKey, buildRetailerReviewPageUrls, buildLocaleListingVariants } from "./reviewRetrievalPolicy";
+import { buildAmazonReviewPageUrls, discoverPublicReviewFollowups, reviewPaginationKey, buildRetailerReviewPageUrls, buildLocaleListingVariants, retailerStableProductId } from "./reviewRetrievalPolicy";
 import { buildDirectReviewCandidateUrls } from "./exactProductSearch";
 
 type SourceLink = { label: string; url: string; domain?: string };
@@ -600,6 +600,7 @@ export async function runNativeReviewRetrieval(
   let playwrightFailures = 0;
   const fetchedPageUrls: string[] = [];
   const attemptedPageUrls = new Set<string>();
+  const verifiedRetailerPages = new Map<string, { title: string; brand: string | null }>();
   const failedFetchUrls: string[] = [];
   let rejectedCandidates = 0;
   let blockedProductPages = 0;
@@ -654,11 +655,17 @@ export async function runNativeReviewRetrieval(
     const crossStoreIdMatch = !sameStableListing && identifiersMatch(verifiedIds, pageIds);
     const crossStoreIdConflict = !sameStableListing && identifiersConflict(verifiedIds, pageIds);
     if (!sameStableListing) captureStage("verification", () => ({ stage: "cross-store-identifiers", url: page.finalUrl || link.url, pageIds, verifiedIds, match: crossStoreIdMatch, conflict: crossStoreIdConflict }));
-    const fetchedIdentityAccepted = sameStableListing || crossStoreIdMatch ? true : crossStoreIdConflict ? false : pageIdentity.title ? verifyProductCandidate({
+    // A review URL WE built from an identity-verified retailer page with the same stable product id
+    // (same host + SKU/item id) inherits that page's verified identity (e.g. a JSON review endpoint).
+    const retailerId = retailerStableProductId(page.finalUrl || link.url);
+    const inheritedIdentity = retailerId ? verifiedRetailerPages.get(retailerId) : undefined;
+    const fetchedIdentityAccepted = sameStableListing || crossStoreIdMatch || (inheritedIdentity && !crossStoreIdConflict) ? true : crossStoreIdConflict ? false : pageIdentity.title ? verifyProductCandidate({
       scanId: "native-fetched-identity", productName: input.productTitle,
       brand: input.brand, model: input.model,
     }, { url: page.finalUrl || link.url, title: pageIdentity.title, brand: pageIdentity.brand, model: pageIdentity.model }).canCollectReviews : isPrimaryListing;
     if (!blocked && fetchedIdentityAccepted) {
+      if (retailerId && pageIdentity.title && !verifiedRetailerPages.has(retailerId)) verifiedRetailerPages.set(retailerId, { title: pageIdentity.title, brand: pageIdentity.brand || null });
+      if (inheritedIdentity && !pageIdentity.title) { pageIdentity.title = inheritedIdentity.title; if (!pageIdentity.brand) pageIdentity.brand = inheritedIdentity.brand as typeof pageIdentity.brand; }
       normalFetchSuccesses += 1;
       fetchedPageUrls.push(link.url);
       const before = dedupeReviews(reviews, maxSnippets).length;

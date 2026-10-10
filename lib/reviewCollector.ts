@@ -421,6 +421,12 @@ function collectReviewLikeObjects(value: unknown, source: string, reviews: Colle
 
 function collectEmbeddedJsonReviews(html: string, source: string): CollectedReview[] {
   const reviews: CollectedReview[] = [];
+  // A public review endpoint that answers with JSON (no HTML wrapper).
+  const trimmed = html.trim();
+  if ((trimmed.startsWith("{") || trimmed.startsWith("[")) && /review|rating|comment/i.test(trimmed.slice(0, 200000))) {
+    const parsed = safeJsonParse(trimmed);
+    if (parsed) collectReviewLikeObjects(parsed, source, reviews);
+  }
   const scriptMatches = html.replace(/<script[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, " ")
     .matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
 

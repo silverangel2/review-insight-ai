@@ -62,7 +62,7 @@ const policy = jiti("./lib/reviewRetrievalPolicy.ts");
 test("retailer adapters derive public review pages from the product's own id only", () => {
   assert.deepEqual(policy.buildRetailerReviewPageUrls("https://www.walmart.com/ip/some-item/123456789"), ["https://www.walmart.com/reviews/product/123456789", "https://www.walmart.com/reviews/product/123456789?page=2"]);
   assert.equal(policy.buildRetailerReviewPageUrls("https://www.bestbuy.com/site/some-item/6543210.p?skuId=6543210")[0], "https://www.bestbuy.com/site/reviews/some-item/6543210");
-  assert.deepEqual(policy.buildRetailerReviewPageUrls("https://www.bestbuy.ca/en-ca/product/some-item/19438688"), ["https://www.bestbuy.ca/en-ca/product/some-item/19438688/review"]);
+  assert.deepEqual(policy.buildRetailerReviewPageUrls("https://www.bestbuy.ca/en-ca/product/some-item/19438688"), ["https://www.bestbuy.ca/en-ca/product/some-item/19438688/review", ...[1, 2, 3].map(n => `https://www.bestbuy.ca/api/reviews/v2/products/19438688/reviews?source=all&lang=en-CA&pageSize=25&page=${n}&sortBy=relevancy`)]);
   assert.deepEqual(policy.buildRetailerReviewPageUrls("https://unknown.test/p/1"), []);
   assert.deepEqual(policy.buildLocaleListingVariants("https://www.amazon.ca/dp/B0TESTLIST?th=1"), ["https://www.amazon.com/dp/B0TESTLIST"]);
 });
