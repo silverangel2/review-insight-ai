@@ -3,6 +3,7 @@
 import "./results-stagger.css";
 import { ResultIntelligencePanel } from "@/components/ResultIntelligencePanel";
 import { BetterPicksPanel } from "@/components/BetterPicksPanel";
+import { ShareVerdictButton } from "@/components/ShareVerdictButton";
 import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
 import Image from "next/image";
 import Link from "next/link";
@@ -2700,6 +2701,9 @@ export function ResultsClient() {
         ? "Seller Premium"
         : "Seller Premium";
   const isCompareResult = !isSellerAudience && isShopperCompareResult(result);
+  const resultRecord = result as unknown as Record<string, unknown>;
+  const resultMeta = (resultRecord.meta && typeof resultRecord.meta === "object" ? resultRecord.meta : {}) as Record<string, unknown>;
+  const resultScanId = String(resultRecord.scanId || resultMeta.scanId || "");
   const productTitle =
     (result as AnalyzeResponse & { product?: ProductLike }).product?.title ||
     (result as AnalyzeResponse & { product?: ProductLike }).product?.name ||
@@ -2729,6 +2733,9 @@ export function ResultsClient() {
             <Link href="/analyze" className="rounded-2xl bg-ink px-4 py-3 text-center text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-ocean dark:bg-white dark:text-ink">
               Run another scan
             </Link>
+            {!isSellerAudience && !isCompareResult && resultScanId ? (
+              <ShareVerdictButton scanId={resultScanId} result={result} title={productTitle || "ReviewIntel verdict"} />
+            ) : null}
           </div>
         </div>
       </section>

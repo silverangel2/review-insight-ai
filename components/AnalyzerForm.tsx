@@ -256,6 +256,12 @@ export default function AnalyzerForm() {
     setAnonScansUsed(readAnonScanCount());
   }, []);
 
+  // Prefill from the homepage hero (?url=...). Never auto-starts a scan.
+  useEffect(() => {
+    const link = new URLSearchParams(window.location.search).get("url");
+    if (link && /^https?:\/\//i.test(link)) setProductLink(link.slice(0, 2000));
+  }, []);
+
   useEffect(() => {
     void refreshServerQuota();
 

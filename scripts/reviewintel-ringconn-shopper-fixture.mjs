@@ -13,7 +13,8 @@ export function buildRingConnShopperResult(root = process.cwd()) {
   const fx = JSON.parse(readFileSync(`${root}/tests/fixtures/reviewintel/ringconn-existing-capture-inputs.json`, "utf8"));
   const corpus = adjudicateReviewEvidence(...fx.adjudicationArgs);
   const d = deriveDeterministicEvidenceResult({ ...fx.evaluationMetadata, acceptedRecords: corpus.acceptedRecords });
-  const scanId = "scan_0e0809c2-08d3-4e1b-ba2e-4345b0e50a56";
+  // Fixture-only id: must not collide with a real stored scan (that id belongs to a different product).
+  const scanId = "scan_fixture_ringconn_gen2_air";
   // Known canonical breakdown for this capture: raw 81, capped at 55 because only 7 written reviews (<8).
   const displayedVerdictConfidence = 55;
   const signals = Number(d.deterministicScoringInputs?.analyzableReviewCount ?? d.strengths.length + d.complaints.length);
