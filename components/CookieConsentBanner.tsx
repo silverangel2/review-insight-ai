@@ -65,8 +65,8 @@ const copy: Record<ConsentLanguage, {
   }
 };
 
-function languageFromLocale(): ConsentLanguage {
-  const locale = readStoredLocale().toLowerCase();
+function languageFromLocale(serverLocale?: string): ConsentLanguage {
+  const locale = (serverLocale || readStoredLocale()).toLowerCase();
   if (locale.startsWith("fr")) return "fr";
   if (locale.startsWith("es")) return "es";
   if (locale.startsWith("zh")) return "zh";
@@ -75,10 +75,12 @@ function languageFromLocale(): ConsentLanguage {
   return "en";
 }
 
-export function CookieConsentBanner() {
-  const [visible, setVisible] = useState(false);
+export function CookieConsentBanner({ initialVisible = false, serverLocale }: { initialVisible?: boolean; serverLocale?: string } = {}) {
+  // Server tells us whether a consent cookie exists, so the banner is in the first HTML
+  // (no late paint that becomes the page's Largest Contentful Paint).
+  const [visible, setVisible] = useState(initialVisible);
   const [saving, setSaving] = useState<CookieConsentChoice | null>(null);
-  const language = useMemo(languageFromLocale, []);
+  const language = useMemo(() => languageFromLocale(serverLocale), [serverLocale]);
   const text = copy[language];
 
   useEffect(() => {

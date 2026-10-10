@@ -3,6 +3,9 @@ import AccountWorkspacePermission from "@/components/AccountWorkspacePermission"
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import {NextIntlClientProvider} from "next-intl";
 import {getLocale, getMessages} from "next-intl/server";
+import { cookies } from "next/headers";
+import { ACCOUNT_SESSION_COOKIE, verifyAccountSessionToken } from "@/lib/accountSession";
+import { COOKIE_CONSENT_COOKIE } from "@/lib/cookieConsent";
 import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 import { ClientTextLocalizer } from "@/components/ClientTextLocalizer";
@@ -54,11 +57,22 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
+  const cookieStore = await cookies();
+  const consentChoice = cookieStore.get(COOKIE_CONSENT_COOKIE)?.value || "";
+  const sessionToken = cookieStore.get(ACCOUNT_SESSION_COOKIE)?.value;
+  const serverSession = sessionToken ? verifyAccountSessionToken(decodeURIComponent(sessionToken)) : null;
+  // Same rule as SmartAdSlot.canShowAds: guests and Shopper Free see ads; paid plans and sellers don't.
+  const serverShowsAds = !serverSession || (serverSession.role === "buyer" && serverSession.plan === "free_buyer");
   const messages = await getMessages();
 
   return (
-    <html lang={locale} data-scroll-behavior="smooth">
+    <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
+        {/* Resolve the layout mode before first paint so mobile CSS doesn't shift the page after hydration (CLS). */}
+        <script
+          id="reviewintel-layout-mode-init"
+          dangerouslySetInnerHTML={{ __html: `(function(){try{var d=document.documentElement;var m=${process.env.NODE_ENV !== "production" ? 'localStorage.getItem("reviewintel_layout_mode")' : "null"};if(m!=="mobile"&&m!=="desktop"&&m!=="desktop-mini"){m="auto"}var r=m==="auto"?(matchMedia("(max-width: 767px)").matches?"mobile":"desktop"):m;d.dataset.layoutMode=r;d.dataset.layoutPreference=m;}catch(e){}})();` }}
+        />
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
         <script
@@ -96,9 +110,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <LayoutModeProvider>
           <MobileTinyNav />
           <SessionIdleLogout />
-          <MobileUtilityMenu />{children}<AccountWorkspacePermission /><CookieConsentBanner /></LayoutModeProvider>
+          <MobileUtilityMenu />{children}<AccountWorkspacePermission /><CookieConsentBanner initialVisible={!consentChoice} serverLocale={locale} /></LayoutModeProvider>
           <SellerResultHistoryCorner />
-          <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact />
+          <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact initialShowAds={serverShowsAds} />
         <SiteFooter />
               </NextIntlClientProvider>
       </body>

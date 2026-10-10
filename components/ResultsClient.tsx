@@ -2043,11 +2043,12 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
 }
 
 
-export function ResultsClient() {
-  const [result, setResult] = useState<AnalyzeResponse | null>(null);
+export function ResultsClient({ initialResult = null, initialScanId = null }: { initialResult?: AnalyzeResponse | null; initialScanId?: string | null } = {}) {
+  // Server-rendered result (signed-in owner, exact scanId) paints in the first HTML; the client loader below still runs and confirms it.
+  const [result, setResult] = useState<AnalyzeResponse | null>(initialResult);
   const [preview, setPreview] = useState("");
   const [accountPlan, setAccountPlan] = useState<SubscriptionPlan | null>(null);
-  const [requestedScanId, setRequestedScanId] = useState<string | null>(null);
+  const [requestedScanId, setRequestedScanId] = useState<string | null>(initialScanId);
 
   const dashboardHref =
     result?.meta.audience === "seller" ||
@@ -2673,7 +2674,7 @@ export function ResultsClient() {
   if (!result) {
     return (
       <>
-        {accountPlan !== "free_buyer" ? customerNav : null}
+        {accountPlan && accountPlan !== "free_buyer" ? customerNav : null}
         <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-5 text-center shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[2rem] sm:p-8">
         <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-teal via-ocean to-amber" />
         <Badge tone="warn">{requestedScanId ? "Requested scan unavailable" : "No scan loaded"}</Badge>
@@ -2716,7 +2717,7 @@ export function ResultsClient() {
 
   return (
     <div className="ri-stagger space-y-5">
-      {accountPlan !== "free_buyer" ? customerNav : null}
+      {accountPlan && accountPlan !== "free_buyer" ? customerNav : null}
       {!isSellerAudience && ["buyer_pro", "buyer_beta", "shopper_beta"].includes(String(accountPlan)) ? <ShopperResultHistoryCorner /> : null}
       <section className="ri-reveal-pop relative overflow-hidden rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.6rem] sm:p-4">
         <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-b from-teal via-ocean to-amber" />

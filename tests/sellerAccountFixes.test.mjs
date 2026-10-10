@@ -91,3 +91,12 @@ test("watch alerts are off by default and only alert on real changes", () => {
   assert.equal(w.verifyUnwatchToken(t, "other"), null);
   assert.match(read("supabase/migrations/20261010_product_watches.sql"), /NOT APPLIED/);
 });
+
+test("results page renders server-side only for the signed-in owner of the exact scan", () => {
+  const src = read("lib/serverResult.ts");
+  assert.match(src, /verifyAccountSessionToken/);
+  assert.match(src, /profile_email=eq\./);
+  assert.match(src, /persisted !== id\) continue/);
+  assert.match(read("app/results/page.tsx"), /initialResult=\{initialResult\}/);
+  assert.match(read("components/advertising/SmartAdSlot.tsx"), /initialShowAds/);
+});
