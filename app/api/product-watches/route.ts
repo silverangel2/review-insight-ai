@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   if (!watchAlertsEnabled()) return off();
   const session = readAccountSession(request);
   if (!session?.email) return NextResponse.json({ ok: false, error: "Sign in to watch a product." }, { status: 401 });
-  const body = await request.json().catch(() => ({})) as { listingUrl?: string; productName?: string; verdict?: string; acceptedCount?: number; resultHash?: string };
+  const body = await request.json().catch(() => ({})) as { listingUrl?: string; productName?: string; brand?: string; model?: string; verdict?: string; acceptedCount?: number; resultHash?: string };
   const productKey = productKeyFromUrl(String(body.listingUrl || ""));
   if (!productKey) return NextResponse.json({ ok: false, error: "A valid product link is required." }, { status: 400 });
   if (!isSupabaseConfigured()) return NextResponse.json({ ok: false, error: "Storage unavailable." }, { status: 503 });
@@ -21,7 +21,8 @@ export async function POST(request: Request) {
   }
   const saved = await supabaseUpsert("product_watches", {
     profile_email: email, listing_url: String(body.listingUrl).slice(0, 2000), product_key: productKey,
-    product_name: String(body.productName || "").slice(0, 300) || null, last_verdict: body.verdict || null,
+    product_name: String(body.productName || "").slice(0, 300) || null,
+    brand: String(body.brand || "").slice(0, 120) || null, model: String(body.model || "").slice(0, 120) || null, last_verdict: body.verdict || null,
     last_accepted_count: Number.isFinite(body.acceptedCount) ? body.acceptedCount : 0, last_result_hash: body.resultHash || null,
     unsubscribed_at: null,
   }, "profile_email,product_key");

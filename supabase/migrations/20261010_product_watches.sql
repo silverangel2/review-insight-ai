@@ -8,6 +8,8 @@ create table if not exists public.product_watches (
   listing_url text not null,
   product_key text not null,
   product_name text,
+  brand text,
+  model text,
   last_verdict text,
   last_accepted_count integer not null default 0,
   last_result_hash text,

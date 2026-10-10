@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
 import { decideWatchAlert, productKeyFromUrl, signUnwatchToken, watchAlertEmail, watchAlertsEnabled, type WatchSnapshot } from "@/lib/productWatches";
 import { isSupabaseConfigured, supabaseSelect, supabaseUpdate } from "@/lib/supabaseServer";
+import { rescanWatchedProduct, watchRescanBudget } from "@/lib/watchRescan";
+
+export const maxDuration = 300;
 
 export const dynamic = "force-dynamic";
 const MAX_PRODUCTS_PER_RUN = 25;
 type Row = Record<string, unknown>;
 const obj = (v: unknown): Row => (v && typeof v === "object" && !Array.isArray(v) ? v as Row : {});
 
-/** Snapshot from a stored real-review result (no live scan, no OpenAI in this version). */
+/** Snapshot from a stored real-review result (fallback when the fresh rescan is over budget or fails). */
 function snapshotFromStoredResult(result: Row): WatchSnapshot & { scanId: string | null } {
   const adjudication = obj(obj(result.reviewEvidence).evidenceAdjudication);
   const accepted = Array.isArray(adjudication.acceptedRecords) ? adjudication.acceptedRecords.length : 0;
@@ -43,9 +46,18 @@ export async function GET(request: Request) {
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
   let alerts = 0;
+  let rescans = 0;
+  const budget = watchRescanBudget();
   for (const key of keys) {
     const stored = latest.get(key);
-    const next = stored ? snapshotFromStoredResult(stored) : null;
+    // Fresh polite rescan first (capped per run); fall back to the newest stored real result.
+    const first = byProduct.get(key)![0];
+    let next = null as WatchSnapshot | null;
+    if (rescans < budget && first?.listing_url && first?.product_name) {
+      rescans += 1;
+      next = await rescanWatchedProduct({ listingUrl: String(first.listing_url), productName: String(first.product_name), brand: (first.brand as string) || null, model: (first.model as string) || null });
+    }
+    if (!next && stored) next = snapshotFromStoredResult(stored);
     for (const w of byProduct.get(key)!) {
       const prev: WatchSnapshot = { verdict: (w.last_verdict as string) || null, acceptedCount: Number(w.last_accepted_count) || 0, resultHash: (w.last_result_hash as string) || null };
       const decision = decideWatchAlert(prev, next);
@@ -58,7 +70,7 @@ export async function GET(request: Request) {
         const msg = watchAlertEmail({
           productName: String(w.product_name || "a product you watch"), reason: decision.reason,
           previousVerdict: prev.verdict, verdict: next.verdict, acceptedCount: next.acceptedCount,
-          resultUrl: next.scanId ? `${origin}/results?scanId=${encodeURIComponent(next.scanId)}` : String(w.listing_url),
+          resultUrl: String(w.listing_url),
           unwatchUrl: `${origin}/api/product-watches?token=${encodeURIComponent(token)}`,
         });
         await sendReviewIntelEmail({ emailType: "product_watch_alert", to: email, ...msg });
@@ -69,5 +81,5 @@ export async function GET(request: Request) {
       }
     }
   }
-  return NextResponse.json({ ok: true, products: keys.length, alerts, openAiCalls: 0 });
+  return NextResponse.json({ ok: true, products: keys.length, rescans, rescanBudget: budget, alerts, openAiCalls: 0 });
 }
