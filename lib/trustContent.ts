@@ -32,6 +32,8 @@ export const footerLinkGroups = [
       { label: "Pricing", href: "/pricing" },
       { label: "Advertise", href: "/advertise" },
       { label: "User Reviews", href: "/reviews" },
+      { label: "Buying guides", href: "/guides" },
+      { label: "Compare side by side", href: "/compare/side-by-side" },
       { label: "Seller dashboard", href: "/dashboard/seller" },
       { label: "Shopper Premium", href: "/pricing" }
     ]
