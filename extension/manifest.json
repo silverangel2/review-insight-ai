@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "ReviewIntel: Check reviews",
+  "short_name": "ReviewIntel",
+  "version": "0.1.0",
+  "description": "Adds a small 'Check reviews' button on Amazon product pages that opens the product in ReviewIntel.",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.amazon.com/*", "https://www.amazon.ca/*", "https://www.amazon.co.uk/*",
+        "https://www.amazon.de/*", "https://www.amazon.fr/*", "https://www.amazon.es/*",
+        "https://www.amazon.it/*", "https://www.amazon.com.au/*", "https://www.amazon.in/*",
+        "https://www.amazon.com.mx/*", "https://www.amazon.co.jp/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
