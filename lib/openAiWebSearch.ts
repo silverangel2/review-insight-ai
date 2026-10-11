@@ -1,3 +1,4 @@
+import { guardedOpenAiFetch, isOpenAiFeatureEnabled } from "./openAiGuard";
 import { extractOpenAiUsage, ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 
 export const OPENAI_WEB_SEARCH_TOOL = "web_search";
@@ -162,6 +163,7 @@ export function getOpenAiWebSearchDiagnostics(
 }
 
 export function isOpenAiWebSearchEnabled() {
+  if (!isOpenAiFeatureEnabled("review_evidence")) return false;
   const value = enabledFlagValue();
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
@@ -213,11 +215,13 @@ async function postOpenAiResponse<T>({
   usedWebSearch: boolean;
   costTelemetry?: ScanCostTelemetry;
 }): Promise<OpenAiWebSearchResult<T>> {
+  // Zero-OpenAI rule: every OpenAI response call here is part of review evidence and needs its flag.
+  if (!isOpenAiFeatureEnabled("review_evidence")) return skippedResult<T>(context, model, "disabled", "OpenAI disabled (zero-OpenAI rule).");
   try {
     if (context.stage === "identity") costTelemetry?.recordIdentityOpenAiCall();
     else costTelemetry?.recordOpenAiCall();
     costTelemetry?.recordRetrievalRequest("paid");
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await guardedOpenAiFetch("review_evidence", "https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

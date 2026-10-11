@@ -15,6 +15,8 @@ process.env.REVIEWINTEL_HEADLESS_RENDER = "off"; process.env.REVIEWINTEL_SITEMAP
 
 const require = createRequire(import.meta.url);
 const jiti = require('jiti')(process.cwd(), { alias: { '@': process.cwd() }, cache: false });
+process.env.REVIEWINTEL_OPENAI_GUARD_STRICT='1';
+const openAiGuard = jiti('./lib/openAiGuard.ts'); // installs the global fetch guard before any pipeline code
 const identity = jiti('./lib/productIdentityTokens.ts');
 const verifier = jiti('./lib/productSearchVerifier.ts');
 const retrieval = jiti('./lib/nativeReviewRetrieval.ts');
@@ -288,7 +290,7 @@ export async function runGeneralBenchmark({layer='development'}={}) {
     }
   } finally { console.log=oldLog; }
   const covered=new Set(rows.flatMap(row=>row.dimensions));
-  return {layer,scorerVersion:scoring.DETERMINISTIC_SCORER_VERSION,provenancePolicy:'No invented review bodies. Captured subsets, adversarial metadata, abstract policy inputs, and transport simulations are separately labeled; simulated sources are never represented as historical observations.',dimensions,uncovered:layer==='development'?dimensions.filter(d=>!covered.has(d)):[],cases:rows,totals:{cases:rows.length,passed:rows.filter(r=>r.status==='PASS').length,failed:rows.filter(r=>r.status==='FAIL').length},usage:{networkCalls:0,providerCalls:0,firecrawlCalls:0,newScans:0}};
+  return {layer,scorerVersion:scoring.DETERMINISTIC_SCORER_VERSION,provenancePolicy:'No invented review bodies. Captured subsets, adversarial metadata, abstract policy inputs, and transport simulations are separately labeled; simulated sources are never represented as historical observations.',dimensions,uncovered:layer==='development'?dimensions.filter(d=>!covered.has(d)):[],cases:rows,totals:{cases:rows.length,passed:rows.filter(r=>r.status==='PASS').length,failed:rows.filter(r=>r.status==='FAIL').length},usage:{networkCalls:0,providerCalls:0,firecrawlCalls:0,newScans:0,openAiCalls:openAiGuard.openAiCallCount(),openAiBlocked:openAiGuard.openAiBlockedCount()}};
 }
 if(process.argv[1]&&pathToFileURL(process.argv[1]).href===import.meta.url) {
   const layer=process.argv.includes('--reserve-holdout')?'reserve':process.argv.includes('--holdout')?'holdout':'development';

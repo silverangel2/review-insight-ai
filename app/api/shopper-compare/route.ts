@@ -1,3 +1,5 @@
+import { freeShopperCompare } from "@/lib/shopperCompareFree";
+import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { NextResponse } from "next/server";
 import { isAdminRole, normalizePlan, normalizeRole } from "@/lib/account";
 import { readAccountSession } from "@/lib/accountSession";
@@ -136,7 +138,7 @@ async function callOpenAI(prompt: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing.");
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await guardedOpenAiFetch("shopper_compare", "https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -201,7 +203,7 @@ const shopperCompareSchema = {
   ],
 };
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request): Promise<Response> {
   try {
     const limit = await rateLimitRequest(request, {
       key: "shopper_compare_api",
@@ -262,6 +264,10 @@ export async function POST(request: Request) {
       }));
     }
 
+    if (!isOpenAiFeatureEnabled("shopper_compare")) {
+      return NextResponse.json(normalize(freeShopperCompare(productAWithReviewEvidence, productBWithReviewEvidence)));
+    }
+
     const prompt = `
 You are ReviewIntel Shopper Premium Compare.
 
@@ -315,4 +321,11 @@ Return JSON only:
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
+  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
+  if (run.openAiCalls > 0) console.warn("[openai-guard] OpenAI calls in run", run);
+  return response;
 }

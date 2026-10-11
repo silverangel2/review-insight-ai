@@ -1,3 +1,5 @@
+import { freeSellerAnalysis } from "@/lib/sellerAnalyzeFree";
+import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 
 import { NextResponse } from "next/server";
 import { isAdminRole, isSellerPlan, normalizePlan, normalizeRole } from "@/lib/account";
@@ -238,7 +240,7 @@ async function openAIResponse(prompt: string) {
     throw new Error("OPENAI_API_KEY is missing.");
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await guardedOpenAiFetch("seller_analyze", "https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       authorization: `Bearer ${apiKey}`,
@@ -388,7 +390,7 @@ function sellerProductNameFromRows(rows: unknown[]) {
   return "seller product";
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request): Promise<Response> {
   try {
     const limit = await rateLimitRequest(request, {
       key: "seller_analyze_api",
@@ -526,8 +528,9 @@ CSV sample:
 ${sample}
 `;
 
-    const raw = await openAIResponse(prompt);
-    const result = normalizeSellerResult(raw, rows.length);
+    const result = isOpenAiFeatureEnabled("seller_analyze")
+      ? normalizeSellerResult(await openAIResponse(prompt), rows.length)
+      : freeSellerAnalysis(rows);
 
     const reviewEvidence = await collectAndAnalyzeReviewEvidence({
       productName: sellerProductNameFromRows(rows),
@@ -591,4 +594,11 @@ ${sample}
     return NextResponse.json({ error: error instanceof Error ? error.message : "Seller CSV analysis failed." },
       { status: 500 });
   }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
+  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
+  if (run.openAiCalls > 0) console.warn("[openai-guard] OpenAI calls in run", run);
+  return response;
 }

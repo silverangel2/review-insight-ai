@@ -1,3 +1,4 @@
+import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { NextResponse } from "next/server";
 import { isAdminRole, normalizePlan, normalizeRole } from "@/lib/account";
 import { readAccountSession } from "@/lib/accountSession";
@@ -9,8 +10,8 @@ import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
 import { freeSellerCompare } from "@/lib/sellerCompareFree";
 
 /** Legacy OpenAI comparison is kept but OFF unless REVIEWINTEL_SELLER_COMPARE_OPENAI=on. */
-function sellerCompareOpenAiEnabled(env: Record<string, string | undefined> = process.env) {
-  return ["on", "1", "true"].includes(String(env.REVIEWINTEL_SELLER_COMPARE_OPENAI || "").toLowerCase());
+function sellerCompareOpenAiEnabled() {
+  return isOpenAiFeatureEnabled("seller_compare");
 }
 
 export const dynamic = "force-dynamic";
@@ -131,7 +132,7 @@ async function callOpenAI(prompt: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing.");
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await guardedOpenAiFetch("seller_compare", "https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -221,7 +222,7 @@ const sellerCompareSchema = {
   ],
 };
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request): Promise<Response> {
   try {
     const limit = await rateLimitRequest(request, {
       key: "seller_compare_api",
@@ -351,4 +352,10 @@ Return JSON only:
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
+  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
+  return response;
 }

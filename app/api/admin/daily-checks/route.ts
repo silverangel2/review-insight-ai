@@ -1,3 +1,4 @@
+import { guardedOpenAiFetch } from "@/lib/openAiGuard";
 import { NextResponse } from "next/server";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -129,7 +130,7 @@ async function checkOpenAI(): Promise<DailyCheckResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
 
-    const response = await fetch("https://api.openai.com/v1/models", {
+    const response = await guardedOpenAiFetch("admin_tools", "https://api.openai.com/v1/models", {
       headers: {
         Authorization: `Bearer ${apiKey}`
       },

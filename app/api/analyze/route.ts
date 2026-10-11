@@ -1,3 +1,6 @@
+import { ocrReviewScreenshot } from "@/lib/reviewScreenshotOcr";
+import { productFactsFromOcr } from "@/lib/screenshotProductFacts";
+import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
 import { aliasScanProgress, runWithScanProgress } from "@/lib/scanProgress";
 /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -1499,7 +1502,7 @@ async function openAIResponse(payload: JsonRecord, costTelemetry?: ScanCostTelem
 
   costTelemetry?.recordOpenAiCall();
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await guardedOpenAiFetch("analyze_screenshot", "https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       authorization: `Bearer ${apiKey}`,
@@ -1584,7 +1587,12 @@ function normalizeVision(rawValue: unknown): VisionFacts {
   };
 }
 
-async function extractScreenshotFacts(imageDataUrl: string, costTelemetry?: ScanCostTelemetry) {
+async function extractScreenshotFacts(imageDataUrl: string, costTelemetry?: ScanCostTelemetry): Promise<VisionFacts> {
+  // Zero-OpenAI default: free local OCR identification. AI vision only with REVIEWINTEL_OPENAI_ANALYZE_SCREENSHOT=on.
+  if (!isOpenAiFeatureEnabled("analyze_screenshot")) {
+    const ocr = await ocrReviewScreenshot(Buffer.from(imageDataUrl.slice(imageDataUrl.indexOf(",") + 1), "base64"));
+    return productFactsFromOcr(ocr);
+  }
   const raw = await openAIResponse({
     model: process.env.OPENAI_MODEL || "gpt-4.1",
     input: [
@@ -3149,7 +3157,14 @@ async function analyzePost(request: Request, serverScanId: string) {
   }
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request): Promise<Response> {
   const scanId = createAnalyzeScanId();
   return runWithScanProgress(scanId, () => withDevScanCapture(scanId, () => analyzePost(request, scanId)));
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
+  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
+  if (run.openAiCalls > 0) console.warn("[openai-guard] OpenAI calls in run", run);
+  return response;
 }

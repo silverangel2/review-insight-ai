@@ -18,7 +18,7 @@ test("admin API routes (bypassed by middleware) each check the admin session", (
 
 test("public follow-up answers without OpenAI by default and only from result data", () => {
   const src = read("app/api/review-follow-up/route.ts");
-  assert.match(src, /REVIEWINTEL_FOLLOWUP_OPENAI/);
+  assert.match(src, /isOpenAiFeatureEnabled\("followup"\)/);
   const jiti = require("jiti")(root + "x.js", { alias: { "@": root } });
   const { freeFollowUpAnswer } = jiti("./lib/freeFollowUp.ts");
   assert.match(freeFollowUpAnswer("show_complaints", {}), /aren't enough real written reviews/);
