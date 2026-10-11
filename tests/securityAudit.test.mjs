@@ -27,3 +27,9 @@ test("public follow-up answers without OpenAI by default and only from result da
 test("public scraping endpoints are rate limited", () => {
   for (const p of ["app/api/review-evidence/route.ts", "app/api/review-evidence/refresh/route.ts"]) assert.match(read(p), /rateLimitRequest/);
 });
+
+test("sponsor events feed paid reports: server time, bot filter, dedupe, limits", () => {
+  const s = read("app/api/sponsor-events/route.ts");
+  assert.doesNotMatch(s, /body\?\.occurredAt/); assert.match(s, /BOT_UA/); assert.match(s, /DEDUPE_MS/); assert.match(s, /ipHits/);
+  assert.match(read("app/api/site-reviews/route.ts"), /rateLimitRequest/);
+});
