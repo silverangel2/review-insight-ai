@@ -37,14 +37,20 @@ test("production without a secret disables sharing; dev has a local fallback", (
   assert.notEqual(shareSecret({ NODE_ENV: "production", REVIEWINTEL_SESSION_SECRET: "x" }), "x", "derived, never the raw secret");
 });
 
-test("homepage sample is generated from the saved real scan, with verbatim quotes", () => {
-  const sample = JSON.parse(fs.readFileSync(root + "lib/homeSample.json", "utf8"));
-  const result = buildRingConnShopperResult(root.replace(/\/$/, ""));
-  const bodies = result.reviewEvidence.evidenceAdjudication.acceptedRecords.map(r => String(r.body || r.text || "").replace(/\s+/g, " "));
-  assert.equal(sample.reviewCount, bodies.length);
-  for (const p of [...sample.loves, ...sample.complaints]) assert.ok(bodies.some(b => b.includes(p.quote.replace(/[…]$/, "").slice(0, 60))), p.quote);
+test("homepage sample is a brand-free illustration labelled Example, with no quotes presented as real reviews", () => {
+  const raw = fs.readFileSync(root + "lib/homeSample.json", "utf8");
+  const sample = JSON.parse(raw);
+  assert.equal(sample.example, true);
+  assert.doesNotMatch(raw, /ringconn|epson|ninja|logitech|\bjbl\b|\bsony\b|dewalt|amazon|scan_/i, "no third-party brand, marketplace or real scan reference");
+  for (const p of [...sample.loves, ...sample.complaints]) assert.equal(p.quote, null, "no invented customer quotes");
+  assert.equal(sample.reviewCount, 0);
+  const card = fs.readFileSync(root + "components/VerdictSummaryCard.tsx", "utf8");
+  assert.match(card, />Example</);
+  assert.match(card, /not a real product, real score or real reviews/);
   const page = fs.readFileSync(root + "app/page.tsx", "utf8");
   assert.match(page, /homeSample\.json/);
+  assert.doesNotMatch(page, /A real result|real Amazon\.ca buyer reviews/);
+  assert.doesNotMatch(page + fs.readFileSync(root + "app/layout.tsx", "utf8") + fs.readFileSync(root + "app/v/[token]/opengraph-image.tsx", "utf8"), /ringconn|epson|ninja|logitech|\bjbl\b|\bsony\b|dewalt/i);
   assert.match(page, /scanCount > 0 \?/, "scan count only shown when the DB returns a real number");
 });
 

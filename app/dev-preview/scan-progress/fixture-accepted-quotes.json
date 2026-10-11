@@ -1,6 +1,6 @@
 {
  "source": "tests/fixtures/reviewintel/ringconn-existing-capture-inputs.json (accepted records)",
- "productName": "RingConn Gen 2 Air Smart Ring",
+ "productName": "Test smart ring (fixture)",
  "acceptedCount": 7,
  "quotes": [
   {

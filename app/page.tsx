@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { FeaturedReviews } from "@/components/FeaturedReviews";
 import { HomePasteLink } from "@/components/HomePasteLink";
-import { VerdictSummaryCard } from "@/components/VerdictSummaryCard";
+import { VerdictSummaryCard, type VerdictSummary } from "@/components/VerdictSummaryCard";
 import { HeroVerdictCycle } from "@/components/motion/HeroVerdictCycle";
 import homeSample from "@/lib/homeSample.json";
 import { supabaseCount } from "@/lib/supabaseServer";
@@ -67,9 +67,9 @@ export default async function LandingPage() {
             </p>
           </div>
           <div className="ri-reveal">
-            <VerdictSummaryCard summary={homeSample} eyebrow="A real result" />
+            <VerdictSummaryCard summary={homeSample as VerdictSummary} />
             <p className="mt-3 text-xs text-slate-500">
-              From a saved ReviewIntel scan of {homeSample.reviewCount} real Amazon.ca buyer reviews. Quotes are shown as written.
+              Example of what your result looks like. Your scan shows the real verdict, score and buyer quotes for the product you paste.
             </p>
           </div>
         </div>

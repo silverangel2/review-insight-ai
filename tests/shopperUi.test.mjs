@@ -116,7 +116,7 @@ test("RingConn card shows the canonical 55% confidence (raw 81, capped at 55 for
 test("dev progress preview quotes are real accepted RingConn review text", async () => {
   const { buildRingConnShopperResult } = await import("../scripts/reviewintel-ringconn-shopper-fixture.mjs");
   const bodies = buildRingConnShopperResult().reviewEvidence.evidenceAdjudication.acceptedRecords.map(r => r.body.replace(/\s+/g, " ").trim());
-  const saved = JSON.parse(readFileSync("app/dev-preview/scan-progress/ringconn-accepted-quotes.json", "utf8"));
+  const saved = JSON.parse(readFileSync("app/dev-preview/scan-progress/fixture-accepted-quotes.json", "utf8"));
   assert.ok(saved.quotes.length > 0);
   for (const q of saved.quotes) assert.ok(bodies.some(b => b.startsWith(q.text.replace(/…$/, ""))), q.text);
 });

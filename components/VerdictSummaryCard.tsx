@@ -1,5 +1,5 @@
-// A calm, compact verdict summary built only from real scan data.
-// Used by the homepage sample and shareable verdict pages.
+// A calm, compact verdict summary. Real scan data on share pages; on the homepage a
+// brand-free illustration flagged `example: true` (labelled "Example", no quotes or counts).
 type Point = { claim: string; quote: string | null; sourceUrl: string | null; sourceHost?: string | null };
 export type VerdictSummary = {
   product: string;
@@ -13,6 +13,7 @@ export type VerdictSummary = {
   sources: string[];
   loves: Point[];
   complaints: Point[];
+  example?: boolean;
 };
 
 import { CountUp } from "./motion/CountUp";
@@ -55,24 +56,28 @@ export function VerdictSummaryCard({ summary, eyebrow, headingLevel = "h2" }: { 
   const confidence = summary.confidencePercent !== null ? `${summary.confidencePercent}% · ${summary.confidenceWords}` : "Unknown";
   return (
     <article className="rounded-[1.75rem] bg-white p-6 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 sm:p-8">
-      {eyebrow ? <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">{eyebrow}</p> : null}
+      {summary.example ? <p className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">Example</p> : eyebrow ? <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">{eyebrow}</p> : null}
       <Heading className="mt-2 text-xl font-semibold leading-snug text-slate-900 sm:text-2xl">{summary.product}</Heading>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <span className={`rounded-full px-4 py-1.5 text-base font-semibold ${LABEL_STYLE[summary.kind] || "bg-slate-100 text-slate-900"}`}>{summary.label}</span>
         {summary.score !== null ? <span className="text-sm text-slate-600">Score <CountUp value={summary.score} /> / 10</span> : null}
       </div>
       <p className="mt-4 text-base leading-7 text-slate-700">{summary.why}</p>
+      {summary.example ? (
+        <p className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-500" data-testid="example-note">Design illustration only: not a real product, real score or real reviews.</p>
+      ) : (
       <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-sm">
         <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-0.5 font-semibold text-slate-900">{confidence}</dd></div>
         <div><dt className="text-slate-500">Based on</dt><dd className="mt-0.5 font-semibold text-slate-900">{summary.reviewCount} real buyer review{summary.reviewCount === 1 ? "" : "s"}</dd></div>
       </dl>
+      )}
       {summary.loves.length || summary.complaints.length ? (
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           {summary.loves.length ? <ul className="space-y-4" aria-label="What buyers love">{summary.loves.map((p, n) => <Quote key={p.claim} point={p} tone="love" delay={n * 120} />)}</ul> : null}
           {summary.complaints.length ? <ul className="space-y-4" aria-label="What buyers complain about">{summary.complaints.map((p, n) => <Quote key={p.claim} point={p} tone="complaint" delay={360 + n * 120} />)}</ul> : null}
         </div>
       ) : null}
-      {summary.sources.length ? <p className="mt-5 text-xs text-slate-500">Based on {summary.reviewCount} real buyer reviews from {summary.sources.join(", ")}.</p> : null}
+      {!summary.example && summary.sources.length ? <p className="mt-5 text-xs text-slate-500">Based on {summary.reviewCount} real buyer reviews from {summary.sources.join(", ")}.</p> : null}
     </article>
   );
 }

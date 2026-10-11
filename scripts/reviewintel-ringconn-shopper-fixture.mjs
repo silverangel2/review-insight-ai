@@ -28,7 +28,7 @@ export function buildRingConnShopperResult(root = process.cwd()) {
     exactListingAccepted: true, reviewIntelligenceSignals: signals, reviewsCollected: corpus.acceptedRecords.length,
     commentsAnalyzed: corpus.acceptedRecords.length, sourceDiversity: 1,
     topStrengths: d.strengths.map(c => c.claim), topComplaints: d.complaints.map(c => c.claim), strengthProvenance: d.strengths, complaintProvenance: d.complaints,
-    product: { name: "RingConn Gen 2 Air", title: "RingConn Gen 2 Air Smart Ring", store: "Amazon.ca" }, analysis: {},
+    product: { name: "Test smart ring", title: "Test smart ring (fixture)", store: "Amazon.ca" }, analysis: {},
     reviewEvidence: { exactListingAccepted: true, reviewIntelligenceSignals: signals, reviewsCollected: corpus.acceptedRecords.length, evidenceAdjudication: corpus, commentsAnalyzed: corpus.acceptedRecords.length, listingEvidence: { exactListingUrl: fx.adjudicationArgs[1].exactListingUrl } },
     researchQuality: { evidenceLevel: "verified", notes: [] }, meta: { audience: "buyer", locale: "en", scanId },
   };
@@ -44,7 +44,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
       const cut = body.length > 140 ? body.lastIndexOf(" ", 140) : body.length;
       return { text: body.length > 140 ? `${body.slice(0, cut)}…` : body, host: new URL(r.sourceUrl).hostname.replace(/^www\./, ""), sourceUrl: r.sourceUrl, evidenceId: r.id };
     });
-    writeFileSync("app/dev-preview/scan-progress/ringconn-accepted-quotes.json", JSON.stringify({ source: "tests/fixtures/reviewintel/ringconn-existing-capture-inputs.json (accepted records)", productName: "RingConn Gen 2 Air Smart Ring", acceptedCount: result.reviewEvidence.evidenceAdjudication.acceptedRecords.length, quotes }, null, 1));
+    writeFileSync("app/dev-preview/scan-progress/fixture-accepted-quotes.json", JSON.stringify({ source: "tests/fixtures/reviewintel/ringconn-existing-capture-inputs.json (accepted records)", productName: "Test smart ring (fixture)", acceptedCount: result.reviewEvidence.evidenceAdjudication.acceptedRecords.length, quotes }, null, 1));
   }
   console.log(JSON.stringify({ verdict: result.verdict, confidence: result.verdictConfidence, accepted: result.commentsAnalyzed }));
 }
