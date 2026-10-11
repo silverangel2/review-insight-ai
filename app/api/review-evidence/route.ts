@@ -1,7 +1,10 @@
+import { rateLimitRequest } from "@/lib/security";
 import { NextRequest, NextResponse } from "next/server";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 
 export async function POST(req: NextRequest) {
+  const limit = await rateLimitRequest(req, { key: "review_evidence", limit: 10, windowMs: 10 * 60 * 1000, eventType: "review_evidence_rate_limited" });
+  if (!limit.allowed) return limit.response ?? NextResponse.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
   try {
     const body = await req.json();
     const productName = String(body.productName || body.name || "").trim();

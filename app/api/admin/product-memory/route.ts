@@ -1,3 +1,4 @@
+import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -15,7 +16,8 @@ function getSupabaseAdminClient() {
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (!adminSessionFromRequest(request)) return NextResponse.json({ error: "Admin session required." }, { status: 401 });
   const supabase = getSupabaseAdminClient();
 
   if (!supabase) {

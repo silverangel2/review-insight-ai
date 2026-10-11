@@ -1,3 +1,4 @@
+import { freeFollowUpAnswer } from "@/lib/freeFollowUp";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
 
     if (!allowed.includes(action)) {
       return NextResponse.json({ ok: false, error: "Unknown follow-up action." }, { status: 400 });
+    }
+
+    // Zero OpenAI by default: answer from the result's own real-review data.
+    if (String(process.env.REVIEWINTEL_FOLLOWUP_OPENAI || "").toLowerCase() !== "on") {
+      return NextResponse.json({ ok: true, action, answer: freeFollowUpAnswer(action, product), source: "free", openAiCalls: 0 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
