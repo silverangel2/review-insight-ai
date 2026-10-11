@@ -40,7 +40,7 @@ test("specific battery claims absorb redundant generic failures but preserve oth
   assert.equal(distinct.complaints.find(c => c.claim === "reliability or failure problems").supportCount, 3);
 });
 
-const capturePath = "/private/tmp/reviewintel-replay-captures/scan_b5c835b5-e0d7-4f51-b61c-c08d7b619a4b.json";
+const capturePath = new URL("../.reviewintel-captures/", import.meta.url).pathname + "scan_b5c835b5-e0d7-4f51-b61c-c08d7b619a4b.json";
 test("requested RingConn capture reaches a coherent current route result", { skip: !existsSync(capturePath) && "Local capture unavailable; portable fixture tests still run" }, () => {
   const report = auditRingConnCapture(capturePath);
   const result = report.result;

@@ -3,7 +3,8 @@ import { noteScanProgressEvent } from "./scanProgress";
 import { mkdir, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 
-export const DEV_CAPTURE_DIRECTORY = "/private/tmp/reviewintel-replay-captures";
+// Repo-local, git-ignored (macOS clears /private/tmp). Override with REVIEWINTEL_CAPTURE_DIR.
+export const DEV_CAPTURE_DIRECTORY = process.env.REVIEWINTEL_CAPTURE_DIR || `${process.cwd()}/.reviewintel-captures`;
 type Capture = { schemaVersion: number; scanId: string; timestamp: string; status: string; events: Array<{ stage: string; data: unknown }> };
 type CaptureContext = { capture: Capture; directory: string; pending: Promise<void>; timer?: ReturnType<typeof setTimeout> };
 const context = new AsyncLocalStorage<CaptureContext>();

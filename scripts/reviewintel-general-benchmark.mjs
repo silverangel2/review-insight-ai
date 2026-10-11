@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+// Replay captures live in a repo-local ignored folder (.reviewintel-captures) so runs are reproducible;
+// legacy /private/tmp paths in locks map onto it by file name (sha256 locks still verified).
+const LEGACY_CAPTURE_DIR='/private/tmp/reviewintel-replay-captures/';
+const LOCAL_CAPTURE_DIR=(process.env.REVIEWINTEL_CAPTURE_DIR||new URL('../.reviewintel-captures/',import.meta.url).pathname).replace(/\/?$/,'/');
+const cap=p=>{ if(typeof p!=='string'||!p.startsWith(LEGACY_CAPTURE_DIR)) return p; const local=LOCAL_CAPTURE_DIR+p.slice(LEGACY_CAPTURE_DIR.length); return existsSync(local)||!existsSync(p)?local:p; };
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -94,17 +99,17 @@ export async function runGeneralBenchmark({layer='development'}={}) {
       }
       for(const [index,item] of lock.holdout.entries()) {
         await check(`holdout-capture-${index}`,['few-reviews','aggregate-only','mixed','single-source'],'SEALED_CAPTURE',async()=>{
-          if(!existsSync(item.path)) throw Error('HOLDOUT_CAPTURE_MISSING');
-          assert.equal(digest(readFileSync(item.path)),item.sha256,'Holdout capture changed');
-          const capture=JSON.parse(readFileSync(item.path));
+          if(!existsSync(cap(item.path))) throw Error('HOLDOUT_CAPTURE_MISSING');
+          assert.equal(digest(readFileSync(cap(item.path))),item.sha256,'Holdout capture changed');
+          const capture=JSON.parse(readFileSync(cap(item.path)));
           const event=capture.events.filter(e=>e.stage==='adjudication').sort((a,b)=>b.data.args[0].length-a.data.args[0].length)[0];
           const evaluation=capture.events.find(e=>e.stage==='evaluation');
           if(!event||!evaluation) throw Error('HOLDOUT_INPUTS_NOT_CAPTURED');
           const corpus=adjudication.adjudicateReviewEvidence(...event.data.args);
           const result=scoring.deriveDeterministicEvidenceResult({...evaluation.data.args[0],acceptedRecords:corpus.acceptedRecords});
           verifyInvariants(result,corpus);
-          const envelope=auditCapturedResult(item.path).result;
-          assert.equal(envelope.scanId,capture.scanId||capture.metadata?.scanId||item.path.match(/(scan_[a-f0-9-]+)\.json/)?.[1]);assert.equal(envelope.meta.scanId,envelope.scanId);
+          const envelope=auditCapturedResult(cap(item.path)).result;
+          assert.equal(envelope.scanId,capture.scanId||capture.metadata?.scanId||cap(item.path).match(/(scan_[a-f0-9-]+)\.json/)?.[1]);assert.equal(envelope.meta.scanId,envelope.scanId);
           assert.equal(envelope.buyScore,result.buyScore);assert.equal(envelope.verdict,result.customerVerdict);assert.equal(envelope.valueForMoney,result.valueForMoney);assert.equal(envelope.commentsAnalyzed,corpus.acceptedRecordCount);
           for(const field of ['buyerConfidence','verdictConfidence'])assert.equal(envelope[field],envelope.confidence);
           if(!envelope.canonicalEvidenceEligible)assert.equal(envelope.confidence,null);
@@ -115,7 +120,7 @@ export async function runGeneralBenchmark({layer='development'}={}) {
         });
       }
       if(layer==='reserve') for(const [index,item] of read('reserve-fixture-lock.json').fixtures.entries())await check(`holdout-missing-artifact-${index}`,['aggregate-only','few-reviews'],'SEALED_INCOMPLETE_SAVED_ARTIFACT',()=>{
-        assert.equal(digest(readFileSync(item.path)),item.sha256);const fixture=JSON.parse(readFileSync(item.path));
+        assert.equal(digest(readFileSync(cap(item.path))),item.sha256);const fixture=JSON.parse(readFileSync(cap(item.path)));
         const raw=Array.isArray(fixture.rawRecords)?fixture.rawRecords:[];
         assert.equal(raw.length,0,'This incomplete-artifact regression expects no saved bodies');
         const corpus=adjudication.adjudicateReviewEvidence(raw,{...fixture.product,exactListingAccepted:false});
@@ -165,7 +170,7 @@ export async function runGeneralBenchmark({layer='development'}={}) {
         return {captureSha256:fixture.sha256,accepted:corpus.acceptedRecordCount,sourceDiversity:corpus.independentSourceCount,score:result.buyScore,verdict:result.customerVerdict,value:result.valueForMoney};
       });
       for(const fixture of development.corpora.filter(c=>c.capturePath)) await check(`route-envelope-${fixture.id}`,['persistence','single-source','aggregate-only','mixed'],'CURRENT_ROUTE_CAPTURE_REANALYSIS',()=>{
-        const {result,deterministic}=auditCapturedResult(fixture.capturePath);
+        const {result,deterministic}=auditCapturedResult(cap(fixture.capturePath));
         assert.equal(result.scanId,fixture.scanId);assert.equal(result.meta.scanId,result.scanId);
         assert.equal(result.commentsAnalyzed,deterministic.acceptedReviewHashes.length);assert.equal(result.buyScore,deterministic.buyScore);assert.equal(result.verdict,deterministic.customerVerdict);assert.equal(result.valueForMoney,deterministic.valueForMoney);
         for(const key of ['confidence','verdictConfidence','buyerConfidence'])assert.equal(result[key],result.confidence);
