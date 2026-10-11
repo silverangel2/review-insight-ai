@@ -27,10 +27,10 @@ export const metadata: Metadata = {
     "http://localhost:3000"
   ),
   title: {
-    default: "ReviewIntel | AI Review Intelligence Platform",
+    default: "ReviewIntel | Should you buy it? We read the reviews for you",
     template: "%s | ReviewIntel"
   },
-  description: "AI review intelligence for ecommerce shoppers and sellers. Analyze pasted reviews, TXT batches, and quick screenshots from any platform without scraping.",
+  description: "Paste a product link and get a plain answer (Buy, Wait or Skip) based on real written buyer reviews. Never fake reviews; if there aren't enough, we say so.",
   keywords: [
     "AI review summarizer",
     "ecommerce review analytics",
