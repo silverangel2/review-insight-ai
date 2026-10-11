@@ -10,6 +10,7 @@ export default function ComparePage() {
           Compare two products with ReviewIntel. Use product screenshots, links, or available product feedback to compare buying risk, strengths, complaints, value, and shopper confidence.
         </p>
       </div>
+      <p className="mb-6 text-sm text-slate-600">Already scanned both? <a href="/compare/side-by-side" className="font-semibold text-teal underline underline-offset-2">Compare two saved scans side by side</a>.</p>
       <CompareForm />
     </main>
   );

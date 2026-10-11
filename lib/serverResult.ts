@@ -33,3 +33,24 @@ export async function loadServerResult(scanId: string | null | undefined): Promi
   } catch { /* fall back to the client loader */ }
   return null;
 }
+
+/** The signed-in account's recent scans (id + title only) for pickers. Empty when signed out. */
+export async function listServerScans(limit = 20): Promise<Array<{ scanId: string; title: string; createdAt: string | null }>> {
+  if (!isSupabaseConfigured()) return [];
+  const token = (await cookies()).get(ACCOUNT_SESSION_COOKIE)?.value;
+  const session = token ? verifyAccountSessionToken(decodeURIComponent(token)) : null;
+  const email = String(session?.email || "").toLowerCase().trim();
+  if (!email) return [];
+  try {
+    const rows = await supabaseSelect("analyses", `select=analysis_json,created_at&profile_email=eq.${encodeURIComponent(email)}&order=created_at.desc&limit=${Math.min(50, limit)}`);
+    const out: Array<{ scanId: string; title: string; createdAt: string | null }> = [];
+    for (const row of rows) {
+      const stored = obj(row.analysis_json);
+      const r = obj(stored.result && typeof stored.result === "object" ? stored.result : stored);
+      const scanId = String(r.scanId || obj(r.meta).scanId || stored.scanId || "").trim();
+      const title = String(obj(r.product).title || obj(r.product).name || r.productName || "").trim();
+      if (scanId && title && !out.some(o => o.scanId === scanId)) out.push({ scanId, title: title.slice(0, 120), createdAt: (row.created_at as string) || null });
+    }
+    return out;
+  } catch { return []; }
+}
