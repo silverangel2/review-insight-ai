@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { VerdictSummaryCard } from "@/components/VerdictSummaryCard";
+import { ShareFooterNudge } from "@/components/upsell/ShareFooterNudge";
 import { ShareVerdictButton } from "@/components/ShareVerdictButton";
 import { verifySharedVerdict } from "@/lib/shareVerdict";
 
@@ -46,6 +47,7 @@ export default async function SharedVerdictPage({ params }: Props) {
           <Link href="/analyze" className="mt-4 inline-flex rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white hover:bg-teal/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">Scan a product</Link>
         </section>
       </div>
+      <ShareFooterNudge />
     </main>
   );
 }

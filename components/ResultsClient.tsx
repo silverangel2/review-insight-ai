@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { ResultsDashboard } from "@/components/ResultsDashboard";
 import { ShopperAnswerCard } from "@/components/ShopperAnswerCard";
+import { UpgradeMoment } from "@/components/upsell/UpgradeMoment";
 import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { canAccessSellerAnalytics } from "@/lib/account";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
@@ -2749,6 +2750,7 @@ export function ResultsClient({ initialResult = null, initialScanId = null }: { 
         <>
           <ShopperAnswerCard result={result} productName={productTitle} />
           <BetterPicksPanel result={result as unknown as Record<string, unknown>} productName={productTitle} />
+          <UpgradeMoment placement="results" sellerIntent={String((result as unknown as Record<string, unknown>).mode || "") === "seller"} />
           <details className="group rounded-3xl bg-white ring-1 ring-slate-900/5 dark:bg-slate-900">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200 sm:px-6">
               How we checked

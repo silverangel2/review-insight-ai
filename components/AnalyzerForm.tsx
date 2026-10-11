@@ -10,6 +10,7 @@ import { accountHeaders, getClientAccount, saveQuota } from "@/lib/clientAccount
 import { saveLatestPreview, saveLatestResult, clearLatestResult, setActiveScanId, reviewIntelDevDiagnostic, readLatestResult } from "@/lib/resultStorage";
 import { incrementStoredScanTally } from "@/lib/clientAccount";
 import { ReviewIntelScanOverlay, type ScanStage } from "@/components/ReviewIntelScanOverlay";
+import { LimitReachedCard } from "@/components/upsell/LimitReachedCard";
 
 // Anonymous-visitor free scans: 3 per day, per device. The localStorage
 // counter is UX-only — the server enforces the real limit by IP hash
@@ -433,33 +434,7 @@ export default function AnalyzerForm() {
 
       <div className="mx-auto mt-10 max-w-2xl">
         {anonLimitReached ? (
-          <div className="relative overflow-hidden rounded-[2rem] border border-[#ffbd58]/35 bg-[linear-gradient(135deg,#101a30_0%,#16244a_55%,#1e2f5e_100%)] p-8 text-center text-white shadow-[0_24px_70px_rgba(10,18,38,0.35)] sm:p-10">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#ffbd58]/80 to-transparent"
-            />
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#ffbd58]">
-              Free scans used
-            </p>
-            <h2 className="mt-3 text-3xl font-black">You&apos;ve used today&apos;s 3 free scans</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-6 text-slate-300">
-              Come back tomorrow for 3 more — or sign in now to keep scanning. It&apos;s free, and your scan history and premium verdicts are waiting.
-            </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <a
-                href="/login?next=/analyze"
-                className="inline-flex items-center justify-center rounded-2xl bg-[#ffbd58] px-7 py-3.5 text-sm font-black text-[#172033] shadow-[0_10px_30px_rgba(255,189,88,0.35)] transition hover:-translate-y-0.5 hover:bg-[#ffd07a]"
-              >
-                Sign in to continue
-              </a>
-              <a
-                href="/signup?next=/analyze"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-7 py-3.5 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/20"
-              >
-                Create free account
-              </a>
-            </div>
-          </div>
+          <LimitReachedCard guest />
         ) : (
         <>
         {isAnonymousVisitor ? (
@@ -501,7 +476,9 @@ export default function AnalyzerForm() {
           className="mt-5 w-full rounded-2xl border border-line bg-white px-5 py-4 text-base font-bold text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/15 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
         />
 
-        {error ? (
+        {error && isScanLimitError ? (
+          <div className="mt-5"><LimitReachedCard guest={isAnonymousVisitor} /></div>
+        ) : error ? (
           <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700 dark:border-rose-400/30 dark:bg-rose-950/30 dark:text-rose-200">
             <p>{error.includes("confidence") ? "I can see the product, but I need a closer screenshot or product link for a stronger verdict." : error}</p>
 

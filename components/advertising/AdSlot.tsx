@@ -1,5 +1,6 @@
 "use client";
 
+import { pricingLabelForPlan } from "@/lib/pricing";
 import { useEffect, useState } from "react";
 import {
   type AdPlacement,
@@ -345,7 +346,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       : null;
 
   const pool: Array<{ ad: SponsorAd; source: AdSource }> = rotatingAds.length ? rotatingAds : fallbackAd ? [{ ad: fallbackAd, source: "placeholder" }] : [];
-  if (!pool.length) return null;
+  if (!pool.length) return <FeaturedDeals slides={[premiumHouseSlide(placement)]} className={className} onClickSlide={() => trackTrafficEvent({ eventType: "upsell_click", metadata: { placement: `featured_deals_${placement}`, plan: "buyer_pro" } })} />;
   const slides: DealSlide[] = pool.map(({ ad: item, source }) => {
     const isHouse = source === "placeholder";
     const isAff = source === "affiliate" || item.sponsorType === "affiliate";
@@ -358,6 +359,8 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       cta: item.ctaLabel || (isHouse ? "Advertise with ReviewIntel" : isAff ? "Check price" : "Learn more"),
     };
   });
+  // Subscription value as a clearly labelled "ReviewIntel" slide (ads only render for non-paid users).
+  if (placement !== "pricing") slides.push(premiumHouseSlide(placement));
   return (
     <FeaturedDeals
       slides={slides}
@@ -369,7 +372,17 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       onClickSlide={(slide) => {
         if (slide.kind === "direct") sendAdEvent("click", slide.ad.id, placement);
         if (slide.kind === "affiliate") trackTrafficEvent({ eventType: "affiliate_click", metadata: { ...affiliateEventMetadata(slide.ad, placement), destinationUrl: slide.ad.destinationUrl } });
+        if (slide.ad.id.startsWith("house-premium")) trackTrafficEvent({ eventType: "upsell_click", metadata: { placement: `featured_deals_${placement}`, plan: "buyer_pro" } });
       }}
     />
   );
+}
+
+function premiumHouseSlide(placement: string): DealSlide {
+  const headline = "Unlimited scans with Premium";
+  const description = `${pricingLabelForPlan("buyer_pro", "CAD")}/month: unlimited scans, saved history, avoid list and side-by-side compare.`;
+  return {
+    ad: { id: `house-premium-${placement}`, sponsorName: "ReviewIntel", headline, description, destinationUrl: "/pricing?plan=buyer_pro", placement: placement as SponsorAd["placement"], active: true, status: "approved" },
+    kind: "house", partner: "ReviewIntel", headline, description, cta: "See Premium",
+  };
 }

@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { readAccountSession } from "@/lib/accountSession";
 import { isSupabaseConfigured, supabaseInsert, supabaseSelect } from "@/lib/supabaseServer";
 
-type TrafficEventType = "page_view" | "affiliate_impression" | "affiliate_click" | "pricing_click" | "signup_intent";
+type TrafficEventType = "page_view" | "affiliate_impression" | "affiliate_click" | "pricing_click" | "signup_intent" | "upsell_view" | "upsell_click" | "upsell_dismiss" | "checkout_start";
 
 type TrafficEventBody = {
   eventType?: string;
@@ -47,6 +47,10 @@ const allowedEvents = new Set<TrafficEventType>([
   "affiliate_click",
   "pricing_click",
   "signup_intent",
+  "upsell_view",
+  "upsell_click",
+  "upsell_dismiss",
+  "checkout_start",
 ]);
 
 function cleanText(value: unknown, max = 500) {
