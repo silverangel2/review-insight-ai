@@ -154,9 +154,9 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     if (!response.ok) {
-      const text = await response.text();
+      console.error("advertiser application insert failed", response.status, await response.text().catch(() => ""));
       return NextResponse.json(
-        { error: "Could not submit advertiser application.", details: text },
+        { error: "Could not submit advertiser application." },
         { status: 500 },
       );
     }
@@ -172,7 +172,6 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json(
       {
         error: "Advertiser application failed.",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );
