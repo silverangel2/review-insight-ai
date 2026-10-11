@@ -1,3 +1,4 @@
+import { sendUpgradeAfterFirstScanOnce } from "@/lib/lifecycleEmails";
 import { hasCloudHistoryAccess, normalizePlan, normalizeRole } from "@/lib/account";
 import { NextResponse } from "next/server";
 import { readAccountSession } from "@/lib/accountSession";
@@ -423,6 +424,7 @@ export async function POST(request: Request) {
     account: body?.account ?? null
   });
 
+  if (!isComparePayload) await sendUpgradeAfterFirstScanOnce(email, String(account.plan), typeof analysisRecord.productName === "string" ? analysisRecord.productName.slice(0, 120) : undefined).catch(() => null);
   return NextResponse.json(normalizeAnalysesForDashboard({ ok: true, analysis: result }));
 }
 

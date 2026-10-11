@@ -1,3 +1,4 @@
+import { sendWelcomeOnce } from "@/lib/lifecycleEmails";
 import { NextResponse } from "next/server";
 import { getRuntimeAppSettings } from "@/lib/appSettings";
 import { rateLimitRequest } from "@/lib/security";
@@ -194,6 +195,7 @@ export async function POST(request: Request) {
     });
 
     const emailConfirmationRequired = Boolean(result.user && !result.access_token);
+    await sendWelcomeOnce(email, body.name ? String(body.name).trim().slice(0, 60) : undefined).catch(() => null);
 
     return NextResponse.json({
       ok: true,
