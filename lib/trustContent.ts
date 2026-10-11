@@ -60,7 +60,8 @@ export const footerLinkGroups = [
       { label: "Manage Subscription", href: "/manage-subscription" },
       { label: "Billing Support", href: "/billing-support" },
       { label: "Account Support", href: "/account-support" },
-      { label: "Delete Account", href: "/delete-account" }
+      { label: "Delete Account", href: "/delete-account" },
+      { label: "Email preferences", href: "/email-preferences" }
     ]
   },
   {

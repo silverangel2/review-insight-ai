@@ -19,13 +19,10 @@ import MobileTinyNav from "@/components/mobile/MobileTinyNav";
 import MobileUtilityMenu from "@/components/mobile/MobileUtilityMenu";
 import SessionIdleLogout from "@/components/SessionIdleLogout";
 import { TrafficTracker } from "@/components/TrafficTracker";
+import { seoBaseUrl } from "@/lib/seoAutomation";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000"
-  ),
+  metadataBase: new URL(seoBaseUrl()),
   title: {
     default: "ReviewIntel | AI Review Intelligence Platform",
     template: "%s | ReviewIntel"
@@ -67,16 +64,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
-        <script
-          id="reviewintel-google-adsense"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5711144364755686"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body>
         {/* Resolve the layout mode before first paint so mobile CSS doesn't shift the page after hydration (CLS). */}
         <script
@@ -94,15 +81,18 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
+              "@type": "WebApplication",
               name: "ReviewIntel",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
-              description: "AI review intelligence platform for ecommerce shoppers and sellers.",
+              url: seoBaseUrl(),
+              description: "Review intelligence for shoppers and ecommerce sellers. The free plan has a daily scan limit. Paid plans are listed on the pricing page.",
               offers: {
                 "@type": "Offer",
+                name: "Shopper Free",
                 price: "0",
-                priceCurrency: "CAD"
+                priceCurrency: "CAD",
+                description: "Free plan with a daily scan limit."
               }
             })
           }}

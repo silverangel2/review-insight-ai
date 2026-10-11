@@ -7,6 +7,8 @@ import {
   hasEmailProvider,
   sendReviewIntelEmail,
 } from "@/lib/emailDelivery";
+import { emailActionLinks, emailLinkSecret, publicEmailSiteUrl, unsubscribeHeaders } from "@/lib/emailLinks";
+import { renderBrandedEmail } from "@/lib/emailTemplate";
 
 export const runtime = "nodejs";
 
@@ -36,25 +38,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valid test recipient is required." }, { status: 400 });
   }
 
+  const links = emailActionLinks(to, publicEmailSiteUrl(), emailLinkSecret());
+  const message = renderBrandedEmail({
+    preheader: "A ReviewIntel email test. No customer was emailed by this check.",
+    eyebrow: "Email test",
+    title: "ReviewIntel email test",
+    paragraphs: [
+      "This is a branded test of the ReviewIntel email layout.",
+      `Sender: ${EMAIL_FROM}`,
+    ],
+    reason: "You asked for this test from the admin email check.",
+    preferencesUrl: links.preferencesUrl,
+    unsubscribeUrl: links.unsubscribeUrl,
+    postalAddress: process.env.REVIEWINTEL_POSTAL_ADDRESS || "",
+  });
   const result = await sendReviewIntelEmail({
     emailType: "admin_test",
     to,
-    subject: "ReviewIntel Email Test",
-    html: `
-      <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:28px;">
-        <div style="max-width:640px;margin:auto;background:#ffffff;border:1px solid #e6eaf2;border-radius:20px;padding:28px;">
-          <h1 style="margin:0 0 12px;color:#101828;">ReviewIntel Email Test</h1>
-          <p style="font-size:16px;line-height:1.7;color:#344054;">
-            This is a real deployment-ready email test from ReviewIntel using Resend.
-          </p>
-          <p style="font-size:13px;line-height:1.7;color:#667085;">
-            Sender: ${EMAIL_FROM}<br/>
-            Support: ${SUPPORT_EMAIL}
-          </p>
-        </div>
-      </div>
-    `,
-    text: "ReviewIntel Email Test\n\nThis is a real deployment-ready email test from ReviewIntel using Resend.",
+    subject: "ReviewIntel email test",
+    html: message.html,
+    text: message.text,
+    headers: unsubscribeHeaders(links.oneClickUrl),
     metadata: {
       source: "admin_email_test",
     },

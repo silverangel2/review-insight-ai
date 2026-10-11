@@ -20,6 +20,7 @@ import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
+import { queueFirstScanUpgrade } from "@/lib/lifecycleEmail";
 import { completeAccountScan, assertPersistedScan } from "@/lib/scanCompletion";
 import {
   beginDurableScanOperation,
@@ -2923,6 +2924,13 @@ async function analyzePost(request: Request, serverScanId: string) {
         finish: (result) => finishDurableScanOperation({ operationKey, status: "COMPLETED", result }),
       });
       captureStage("persistence", { scanId, analysisId: completed.analysisId, accountKey: budgetAccountKey(email), accountVisible: true, durableCompleted: true });
+      queueFirstScanUpgrade({
+        email,
+        role,
+        plan: accountPlan,
+        productName: String(asRecord(scanResult.product).name ?? ""),
+        verdict: String(scanResult.verdict ?? ""),
+      });
       return completed;
     };
 

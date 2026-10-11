@@ -13,6 +13,7 @@ import {
   profileCompletionMissingFields,
   type ClientAccount
 } from "@/lib/account";
+import { safeInternalPath } from "@/lib/safeNextPath";
 import {
   accountHeaders,
   clearClientAccount,
@@ -575,7 +576,7 @@ export function AccountDashboard() {
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const nextPath = params.get("next");
+      const nextPath = safeInternalPath(params.get("next"));
 
       if (params.get("completeProfile") === "1" && nextPath) {
         router.push(nextPath);

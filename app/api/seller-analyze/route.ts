@@ -11,6 +11,7 @@ import {
 } from "@/lib/supabaseServer";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
+import { queueFirstScanUpgrade } from "@/lib/lifecycleEmail";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 
@@ -561,7 +562,7 @@ ${sample}
         account: { email, plan, role }
       }) as { id?: string; created_at?: string } | null;
 
-      await consumePersistentQuota(
+      const usage = await consumePersistentQuota(
         { email, plan },
         {
           analysis_id: analysisRecord?.id ?? null,
@@ -570,6 +571,14 @@ ${sample}
           review_count: rows.length
         }
       );
+      if (usage?.ok) {
+        queueFirstScanUpgrade({
+          email,
+          role,
+          plan,
+          productName: file.name.replace(/\.csv$/i, ""),
+        });
+      }
 
       return NextResponse.json({
         ...result,

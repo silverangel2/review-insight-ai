@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured, supabaseFetch } from "@/lib/supabaseServer";
 import { sendReviewIntelEmail, SUPPORT_EMAIL } from "@/lib/emailDelivery";
+import { emailActionLinks, emailLinkSecret, publicEmailSiteUrl, unsubscribeHeaders } from "@/lib/emailLinks";
+import { renderBrandedEmail } from "@/lib/emailTemplate";
 import { rateLimited, validateInquiry } from "@/lib/advertiserFlow";
 
 export const runtime = "nodejs";
@@ -27,8 +29,23 @@ export async function POST(request: Request) {
   const lines = [`Name: ${v.name}`, `Email: ${v.email}`, `Company: ${v.company}`, `Website: ${v.website || "-"}`, `Budget: ${v.budget || "-"}`, `Placement: ${v.placement || "-"}`, `Message: ${v.message || "-"}`, `Saved to DB: ${saved ? "yes" : "no"}`];
   await sendReviewIntelEmail({ emailType: "advertiser_inquiry_owner", to: owner, replyTo: v.email, subject: `New advertiser inquiry: ${v.company}`,
     text: lines.join("\n"), html: `<p>${lines.map(esc).join("<br>")}</p>`, metadata: { company: v.company } }).catch(() => null);
+  const replyLinks = emailActionLinks(v.email, publicEmailSiteUrl(), emailLinkSecret());
+  const reply = renderBrandedEmail({
+    preheader: "We review every advertising inquiry by hand.",
+    eyebrow: "Advertising",
+    title: "Thanks for your interest",
+    greetingName: v.name,
+    paragraphs: [
+      "Thanks for asking about advertising on ReviewIntel. We review every inquiry by hand and will reply within 2 business days.",
+      "Please read the ad content policy before sending artwork.",
+    ],
+    cta: { label: "Read the ad policy", href: `${publicEmailSiteUrl()}/ad-policy` },
+    reason: "You are receiving this because you asked about advertising on ReviewIntel.",
+    preferencesUrl: replyLinks.preferencesUrl,
+    unsubscribeUrl: replyLinks.unsubscribeUrl,
+    postalAddress: process.env.REVIEWINTEL_POSTAL_ADDRESS || "",
+  });
   await sendReviewIntelEmail({ emailType: "advertiser_inquiry_autoreply", to: v.email, subject: "Thanks for your interest in advertising on ReviewIntel",
-    text: `Hi ${v.name},\n\nThanks for reaching out about advertising on ReviewIntel. We review every inquiry by hand and will reply within 2 business days.\n\nAd content policy: https://getreviewintel.com/ad-policy\n\nThe ReviewIntel team`,
-    html: `<p>Hi ${esc(v.name)},</p><p>Thanks for reaching out about advertising on ReviewIntel. We review every inquiry by hand and will reply within 2 business days.</p><p><a href="https://getreviewintel.com/ad-policy">Ad content policy</a></p><p>The ReviewIntel team</p>` }).catch(() => null);
+    text: reply.text, html: reply.html, headers: unsubscribeHeaders(replyLinks.oneClickUrl) }).catch(() => null);
   return NextResponse.json({ ok: true, message: "Thanks! We'll reply within 2 business days." });
 }
