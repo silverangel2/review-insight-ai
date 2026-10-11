@@ -259,7 +259,7 @@ function priorityTone(priority: string) {
   if (priority === "Strong") return "text-teal";
   if (priority === "Watch") return "text-ocean";
   if (priority === "Improve") return "text-amber-600";
-  return "text-coral";
+  return "text-coralink";
 }
 
 function sellerTrendSeries(scans: unknown[]) {
@@ -608,7 +608,7 @@ export default function SellerDashboardPage() {
     return (
       <ProOnlyGate>
         <DashboardShell title="Seller dashboard" subtitle={`${account ? planLabel(normalizePlan(account.plan)) : "Seller"} workspace`} experience="seller">
-          <section data-testid="seller-empty-state" className="rounded-[1.75rem] bg-white p-8 text-center ring-1 ring-slate-900/5 sm:p-12">
+          <section data-testid="seller-empty-state" className="rounded-[1.75rem] bg-[linear-gradient(135deg,#f1edff_0%,#ffffff_50%,#e6f7f1_100%)] p-8 text-center ring-1 ring-slate-900/5 sm:p-12">
             <p className="text-sm font-semibold text-teal">Start here</p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Upload your first review file</h2>
             <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-slate-600">
@@ -646,7 +646,7 @@ export default function SellerDashboardPage() {
       >
         <SponsorAnalytics placement="seller_dashboard" />
 
-        <section className="seller-premium-hero mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+        <section className="seller-premium-hero mb-6 rounded-[2rem] border border-line bg-[linear-gradient(135deg,#f1edff_0%,#ffffff_55%,#fff6d6_100%)] p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro summary</p>
           <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Your product improvement command center.</h2>
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
@@ -770,7 +770,7 @@ export default function SellerDashboardPage() {
                 </article>
                 <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-900">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Movement</p>
-                  <p className={`mt-2 text-3xl font-black ${dashboard.trendDelta >= 0 ? "text-teal" : "text-coral"}`}>
+                  <p className={`mt-2 text-3xl font-black ${dashboard.trendDelta >= 0 ? "text-teal" : "text-coralink"}`}>
                     {dashboard.trendDelta > 0 ? "+" : ""}{dashboard.trendDelta} pts
                   </p>
                 </article>
@@ -801,7 +801,7 @@ export default function SellerDashboardPage() {
 
             <div className="seller-growth-pulse-grid mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
               <article className="rounded-[1.25rem] border border-coral/20 bg-rose-50 p-4 dark:border-rose-300/20 dark:bg-rose-400/10">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-coral">Fix next</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-coralink">Fix next</p>
                 <h3 className="mt-2 text-xl font-black text-ink dark:text-white">
                   {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "Run a seller scan"}
                 </h3>
@@ -892,7 +892,7 @@ export default function SellerDashboardPage() {
 
         <section className="seller-premium-focus-grid mb-6 grid gap-5 lg:grid-cols-2">
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-coral">Focus first</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-coralink">Focus first</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">
               {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "No product selected yet"}
             </h3>

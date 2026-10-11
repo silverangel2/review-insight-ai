@@ -275,7 +275,7 @@ export function OwnerAccessPanel() {
               placeholder="Enter owner code"
             />
           </label>
-          {error ? <p className="mt-3 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
+          {error ? <p className="mt-3 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
           <button
             type="button"
             onClick={() => void unlock()}
@@ -293,7 +293,7 @@ export function OwnerAccessPanel() {
             <button
               type="button"
               onClick={lockOwnerAccess}
-              className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:bg-slate-900 dark:text-white"
+              className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-black text-ink transition hover:border-coral hover:text-coralink dark:border-white/10 dark:bg-slate-900 dark:text-white"
             >
               Lock owner access
             </button>

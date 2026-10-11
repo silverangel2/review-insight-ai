@@ -1029,7 +1029,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
           }
         : {
             shell: "from-coral/12 via-white to-rose-100/80",
-            badge: "bg-coral/12 text-coral",
+            badge: "bg-coral/12 text-coralink",
             bar: "from-coral to-rose-500",
             border: "border-coral/25"
           };
@@ -1293,9 +1293,9 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
           <div className="rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
             <div className="grid gap-3 sm:grid-cols-2">
               {[
-                [translateResultText(locale, "Fake Review Risk"), localizedFakeRiskShort, fakeRisk >= 65 ? "text-coral" : fakeRisk >= 35 ? "text-amber" : "text-teal"],
-                [translateResultText(locale, "Value"), localizedValueVerdict, valueScore >= 72 ? "text-teal" : valueScore >= 48 ? "text-amber" : "text-coral"],
-                [translateResultText(locale, "Main Warning"), localizedBiggestComplaint, "text-coral"],
+                [translateResultText(locale, "Fake Review Risk"), localizedFakeRiskShort, fakeRisk >= 65 ? "text-coralink" : fakeRisk >= 35 ? "text-amber" : "text-teal"],
+                [translateResultText(locale, "Value"), localizedValueVerdict, valueScore >= 72 ? "text-teal" : valueScore >= 48 ? "text-amber" : "text-coralink"],
+                [translateResultText(locale, "Main Warning"), localizedBiggestComplaint, "text-coralink"],
                 [translateResultText(locale, "Buying Notes"), localizedBuyingNotesPhrase, "text-ocean"]
               ].map(([label, value, color]) => (
                 <div key={label} className="min-h-28 rounded-[1.4rem] border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
@@ -1413,7 +1413,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
 
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           <article className="rounded-2xl border border-coral/20 bg-coral/10 p-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-coral">Fix first</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-coralink">Fix first</p>
             <p className="mt-3 text-sm font-bold leading-6 text-ink dark:text-white">
               {buildSellerGrowthMoves(analysis).fixFirst}
             </p>

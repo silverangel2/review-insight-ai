@@ -49,7 +49,7 @@ export function AdminUsageCostMonitor() {
             clearLocalTelemetry();
             setSummary(readLocalTelemetry());
           }}
-          className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:text-white"
+          className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coralink dark:border-white/10 dark:text-white"
         >
           Clear local monitor
         </button>

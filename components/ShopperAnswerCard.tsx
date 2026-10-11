@@ -12,9 +12,9 @@ const TONE = {
   not_enough: { chip: "bg-slate-100 text-slate-700", ring: "ring-slate-900/5" },
 } as const;
 
-function PointList({ title, points, empty }: { title: string; points: ShopperPoint[]; empty: string }) {
+function PointList({ title, points, empty, tint = "bg-white" }: { title: string; points: ShopperPoint[]; empty: string; tint?: string }) {
   return (
-    <section className="rounded-3xl bg-white p-5 ring-1 ring-slate-900/5 sm:p-6">
+    <section className={`rounded-3xl ${tint} p-5 ring-1 ring-slate-900/5 sm:p-6`}>
       <h3 className="text-sm font-semibold text-slate-500">{title}</h3>
       {points.length ? (
         <ul className="mt-4 space-y-5">
@@ -93,13 +93,13 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
 
       {answer.kind !== "not_enough" ? (
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-          <PointList title="What buyers love" points={answer.loves} empty="No repeated praise in the real reviews yet." />
-          <PointList title="What buyers complain about" points={answer.complaints} empty="No repeated complaints in the real reviews." />
+          <PointList title="What buyers love" points={answer.loves} empty="No repeated praise in the real reviews yet." tint="bg-mint" />
+          <PointList title="What buyers complain about" points={answer.complaints} empty="No repeated complaints in the real reviews." tint="bg-peach" />
         </div>
       ) : null}
 
       {answer.nextSteps.length ? (
-        <section className="rounded-3xl bg-slate-50 p-5 sm:p-6">
+        <section className="rounded-3xl bg-butter p-5 sm:p-6">
           <h3 className="text-base font-semibold text-slate-900">{answer.kind === "not_enough" ? "Here's how to get a real answer" : "Want a stronger answer?"}</h3>
           <ul className="mt-4 grid gap-4 sm:grid-cols-3">
             {answer.nextSteps.map(step => (

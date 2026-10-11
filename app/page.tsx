@@ -50,10 +50,10 @@ export default async function LandingPage() {
     <main className="reviewintel-home-main bg-white text-ink">
       <SponsorAnalytics placement="landing" />
 
-      <section className="ri-home-hero border-b border-slate-200/70 bg-[linear-gradient(180deg,#f2fbfa_0%,#ffffff_100%)]">
+      <section className="ri-home-hero border-b border-slate-200/70 bg-[linear-gradient(135deg,#e6f7f1_0%,#fff6ec_55%,#ffeee6_100%)]">
         <div className="mx-auto grid max-w-6xl gap-10 px-5 pb-12 pt-10 sm:px-6 sm:pt-14 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-14 lg:pb-16">
           <div>
-            <p className="text-sm font-semibold text-teal">Real buyer reviews. Plain answers.</p>
+            <p className="inline-flex rounded-full bg-peach px-3 py-1 text-sm font-semibold text-coralink ring-1 ring-coral/30">Real buyer reviews. Plain answers.</p>
             <h1 className="mt-3 text-4xl font-semibold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl">
               Should you buy it? <span className="text-teal" style={{ fontSize: "inherit", fontWeight: "inherit" }}>We read the reviews</span> so you don&apos;t have to.
             </h1>
@@ -63,7 +63,7 @@ export default async function LandingPage() {
             <HeroVerdictCycle />
             <div className="mt-5 max-w-xl"><HomePasteLink /></div>
             <p className="text-sm text-slate-500">
-              Or <Link href="/analyze" className="font-medium text-slate-700 underline underline-offset-2 hover:text-teal">upload review screenshots</Link> instead.
+              Or <Link href="/analyze" className="font-medium text-coralink underline decoration-coral/50 underline-offset-2 hover:text-teal">upload review screenshots</Link> instead.
             </p>
           </div>
           <div className="ri-reveal">
@@ -75,7 +75,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section aria-labelledby="how-it-works" className="bg-white px-5 py-14 sm:px-6">
+      <section aria-labelledby="how-it-works" className="bg-[linear-gradient(180deg,#f1edff_0%,#ffffff_100%)] px-5 py-14 sm:px-6">
         <div className="mx-auto max-w-6xl">
           <h2 id="how-it-works" className="text-2xl font-semibold text-slate-900">How it works</h2>
           <ol className="mt-6 grid gap-6 sm:grid-cols-3">
@@ -102,7 +102,7 @@ export default async function LandingPage() {
 
       {/* Platform logo orbit removed: it implied TikTok/eBay coverage we do not scan. */}
 
-      <section aria-labelledby="home-video" className="home-premium-payoff bg-slate-50 px-5 py-16 sm:px-6">
+      <section aria-labelledby="home-video" className="home-premium-payoff bg-butter px-5 py-16 sm:px-6">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_1fr] lg:items-center">
           <div>
             <p className="text-sm font-semibold text-teal">{t("instructionVideo.eyebrow")}</p>
@@ -115,7 +115,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section aria-labelledby="home-audience" className="home-premium-audience bg-white px-5 py-16 sm:px-6">
+      <section aria-labelledby="home-audience" className="home-premium-audience bg-[linear-gradient(180deg,#ffffff_0%,#e6f7f1_100%)] px-5 py-16 sm:px-6">
         <div className="mx-auto max-w-6xl">
           <h2 id="home-audience" className="text-2xl font-semibold text-slate-900">Built for both sides of the purchase</h2>
           <div className="mt-6 grid gap-5 md:grid-cols-2">
