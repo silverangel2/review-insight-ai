@@ -3,6 +3,8 @@ import { adPackages, type AdPackageId, type AdPlacement } from "@/lib/adConfig";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { saveAdCreative } from "@/lib/adCreativeUpload";
 import { supabaseFetch } from "@/lib/supabaseServer";
+import { signCampaignToken } from "@/lib/advertiserFlow";
+import { sendReviewIntelEmail } from "@/lib/emailDelivery";
 
 type AdminAdvertisingBody = {
   action?: "approve" | "reject" | "pause" | "activate" | "mark_paid" | "mark_unpaid" | "create_manual" | "delete" | "delete";
@@ -19,6 +21,8 @@ type AdminAdvertisingBody = {
   dailyImpressionCap?: number;
   durationDays?: number;
   active?: boolean;
+  startsAt?: string;
+  endsAt?: string;
 };
 
 type ApplicationRow = Record<string, unknown>;
@@ -352,6 +356,13 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       const now = new Date().toISOString();
+      // Owner-chosen schedule + placement (optional). The ad runs only inside this window once paid.
+      const validDate = (v: unknown) => (typeof v === "string" && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : undefined);
+      const schedule: Record<string, string> = {};
+      if (validDate(body.startsAt)) schedule.starts_at = validDate(body.startsAt)!;
+      if (validDate(body.endsAt)) schedule.ends_at = validDate(body.endsAt)!;
+      if (schedule.starts_at && schedule.ends_at && schedule.ends_at <= schedule.starts_at) return NextResponse.json({ error: "End date must be after the start date." }, { status: 400 });
+      if (clean(body.placement)) schedule.preferred_placement = clean(body.placement);
       const applicationResponse = await supabaseFetch(
         `/rest/v1/advertiser_applications?id=eq.${encodeURIComponent(applicationId)}`,
         {
@@ -360,6 +371,7 @@ export async function POST(request: Request): Promise<Response> {
             status: "approved",
             reviewed_at: now,
             updated_at: now,
+            ...schedule,
           }),
         },
       );
@@ -370,15 +382,35 @@ export async function POST(request: Request): Promise<Response> {
 
       const adCreated = await createOrUpdateAdFromApplication({
         ...application,
+        ...schedule,
         status: "approved",
         updated_at: now,
       });
+
+      // Email the advertiser a signed payment link and their private report link.
+      let paymentEmailSent = false;
+      const contact = clean(application.contact_email);
+      const payToken = signCampaignToken("pay", applicationId);
+      const reportToken = signCampaignToken("report", applicationId);
+      if (contact && payToken && reportToken && clean(application.payment_status) !== "paid") {
+        const origin = new URL(request.url).origin;
+        const payUrl = `${origin}/api/advertising/checkout?t=${encodeURIComponent(payToken)}`;
+        const reportUrl = `${origin}/advertise/report/${encodeURIComponent(reportToken)}`;
+        const when = schedule.starts_at ? ` from ${schedule.starts_at.slice(0, 10)}${schedule.ends_at ? ` to ${schedule.ends_at.slice(0, 10)}` : ""}` : "";
+        const sent = await sendReviewIntelEmail({
+          emailType: "advertiser_payment_link", to: contact, subject: "Your ReviewIntel campaign is approved",
+          text: `Your campaign is approved${when}. Pay here to schedule it: ${payUrl}\n\nYour private report: ${reportUrl}\n\nThe ad starts automatically on the start date once payment is received.`,
+          html: `<p>Your campaign is approved${when}.</p><p><a href="${payUrl}">Pay to schedule your campaign</a></p><p>Your private report: <a href="${reportUrl}">${reportUrl}</a></p><p>The ad starts automatically on the start date once payment is received.</p>`,
+        }).catch(() => null);
+        paymentEmailSent = Boolean(sent && (sent as { ok?: boolean }).ok);
+        await supabaseFetch(`/rest/v1/advertiser_applications?id=eq.${encodeURIComponent(applicationId)}`, { method: "PATCH", body: JSON.stringify({ payment_link_sent_at: paymentEmailSent ? new Date().toISOString() : null }) }).catch(() => null);
+      }
 
       return NextResponse.json({
         ok: adCreated,
         message: clean(application.payment_status) === "paid"
           ? "Approved and live."
-          : "Approved. Mark payment verified before it goes live.",
+          : paymentEmailSent ? "Approved. Payment link emailed to the advertiser." : "Approved. Mark payment verified before it goes live.",
       });
     }
 
