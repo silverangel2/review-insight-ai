@@ -11073,3 +11073,7 @@ form,
 }
 @keyframes ri-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes ri-reveal { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .ri-deal-float { animation: ri-deal-float 3.2s ease-in-out infinite; }
+}
+@keyframes ri-deal-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
