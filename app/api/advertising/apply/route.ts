@@ -1,3 +1,4 @@
+import { rateLimitRequest } from "@/lib/security";
 import { NextResponse } from "next/server";
 import { adPackages, type AdPackageId, type AdPlacement } from "@/lib/adConfig";
 import { saveAdCreative } from "@/lib/adCreativeUpload";
@@ -91,6 +92,8 @@ async function readPayload(request: Request) {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const limit = await rateLimitRequest(request, { key: "advertiser_apply", limit: 5, windowMs: 60 * 60 * 1000, eventType: "advertiser_apply_rate_limited" });
+  if (!limit.allowed) return limit.response ?? NextResponse.json({ error: "Too many submissions. Please try again later." }, { status: 429 });
   try {
     const { body } = await readPayload(request);
 
