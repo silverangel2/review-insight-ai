@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { deriveShopperAnswer, type ShopperPoint } from "@/lib/shopperAnswer";
 import { CountUp } from "./motion/CountUp";
+import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 
 const TONE = {
   buy: { chip: "bg-emerald-700 text-white", ring: "ring-emerald-700/20" },
@@ -89,6 +90,10 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
           <div className="col-span-2 sm:col-span-1"><dt className="text-slate-500">Based on</dt><dd className="mt-1 font-semibold text-slate-900">{answer.reviewCount ? `${answer.reviewCount} real reviews` : "None yet"}</dd></div>
         </dl>
         <p className="mt-5 text-sm text-slate-500">{answer.trustLine}</p>
+        <p className="mt-2 text-xs leading-5 text-slate-500" data-testid="independence-note">
+          {INDEPENDENCE_STATEMENT}{" "}
+          <a href="/affiliate-disclosure" className="underline underline-offset-2 hover:text-teal">Affiliate disclosure</a> · <a href="/terms" className="underline underline-offset-2 hover:text-teal">Terms</a> · <a href="/privacy" className="underline underline-offset-2 hover:text-teal">Privacy</a>
+        </p>
       </section>
 
       {answer.kind !== "not_enough" ? (
