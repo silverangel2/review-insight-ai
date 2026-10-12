@@ -1,20 +1,22 @@
+import type React from "react";
 import Link from "next/link";
 import type { BuyingScoreResult } from "@/lib/buyingScore";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
 
-const verdictTone: Record<string, string> = {
-  Buy: "bg-emerald-600 text-white",
-  Wait: "bg-amber-500 text-white",
-  Skip: "bg-rose-600 text-white",
+// Inline colours so the verdict and warning tiers never depend on theme overrides.
+const verdictStyle: Record<string, React.CSSProperties> = {
+  Buy: { background: "#059669", color: "#fff" },
+  Wait: { background: "#d97706", color: "#fff" },
+  Skip: { background: "#e11d48", color: "#fff" },
 };
-const warningTone: Record<string, string> = {
-  official_recall: "border-rose-300 bg-rose-50 text-rose-900",
-  repeated_safety: "border-rose-300 bg-rose-50 text-rose-900",
-  single_safety: "border-amber-300 bg-amber-50 text-amber-900",
-  repeated_reliability: "border-amber-300 bg-amber-50 text-amber-900",
-  too_new: "border-slate-200 bg-slate-50 text-slate-800",
-  discrepancy: "border-amber-200 bg-amber-50 text-amber-900",
+const warningStyle: Record<string, React.CSSProperties> = {
+  official_recall: { background: "#fff1f2", borderColor: "#fda4af", color: "#881337" },
+  repeated_safety: { background: "#fff1f2", borderColor: "#fda4af", color: "#881337" },
+  single_safety: { background: "#fffbeb", borderColor: "#fcd34d", color: "#78350f" },
+  repeated_reliability: { background: "#fffbeb", borderColor: "#fcd34d", color: "#78350f" },
+  too_new: { background: "#f8fafc", borderColor: "#e2e8f0", color: "#1e293b" },
+  discrepancy: { background: "#fffbeb", borderColor: "#fde68a", color: "#78350f" },
 };
 const warningTitle: Record<string, string> = {
   official_recall: "Official recall",
@@ -55,7 +57,8 @@ export function BuyingScoreV2Card({ score, compact = false }: { score: Card; com
               <span className={`${compact ? "text-2xl" : "text-3xl"} font-black text-ink dark:text-white`}>{score.score}</span>
               <span className="-mt-2 text-[10px] font-bold text-slate-400">/100</span>
             </div>
-            <span data-testid="verdict" className={`rounded-full px-3 py-1.5 text-sm font-black ${isProvisional ? "border border-slate-300 bg-white text-slate-800" : verdictTone[toneKey]}`}>
+            <span data-testid="verdict" style={isProvisional ? undefined : verdictStyle[toneKey]}
+              className={`rounded-full px-3 py-1.5 text-sm font-black ${isProvisional ? "border border-slate-300 bg-white text-slate-800" : ""}`}>
               {verdictText}
             </span>
           </div>
@@ -65,7 +68,7 @@ export function BuyingScoreV2Card({ score, compact = false }: { score: Card; com
       {score.warnings.length ? (
         <div className="mt-4 grid gap-2">
           {score.warnings.map((w, i) => (
-            <div key={i} data-testid={`warning-${w.tier}`} className={`rounded-xl border px-3 py-2 text-sm ${warningTone[w.tier]}`}>
+            <div key={i} data-testid={`warning-${w.tier}`} style={warningStyle[w.tier]} className="rounded-xl border px-3 py-2 text-sm">
               <p className="text-[11px] font-black uppercase tracking-[0.12em] opacity-80">{warningTitle[w.tier]}</p>
               <p className="font-semibold">{w.text}</p>
               {w.quotes.map((q, j) => (
