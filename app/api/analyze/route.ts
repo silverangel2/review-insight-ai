@@ -23,6 +23,7 @@ import { claimFreeScan } from "@/lib/freeScanQuota";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
+import { buyingScoreFromReviews, buyingScoreLogFields } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
@@ -2217,6 +2218,51 @@ function buildReviewEvidenceShopperResult(input: {
     summaryModelVersion: process.env.OPENAI_REVIEW_SEARCH_MODEL || process.env.OPENAI_MODEL || null,
   });
   const canonicalEvidenceEligible = exactListingAccepted && canonicalSufficiencyPassed && deterministic.evidenceState === "SUFFICIENT";
+  // Buying Score v2 (docs/scoring-spec-v2.md). Pure, deterministic, zero OpenAI.
+  // Inputs: real marketplace aggregate for the exact listing + the accepted,
+  // exact-model written reviews (deduplicated across ALL stores inside).
+  const collectorAggregate = asRecord(asRecord(evidence.reviewCollector).marketplaceAggregate);
+  const v2RequestedModel = (() => {
+    const explicit = String(asRecord(vision).model || asRecord(listingEvidence).model || "").trim();
+    if (explicit) return explicit;
+    const token = String(productName || "").match(/\b(?=[A-Za-z0-9-]*\d)(?=[A-Za-z0-9-]*[A-Za-z])[A-Za-z0-9-]{4,}\b/);
+    return token ? token[0] : null;
+  })();
+  const v2Rating = exactListingAccepted
+    ? (typeof collectorAggregate.rating === "number" ? collectorAggregate.rating : listingRatingForMetadataScore)
+    : (typeof asRecord(vision).rating === "number" ? asRecord(vision).rating as number : null);
+  const v2Count = exactListingAccepted
+    ? (typeof collectorAggregate.count === "number" && collectorAggregate.count > 0 ? collectorAggregate.count : marketplaceReviewCount || null)
+    : (Number(asRecord(vision).reviewCount) > 0 ? Number(asRecord(vision).reviewCount) : null);
+  const buyingScoreV2 = buyingScoreFromReviews({
+    marketplace: {
+      rating: v2Rating,
+      count: v2Count,
+      histogram: exactListingAccepted && collectorAggregate.histogram && typeof collectorAggregate.histogram === "object"
+        ? collectorAggregate.histogram as Record<number, number>
+        : null,
+    },
+    reviews: acceptedRecords.map((record) => {
+      const original = asRecord(record.original);
+      return {
+        body: record.body,
+        title: typeof original.title === "string" ? original.title : null,
+        rating: typeof original.rating === "number" ? original.rating : Number(original.rating) || null,
+        source: record.source,
+        sourceUrl: record.sourceUrl,
+        reviewer: typeof original.reviewer === "string" ? original.reviewer : typeof original.author === "string" ? original.author : null,
+        date: typeof original.date === "string" ? original.date : null,
+        reviewedModel: typeof original.reviewedModel === "string" ? original.reviewedModel : null,
+        reviewedVariant: typeof original.reviewedVariant === "string" ? original.reviewedVariant : null,
+      };
+    }),
+    requestedModel: v2RequestedModel,
+    variantResolved: exactListingAccepted,
+    primaryStore: (() => { try { return exactListingUrl ? new URL(exactListingUrl).hostname.replace(/^www\./, "") : null; } catch { return null; } })(),
+    recall: null, // no authoritative recall lookup in v2: never say anything about recalls
+  });
+  console.log("[ReviewIntel PIPELINE] buying-score-v2", JSON.stringify(buyingScoreLogFields(buyingScoreV2)));
+
 
   const reviewSnippets = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.reviewSnippets) ? evidence.reviewSnippets : [];
   const repeatedPraises = canonicalEvidenceEligible && collectorSourceAccepted && Array.isArray(evidence.repeatedPraises) ? evidence.repeatedPraises : [];
@@ -2619,6 +2665,16 @@ function buildReviewEvidenceShopperResult(input: {
   valueForMoney = deterministic.valueForMoney;
   bottomLine = deterministic.bottomLine;
   scoreAudit = deterministic.deterministicScoringInputs;
+  // v2 replaces the old customer-facing score and verdict.
+  {
+    const v2Verdict = buyingScoreV2.verdict || buyingScoreV2.leaning;
+    verdict = v2Verdict === "Buy" ? "BUY" : v2Verdict === "Skip" ? "AVOID" : "REVIEW FIRST";
+    buyScore = buyingScoreV2.score;
+    decisionStatus = buyingScoreV2.mode === "buying_score" || buyingScoreV2.mode === "written_only"
+      ? "evidence_based"
+      : buyingScoreV2.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
+    finalDecisionSource = "buyingScoreV2";
+  }
 
   console.log("[ReviewIntel PIPELINE] exact-product-gate", JSON.stringify({
     acceptedExactProductReviews: deterministic.acceptedReviewHashes.length,
@@ -2668,6 +2724,7 @@ function buildReviewEvidenceShopperResult(input: {
     ...rawRecord,
 
     analysisVersion: "review-evidence-v2",
+    buyingScoreV2,
     scanId: input.scanId || null,
     detectedProductKey: cleanDetectedProductKey(input.detectedProductKey || stableProductKey),
     exactListingAccepted,

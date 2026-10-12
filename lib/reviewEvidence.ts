@@ -128,6 +128,7 @@ export type ReviewEvidenceResult = {
     collectorSourceRejectedReason?: string | null;
     coverageNote: string;
     fallbackUrlsTried?: string[];
+    marketplaceAggregate?: import("./marketplaceAggregate").ExtractedMarketplaceAggregate | null;
   };
   reviewsCollected?: number;
   collectorHasWrittenReviews?: boolean;
@@ -2942,6 +2943,7 @@ export async function collectAndAnalyzeReviewEvidence(
         collectorSourceAccepted,
         collectorSourceRejectedReason,
         coverageNote: collectedWrittenReviews.coverageNote,
+        marketplaceAggregate: collectedWrittenReviews.marketplaceAggregate ?? null,
         fallbackUrlsTried: collectedWrittenReviews.fallbackUrlsTried,
       },
       reviewsCollected: commentsAnalyzed,
@@ -3683,6 +3685,7 @@ Scoring rules:
         collectorSourceAccepted,
         collectorSourceRejectedReason,
         coverageNote: collectedWrittenReviews.coverageNote,
+        marketplaceAggregate: collectedWrittenReviews.marketplaceAggregate ?? null,
         fallbackUrlsTried: collectedWrittenReviews.fallbackUrlsTried,
       },
       evidenceAdjudication,

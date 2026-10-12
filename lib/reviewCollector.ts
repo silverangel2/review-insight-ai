@@ -4,6 +4,7 @@ import { buildAmazonReviewPageUrls } from "./reviewRetrievalPolicy";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 
 
+import { extractMarketplaceAggregateFromHtml, type ExtractedMarketplaceAggregate } from "./marketplaceAggregate";
 export function isBlockedOrSignInReviewPage(input: {
   requestedUrl?: string | null;
   finalUrl?: string | null;
@@ -93,6 +94,8 @@ export type ReviewCollectorResult = {
   collectorHasWrittenReviews: boolean;
   coverageNote: string;
   fallbackUrlsTried?: string[];
+  /** Real rating / count / star histogram read from the listing page (never filled in). */
+  marketplaceAggregate?: ExtractedMarketplaceAggregate | null;
 };
 
 function cleanText(value: unknown): string {
@@ -919,6 +922,7 @@ export async function collectWrittenReviewsFromListing(input: {
     }
 
     const responseUrl = response.url || listingUrl;
+    const marketplaceAggregate = extractMarketplaceAggregateFromHtml(html);
     const discoveredReviewUrls = marketplaceReviewUrls(extractor, html, responseUrl);
 
     const listingRawReviews = [
@@ -979,6 +983,7 @@ export async function collectWrittenReviewsFromListing(input: {
       collectorHasWrittenReviews: reviews.length > 0,
       coverageNote: coverage,
       fallbackUrlsTried: discoveredReviewUrls.slice(0, 12),
+      marketplaceAggregate,
     };
   } catch (error) {
     return {

@@ -1,3 +1,4 @@
+import { reviewMatchesExactModel } from "./buyingScore";
 import { captureStage } from "./devScanCapture";
 import { createHash } from "node:crypto";
 import { stableProductSearchTerms } from "./productIdentityTokens";
@@ -302,6 +303,14 @@ function identityAccepted(body: string, record: AdjudicationInputRecord, options
   const explicitComparison = /\b(?:upgraded?|switched|compared)\s+(?:from|to|with)|\b(?:previous|before)\b/i.test(body);
   if (generations && bodyGeneration && generations[1] !== bodyGeneration[1] && !explicitComparison) {
     return { accepted: false, reason: "review text identifies a different product generation or variant" };
+  }
+
+  // Strict exact-model gate (spec v2 §9): a review that names a sibling model
+  // in the same family (AF100C vs requested AF101C) never counts, even on the
+  // verified listing's shared review pool.
+  for (const requested of modelTokens) {
+    const gate = reviewMatchesExactModel({ body, title: clean(record.title) || null, reviewedVariant: clean(record.reviewedVariant) || null }, requested);
+    if (!gate.ok) return { accepted: false, reason: "review text names a different model in the same family" };
   }
 
   if (listingAssociation) {
