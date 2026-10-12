@@ -137,7 +137,7 @@ test("actual shopper UI renders canonical values, review counts, and one-off cla
     researchQuality:{evidenceLevel:"verified",notes:[]},meta:{audience:"buyer",locale:"en"},
   };
   const html = renderToStaticMarkup(React.createElement(ShopperProductDetail,{result,preview:""}));
-  assert.equal((html.match(/55%/g)||[]).length, 2);
+  assert.equal((html.match(/55%/g)||[]).length, 3);
   assert.equal((html.match(/>Poor</g)||[]).length, 2, "Backend Poor must not become Fair");
   assert.equal((html.match(/7 exact-product written reviews were analyzed from 1 source domain/g)||[]).length, 2);
   assert.equal((html.match(/unanswered customer support \(1 written review; one-off report\)/g)||[]).length, 2);

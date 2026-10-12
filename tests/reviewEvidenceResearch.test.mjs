@@ -302,23 +302,15 @@ test("FIRECRAWL_FALLBACK_ONLY: adaptive research never calls Firecrawl", () => {
   assert.doesNotMatch(loopCall[0], /firecrawl/i);
 });
 
-test("INSUFFICIENT_UI: not_enough state shows truthful unavailable copy", () => {
+test("INSUFFICIENT_UI: thin evidence shows real quotes, low confidence, and a next step", () => {
   const ui = source("components/ResultsClient.tsx");
-  assert.match(ui, /noStrengthsUnavailable/);
-  assert.match(ui, /noComplaintsUnavailable/);
-  assert.match(
-    ui,
-    /reviewEvidenceState === "not_enough" \? copy\.noStrengthsUnavailable : copy\.noStrengths/
-  );
-  assert.match(
-    ui,
-    /reviewEvidenceState === "not_enough" \? copy\.noComplaintsUnavailable : copy\.noComplaints/
-  );
-  // The misleading copy must not be used for the not_enough state.
-  assert.doesNotMatch(
-    ui,
-    /reviewEvidenceState === "not_enough" \? copy\.noStrengths[^U]/
-  );
+  assert.doesNotMatch(ui, /noStrengthsUnavailable/);
+  assert.doesNotMatch(ui, /noComplaintsUnavailable/);
+  assert.match(ui, /realReviewQuotes\(result\)/);
+  assert.match(ui, /Low · \$\{shopper\.acceptedWrittenReviewCount\} real reviews/);
+  assert.match(ui, /Scan the Amazon listing link or add a review screenshot/);
+  assert.doesNotMatch(ui, /answer: "NOT ENOUGH EVIDENCE"/);
+  assert.doesNotMatch(ui, /return "Not scored"|: "Not scored"|\? "Not scored"/);
 });
 
 test("disabled web research is surfaced in insufficient-evidence notes", () => {

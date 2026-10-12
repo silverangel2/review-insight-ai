@@ -24,7 +24,7 @@ export function sideColumn(result: Rec, scanId: string): SideColumn {
 
 export function compareSummary(a: SideColumn, b: SideColumn): string {
   const rated = (c: SideColumn) => c.answer.kind !== "not_enough" && c.answer.score !== null;
-  if (!rated(a) || !rated(b)) return "At least one product doesn't have enough real reviews yet, so we don't pick a side.";
+  if (!rated(a) || !rated(b)) return "At least one product is Low confidence, so we don't pick a side.";
   if (a.answer.score === b.answer.score) return "Both score the same based on real buyer reviews.";
   const hi = (a.answer.score as number) > (b.answer.score as number) ? a : b;
   return `${hi.title} scores higher based on what real buyers wrote (${hi.answer.score!.toFixed(1)} vs ${(hi === a ? b : a).answer.score!.toFixed(1)}).`;

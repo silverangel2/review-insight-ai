@@ -200,13 +200,15 @@ test("insufficient review evidence cannot reach the sufficient-but-no-pattern em
   const results = source("components/ResultsClient.tsx");
 
   assert.match(results, /const evidenceState = reviewEvidenceDecisionState\(result\)/);
-  assert.match(results, /const strengthEmpty = evidenceState === "not_enough"/);
-  assert.match(results, /const complaintEmpty = evidenceState === "not_enough"/);
-  assert.match(results, /Not enough written review evidence to determine strengths\./);
-  assert.match(results, /Not enough written review evidence to determine repeated complaints\./);
+  assert.match(results, /realReviewQuotes\(result\)/);
+  assert.doesNotMatch(results, /noStrengthsUnavailable/);
+  assert.doesNotMatch(results, /noComplaintsUnavailable/);
+  assert.doesNotMatch(results, /Not enough written review evidence to determine strengths\./);
+  assert.doesNotMatch(results, /Not enough written review evidence to determine repeated complaints\./);
   assert.match(results, /verdict === "NOT_ENOUGH"/);
   assert.match(results, /evidenceSufficiency/);
   assert.match(results, /not enough \(\?:written \)\?review evidence/);
+  assert.match(results, /Scan the Amazon listing link or add a review screenshot/);
 });
 
 test("analyze verifies local result storage before navigating to results", () => {
@@ -247,7 +249,8 @@ test("runtime display guards cannot turn missing evidence fields into conclusion
   assert.match(client, /if \(reviewEvidenceDecisionState\(result\) === \"not_enough\"\) \{\s*return result;/s);
   assert.match(client, /return \"NOT_ENOUGH\";/);
   assert.match(client, /const productScore = numericOrNull/);
-  assert.match(client, /const buyingConfidence =\s*reviewEvidenceState === "not_enough"\s*\?\s*0\s*:\s*numericOrNull/s);
+  assert.match(client, /const buyingConfidence = numericOrNull/);
+  assert.doesNotMatch(client, /reviewEvidenceState === "not_enough"\s*\?\s*0/);
   assert.match(client, /const fakeReviewPercent = numericOrNull/);
   assert.match(client, /valueForMoney = String\([^;]+\|\| \"Unknown\"\)/);
   assert.match(client, /const zeroWrittenReviewEvidence =/);
@@ -256,7 +259,9 @@ test("runtime display guards cannot turn missing evidence fields into conclusion
   assert.match(dashboard, /function hasGroundedSellerResult/);
   assert.match(dashboard, /writtenMode !== "listing_metadata"/);
   assert.match(dashboard, /return writtenEvidence && completeNumbers && completeRecommendation && hasSummary/);
-  assert.match(dashboard, /Not enough verified written review evidence/);
+  assert.match(dashboard, /Low confidence/);
+  assert.match(dashboard, /Scan the Amazon listing link or add a review screenshot/);
+  assert.doesNotMatch(dashboard, /Not enough verified written review evidence/);
   assert.match(governor, /typeof input\.commentsAnalyzed === "number" && input\.commentsAnalyzed >= 3/);
   assert.doesNotMatch(governor, /\(rating !== null && rating > 0\) \|\|/);
   assert.match(stability, /const hasReviewEvidence = canonicalSufficiencyPassed && commentsAnalyzed >= 3/);
@@ -448,14 +453,16 @@ test("terminal scan state distinguishes evidence completion from insufficient ev
   assert.match(analyzerRoute, /scanState: "FAILED"/);
 });
 
-test("insufficient evidence never renders a normal verdict-confidence indicator", () => {
+test("thin evidence still shows the confidence badge and does not force it to 0", () => {
   const results = source("components/ResultsClient.tsx");
 
   assert.match(results, /const reviewEvidenceState = reviewEvidenceDecisionState\(rawResultForVerdict\)/);
-  assert.match(results, /const showVerdictConfidence = reviewEvidenceState !== "not_enough"/);
-  assert.match(results, /showVerdictConfidence\s*\n?\s*\?\s*rawResultForVerdict\.verdictConfidence/);
-  assert.match(results, /showVerdictConfidence \? \(/);
-  assert.match(results, /reviewEvidenceState === "not_enough"\s*\? 0/);
+  assert.match(results, /rawResultForVerdict\.verdictConfidence/);
+  assert.match(results, /confidenceBadge/);
+  assert.doesNotMatch(results, /showVerdictConfidence/);
+  assert.doesNotMatch(results, /reviewEvidenceState === "not_enough"\s*\?\s*0/);
+  assert.doesNotMatch(results, /return "Not scored"|: "Not scored"|\? "Not scored"/);
+  assert.doesNotMatch(results, /answer: "NOT ENOUGH EVIDENCE"/);
 });
 
 test("synthesized themes cannot inflate the independent review count", () => {
