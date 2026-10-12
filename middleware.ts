@@ -73,6 +73,15 @@ export async function middleware(request: NextRequest) {
     "/dashboard/customer"
   ];
 
+  // Anonymous shoppers may use the scan page itself without signing in.
+  // They get ANON_SCAN_LIMIT free scans, enforced server-side by IP hash in
+  // /api/analyze (see lib/anonymousScans.ts). Every other customer path
+  // still requires login, and seller/admin paths are never relaxed.
+  const anonymousScanPaths = ["/analyze"];
+  const isAnonymousScanPath = anonymousScanPaths.some(
+    (path) => pathname === path
+  );
+
   const protectedSellerPaths = [
     "/dashboard/seller",
     "/dashboard/seller/upload",
@@ -109,7 +118,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if ((isProtectedCustomerPath || isProtectedSellerPath) && !isLoggedIn) {
+  if ((isProtectedCustomerPath || isProtectedSellerPath) && !isLoggedIn && !isAnonymousScanPath) {
     const target = request.nextUrl.clone();
     target.pathname = "/login";
     target.searchParams.set("next", pathname);

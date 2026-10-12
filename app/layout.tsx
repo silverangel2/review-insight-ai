@@ -37,8 +37,11 @@ export const metadata: Metadata = {
     "review screenshot analysis",
     "AI shopping assistant"
   ],
+  alternates: {
+    canonical: "/"
+  },
   openGraph: {
-    images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "ReviewIntel AI Review Intelligence" }],
+    images: [{ url: "/og-reviewintel.png", width: 1200, height: 630, alt: "ReviewIntel AI Review Intelligence" }],
     title: "ReviewIntel",
     description: "AI-powered review intelligence for shoppers and ecommerce sellers.",
     url: "/",
@@ -48,7 +51,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ReviewIntel",
-    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict."
+    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict.",
+    images: ["/og-reviewintel.png"]
   }
 };
 
@@ -65,6 +69,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
+        {/* Google AdSense loads only via the consent-gated GoogleAdSenseBlock
+            (components/advertising/AdSlot.tsx), which injects the script after
+            the visitor accepts optional cookies. Do not hardcode the
+            adsbygoogle script here — it would contradict the cookie banner. */}
         {/* Resolve the layout mode before first paint so mobile CSS doesn't shift the page after hydration (CLS). */}
         <script
           suppressHydrationWarning

@@ -170,8 +170,8 @@ export function HomepageHeroCopy({ initialLocale = "en" }: HomepageHeroCopyProps
           <Badge tone="good">{copy.badge}</Badge>
         </div>
         <h1 className="ri-hero-mobile-copy-stack relative mt-5 min-h-[7.75rem] w-full max-w-[22rem] text-[clamp(2.35rem,10vw,3rem)] font-black leading-[0.94] tracking-normal text-[#06111f]">
-          {mobileSlides.map((line) => (
-            <span key={line} className="ri-mobile-copy-line absolute inset-0 block">
+          {mobileSlides.map((line, index) => (
+            <span key={line} aria-hidden={index > 0 || undefined} className="ri-mobile-copy-line absolute inset-0 block">
               {line}
             </span>
           ))}
@@ -184,9 +184,9 @@ export function HomepageHeroCopy({ initialLocale = "en" }: HomepageHeroCopyProps
         <Badge tone="good">{copy.badge}</Badge>
       </div>
       <div className="mt-6 hidden min-h-[clamp(13rem,29vw,25rem)] items-center sm:flex md:min-h-[clamp(16rem,27vw,25rem)]">
-        <h1 key={activeSlide} className="ri-hero-copy-slide max-w-[min(100%,54rem)] text-[clamp(2.65rem,5.8vw,5.75rem)] font-black leading-[0.95] tracking-[-0.01em] text-[#06111f] [overflow-wrap:anywhere]">
+        <p key={activeSlide} aria-hidden="true" className="ri-hero-copy-slide max-w-[min(100%,54rem)] text-[clamp(2.65rem,5.8vw,5.75rem)] font-black leading-[0.95] tracking-[-0.01em] text-[#06111f] [overflow-wrap:anywhere]">
           {activeSlide}
-        </h1>
+        </p>
       </div>
       <p className="mt-6 hidden max-w-2xl text-xl leading-8 text-slate-700 sm:block">
         {copy.subtitle}

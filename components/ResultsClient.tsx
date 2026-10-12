@@ -129,6 +129,8 @@ const resultCopy: Record<
     notIdealFor: string;
     noStrengths: string;
     noComplaints: string;
+    noStrengthsUnavailable: string;
+    noComplaintsUnavailable: string;
     bestForEmpty: string;
     notIdealEmpty: string;
     priceNotShown: string;
@@ -164,7 +166,9 @@ const resultCopy: Record<
     bestFor: "Best For",
     notIdealFor: "Not Ideal For",
     noStrengths: "No clear strengths found.",
+    noStrengthsUnavailable: "Not enough review evidence to identify reliable strengths.",
     noComplaints: "No recurring complaint pattern was found in the accepted reviews.",
+    noComplaintsUnavailable: "Not enough review evidence to identify repeated complaints.",
     bestForEmpty: "No specific buyer group could be confirmed from the collected reviews.",
     notIdealEmpty: "No repeated buyer-specific limitation was found in the collected reviews.",
     priceNotShown: "Price not shown",
@@ -199,7 +203,9 @@ const resultCopy: Record<
     bestFor: "Idéal pour",
     notIdealFor: "Pas idéal pour",
     noStrengths: "Aucun point fort clair trouvé.",
+    noStrengthsUnavailable: "Pas assez de preuves d’avis pour identifier des points forts fiables.",
     noComplaints: "Aucune plainte répétée trouvée.",
+    noComplaintsUnavailable: "Pas assez de preuves d’avis pour identifier des plaintes répétées.",
     bestForEmpty: "Adapté aux acheteurs qui correspondent aux points forts du produit.",
     notIdealEmpty: "Pas assez de preuves pour le dire.",
     priceNotShown: "Prix non affiché",
@@ -234,7 +240,9 @@ const resultCopy: Record<
     bestFor: "Ideal para",
     notIdealFor: "No ideal para",
     noStrengths: "No se encontraron fortalezas claras.",
+    noStrengthsUnavailable: "No hay suficientes reseñas para identificar fortalezas confiables.",
     noComplaints: "No se encontraron quejas repetidas.",
+    noComplaintsUnavailable: "No hay suficientes reseñas para identificar quejas repetidas.",
     bestForEmpty: "Bueno para compradores que coinciden con las fortalezas del producto.",
     notIdealEmpty: "No hay suficiente evidencia para decirlo.",
     priceNotShown: "Precio no mostrado",
@@ -269,7 +277,9 @@ const resultCopy: Record<
     bestFor: "适合人群",
     notIdealFor: "不适合人群",
     noStrengths: "未发现明确优点。",
+    noStrengthsUnavailable: "评论证据不足，无法确定可靠的优点。",
     noComplaints: "未发现重复投诉。",
+    noComplaintsUnavailable: "证据不足，无法确定重复的投诉。",
     bestForEmpty: "适合与产品优势匹配的购物者。",
     notIdealEmpty: "证据不足，无法判断。",
     priceNotShown: "未显示价格",
@@ -304,7 +314,9 @@ const resultCopy: Record<
     bestFor: "Ideal für",
     notIdealFor: "Nicht ideal für",
     noStrengths: "Keine klaren Stärken gefunden.",
+    noStrengthsUnavailable: "Nicht genügend Bewertungsnachweise, um verlässliche Stärken zu ermitteln.",
     noComplaints: "Keine wiederholten Beschwerden gefunden.",
+    noComplaintsUnavailable: "Nicht genügend Bewertungsnachweise, um wiederholte Beschwerden zu ermitteln.",
     bestForEmpty: "Gut für Käufer, die zu den Produktstärken passen.",
     notIdealEmpty: "Nicht genug Belege für eine Aussage.",
     priceNotShown: "Preis nicht angezeigt",
@@ -339,7 +351,9 @@ const resultCopy: Record<
     bestFor: "सबसे उपयुक्त",
     notIdealFor: "इनके लिए उपयुक्त नहीं",
     noStrengths: "कोई स्पष्ट खूबी नहीं मिली।",
+    noStrengthsUnavailable: "विश्वसनीय खूबियों की पहचान के लिए पर्याप्त समीक्षा साक्ष्य नहीं।",
     noComplaints: "कोई दोहराई गई शिकायत नहीं मिली।",
+    noComplaintsUnavailable: "दोहराई गई शिकायतों की पहचान के लिए पर्याप्त समीक्षा साक्ष्य नहीं।",
     bestForEmpty: "उन खरीदारों के लिए अच्छा जो उत्पाद की खूबियों से मेल खाते हैं।",
     notIdealEmpty: "कहने के लिए पर्याप्त प्रमाण नहीं।",
     priceNotShown: "कीमत नहीं दिखाई गई",
@@ -765,6 +779,7 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
   };
 
   const analysis = source.analysis;
+  const reviewEvidenceState = reviewEvidenceDecisionState(source);
   const productSource = source.product || {};
   const product = {
     ...productSource,
@@ -801,12 +816,15 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
       analysis?.product_score ??
       (analysis as Record<string, unknown> | undefined)?.score
   );
-  const buyingConfidence = numericOrNull(
-    source.buyingConfidence ??
-      (source as Record<string, unknown>).buyerConfidence ??
-      (source as Record<string, unknown>).verdictConfidence ??
-      analysis?.confidence_score
-  );
+  const buyingConfidence =
+    reviewEvidenceState === "not_enough"
+      ? 0
+      : numericOrNull(
+          source.buyingConfidence ??
+            (source as Record<string, unknown>).buyerConfidence ??
+            (source as Record<string, unknown>).verdictConfidence ??
+            analysis?.confidence_score
+        );
   const valueForMoney = String(source.valueForMoney || analysis?.value_for_money_opinion || "Unknown");
   const claimLabels = (key: string): string[] => {
     const claims = (source as Record<string, unknown>)[key];
@@ -1183,12 +1201,16 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   };
   const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
   const rawResultForVerdict = result as Record<string, unknown>;
+  const reviewEvidenceState = reviewEvidenceDecisionState(rawResultForVerdict);
+  const showVerdictConfidence = reviewEvidenceState !== "not_enough";
 
   const verdictConfidenceRaw =
-    rawResultForVerdict.verdictConfidence ??
-    rawResultForVerdict.buyerConfidence ??
-    rawResultForVerdict.buyingConfidence ??
-    shopper.buyingConfidence;
+    showVerdictConfidence
+      ? rawResultForVerdict.verdictConfidence ??
+        rawResultForVerdict.buyerConfidence ??
+        rawResultForVerdict.buyingConfidence ??
+        shopper.buyingConfidence
+      : null;
   const verdictConfidence =
     typeof verdictConfidenceRaw === "number" && Number.isFinite(verdictConfidenceRaw)
       ? Math.round(verdictConfidenceRaw)
@@ -1269,9 +1291,11 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             {verdict.answer}
           </p>
 
-          <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"} {copy.buyerConfidence}
-          </div>
+          {showVerdictConfidence ? (
+            <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
+              {verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"} {copy.buyerConfidence}
+            </div>
+          ) : null}
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
             {productName}
@@ -1438,12 +1462,14 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
                   <p className="mt-1 text-xs font-bold leading-5 text-slate-600 sm:text-sm sm:leading-6">{verdict.message}</p>
                 </div>
               </div>
-              <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
-                <div className="text-center">
-                <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"}</p>
-                  <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
+              {showVerdictConfidence ? (
+                <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
+                  <div className="text-center">
+                    <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence !== null ? `${verdictConfidence}%` : "Not scored"}</p>
+                    <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-black/10 pt-4 md:grid-cols-4 sm:mt-6 sm:pt-5">
@@ -1464,8 +1490,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       </section>
 
       <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <SignalList title={copy.topStrengths} tone="good" items={shopper.strengths} empty={strengthEmpty} />
-        <SignalList title={copy.topComplaints} tone="bad" items={shopper.complaints} empty={complaintEmpty} />
+        <SignalList title={copy.topStrengths} tone="good" items={shopper.strengths} empty={reviewEvidenceState === "not_enough" ? copy.noStrengthsUnavailable : copy.noStrengths} />
+        <SignalList title={copy.topComplaints} tone="bad" items={shopper.complaints} empty={reviewEvidenceState === "not_enough" ? copy.noComplaintsUnavailable : copy.noComplaints} />
       </section>
 
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10 sm:rounded-[1.5rem] sm:p-6">

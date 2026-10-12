@@ -174,7 +174,6 @@ function travelpayoutsAffiliateUrl() {
   const marker = envValue([
     "REVIEWINTEL_TRAVELPAYOUTS_MARKER",
     "TRAVELPAYOUTS_MARKER",
-    "ROAMLY_TRAVELPAYOUTS_MARKER",
   ]);
   const url = new URL("https://www.aviasales.com/");
   if (marker) url.searchParams.set("marker", marker);
@@ -207,15 +206,12 @@ function stay22AffiliateUrl() {
     "STAY22_AFFILIATE_URL",
     "NEXT_PUBLIC_REVIEWINTEL_STAY22_AFFILIATE_URL",
     "NEXT_PUBLIC_STAY22_AFFILIATE_URL",
-    "ROAMLY_STAY22_SMART_LINK_URL",
-    "ROAMLY_STAY22_REFERRAL_URL",
   ]);
   if (isTravelerSafeStay22Url(explicit)) return safeExternalUrl(explicit);
 
   const partnerId = envValue([
     "REVIEWINTEL_STAY22_PARTNER_ID",
     "STAY22_PARTNER_ID",
-    "ROAMLY_STAY22_PARTNER_ID",
   ]);
   const url = new URL("https://www.stay22.com/");
   if (partnerId) url.searchParams.set("aid", partnerId);

@@ -19,12 +19,19 @@ function sha256(value: string) {
 }
 
 function sessionSecret() {
-  return (
+  const configured =
     process.env.REVIEWINTEL_ADMIN_SESSION_SECRET ||
     process.env.REVIEWINTEL_ADMIN_CODE_HASH ||
-    process.env.REVIEWINTEL_ADMIN_CODE ||
-    "reviewintel-local-admin-session"
-  );
+    process.env.REVIEWINTEL_ADMIN_CODE;
+
+  if (!configured) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("REVIEWINTEL_ADMIN_SESSION_SECRET is not configured in production.");
+    }
+    return "reviewintel-local-admin-session";
+  }
+
+  return configured;
 }
 
 function configuredAdminCode() {

@@ -305,7 +305,9 @@ export async function POST(request: Request) {
 
   try {
     const email = String(body.email).trim().toLowerCase();
-    const qaAccount = qaAccounts.find((account) => account.email === email && body.password === QA_PASSWORD);
+    const qaAccount = process.env.NODE_ENV === "production"
+      ? undefined
+      : qaAccounts.find((account) => account.email === email && body.password === QA_PASSWORD);
     if (qaAccount) {
       const account = {
         userId: `test-${qaAccount.email}`,

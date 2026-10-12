@@ -1,25 +1,38 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { GuideArticle } from "@/components/GuideArticle";
+import { getGuide, guides } from "@/lib/guides";
 import { loadCategoryGuides } from "@/lib/guideData";
 import { GUIDE_MIN_PRODUCTS, GUIDE_MIN_REVIEWS, PRODUCT_TYPES } from "@/lib/categoryGuides";
 import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 
-async function guideFor(slug: string) {
+async function categoryGuideFor(slug: string) {
   return (await loadCategoryGuides()).find(g => g.slug === slug) || null;
+}
+
+export function generateStaticParams() {
+  return guides.map((guide) => ({ slug: guide.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const g = await guideFor(slug);
+  const editorial = getGuide(slug);
+  if (editorial) {
+    return { title: editorial.title, description: editorial.excerpt };
+  }
+  const g = await categoryGuideFor(slug);
   const name = g?.name || PRODUCT_TYPES.find(t => t.slug === slug)?.name || "Guide";
   return { title: `${name}: what real buyers reported`, robots: !g || g.thin ? { index: false, follow: true } : undefined };
 }
 
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const editorial = getGuide(slug);
+  if (editorial) return <GuideArticle guide={editorial} />;
+
   if (!PRODUCT_TYPES.some(t => t.slug === slug)) notFound();
-  const g = await guideFor(slug);
+  const g = await categoryGuideFor(slug);
   const name = g?.name || PRODUCT_TYPES.find(t => t.slug === slug)!.name;
   return (
     <main className="mx-auto max-w-5xl px-5 py-10 sm:px-6">

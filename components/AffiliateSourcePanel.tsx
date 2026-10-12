@@ -6,7 +6,7 @@ import type { AffiliatePartnerPlacement } from "@/lib/adConfig";
 import { readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 
 type AffiliateLink = {
-  provider: "amazon";
+  provider: "amazon" | "walmart";
   label: string;
   sourceUrl: string;
   affiliateUrl: string;
@@ -19,6 +19,7 @@ type PanelCopy = {
   title: string;
   detail: string;
   open: string;
+  openPlain: string;
 };
 
 const copyByLocale: Record<ReviewIntelLocale, PanelCopy> = {
@@ -27,36 +28,42 @@ const copyByLocale: Record<ReviewIntelLocale, PanelCopy> = {
     title: "Shop checked Amazon sources",
     detail: "These Amazon links come from source URLs found during the scan. Affiliate links never change the verdict.",
     open: "Open qualifying link",
+    openPlain: "Open link",
   },
   fr: {
     eyebrow: "Sources affiliées",
     title: "Voir les sources Amazon vérifiées",
     detail: "Ces liens Amazon viennent des sources trouvées pendant l’analyse. Les liens affiliés ne changent jamais le verdict.",
     open: "Ouvrir le lien",
+    openPlain: "Ouvrir le lien",
   },
   es: {
     eyebrow: "Fuentes afiliadas",
     title: "Abrir fuentes Amazon revisadas",
     detail: "Estos enlaces de Amazon vienen de las fuentes encontradas durante el escaneo. Los enlaces afiliados nunca cambian el veredicto.",
     open: "Abrir enlace",
+    openPlain: "Abrir enlace",
   },
   zh: {
     eyebrow: "联盟来源",
     title: "打开已检查的 Amazon 来源",
     detail: "这些 Amazon 链接来自扫描时找到的来源。联盟链接绝不会改变结论。",
     open: "打开链接",
+    openPlain: "打开链接",
   },
   de: {
     eyebrow: "Affiliate-Quellen",
     title: "Geprüfte Amazon-Quellen öffnen",
     detail: "Diese Amazon-Links stammen aus den beim Scan gefundenen Quellen. Affiliate-Links ändern niemals das Urteil.",
     open: "Link öffnen",
+    openPlain: "Link öffnen",
   },
   hi: {
     eyebrow: "Affiliate-ready sources",
     title: "Checked Amazon sources खोलें",
     detail: "ये Amazon links scan में मिले source URLs से आते हैं। Affiliate links verdict को कभी नहीं बदलते।",
     open: "Qualifying link खोलें",
+    openPlain: "Link खोलें",
   },
 };
 
@@ -191,7 +198,7 @@ export function AffiliateSourcePanel({
               className={`${compact ? "min-w-[210px] p-3" : "p-4"} rounded-2xl border border-white/80 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/80`}
             >
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-600 dark:text-sky-200">
-                Amazon source
+                {link.provider === "walmart" ? "Walmart source" : "Amazon source"}
               </p>
               <p className={`${compact ? "mt-1 text-sm" : "mt-2 text-base"} line-clamp-2 font-black text-slate-950 dark:text-white`}>
                 {link.label}
@@ -200,7 +207,7 @@ export function AffiliateSourcePanel({
                 {link.host}
               </p>
               <span className="mt-3 inline-flex rounded-full bg-gradient-to-r from-sky-600 to-teal-500 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white dark:bg-white dark:text-slate-950">
-                {copy.open}
+                {link.qualifying ? copy.open : copy.openPlain}
               </span>
             </a>
           ))}

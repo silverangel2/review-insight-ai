@@ -14,6 +14,8 @@ const PRIVATE_PATHS = [
   "/email-preferences",
   "/dev-preview",
   "/maintenance",
+  "/owner-access",
+  "/results",
 ];
 
 export default function robots(): MetadataRoute.Robots {

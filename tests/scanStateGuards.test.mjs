@@ -229,7 +229,7 @@ test("analyze preserves auth and free-quota enforcement", () => {
   const analyzer = source("app/api/analyze/route.ts");
 
   assert.match(analyzer, /if \(role === "guest"\)/);
-  assert.match(analyzer, /readPersistentQuota/);
+  assert.match(analyzer, /const quotaClaim = await claimFreeScan/);
   assert.match(analyzer, /consumePersistentQuota/);
   assert.match(analyzer, /DAILY_SCAN_LIMIT_REACHED/);
 });
@@ -429,4 +429,54 @@ test("confidence ratification recognizes DO NOT BUY YET as a real evidence verdi
     source,
     /\["BUY",\s*"DO NOT BUY YET",\s*"REVIEW FIRST",\s*"AVOID"\]\.includes\(verdict\)/,
   );
+});
+
+test("review evidence does not finalize from an outer timeout while collection is still pending", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /export const runtime = "nodejs"/);
+  assert.match(analyzerRoute, /export const maxDuration = 180/);
+  assert.match(analyzerRoute, /const reviewEvidence = await collectAndAnalyzeReviewEvidence\(/);
+  assert.doesNotMatch(analyzerRoute, /const reviewEvidence = await Promise\.race\(/);
+  assert.doesNotMatch(analyzerRoute, /Automatic public review evidence recovery reached the .* search limit/);
+});
+
+test("terminal scan state distinguishes evidence completion from insufficient evidence", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /scanState: finalDecisionSource === "reviewEvidence" \? "COMPLETE" : "INSUFFICIENT_EVIDENCE"/);
+  assert.match(analyzerRoute, /scanState: "FAILED"/);
+});
+
+test("insufficient evidence never renders a normal verdict-confidence indicator", () => {
+  const results = source("components/ResultsClient.tsx");
+
+  assert.match(results, /const reviewEvidenceState = reviewEvidenceDecisionState\(rawResultForVerdict\)/);
+  assert.match(results, /const showVerdictConfidence = reviewEvidenceState !== "not_enough"/);
+  assert.match(results, /showVerdictConfidence\s*\n?\s*\?\s*rawResultForVerdict\.verdictConfidence/);
+  assert.match(results, /showVerdictConfidence \? \(/);
+  assert.match(results, /reviewEvidenceState === "not_enough"\s*\? 0/);
+});
+
+test("synthesized themes cannot inflate the independent review count", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(evidence, /const groundedCommentsAnalyzed = Math\.max\(\s*collectorReviewsCollected,\s*reviewSnippetsBase\.length\s*\)/s);
+  assert.match(evidence, /const actualCommentsAnalyzed = Math\.max\(\s*groundedCommentsAnalyzed,\s*collectorReviewsCollected,\s*reviewSnippetsBase\.length/s);
+  assert.doesNotMatch(evidence, /const groundedCommentsAnalyzed = Math\.max\([\s\S]{0,260}repeatedPraises\.length \+ repeatedComplaints\.length/);
+});
+
+test("Firecrawl remains an exact-listing last resort and search snippets stay untrusted", () => {
+  const collector = source("lib/reviewCollector.ts");
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.doesNotMatch(collector, /runFirecrawlFallback|fetchFirecrawlDiscoveredReviews/);
+  assert.match(evidence, /const firecrawlLastResortAllowed = Boolean\(/);
+  assert.match(evidence, /listingUrlForReviewCollector/);
+  assert.match(evidence, /nativeReviewRetrieval\.normalFetchFailed/);
+  assert.match(evidence, /nativeReviewRetrieval\.playwrightFailed/);
+  assert.match(evidence, /!nativeReviewRetrieval\.usableSnippetsExtracted/);
+  assert.match(evidence, /process\.env\.FIRECRAWL_API_KEY/);
+  assert.match(evidence, /search snippet\|native search/);
+  assert.doesNotMatch(collector, /fetchFirecrawlDiscoveredReviews/);
 });
