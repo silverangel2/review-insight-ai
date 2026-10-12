@@ -17,7 +17,7 @@ const delivery = jiti("./lib/emailDelivery.ts");
 const life = jiti("./lib/lifecycleEmail.ts");
 const pricing = jiti("./lib/pricing.ts");
 const upsell = jiti("./lib/upsell.ts");
-const unsubscribe = jiti("./app/api/unsubscribe/route.ts");
+const unsubscribe = jiti("./lib/emailUnsubscribe.ts");
 
 const secret = "test-email-secret";
 const site = "https://getreviewintel.com";

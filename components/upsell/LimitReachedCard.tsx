@@ -1,5 +1,6 @@
 "use client";
 // Soft limit-reached screen: explains the free limit honestly (resets tomorrow) and offers Premium.
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
 import { startPlanCheckout } from "@/lib/clientCheckout";
@@ -19,7 +20,7 @@ export function LimitReachedCard({ guest }: { guest: boolean }) {
       <div className="mt-5 flex flex-wrap gap-3">
         <button type="button" onClick={async () => { trackTrafficEvent({ eventType: "upsell_click", metadata: { placement: "limit_reached", plan: "buyer_pro" } }); const e = await startPlanCheckout("buyer_pro", "limit_reached", "CAD"); if (e) setError(e); }}
           className="ri-lift rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white">Upgrade to Premium</button>
-        {guest ? <a href="/signup?next=/analyze" className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700">Create a free account</a> : <a href="/" className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700">Come back tomorrow</a>}
+        {guest ? <Link href="/signup?next=/analyze" className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700">Create a free account</Link> : <Link href="/" className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700">Come back tomorrow</Link>}
       </div>
       {error ? <p role="alert" className="mt-3 text-sm text-coralink">{error}</p> : null}
     </section>

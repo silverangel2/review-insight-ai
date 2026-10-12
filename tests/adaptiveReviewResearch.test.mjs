@@ -3,7 +3,9 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
-const jiti = require("jiti")(new URL("../tests/adaptive-review-test.js", import.meta.url).pathname);
+const jiti = require("jiti")(new URL("../tests/adaptive-review-test.js", import.meta.url).pathname, {
+  alias: { "@": new URL("..", import.meta.url).pathname },
+});
 const { runAdaptiveReviewResearch } = jiti("../lib/adaptiveReviewResearch.ts");
 
 const queries = [

@@ -69,10 +69,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
-        {/* Google AdSense loads only via the consent-gated GoogleAdSenseBlock
-            (components/advertising/AdSlot.tsx), which injects the script after
-            the visitor accepts optional cookies. Do not hardcode the
-            adsbygoogle script here — it would contradict the cookie banner. */}
+        {/* Advertising loads only via the consent-gated block in
+            components/advertising/AdSlot.tsx, which injects the script after
+            the visitor accepts optional cookies. Do not hardcode that script
+            here — it would contradict the cookie banner. */}
         {/* Resolve the layout mode before first paint so mobile CSS doesn't shift the page after hydration (CLS). */}
         <script
           suppressHydrationWarning

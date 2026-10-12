@@ -80,7 +80,7 @@ test("quota claim is before expensive vision and fail-closed paths are present",
   // analyzePost owns the claim and the vision call. The exported POST wrapper
   // only delegates to it, so the order check has to see the whole route.
   const claimIndex = route.indexOf("const quotaClaim = await claimFreeScan");
-  const visionIndex = route.indexOf("extractScreenshotFacts");
+  const visionIndex = route.indexOf("await extractScreenshotFacts");
   assert.ok(claimIndex >= 0);
   assert.ok(visionIndex > claimIndex);
   assert.match(route, /code === "unavailable"/);

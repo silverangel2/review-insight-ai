@@ -47,8 +47,6 @@ import {
   runNativeReviewRetrieval,
   type NativeReviewRetrievalResult,
 } from "@/lib/nativeReviewRetrieval";
-import { runFirecrawlFallback } from "@/lib/firecrawlFallback";
-
 import {
   verifyProductCandidate,
   buildProductRetryQueries,
@@ -2485,65 +2483,6 @@ export async function collectAndAnalyzeReviewEvidence(
 
   let hasCollectedWrittenReviewEvidence = false;
 
-  let firecrawlRecoveryNote = "Firecrawl fallback was not needed.";
-  const firecrawlLastResortAllowed = Boolean(
-    listingUrlForReviewCollector &&
-      collectedWrittenReviews.reviewsCollected <= 0 &&
-      nativeReviewRetrieval?.attempted &&
-      nativeReviewRetrieval.normalFetchFailed &&
-      nativeReviewRetrieval.playwrightFailed &&
-      !nativeReviewRetrieval.usableSnippetsExtracted &&
-      process.env.FIRECRAWL_API_KEY
-  );
-
-  if (listingUrlForReviewCollector && collectedWrittenReviews.reviewsCollected <= 0 && firecrawlLastResortAllowed) {
-    const firecrawlFallback = await runFirecrawlFallback({
-      url: listingUrlForReviewCollector,
-      reason: collectedWrittenReviews.coverageNote,
-      timeoutMs: 12000,
-    });
-
-    firecrawlRecoveryNote = firecrawlFallback.reason;
-
-    if (firecrawlFallback.reviewSnippets.length > 0) {
-      const firecrawlReviews = firecrawlFallback.reviewSnippets.map((snippet) => ({
-        source: firecrawlFallback.title || "Firecrawl fallback review snippet",
-        sourceUrl: firecrawlFallback.sourceUrl || listingUrlForReviewCollector || undefined,
-        rating: null,
-        body: snippet,
-        date: null,
-        verified: null,
-      }));
-
-      collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
-        reviews: firecrawlReviews,
-        coverageNote: `${collectedWrittenReviews.coverageNote} ${firecrawlFallback.reason}`,
-        fallbackUrlsTried: [
-          firecrawlFallback.sourceUrl || listingUrlForReviewCollector,
-        ].filter((url): url is string => Boolean(url)),
-      });
-    } else if (firecrawlFallback.used) {
-      collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
-        coverageNote: `${collectedWrittenReviews.coverageNote} ${firecrawlFallback.reason}`,
-        fallbackUrlsTried: [
-          firecrawlFallback.sourceUrl || listingUrlForReviewCollector,
-        ].filter((url): url is string => Boolean(url)),
-      });
-    }
-  } else if (listingUrlForReviewCollector && collectedWrittenReviews.reviewsCollected <= 0) {
-    if (!process.env.FIRECRAWL_API_KEY) {
-      firecrawlRecoveryNote = "Firecrawl fallback skipped because FIRECRAWL_API_KEY is missing.";
-    } else if (!nativeReviewRetrieval?.attempted) {
-      firecrawlRecoveryNote = "Firecrawl fallback skipped because native retrieval did not run.";
-    } else if (!nativeReviewRetrieval.normalFetchFailed || !nativeReviewRetrieval.playwrightFailed) {
-      firecrawlRecoveryNote =
-        "Firecrawl fallback skipped because native fetch or Playwright was not fully exhausted.";
-    } else {
-      firecrawlRecoveryNote =
-        "Firecrawl fallback skipped because native retrieval found usable snippets or no product URL required Firecrawl.";
-    }
-  }
-
   let checkedListingUrl = String(listingEvidenceForCollection?.exactListingUrl || "").trim();
   let checkedListingTitle = String(listingEvidenceForCollection?.exactListingTitle || input.productName || "").trim();
   let checkedListingId =
@@ -3942,7 +3881,6 @@ Scoring rules:
           "Automatic evidence recovery tried exact-title, marketplace, open-web, and fallback retrieval paths before withholding the verdict.",
           "Product or listing metadata may have been identified, but rating/review count metadata is not written review evidence.",
           ...(webResearchDisabledNote ? [webResearchDisabledNote] : []),
-          firecrawlRecoveryNote,
         ],
         reviewAuthenticity: {
           ...(finalEvidence.reviewAuthenticity || {}),

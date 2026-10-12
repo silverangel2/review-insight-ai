@@ -247,7 +247,7 @@ test("runtime display guards cannot turn missing evidence fields into conclusion
   assert.match(client, /if \(reviewEvidenceDecisionState\(result\) === \"not_enough\"\) \{\s*return result;/s);
   assert.match(client, /return \"NOT_ENOUGH\";/);
   assert.match(client, /const productScore = numericOrNull/);
-  assert.match(client, /const buyingConfidence = numericOrNull/);
+  assert.match(client, /const buyingConfidence =\s*reviewEvidenceState === "not_enough"\s*\?\s*0\s*:\s*numericOrNull/s);
   assert.match(client, /const fakeReviewPercent = numericOrNull/);
   assert.match(client, /valueForMoney = String\([^;]+\|\| \"Unknown\"\)/);
   assert.match(client, /const zeroWrittenReviewEvidence =/);
@@ -466,17 +466,11 @@ test("synthesized themes cannot inflate the independent review count", () => {
   assert.doesNotMatch(evidence, /const groundedCommentsAnalyzed = Math\.max\([\s\S]{0,260}repeatedPraises\.length \+ repeatedComplaints\.length/);
 });
 
-test("Firecrawl remains an exact-listing last resort and search snippets stay untrusted", () => {
+test("search snippets stay untrusted and shopper evidence does not call Firecrawl", () => {
   const collector = source("lib/reviewCollector.ts");
   const evidence = source("lib/reviewEvidence.ts");
 
   assert.doesNotMatch(collector, /runFirecrawlFallback|fetchFirecrawlDiscoveredReviews/);
-  assert.match(evidence, /const firecrawlLastResortAllowed = Boolean\(/);
-  assert.match(evidence, /listingUrlForReviewCollector/);
-  assert.match(evidence, /nativeReviewRetrieval\.normalFetchFailed/);
-  assert.match(evidence, /nativeReviewRetrieval\.playwrightFailed/);
-  assert.match(evidence, /!nativeReviewRetrieval\.usableSnippetsExtracted/);
-  assert.match(evidence, /process\.env\.FIRECRAWL_API_KEY/);
+  assert.doesNotMatch(evidence, /firecrawl|runFirecrawl/i);
   assert.match(evidence, /search snippet\|native search/);
-  assert.doesNotMatch(collector, /fetchFirecrawlDiscoveredReviews/);
 });

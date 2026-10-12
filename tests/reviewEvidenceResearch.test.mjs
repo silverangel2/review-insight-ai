@@ -292,8 +292,9 @@ test("FIRECRAWL_FALLBACK_ONLY: adaptive research never calls Firecrawl", () => {
   assert.doesNotMatch(researchSrc, /runFirecrawlFallback/);
   assert.doesNotMatch(researchSrc, /firecrawlFallback\(/);
   const evidenceSrc = source("lib/reviewEvidence.ts");
-  // Firecrawl may only appear in the dedicated fallback path, not the loop.
-  assert.match(evidenceSrc, /runFirecrawlFallback/);
+  // Shopper acquisition is native-only. Firecrawl stays out of this module;
+  // scan telemetry also refuses Firecrawl calls.
+  assert.doesNotMatch(evidenceSrc, /runFirecrawlFallback/);
   const loopCall = evidenceSrc.match(
     /runAdaptiveReviewResearch\(\{[\s\S]*?\}\);/
   );

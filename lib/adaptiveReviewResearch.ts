@@ -1,3 +1,10 @@
+import {
+  callOpenAiWebSearchResponse,
+  getOpenAiWebSearchDiagnostics,
+  isOpenAiWebSearchEnabled,
+  type OpenAiWebSearchContext,
+} from "./openAiWebSearch";
+
 export type AdaptiveReviewRecord = {
   body?: string | null;
   text?: string | null;
@@ -147,13 +154,6 @@ async function runGenericAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
  * - Stop after TWO consecutive stagnant passes (no new signals).
  * - Firecrawl is NOT used here; it remains a separate fallback-only path.
  */
-
-import {
-  callOpenAiWebSearchResponse,
-  getOpenAiWebSearchDiagnostics,
-  isOpenAiWebSearchEnabled,
-  type OpenAiWebSearchContext,
-} from "@/lib/openAiWebSearch";
 
 export function stripJsonCodeFence(text: string) {
   return text
