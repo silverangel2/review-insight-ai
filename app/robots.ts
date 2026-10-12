@@ -1,17 +1,30 @@
 import type { MetadataRoute } from "next";
+import { seoBaseUrl } from "@/lib/seoAutomation";
+
+const PRIVATE_PATHS = [
+  "/api/",
+  "/admin",
+  "/admin-access",
+  "/account",
+  "/dashboard",
+  "/auth/",
+  "/login",
+  "/signup",
+  "/unsubscribe",
+  "/email-preferences",
+  "/dev-preview",
+  "/maintenance",
+  "/owner-access",
+  "/results",
+];
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
-
   return {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/admin", "/admin-access", "/dev-preview", "/email-preferences", "/advertise/report"]
+      disallow: PRIVATE_PATHS,
     },
-    sitemap: `${baseUrl}/sitemap.xml`
+    sitemap: `${seoBaseUrl()}/sitemap.xml`,
   };
 }

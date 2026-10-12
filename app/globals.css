@@ -8823,10 +8823,10 @@ html[data-layout-mode="mobile"] .seller-compare-result-shell .reviewintel-result
   pointer-events: auto !important;
 }
 
-html[data-layout-mode="mobile"] .reviewintel-route-results .reviewintel-result-history-anchor button,
-html[data-layout-mode="mobile"] .seller-result-page .reviewintel-result-history-anchor button,
-html[data-layout-mode="mobile"] .reviewintel-route-seller-result .reviewintel-result-history-anchor button,
-html[data-layout-mode="mobile"] .seller-compare-result-shell .reviewintel-result-history-anchor button {
+html[data-layout-mode="mobile"] .reviewintel-route-results .reviewintel-result-history-anchor > button,
+html[data-layout-mode="mobile"] .seller-result-page .reviewintel-result-history-anchor > button,
+html[data-layout-mode="mobile"] .reviewintel-route-seller-result .reviewintel-result-history-anchor > button,
+html[data-layout-mode="mobile"] .seller-compare-result-shell .reviewintel-result-history-anchor > button {
   min-height: 2rem !important;
   height: 2rem !important;
   border-radius: 999px !important;
@@ -9634,7 +9634,9 @@ html[data-layout-mode="mobile"] .reviewintel-route-dashboard-customer .p-4 {
   html[data-layout-mode="mobile"] .reviewintel-result-history-anchor,
   html[data-layout-mode="auto"] .reviewintel-result-history-anchor {
     left: 0.75rem !important;
-    right: auto !important;
+    right: 0.75rem !important;
+    width: auto !important;
+    max-width: none !important;
     top: 4.15rem !important;
     z-index: 80 !important;
   }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { setAccountSessionCookie } from "@/lib/accountSession";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { accountFromOAuthAccessToken, accountFromOAuthCode } from "@/lib/supabaseAuth";
+import { queueWelcomeEmail } from "@/lib/lifecycleEmail";
 import { supabaseFetch, supabaseUpsert } from "@/lib/supabaseServer";
 
 const OAUTH_VERIFIER_COOKIE = "reviewintel_oauth_verifier";
@@ -311,6 +312,12 @@ export async function POST(request: Request) {
     });
 
     if (updatedProfile) profile = updatedProfile;
+  } else if (profile) {
+    queueWelcomeEmail({
+      email: normalizedEmail,
+      name: fallbackName,
+      role: requestedRole,
+    });
   }
 
   if (profile) {

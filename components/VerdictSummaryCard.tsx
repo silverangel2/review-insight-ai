@@ -16,6 +16,7 @@ export type VerdictSummary = {
   example?: boolean;
 };
 
+import { formatShopperConfidence } from "@/lib/shopperAnswer";
 import { CountUp } from "./motion/CountUp";
 
 const LABEL_STYLE: Record<string, string> = {
@@ -53,7 +54,12 @@ function Quote({ point, tone, delay = 0 }: { point: Point; tone: "love" | "compl
 
 export function VerdictSummaryCard({ summary, eyebrow, headingLevel = "h2" }: { summary: VerdictSummary; eyebrow?: string; headingLevel?: "h1" | "h2" }) {
   const Heading = headingLevel;
-  const confidence = summary.confidencePercent !== null ? `${summary.confidencePercent}% · ${summary.confidenceWords}` : "Unknown";
+  const confidence = formatShopperConfidence({
+    kind: summary.kind === "buy" || summary.kind === "wait" || summary.kind === "skip" || summary.kind === "not_enough" ? summary.kind : "wait",
+    confidencePercent: summary.confidencePercent,
+    confidenceWords: summary.confidenceWords === "High" || summary.confidenceWords === "Medium" || summary.confidenceWords === "Low" || summary.confidenceWords === "Unknown" ? summary.confidenceWords : "Unknown",
+    reviewCount: summary.reviewCount,
+  });
   return (
     <article className="rounded-[1.75rem] bg-white p-6 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 sm:p-8">
       {summary.example ? <p className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">Example</p> : eyebrow ? <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal">{eyebrow}</p> : null}

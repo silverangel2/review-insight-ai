@@ -19,13 +19,10 @@ import MobileTinyNav from "@/components/mobile/MobileTinyNav";
 import MobileUtilityMenu from "@/components/mobile/MobileUtilityMenu";
 import SessionIdleLogout from "@/components/SessionIdleLogout";
 import { TrafficTracker } from "@/components/TrafficTracker";
+import { seoBaseUrl } from "@/lib/seoAutomation";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000"
-  ),
+  metadataBase: new URL(seoBaseUrl()),
   title: {
     default: "ReviewIntel | Should you buy it? We read the reviews for you",
     template: "%s | ReviewIntel"
@@ -40,8 +37,11 @@ export const metadata: Metadata = {
     "review screenshot analysis",
     "AI shopping assistant"
   ],
+  alternates: {
+    canonical: "/"
+  },
   openGraph: {
-    images: [{ url: "/og-image.svg", width: 1200, height: 630, alt: "ReviewIntel AI Review Intelligence" }],
+    images: [{ url: "/og-reviewintel.png", width: 1200, height: 630, alt: "ReviewIntel AI Review Intelligence" }],
     title: "ReviewIntel",
     description: "AI-powered review intelligence for shoppers and ecommerce sellers.",
     url: "/",
@@ -51,7 +51,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ReviewIntel",
-    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict."
+    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict.",
+    images: ["/og-reviewintel.png"]
   }
 };
 
@@ -67,17 +68,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://pagead2.googlesyndication.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
-        <script
-          id="reviewintel-google-adsense"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5711144364755686"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body>
+        {/* Advertising loads only via the consent-gated block in
+            components/advertising/AdSlot.tsx, which injects the script after
+            the visitor accepts optional cookies. Do not hardcode that script
+            here — it would contradict the cookie banner. */}
         {/* Resolve the layout mode before first paint so mobile CSS doesn't shift the page after hydration (CLS). */}
         <script
           suppressHydrationWarning
@@ -94,15 +89,18 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "SoftwareApplication",
+              "@type": "WebApplication",
               name: "ReviewIntel",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
-              description: "AI review intelligence platform for ecommerce shoppers and sellers.",
+              url: seoBaseUrl(),
+              description: "Review intelligence for shoppers and ecommerce sellers. The free plan has a daily scan limit. Paid plans are listed on the pricing page.",
               offers: {
                 "@type": "Offer",
+                name: "Shopper Free",
                 price: "0",
-                priceCurrency: "CAD"
+                priceCurrency: "CAD",
+                description: "Free plan with a daily scan limit."
               }
             })
           }}

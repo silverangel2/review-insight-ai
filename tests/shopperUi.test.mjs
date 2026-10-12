@@ -22,10 +22,16 @@ test("verdicts map honestly to plain words", () => {
   assert.equal(deriveShopperAnswer(realResult({ verdict: "DO NOT BUY YET", customerVerdict: "DO NOT BUY YET" })).label, "Wait");
   assert.equal(deriveShopperAnswer(realResult({ verdict: "BUY", customerVerdict: "BUY" })).label, "Buy");
   assert.equal(deriveShopperAnswer(realResult({ verdict: "AVOID", customerVerdict: "AVOID" })).label, "Skip");
+  const full = realResult();
   const thin = deriveShopperAnswer(realResult({ evidenceState: "NOT_ENOUGH" }));
-  assert.equal(thin.label, "Not enough reviews yet");
-  assert.equal(thin.score, null); assert.equal(thin.confidenceWords, "Unknown");
-  assert.deepEqual(thin.loves, []); assert.ok(thin.nextSteps.some(step => step.id === "screenshots"));
+  assert.equal(thin.label, "Low confidence");
+  assert.equal(thin.confidenceWords, "Low");
+  assert.equal(thin.confidencePercent, 55);
+  assert.equal(thin.score, full.buyScore);
+  assert.ok(thin.loves.length > 0, "real review quotes stay visible");
+  assert.ok(thin.nextSteps.some(step => step.id === "screenshots"));
+  assert.ok(thin.nextSteps.some(step => step.id === "amazon_listing"));
+  assert.doesNotMatch(`${thin.label} ${thin.why} ${thin.trustLine}`, /not enough evidence|not scored|no reviews analyzed/i);
 });
 
 test("loves/complaints quote REAL accepted review bodies linked by evidence id, with source", () => {
@@ -42,12 +48,17 @@ test("loves/complaints quote REAL accepted review bodies linked by evidence id, 
   assert.match(answer.trustLine, new RegExp(`Based on ${answer.reviewCount} real buyer reviews? from `));
 });
 
-test("unknown stays Unknown; confidence in words; empty result is not enough", () => {
+test("unknown stays Unknown; confidence in words; empty result is low confidence with the real count", () => {
   assert.equal(deriveShopperAnswer(realResult({ valueForMoney: "Unknown" })).value, "Unknown");
   assert.equal(deriveShopperAnswer(realResult({ valueForMoney: undefined })).value, deriveShopperAnswer(realResult()).value);
   assert.equal(confidenceInWords(null), "Unknown"); assert.equal(confidenceInWords(0.8), "High"); assert.equal(confidenceInWords(55), "Medium"); assert.equal(confidenceInWords(20), "Low");
   const empty = deriveShopperAnswer({});
-  assert.equal(empty.kind, "not_enough"); assert.equal(empty.reviewCount, 0); assert.equal(empty.score, null);
+  assert.equal(empty.kind, "not_enough"); assert.equal(empty.label, "Low confidence");
+  assert.equal(empty.reviewCount, 0); assert.equal(empty.score, null);
+  assert.equal(empty.confidenceWords, "Low"); assert.equal(empty.confidencePercent, null);
+  assert.match(empty.why, /0 real reviews analyzed/);
+  assert.match(empty.why, /Scan the Amazon listing link or add a review screenshot/);
+  assert.doesNotMatch(`${empty.label} ${empty.why} ${empty.trustLine}`, /not enough evidence|not scored|no reviews analyzed/i);
   assert.ok(shortQuote("a ".repeat(200)).length <= 152);
 });
 
@@ -108,9 +119,15 @@ test("RingConn card shows the canonical 55% confidence (raw 81, capped at 55 for
   const React = require("react"); const { renderToStaticMarkup } = require("react-dom/server");
   const html = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result, productName: "RingConn Gen 2 Air" }));
   assert.match(html, /data-testid="answer-confidence">55% · Medium</);
-  // Genuinely null (NOT ENOUGH) is the only Unknown.
-  const thin = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result: { ...result, evidenceState: "NOT_ENOUGH", verdict: "REVIEW EVIDENCE NOT ENOUGH", verdictConfidence: null, buyerConfidence: null, buyingConfidence: null, confidence: null }, productName: "x" }));
-  assert.match(thin, /data-testid="answer-confidence">Unknown</);
+  const thinResult = { ...result, evidenceState: "NOT_ENOUGH", verdict: "REVIEW EVIDENCE NOT ENOUGH", verdictConfidence: null, buyerConfidence: null, buyingConfidence: null, confidence: null };
+  const thin = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result: thinResult, productName: "x" }));
+  const thinAnswer = deriveShopperAnswer(thinResult);
+  assert.match(thin, new RegExp(`data-testid="answer-confidence">Low · ${thinAnswer.reviewCount} real reviews`));
+  assert.equal(thinAnswer.confidencePercent, null);
+  assert.ok(thinAnswer.reviewCount > 0);
+  assert.ok(thin.includes("Scan the Amazon listing"));
+  assert.doesNotMatch(thin, /not enough evidence|not scored|no reviews analyzed|NOT ENOUGH EVIDENCE/i);
+  assert.ok(thinAnswer.loves.some(point => point.quote), "thin results still quote a real review");
 });
 
 test("dev progress preview quotes are real accepted RingConn review text", async () => {

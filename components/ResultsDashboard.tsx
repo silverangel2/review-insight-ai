@@ -242,6 +242,7 @@ function uniqueSellerItems(items: Array<string | undefined>, fallback: string[] 
     const themeText = sellerFriendlyTheme(item, "")?.trim().replace(/\s+/g, " ");
     const text = fullText && fullText.split(/\s+/).length > 4 ? fullText : themeText;
     if (!text || text.length < 8) continue;
+    if (/not enough evidence|not scored|no reviews analyzed|not enough review data/i.test(text)) continue;
     const key = text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -249,7 +250,7 @@ function uniqueSellerItems(items: Array<string | undefined>, fallback: string[] 
     if (cleaned.length >= limit) break;
   }
 
-  return cleaned.length ? cleaned : ["Not enough review data for a confident read."];
+  return cleaned.length ? cleaned : ["Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."];
 }
 
 function countTextSignals(text: string, words: string[]) {
@@ -1754,9 +1755,9 @@ function hasGroundedSellerResult(result: AnalyzeResponse) {
 function SellerEvidenceUnavailable() {
   return (
     <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200">Review evidence unavailable</p>
-      <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">Not enough verified written review evidence</h2>
-      <p className="mt-3 text-sm leading-7 text-slate-700 dark:text-slate-200">ReviewIntel did not render seller scores, recommendations, or review themes because the completed result did not contain a grounded written-review analysis.</p>
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200">Low confidence</p>
+      <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">Low confidence</h2>
+      <p className="mt-3 text-sm leading-7 text-slate-700 dark:text-slate-200">Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews. Seller scores stay hidden until those real reviews are in.</p>
     </section>
   );
 }

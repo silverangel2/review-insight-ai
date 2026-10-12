@@ -200,13 +200,15 @@ test("insufficient review evidence cannot reach the sufficient-but-no-pattern em
   const results = source("components/ResultsClient.tsx");
 
   assert.match(results, /const evidenceState = reviewEvidenceDecisionState\(result\)/);
-  assert.match(results, /const strengthEmpty = evidenceState === "not_enough"/);
-  assert.match(results, /const complaintEmpty = evidenceState === "not_enough"/);
-  assert.match(results, /Not enough written review evidence to determine strengths\./);
-  assert.match(results, /Not enough written review evidence to determine repeated complaints\./);
+  assert.match(results, /realReviewQuotes\(result\)/);
+  assert.doesNotMatch(results, /noStrengthsUnavailable/);
+  assert.doesNotMatch(results, /noComplaintsUnavailable/);
+  assert.doesNotMatch(results, /Not enough written review evidence to determine strengths\./);
+  assert.doesNotMatch(results, /Not enough written review evidence to determine repeated complaints\./);
   assert.match(results, /verdict === "NOT_ENOUGH"/);
   assert.match(results, /evidenceSufficiency/);
   assert.match(results, /not enough \(\?:written \)\?review evidence/);
+  assert.match(results, /Scan the Amazon listing link or add a review screenshot/);
 });
 
 test("analyze verifies local result storage before navigating to results", () => {
@@ -229,7 +231,7 @@ test("analyze preserves auth and free-quota enforcement", () => {
   const analyzer = source("app/api/analyze/route.ts");
 
   assert.match(analyzer, /if \(role === "guest"\)/);
-  assert.match(analyzer, /readPersistentQuota/);
+  assert.match(analyzer, /const quotaClaim = await claimFreeScan/);
   assert.match(analyzer, /consumePersistentQuota/);
   assert.match(analyzer, /DAILY_SCAN_LIMIT_REACHED/);
 });
@@ -248,6 +250,7 @@ test("runtime display guards cannot turn missing evidence fields into conclusion
   assert.match(client, /return \"NOT_ENOUGH\";/);
   assert.match(client, /const productScore = numericOrNull/);
   assert.match(client, /const buyingConfidence = numericOrNull/);
+  assert.doesNotMatch(client, /reviewEvidenceState === "not_enough"\s*\?\s*0/);
   assert.match(client, /const fakeReviewPercent = numericOrNull/);
   assert.match(client, /valueForMoney = String\([^;]+\|\| \"Unknown\"\)/);
   assert.match(client, /const zeroWrittenReviewEvidence =/);
@@ -256,7 +259,9 @@ test("runtime display guards cannot turn missing evidence fields into conclusion
   assert.match(dashboard, /function hasGroundedSellerResult/);
   assert.match(dashboard, /writtenMode !== "listing_metadata"/);
   assert.match(dashboard, /return writtenEvidence && completeNumbers && completeRecommendation && hasSummary/);
-  assert.match(dashboard, /Not enough verified written review evidence/);
+  assert.match(dashboard, /Low confidence/);
+  assert.match(dashboard, /Scan the Amazon listing link or add a review screenshot/);
+  assert.doesNotMatch(dashboard, /Not enough verified written review evidence/);
   assert.match(governor, /typeof input\.commentsAnalyzed === "number" && input\.commentsAnalyzed >= 3/);
   assert.doesNotMatch(governor, /\(rating !== null && rating > 0\) \|\|/);
   assert.match(stability, /const hasReviewEvidence = canonicalSufficiencyPassed && commentsAnalyzed >= 3/);
@@ -429,4 +434,50 @@ test("confidence ratification recognizes DO NOT BUY YET as a real evidence verdi
     source,
     /\["BUY",\s*"DO NOT BUY YET",\s*"REVIEW FIRST",\s*"AVOID"\]\.includes\(verdict\)/,
   );
+});
+
+test("review evidence does not finalize from an outer timeout while collection is still pending", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /export const runtime = "nodejs"/);
+  assert.match(analyzerRoute, /export const maxDuration = 180/);
+  assert.match(analyzerRoute, /const reviewEvidence = await collectAndAnalyzeReviewEvidence\(/);
+  assert.doesNotMatch(analyzerRoute, /const reviewEvidence = await Promise\.race\(/);
+  assert.doesNotMatch(analyzerRoute, /Automatic public review evidence recovery reached the .* search limit/);
+});
+
+test("terminal scan state distinguishes evidence completion from insufficient evidence", () => {
+  const analyzerRoute = source("app/api/analyze/route.ts");
+
+  assert.match(analyzerRoute, /scanState: finalDecisionSource === "reviewEvidence" \? "COMPLETE" : "INSUFFICIENT_EVIDENCE"/);
+  assert.match(analyzerRoute, /scanState: "FAILED"/);
+});
+
+test("thin evidence still shows the confidence badge and does not force it to 0", () => {
+  const results = source("components/ResultsClient.tsx");
+
+  assert.match(results, /const reviewEvidenceState = reviewEvidenceDecisionState\(rawResultForVerdict\)/);
+  assert.match(results, /rawResultForVerdict\.verdictConfidence/);
+  assert.match(results, /confidenceBadge/);
+  assert.doesNotMatch(results, /showVerdictConfidence/);
+  assert.doesNotMatch(results, /reviewEvidenceState === "not_enough"\s*\?\s*0/);
+  assert.doesNotMatch(results, /return "Not scored"|: "Not scored"|\? "Not scored"/);
+  assert.doesNotMatch(results, /answer: "NOT ENOUGH EVIDENCE"/);
+});
+
+test("synthesized themes cannot inflate the independent review count", () => {
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.match(evidence, /const groundedCommentsAnalyzed = Math\.max\(\s*collectorReviewsCollected,\s*reviewSnippetsBase\.length\s*\)/s);
+  assert.match(evidence, /const actualCommentsAnalyzed = Math\.max\(\s*groundedCommentsAnalyzed,\s*collectorReviewsCollected,\s*reviewSnippetsBase\.length/s);
+  assert.doesNotMatch(evidence, /const groundedCommentsAnalyzed = Math\.max\([\s\S]{0,260}repeatedPraises\.length \+ repeatedComplaints\.length/);
+});
+
+test("search snippets stay untrusted and shopper evidence does not call Firecrawl", () => {
+  const collector = source("lib/reviewCollector.ts");
+  const evidence = source("lib/reviewEvidence.ts");
+
+  assert.doesNotMatch(collector, /runFirecrawlFallback|fetchFirecrawlDiscoveredReviews/);
+  assert.doesNotMatch(evidence, /firecrawl|runFirecrawl/i);
+  assert.match(evidence, /search snippet\|native search/);
 });

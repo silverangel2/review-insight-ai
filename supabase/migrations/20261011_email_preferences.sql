@@ -1,16 +1,18 @@
--- ReviewIntel email preferences. MIGRATION FILE ONLY: NOT APPLIED by the app or this PR.
--- Without this table the app uses defaults (all optional mail on, transactional always) and
--- skips once-only lifecycle emails (welcome/upgrade) because it can't remember they were sent.
-create table if not exists public.email_preferences (
-  email text primary key,
-  tips boolean not null default true,
-  upgrade boolean not null default true,
-  watch_alerts boolean not null default true,
-  marketing boolean not null default true,
-  unsubscribed_all boolean not null default false,
-  welcome_sent_at timestamptz,
-  upgrade_email_sent_at timestamptz,
-  updated_at timestamptz not null default now()
-);
-alter table public.email_preferences enable row level security;
--- Service role only (no public policies).
+-- Email choices for ReviewIntel customer mail.
+-- Apply this with the rest of the database updates before welcome and first-scan emails can be recorded.
+-- It does not send any email.
+
+alter table public.profiles
+  add column if not exists email_product_updates boolean,
+  add column if not exists email_upgrade_tips boolean not null default true,
+  add column if not exists welcome_email_sent_at timestamptz,
+  add column if not exists first_scan_upgrade_sent_at timestamptz;
+
+update public.profiles
+set email_product_updates = marketing_consent
+where email_product_updates is null;
+
+comment on column public.profiles.email_product_updates is 'Occasional product news. Kept in step with marketing_consent.';
+comment on column public.profiles.email_upgrade_tips is 'One note after the first completed scan. On until the person turns it off.';
+comment on column public.profiles.welcome_email_sent_at is 'When the welcome email was accepted for sending. Stops a second welcome.';
+comment on column public.profiles.first_scan_upgrade_sent_at is 'When the one first-scan note was accepted for sending.';

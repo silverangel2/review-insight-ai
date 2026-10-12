@@ -1,7 +1,7 @@
-import { sendWelcomeOnce } from "@/lib/lifecycleEmails";
 import { NextResponse } from "next/server";
 import { getRuntimeAppSettings } from "@/lib/appSettings";
 import { rateLimitRequest } from "@/lib/security";
+import { queueWelcomeEmail } from "@/lib/lifecycleEmail";
 import { signUpWithSupabase } from "@/lib/supabaseAuth";
 import { supabaseFetch, supabaseUpsert } from "@/lib/supabaseServer";
 
@@ -194,8 +194,9 @@ export async function POST(request: Request) {
       console.error("Signup profile save failed:", profileError);
     });
 
+    queueWelcomeEmail({ email, name: body.name ? String(body.name) : "", role });
+
     const emailConfirmationRequired = Boolean(result.user && !result.access_token);
-    await sendWelcomeOnce(email, body.name ? String(body.name).trim().slice(0, 60) : undefined).catch(() => null);
 
     return NextResponse.json({
       ok: true,

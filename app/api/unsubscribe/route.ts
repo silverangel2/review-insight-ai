@@ -1,38 +1,50 @@
 import { NextResponse } from "next/server";
-import { supabaseUpsert } from "@/lib/supabaseServer";
+import { readUnsubscribeInput, unsubscribeTarget } from "@/lib/emailUnsubscribe";
+import { saveEmailPrefs } from "@/lib/emailPreferenceStore";
+import { rateLimitRequest } from "@/lib/security";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request): Promise<Response> {
+export async function GET(request: Request) {
   const url = new URL(request.url);
-  const email = String(url.searchParams.get("email") ?? "").trim().toLowerCase();
-
-  if (!email || !email.includes("@")) {
-    return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
-  }
-
-  await supabaseUpsert("profiles", {
-    email,
-    marketing_consent: false,
-    updated_at: new Date().toISOString()
-  });
-
-  return NextResponse.json({ ok: true });
+  const dest = new URL("/unsubscribe", url.origin);
+  const token = url.searchParams.get("token");
+  const email = url.searchParams.get("email");
+  if (token) dest.searchParams.set("token", token);
+  if (email) dest.searchParams.set("email", email);
+  return NextResponse.redirect(dest, 303);
 }
 
-export async function POST(request: Request): Promise<Response> {
-  const body = await request.json().catch(() => ({}));
-  const email = String(body.email ?? "").trim().toLowerCase();
-
-  if (!email || !email.includes("@")) {
-    return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
+export async function POST(request: Request) {
+  const limit = await rateLimitRequest(request, {
+    key: "email_unsubscribe",
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+    eventType: "unsubscribe_rate_limited",
+  });
+  if (!limit.allowed) {
+    return limit.response ?? NextResponse.json({ error: "Too many unsubscribe attempts." }, { status: 429 });
   }
 
-  await supabaseUpsert("profiles", {
-    email,
-    marketing_consent: false,
-    updated_at: new Date().toISOString()
-  });
+  const input = await readUnsubscribeInput(request);
+  const email = unsubscribeTarget(input);
+  if (!email) {
+    return NextResponse.json({ error: "A valid unsubscribe link is required." }, { status: 400 });
+  }
 
-  return NextResponse.json({ ok: true });
+  const saved = await saveEmailPrefs(email, { productUpdates: false, upgradeTips: false });
+  if (saved.reason === "not-configured") {
+    return NextResponse.json({ error: "Email settings are not connected yet. Nothing was changed." }, { status: 503 });
+  }
+
+  if (input.formPost && !input.oneClick) {
+    const dest = new URL("/unsubscribe", new URL(request.url).origin);
+    dest.searchParams.set("done", "1");
+    return NextResponse.redirect(dest, 303);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    message: "Product updates and scan tips are off. Account and billing messages can still be sent when they are needed.",
+  });
 }

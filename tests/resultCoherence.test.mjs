@@ -129,7 +129,7 @@ test("actual shopper UI renders canonical values, review counts, and one-off cla
   const { renderToStaticMarkup } = require("react-dom/server");
   const corpus = adjudicateReviewEvidence(...fixture.adjudicationArgs);
   const deterministic = deriveDeterministicEvidenceResult({...fixture.evaluationMetadata, acceptedRecords:corpus.acceptedRecords});
-  const result = { ...deterministic, verdict: deterministic.customerVerdict, buyScore:6.1, productScore:6.1, verdictConfidence:55, valueForMoney:"Poor", sourceDiversity:1,
+  const result = { ...deterministic, analysisVersion: "review-evidence-v2", exactListingAccepted: true, verdict: deterministic.customerVerdict, buyScore:6.1, productScore:6.1, verdictConfidence:55, valueForMoney:"Poor", sourceDiversity:1, reviewIntelligenceSignals: 7,
     topStrengths:deterministic.strengths.map(c=>c.claim),topComplaints:deterministic.complaints.map(c=>c.claim),
     strengthProvenance:deterministic.strengths,complaintProvenance:deterministic.complaints,
     product:{name:"RingConn Gen 2 Air",store:"Amazon.ca",reviewCount:"1048"},
@@ -137,7 +137,7 @@ test("actual shopper UI renders canonical values, review counts, and one-off cla
     researchQuality:{evidenceLevel:"verified",notes:[]},meta:{audience:"buyer",locale:"en"},
   };
   const html = renderToStaticMarkup(React.createElement(ShopperProductDetail,{result,preview:""}));
-  assert.equal((html.match(/55%/g)||[]).length, 2);
+  assert.equal((html.match(/55%/g)||[]).length, 3);
   assert.equal((html.match(/>Poor</g)||[]).length, 2, "Backend Poor must not become Fair");
   assert.equal((html.match(/7 exact-product written reviews were analyzed from 1 source domain/g)||[]).length, 2);
   assert.equal((html.match(/unanswered customer support \(1 written review; one-off report\)/g)||[]).length, 2);

@@ -3,10 +3,11 @@ import {
   getAffiliateDisclosure,
   isAmazonUrl,
   isSupportedAffiliateUrl,
+  isWalmartUrl,
 } from "@/lib/affiliate";
 
 export type AffiliateSourceLink = {
-  provider: "amazon";
+  provider: "amazon" | "walmart";
   label: string;
   sourceUrl: string;
   affiliateUrl: string;
@@ -72,6 +73,7 @@ function isMediaOrAssetUrl(url: string) {
 
 function providerFor(url: string): AffiliateSourceLink["provider"] | null {
   if (isAmazonUrl(url)) return "amazon";
+  if (isWalmartUrl(url)) return "walmart";
   return null;
 }
 
@@ -83,13 +85,14 @@ function hostFor(url: string) {
   }
 }
 
-function labelFor(candidate: SourceCandidate) {
+function labelFor(candidate: SourceCandidate, provider: AffiliateSourceLink["provider"]) {
   const explicit = (candidate.label || "").replace(/\s+/g, " ").trim();
   if (explicit && !/^https?:\/\//i.test(explicit)) return explicit.slice(0, 90);
 
   const host = hostFor(candidate.url);
-  if (host) return `Amazon source (${host})`;
-  return "Amazon source";
+  const storeName = provider === "walmart" ? "Walmart" : "Amazon";
+  if (host) return `${storeName} source (${host})`;
+  return `${storeName} source`;
 }
 
 function meaningfulProductTokens(value: string) {
@@ -242,7 +245,7 @@ export function collectAffiliateSourceLinks(payload: unknown, limit = 8): Affili
     const provider = providerFor(candidate.url);
     if (!provider) continue;
 
-    if (provider === "amazon" && !sourceMatchesProduct(candidate, productTokens)) {
+    if (!sourceMatchesProduct(candidate, productTokens)) {
       continue;
     }
 
@@ -252,7 +255,7 @@ export function collectAffiliateSourceLinks(payload: unknown, limit = 8): Affili
 
     unique.set(sourceUrl, {
       provider,
-      label: labelFor(candidate),
+      label: labelFor(candidate, provider),
       sourceUrl,
       affiliateUrl,
       host,

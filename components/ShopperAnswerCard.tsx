@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { deriveShopperAnswer, type ShopperPoint } from "@/lib/shopperAnswer";
+import { deriveShopperAnswer, formatShopperConfidence, type ShopperPoint } from "@/lib/shopperAnswer";
 import { CountUp } from "./motion/CountUp";
 import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 
@@ -25,7 +25,7 @@ function PointList({ title, points, empty, tint = "bg-white" }: { title: string;
                 {point.claim.charAt(0).toUpperCase() + point.claim.slice(1)}
                 <span className="ml-2 text-xs font-normal text-slate-400">{point.count} review{point.count === 1 ? "" : "s"}</span>
               </p>
-              {point.quote ? (
+              {point.quote && point.quote !== point.claim ? (
                 <blockquote className="ri-fade-in mt-2 border-l-2 border-teal pl-3 text-sm leading-6 text-slate-600">
                   “{point.quote}”
                   {point.sourceHost ? (
@@ -85,9 +85,9 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
         </div>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-800 sm:text-xl">{answer.why}</p>
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-3">
-          <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{answer.confidencePercent !== null ? `${answer.confidencePercent}% · ${answer.confidenceWords}` : "Unknown"}</dd></div>
+          <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{formatShopperConfidence(answer)}</dd></div>
           <div><dt className="text-slate-500">Value for money</dt><dd className="mt-1 font-semibold text-slate-900">{answer.value}</dd></div>
-          <div className="col-span-2 sm:col-span-1"><dt className="text-slate-500">Based on</dt><dd className="mt-1 font-semibold text-slate-900">{answer.reviewCount ? `${answer.reviewCount} real reviews` : "None yet"}</dd></div>
+          <div className="col-span-2 sm:col-span-1"><dt className="text-slate-500">Based on</dt><dd className="mt-1 font-semibold text-slate-900">{answer.reviewCount} real reviews</dd></div>
         </dl>
         <p className="mt-5 text-sm text-slate-500">{answer.trustLine}</p>
         <p className="mt-2 text-xs leading-5 text-slate-500" data-testid="independence-note">
@@ -96,24 +96,22 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
         </p>
       </section>
 
-      {answer.kind !== "not_enough" ? (
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-          <PointList title="What buyers love" points={answer.loves} empty="No repeated praise in the real reviews yet." tint="bg-mint" />
-          <PointList title="What buyers complain about" points={answer.complaints} empty="No repeated complaints in the real reviews." tint="bg-peach" />
-        </div>
-      ) : null}
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <PointList title="What buyers love" points={answer.loves} empty="No repeated praise in the real reviews yet." tint="bg-mint" />
+        <PointList title="What buyers complain about" points={answer.complaints} empty="No repeated complaints in the real reviews." tint="bg-peach" />
+      </div>
 
       {answer.nextSteps.length ? (
         <section className="rounded-3xl bg-butter p-5 sm:p-6">
-          <h3 className="text-base font-semibold text-slate-900">{answer.kind === "not_enough" ? "Here's how to get a real answer" : "Want a stronger answer?"}</h3>
+          <h3 className="text-base font-semibold text-slate-900">{answer.kind === "not_enough" ? "A clear next step" : "Want a stronger answer?"}</h3>
           <ul className="mt-4 grid gap-4 sm:grid-cols-3">
             {answer.nextSteps.map(step => (
               <li key={step.id} className="rounded-2xl bg-white p-4 ring-1 ring-slate-900/5">
                 <p className="font-semibold text-slate-900">{step.label}</p>
                 <p className="mt-1 text-sm leading-6 text-slate-600">{step.detail}</p>
                 {step.id === "screenshots" ? <ScreenshotUpload productName={productName} /> : (
-                  <Link href="/analyze" className="mt-3 inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal">
-                    {step.id === "compare" ? "Scan another product" : "Scan another listing"}
+                  <Link href={step.href || "/analyze"} className="mt-3 inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal">
+                    {step.id === "compare" ? "Scan another product" : "Scan the Amazon listing"}
                   </Link>
                 )}
               </li>

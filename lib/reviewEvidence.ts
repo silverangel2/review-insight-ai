@@ -47,7 +47,6 @@ import {
   runNativeReviewRetrieval,
   type NativeReviewRetrievalResult,
 } from "@/lib/nativeReviewRetrieval";
-
 import {
   verifyProductCandidate,
   buildProductRetryQueries,
@@ -71,6 +70,7 @@ import {
 import {
   adjudicateReviewEvidence,
   verifyEvidenceClaims,
+  type AdjudicationInputRecord,
   type ReviewEvidenceAdjudication,
 } from "@/lib/reviewEvidenceAdjudication";
 import { uniqueAttemptedHttpSources } from "@/lib/retrievalSourceMetrics";
@@ -2428,7 +2428,13 @@ export async function collectAndAnalyzeReviewEvidence(
     collectorSourceAccepted && exactListingAccepted
   ) {
     if (nativeReviewRetrieval.reviewsCollected > 0) {
-      const nativeReviews = nativeReviewRetrieval.reviews.map((review) => ({
+      const trustedNativeReviews = nativeReviewRetrieval.reviews.filter(
+        (review) =>
+          Boolean(listingUrlForReviewCollector) &&
+          Boolean(review.sourceUrl) &&
+          !/search snippet|native search/i.test(String(review.source || "")),
+      );
+      const nativeReviews = trustedNativeReviews.map((review) => ({
         ...review,
         source: review.source || "Native public review retrieval",
       }));
@@ -2457,6 +2463,10 @@ export async function collectAndAnalyzeReviewEvidence(
           // listing. Exact listing acceptance is reserved for the verifier.
           collectorSourceRejectedReason = null;
         }
+      }
+      if (!nativeReviews.length) {
+        nativeRetrievalNote =
+          "Native retrieval returned search snippets only; snippets were retained as discovery metadata and excluded from trusted written-review evidence.";
       }
     } else {
       collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
@@ -2497,7 +2507,7 @@ export async function collectAndAnalyzeReviewEvidence(
     exactListingTitle: checkedListingTitle,
   };
   const canonicalSufficiencyFor = (
-    additionalRecords: ReviewCollectorResult["reviews"] = []
+    additionalRecords: AdjudicationInputRecord[] = []
   ) => adjudicateReviewEvidence(
     [...collectedWrittenReviews.reviews, ...additionalRecords],
     adjudicationOptions
@@ -2669,7 +2679,7 @@ export async function collectAndAnalyzeReviewEvidence(
 
   const webResearchEnabled = isOpenAiWebSearchEnabled();
   if (webResearchEnabled && collectedWrittenReviewCount() < 240 && researchQueries.length > 0) {
-    const adaptiveResearch = await runAdaptiveReviewResearch<ReviewCollectorResult["reviews"][number]>({
+    const adaptiveResearch = await runAdaptiveReviewResearch({
       queries: researchQueries,
       maxCalls: 5,
       corpusCap: Math.max(1, 240 - collectedWrittenReviewCount()),
@@ -3553,11 +3563,7 @@ Scoring rules:
 
     const groundedCommentsAnalyzed = Math.max(
       collectorReviewsCollected,
-      reviewSnippets.length,
-      repeatedPraises.length + repeatedComplaints.length,
-      productPros.length + productCons.length,
-      buyerExperienceSignals.length,
-      aiPatternSignals.length
+      reviewSnippetsBase.length
     );
 
     const actualCommentsAnalyzed = Math.max(
@@ -3835,11 +3841,17 @@ Scoring rules:
       !hasReviewIntelligenceEvidence;
 
     if (zeroWrittenReviewEvidence) {
+      const insufficientWebSearchDiagnostics =
+        getOpenAiWebSearchDiagnostics(openAiWebSearchContext);
+      const webResearchDisabledNote =
+        insufficientWebSearchDiagnostics.skippedDisabled > 0
+          ? "OpenAI web research was disabled by configuration (REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED is not enabled), so only native and listing evidence were used. Enable web research to let ReviewIntel search the public web for written reviews."
+          : null;
       const insufficientEvidence: ReviewEvidenceResult = {
         ...finalEvidence,
         finalDecisionSource: "reviewEvidenceRecoveryFailed",
         decisionStatus: "review_evidence_not_found",
-        openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
+        openAiWebSearchDiagnostics: insufficientWebSearchDiagnostics,
         evidenceStrength: preservedCollectedReviewCount > 0 ? "limited" : "none" as const,
         reviewIntelligenceMode: "listing_metadata" as const,
         reviewIntelligenceSignals: 0,
@@ -3868,6 +3880,7 @@ Scoring rules:
           : "ReviewIntel could not access enough public review evidence for this product.",
           "Automatic evidence recovery tried exact-title, marketplace, open-web, and fallback retrieval paths before withholding the verdict.",
           "Product or listing metadata may have been identified, but rating/review count metadata is not written review evidence.",
+          ...(webResearchDisabledNote ? [webResearchDisabledNote] : []),
         ],
         reviewAuthenticity: {
           ...(finalEvidence.reviewAuthenticity || {}),

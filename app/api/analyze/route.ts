@@ -12,17 +12,21 @@ import { readAccountSession } from "@/lib/accountSession";
 import {
   consumePersistentQuota,
   isSupabaseConfigured,
-  readPersistentQuota,
   saveAnalysisRecord,
   supabaseSelect,
 } from "@/lib/supabaseServer";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
+import {
+  ANON_SCAN_LIMIT,
+} from "@/lib/anonymousScans";
+import { claimFreeScan } from "@/lib/freeScanQuota";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
+import { queueFirstScanUpgrade } from "@/lib/lifecycleEmail";
 import { completeAccountScan, assertPersistedScan } from "@/lib/scanCompletion";
 import {
   beginDurableScanOperation,
@@ -845,8 +849,6 @@ function evidenceCoverageWeight(commentsAnalyzed: number) {
 
 function hasEnoughReviewEvidence(result: ReturnType<typeof normalizeResult>) {
   const sourcesCount = result.sourcesUsed.length;
-  const reviewCount = parseVisibleReviewCount(result.product.reviewCount);
-  const rating = parseVisibleRating(result.product.rating);
   const evidenceText = [
     ...result.topStrengths,
     ...result.topComplaints,
@@ -857,9 +859,9 @@ function hasEnoughReviewEvidence(result: ReturnType<typeof normalizeResult>) {
 
   const hasWrittenReviewSignals =
     /\b(review|reviews|buyer|buyers|customer|customers|complain|complaint|praise|praised|reported|mentioned|said|feedback)\b/.test(evidenceText);
-  const hasMarketplaceSignals = rating !== null && reviewCount !== null && reviewCount >= 25;
-
-  return sourcesCount > 0 || hasWrittenReviewSignals || hasMarketplaceSignals;
+  // Aggregate marketplace stars/review volume are useful context, but they
+  // are not written-review evidence and cannot satisfy this gate by themselves.
+  return sourcesCount > 0 || hasWrittenReviewSignals;
 }
 
 function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
@@ -1760,6 +1762,12 @@ async function researchAndVerdict(
       bottomLine: PUBLIC_REVIEW_EVIDENCE_FAILURE,
     }) as Awaited<ReturnType<typeof collectAndAnalyzeReviewEvidence>>;
 
+  // Do not race evidence collection against a fallback response. A Promise.race
+  // would return an insufficient-evidence result while the collector continued
+  // in the background, allowing the client to navigate to a degraded result
+  // before the approved evidence paths had reached a terminal state. The
+  // collector has bounded provider/retry work, and the platform maxDuration is
+  // the final hard ceiling for an unrecoverable request.
   const reviewEvidence = await collectAndAnalyzeReviewEvidence({
       productName: productForReviewEvidence || vision.category || "unknown product",
       brand: vision.brand,
@@ -2296,6 +2304,13 @@ function buildReviewEvidenceShopperResult(input: {
     aiPatternSignals.length > 0 ||
     commentsAnalyzed > 0;
 
+  const normalizedReviewSignalCount = Math.max(
+    repeatedPraises.length + repeatedComplaints.length,
+    productPros.length + productCons.length,
+    buyerExperienceSignals.length,
+    aiPatternSignals.length
+  );
+
   const reviewCoverageRatio =
     marketplaceReviewCount > 0
       ? commentsAnalyzed / marketplaceReviewCount
@@ -2762,6 +2777,7 @@ function buildReviewEvidenceShopperResult(input: {
         acceptedCorpusHash: deterministic.acceptedCorpusHash,
       },
       finalDecisionSource,
+      scanState: finalDecisionSource === "reviewEvidence" ? "COMPLETE" : "INSUFFICIENT_EVIDENCE",
       scoreAudit,
       verdictConfidenceAudit: verdictConfidenceAudit.audit,
     },
@@ -2874,65 +2890,7 @@ async function analyzePost(request: Request, serverScanId: string) {
     const resolvedAccount = await resolveAnalyzeAccount(email, requestedPlan, requestedRole);
     const role = resolvedAccount.role;
     const plan = resolvedAccount.plan;
-
-    if (role === "guest") {
-      return NextResponse.json(
-        { error: "Please log in before analyzing a product.", scanId, resultSource: "analyze" },
-        { status: 401 }
-      );
-    }
-
-    const normalizedPlanForAnalyze = String(plan || "").trim();
-    const isBetaPlanForAnalyze =
-      normalizedPlanForAnalyze === "buyer_beta" ||
-      normalizedPlanForAnalyze === "seller_beta";
-
-    const isShopperFree =
-      role !== "admin" &&
-      !isBetaPlanForAnalyze &&
-      normalizedPlanForAnalyze === "free_buyer";
-
-    const recordCompletedScan = async (scanResult: JsonRecord) => {
-      const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
-      const completed = await completeAccountScan({
-        email,
-        scanId,
-        result: scanResult,
-        save: () => saveAnalysisRecord({
-            profile_email: email,
-            mode: "buyer",
-            product_name: asRecord(scanResult.product).name ?? "Product scan",
-            platform: asRecord(scanResult.product).store ?? "other",
-            product_score: scanResult.productScore ?? scanResult.buyingConfidence ?? null,
-            recommendation: scanResult.verdict ?? null,
-            summary: scanResult.bottomLine ?? null,
-            analysis_json: {
-              ...scanResult,
-              analysisVersion: "review-evidence-v2",
-            },
-            account: { email, plan: accountPlan, role }
-          }),
-        read: async (id) => {
-          const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json,created_at&id=eq.${encodeURIComponent(id)}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
-          return rows[0];
-        },
-        consume: (id) => consumePersistentQuota(
-        {
-          email,
-          plan: accountPlan
-        },
-        {
-          analysis_id: id,
-          audience: "buyer",
-          product_name: asRecord(scanResult.product).name ?? null,
-          verdict: scanResult.verdict ?? null
-        }
-        ),
-        finish: (result) => finishDurableScanOperation({ operationKey, status: "COMPLETED", result }),
-      });
-      captureStage("persistence", { scanId, analysisId: completed.analysisId, accountKey: budgetAccountKey(email), accountVisible: true, durableCompleted: true });
-      return completed;
-    };
+    let claimedQuota: Awaited<ReturnType<typeof claimFreeScan>> | null = null;
 
     const contentType = request.headers.get("content-type") || "";
     const canReadFormData =
@@ -2968,6 +2926,174 @@ async function analyzePost(request: Request, serverScanId: string) {
       return NextResponse.json({ error: "Image is too large. Please upload a screenshot under 8MB.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
+    const normalizedPlanForAnalyze = String(plan || "").trim();
+    const isBetaPlanForAnalyze =
+      normalizedPlanForAnalyze === "buyer_beta" ||
+      normalizedPlanForAnalyze === "seller_beta";
+
+    const isShopperFree =
+      role !== "admin" &&
+      role !== "guest" &&
+      !isBetaPlanForAnalyze &&
+      normalizedPlanForAnalyze === "free_buyer";
+
+    if (isShopperFree) {
+      if (!email) {
+        return NextResponse.json(
+          { error: "Please log in again before analyzing a product.", scanId, resultSource: "analyze" },
+          { status: 401 }
+        );
+      }
+
+      const quotaClaim = await claimFreeScan({
+        kind: "authenticated",
+        identity: email,
+        scanId,
+      });
+      claimedQuota = quotaClaim;
+
+      if (quotaClaim.code === "unavailable") {
+        return NextResponse.json(
+          {
+            error: "We could not verify your daily scan allowance. Please try again.",
+            code: "QUOTA_UNAVAILABLE",
+            scanId,
+            resultSource: "analyze"
+          },
+          { status: 503 }
+        );
+      }
+
+      if (!quotaClaim.allowed) {
+        return NextResponse.json(
+          {
+            error: "You have used all 3 free scans for today. Upgrade to Premium for more scans and the fuller buying-confidence report.",
+            code: "DAILY_SCAN_LIMIT_REACHED",
+            upgradeRequired: true,
+            upgradeUrl: "/pricing?plan=shopper_premium",
+            cta: "Try Premium",
+            quota: quotaClaim,
+            scanId,
+            resultSource: "analyze"
+          },
+          { status: 429 }
+        );
+      }
+    }
+
+    if (role === "guest") {
+      const anonymousIdentity =
+        request.headers.get("x-forwarded-for") ||
+        request.headers.get("x-real-ip") ||
+        request.headers.get("cf-connecting-ip") ||
+        "unknown";
+      const quotaClaim = await claimFreeScan({
+        kind: "anonymous",
+        identity: anonymousIdentity.split(",")[0]?.trim() || "unknown",
+        scanId,
+      });
+      claimedQuota = quotaClaim;
+
+      if (quotaClaim.code === "unavailable") {
+        return NextResponse.json(
+          {
+            error: "Free scans are temporarily unavailable. Please try again later.",
+            code: "QUOTA_UNAVAILABLE",
+            scanId,
+            resultSource: "analyze",
+          },
+          { status: 503 }
+        );
+      }
+
+      if (!quotaClaim.allowed) {
+        return NextResponse.json(
+          {
+            error: `You've used your ${ANON_SCAN_LIMIT} free scans. Sign in to keep scanning — it's free.`,
+            code: "ANON_SCAN_LIMIT_REACHED",
+            signInRequired: true,
+            signInUrl: "/login?next=/analyze",
+            quota: quotaClaim,
+            scanId,
+            resultSource: "analyze",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    const recordCompletedScan = async (scanResult: JsonRecord) => {
+      const finalDecisionSource = String(scanResult.finalDecisionSource || "");
+      const terminalScanResult = scanResult.scanState
+        ? scanResult
+        : {
+            ...scanResult,
+            scanState: finalDecisionSource === "reviewEvidence" ? "COMPLETE" : "INSUFFICIENT_EVIDENCE",
+          };
+
+      if (!email) {
+        const guestResult = {
+          ...terminalScanResult,
+          quota: claimedQuota,
+        };
+        if (operationKey) {
+          await finishDurableScanOperation({ operationKey, status: "COMPLETED", result: guestResult });
+        }
+        return guestResult;
+      }
+
+      const accountPlan = isBetaPlanForAnalyze ? normalizedPlanForAnalyze : plan || "free_buyer";
+      const completed = await completeAccountScan({
+        email,
+        scanId,
+        result: terminalScanResult,
+        save: () => saveAnalysisRecord({
+            profile_email: email,
+            mode: "buyer",
+            product_name: asRecord(terminalScanResult.product).name ?? "Product scan",
+            platform: asRecord(terminalScanResult.product).store ?? "other",
+            product_score: terminalScanResult.productScore ?? terminalScanResult.buyingConfidence ?? null,
+            recommendation: terminalScanResult.verdict ?? null,
+            summary: terminalScanResult.bottomLine ?? null,
+            analysis_json: {
+              ...terminalScanResult,
+              analysisVersion: "review-evidence-v2",
+            },
+            account: { email, plan: accountPlan, role }
+          }),
+        read: async (id) => {
+          const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json,created_at&id=eq.${encodeURIComponent(id)}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
+          return rows[0];
+        },
+        consume: (id) => consumePersistentQuota(
+          {
+            email,
+            plan: accountPlan
+          },
+          {
+            analysis_id: id,
+            scan_id: scanId,
+            audience: "buyer",
+            product_name: asRecord(terminalScanResult.product).name ?? null,
+            verdict: terminalScanResult.verdict ?? null
+          }
+        ),
+        finish: (result) => finishDurableScanOperation({ operationKey, status: "COMPLETED", result }),
+      });
+      captureStage("persistence", { scanId, analysisId: completed.analysisId, accountKey: budgetAccountKey(email), accountVisible: true, durableCompleted: true });
+      queueFirstScanUpgrade({
+        email,
+        role,
+        plan: accountPlan,
+        productName: String(asRecord(terminalScanResult.product).name ?? ""),
+        verdict: String(terminalScanResult.verdict ?? ""),
+      });
+      return {
+        ...completed,
+        quota: claimedQuota ?? completed.quota ?? null,
+      };
+    };
+
     const buffer = Buffer.from(await file.arrayBuffer());
     const imageDataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
 
@@ -2996,22 +3122,6 @@ async function analyzePost(request: Request, serverScanId: string) {
     }
     if (operation.status === "RUNNING" && operation.created === false) {
       return NextResponse.json({ status: "RUNNING", scanId: operation.scanId }, { status: 202 });
-    }
-
-    if (isShopperFree) {
-      if (!email) {
-        await finishDurableScanOperation({ operationKey, status: "FAILED", errorCode: "AUTH_REQUIRED" });
-        return NextResponse.json({ error: "Please log in again before analyzing a product.", scanId, resultSource: "analyze" }, { status: 401 });
-      }
-      const quota = await readPersistentQuota({ email, plan: "free_buyer" });
-      if (!quota) {
-        await finishDurableScanOperation({ operationKey, status: "FAILED", errorCode: "QUOTA_UNAVAILABLE" });
-        return NextResponse.json({ error: "We could not verify your daily scan allowance. Please try again.", code: "QUOTA_UNAVAILABLE", scanId, resultSource: "analyze" }, { status: 503 });
-      }
-      if ((quota.remaining ?? 0) <= 0) {
-        await finishDurableScanOperation({ operationKey, status: "FAILED", errorCode: "DAILY_SCAN_LIMIT_REACHED" });
-        return NextResponse.json({ error: "You have used all 3 free scans for today. Upgrade to Premium for more scans and the fuller buying-confidence report.", code: "DAILY_SCAN_LIMIT_REACHED", upgradeRequired: true, upgradeUrl: "/pricing?plan=shopper_premium", cta: "Try Premium", quota, scanId, resultSource: "analyze" }, { status: 429 });
-      }
     }
 
     const vision = await extractScreenshotFacts(imageDataUrl, costTelemetry);
@@ -3150,6 +3260,7 @@ async function analyzePost(request: Request, serverScanId: string) {
             : "We could not analyze this product. Please try a clearer screenshot or paste the product link.",
           scanId,
           detectedProductKey: cleanDetectedProductKey(detectedProductKey),
+          scanState: "FAILED",
           resultSource: "analyze"
       },
       { status: 500 }

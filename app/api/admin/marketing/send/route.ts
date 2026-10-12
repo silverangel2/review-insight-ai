@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
-import { escapeHtml, escapeHtmlAttribute, textToHtmlParagraphs } from "@/lib/emailHtml";
+import { emailActionLinks, emailLinkSecret, publicEmailSiteUrl, unsubscribeHeaders } from "@/lib/emailLinks";
+import { renderBrandedEmail } from "@/lib/emailTemplate";
 import { supabaseSelect } from "@/lib/supabaseServer";
 import { SUPPORT_EMAIL } from "@/lib/trustContent";
 
@@ -17,76 +18,31 @@ function buildMarketingEmail({
   name,
   subject,
   body,
-  unsubscribeUrl
+  links
 }: {
   name?: string | null;
   subject: string;
   body: string;
-  unsubscribeUrl: string;
+  links: { preferencesUrl: string; unsubscribeUrl: string; oneClickUrl: string };
 }) {
-  const textName = name?.trim() || "there";
-  const safeName = escapeHtml(textName);
-  const safeSubject = escapeHtml(subject);
-  const safeUnsubscribeUrl = escapeHtmlAttribute(unsubscribeUrl);
-  const safeSupportEmail = escapeHtml(SUPPORT_EMAIL);
-  const paragraphs = textToHtmlParagraphs(body);
-
+  const paragraphs = String(body)
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const rendered = renderBrandedEmail({
+    preheader: subject,
+    eyebrow: "Product update",
+    title: subject,
+    greetingName: name,
+    paragraphs,
+    reason: "You are receiving this because you said yes to ReviewIntel product updates. You can turn them off any time.",
+    preferencesUrl: links.preferencesUrl,
+    unsubscribeUrl: links.unsubscribeUrl,
+    postalAddress: process.env.REVIEWINTEL_POSTAL_ADDRESS || "",
+  });
   return {
-    html: `
-      <div style="margin:0;padding:0;background:#eef6f8;font-family:Arial,Helvetica,sans-serif;color:#101828;">
-        <div style="max-width:680px;margin:0 auto;padding:34px 18px;">
-          <div style="background:#07111f;border-radius:30px;overflow:hidden;box-shadow:0 24px 70px rgba(7,17,31,0.25);">
-            <div style="background:linear-gradient(135deg,#07111f 0%,#0f766e 55%,#22d3ee 120%);padding:30px 28px;color:#ffffff;">
-              <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.20);border-radius:999px;padding:10px 14px;">
-                <span style="display:inline-block;width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,#22d3ee,#fbbf24);box-shadow:0 0 24px rgba(34,211,238,0.55);"></span>
-                <span style="font-size:15px;font-weight:900;letter-spacing:0.02em;">ReviewIntel</span>
-              </div>
-              <p style="margin:22px 0 0;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;color:#a7f3d0;">
-                ReviewIntel Update
-              </p>
-              <h1 style="margin:12px 0 0;font-size:32px;line-height:1.12;font-weight:900;">
-                ${safeSubject}
-              </h1>
-            </div>
-
-            <div style="background:#ffffff;padding:28px;border-radius:28px 28px 0 0;">
-              <p style="margin:0 0 14px;font-size:16px;line-height:1.7;color:#101828;">
-                Hi ${safeName},
-              </p>
-              ${paragraphs}
-
-              <div style="background:#f8fafc;border:1px solid #e6eaf2;border-radius:20px;padding:18px;margin-top:24px;">
-                <p style="margin:0;font-size:13px;line-height:1.7;color:#667085;">
-                  You are receiving this because you said yes to ReviewIntel marketing or product updates.
-                  You can unsubscribe anytime.
-                </p>
-              </div>
-
-              <p style="margin:18px 0 0;font-size:12px;line-height:1.7;color:#667085;">
-                <a href="${safeUnsubscribeUrl}" style="color:#0f766e;font-weight:800;">Unsubscribe from ReviewIntel marketing emails</a>
-              </p>
-            </div>
-          </div>
-
-          <p style="text-align:center;margin:22px 0 0;font-size:12px;line-height:1.7;color:#667085;">
-            ReviewIntel · AI product review intelligence<br/>
-            ${safeSupportEmail}
-          </p>
-        </div>
-      </div>
-    `,
-    text: [
-      subject,
-      "",
-      `Hi ${textName},`,
-      "",
-      body,
-      "",
-      "You are receiving this because you said yes to ReviewIntel marketing or product updates.",
-      `Unsubscribe: ${unsubscribeUrl}`,
-      "",
-      `ReviewIntel Support: ${SUPPORT_EMAIL}`
-    ].join("\n")
+    ...rendered,
+    headers: unsubscribeHeaders(links.oneClickUrl),
   };
 }
 
@@ -109,10 +65,8 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: "Campaign message is required." }, { status: 400 });
   }
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL?.replace(/^/, "https://") ||
-    "https://getreviewintel.com";
+  const siteUrl = publicEmailSiteUrl();
+  const secret = emailLinkSecret();
 
   const profiles = await supabaseSelect<MarketingProfile>(
     "profiles",
@@ -139,12 +93,12 @@ export async function POST(request: Request): Promise<Response> {
 
   for (const recipient of uniqueRecipients) {
     try {
-      const unsubscribeUrl = `${siteUrl}/unsubscribe?email=${encodeURIComponent(recipient.email)}`;
+      const links = emailActionLinks(recipient.email, siteUrl, secret);
       const emailContent = buildMarketingEmail({
         name: recipient.name,
         subject,
         body: message,
-        unsubscribeUrl
+        links
       });
 
       const sendResult = await sendReviewIntelEmail({
@@ -155,14 +109,11 @@ export async function POST(request: Request): Promise<Response> {
         subject,
         html: emailContent.html,
         text: emailContent.text,
-        headers: {
-          "List-Unsubscribe": `<${unsubscribeUrl}>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
-        },
+        headers: emailContent.headers,
         metadata: {
           source: "admin_marketing_send",
           recipientName: recipient.name,
-          unsubscribeUrl
+          unsubscribeUrl: links.unsubscribeUrl
         }
       });
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
@@ -11,7 +12,7 @@ const {withDevScanCapture,captureStage}=jiti('./lib/devScanCapture.ts');
 const production={...jiti('./lib/productSearchVerifier.ts'),...jiti('./lib/reviewEvidenceAdjudication.ts'),...jiti('./lib/reviewEvidenceDeterminism.ts'),...jiti('./lib/productIdentityTokens.ts'),...jiti('./lib/nativeReviewRetrieval.ts')};
 const {ScanCostTelemetry}=jiti('./lib/scanCostTelemetry.ts');
 const fixture=JSON.parse(readFileSync(new URL('./fixtures/reviewintel-captured/takki.json',import.meta.url)));
-const directory=mkdtempSync('/private/tmp/reviewintel-capture-test-');
+const directory=mkdtempSync(`${tmpdir()}/reviewintel-capture-test-`);
 const scanId='capture-regression';
 let expected,capture;
 test('development captures complete real pipeline without extra provider calls',async()=>{

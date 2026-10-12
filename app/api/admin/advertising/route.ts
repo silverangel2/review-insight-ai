@@ -5,7 +5,6 @@ import { saveAdCreative } from "@/lib/adCreativeUpload";
 import { supabaseFetch } from "@/lib/supabaseServer";
 import { signCampaignToken } from "@/lib/advertiserFlow";
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
-import { emailTemplates } from "@/lib/emailTemplates";
 
 type AdminAdvertisingBody = {
   action?: "approve" | "reject" | "pause" | "activate" | "mark_paid" | "mark_unpaid" | "create_manual" | "delete" | "delete";
@@ -398,8 +397,11 @@ export async function POST(request: Request): Promise<Response> {
         const payUrl = `${origin}/api/advertising/checkout?t=${encodeURIComponent(payToken)}`;
         const reportUrl = `${origin}/advertise/report/${encodeURIComponent(reportToken)}`;
         const when = schedule.starts_at ? ` from ${schedule.starts_at.slice(0, 10)}${schedule.ends_at ? ` to ${schedule.ends_at.slice(0, 10)}` : ""}` : "";
-        const mail = emailTemplates.advertiser_payment_link({ when, payUrl, reportUrl });
-        const sent = await sendReviewIntelEmail({ emailType: "advertiser_payment_link", to: contact, subject: mail.subject, html: mail.html, text: mail.text }).catch(() => null);
+        const sent = await sendReviewIntelEmail({
+          emailType: "advertiser_payment_link", to: contact, subject: "Your ReviewIntel campaign is approved",
+          text: `Your campaign is approved${when}. Pay here to schedule it: ${payUrl}\n\nYour private report: ${reportUrl}\n\nThe ad starts automatically on the start date once payment is received.`,
+          html: `<p>Your campaign is approved${when}.</p><p><a href="${payUrl}">Pay to schedule your campaign</a></p><p>Your private report: <a href="${reportUrl}">${reportUrl}</a></p><p>The ad starts automatically on the start date once payment is received.</p>`,
+        }).catch(() => null);
         paymentEmailSent = Boolean(sent && (sent as { ok?: boolean }).ok);
         await supabaseFetch(`/rest/v1/advertiser_applications?id=eq.${encodeURIComponent(applicationId)}`, { method: "PATCH", body: JSON.stringify({ payment_link_sent_at: paymentEmailSent ? new Date().toISOString() : null }) }).catch(() => null);
       }

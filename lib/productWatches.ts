@@ -1,7 +1,6 @@
 // "Watch this product" alerts. Off unless REVIEWINTEL_WATCH_ALERTS=on. Zero OpenAI.
 // Email only on a real verdict change or a meaningful amount of new accepted evidence.
 import crypto from "node:crypto";
-import { emailTemplates } from "./emailTemplates";
 
 export const MAX_ACTIVE_WATCHES = 10;
 export const NEW_EVIDENCE_THRESHOLD = 10;
@@ -55,10 +54,12 @@ export function verifyUnwatchToken(token: string, key = secret()): { email: stri
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
-export function watchAlertEmail(input: { to?: string; productName: string; reason: WatchDecision["reason"]; previousVerdict: string | null; verdict: string | null; acceptedCount: number; resultUrl: string; unwatchUrl: string }) {
+export function watchAlertEmail(input: { productName: string; reason: WatchDecision["reason"]; previousVerdict: string | null; verdict: string | null; acceptedCount: number; resultUrl: string; unwatchUrl: string }) {
   const why = input.reason === "verdict_changed"
     ? `The verdict changed from ${input.previousVerdict || "unknown"} to ${input.verdict || "unknown"}.`
     : `${input.acceptedCount} real buyer reviews are now included.`;
-  const { subject, html, text } = emailTemplates.watch_alert({ to: input.to || "", productName: input.productName, why, resultUrl: input.resultUrl, unwatchUrl: input.unwatchUrl });
-  return { subject, html, text };
+  const subject = `Update on ${input.productName}`;
+  const text = `${why}\n\nSee the full result: ${input.resultUrl}\n\nStop watching this product: ${input.unwatchUrl}`;
+  const html = `<p>${esc(why)}</p><p><a href="${esc(input.resultUrl)}">See the full result</a></p><p style="color:#64748b;font-size:13px"><a href="${esc(input.unwatchUrl)}">Stop watching this product</a></p>`;
+  return { subject, text, html };
 }
