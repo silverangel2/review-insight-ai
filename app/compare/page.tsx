@@ -1,4 +1,8 @@
 import { CompareForm } from "@/components/CompareForm";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata: Metadata = withSeo("/compare", { title: "Compare two products by their real reviews", description: "Put two products side by side and see which one real buyers were happier with, what they complained about, and how many reviews back each answer." }, { noindex: true });
 
 export default function ComparePage() {
   return (

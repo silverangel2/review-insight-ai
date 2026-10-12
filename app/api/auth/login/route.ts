@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { setAccountSessionCookie } from "@/lib/accountSession";
+import { recordServerEvent } from "@/lib/trafficAnalytics";
 import { createAdminNotification } from "@/lib/notifications";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { rateLimitRequest } from "@/lib/security";
@@ -339,6 +340,7 @@ export async function POST(request: Request) {
       });
 
       setAccountSessionCookie(response, finalAccount);
+      await recordServerEvent(request, "sign_in", { method: "password", role: String(finalAccount.role || "") });
       return response;
     }
 
@@ -378,6 +380,7 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({ ok: true, result });
     setAccountSessionCookie(response, result.account as Record<string, unknown>);
+    await recordServerEvent(request, "sign_in", { method: "password", role: String((result.account as Record<string, unknown> | undefined)?.role || "") });
     return response;
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Login failed." }, { status: 401 });

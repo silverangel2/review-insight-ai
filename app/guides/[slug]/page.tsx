@@ -6,6 +6,9 @@ import { getGuide, guides } from "@/lib/guides";
 import { loadCategoryGuides } from "@/lib/guideData";
 import { GUIDE_MIN_PRODUCTS, GUIDE_MIN_REVIEWS, PRODUCT_TYPES } from "@/lib/categoryGuides";
 import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
+import { withSeo } from "@/lib/pageSeo";
+import { JsonLd } from "@/components/JsonLd";
+import { seoBaseUrl } from "@/lib/seoAutomation";
 
 async function categoryGuideFor(slug: string) {
   return (await loadCategoryGuides()).find(g => g.slug === slug) || null;
@@ -19,11 +22,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const editorial = getGuide(slug);
   if (editorial) {
-    return { title: editorial.title, description: editorial.excerpt };
+    return withSeo(`/guides/${slug}`, { title: { absolute: `${editorial.title} | ReviewIntel` }, description: editorial.excerpt }, { type: "article" });
   }
   const g = await categoryGuideFor(slug);
   const name = g?.name || PRODUCT_TYPES.find(t => t.slug === slug)?.name || "Guide";
-  return { title: `${name}: what real buyers reported`, robots: !g || g.thin ? { index: false, follow: true } : undefined };
+  const description = g && !g.thin
+    ? `What real buyers reported about ${name.toLowerCase()}: repeated praise and complaints from ${g.totalReviews} written reviews across ${g.products.length} scanned products.`
+    : `A ReviewIntel guide to ${name.toLowerCase()}, built only from real written buyer reviews.`;
+  return withSeo(`/guides/${slug}`, { title: `${name}: what real buyers reported`, description }, { type: "article", noindex: !g || g.thin });
 }
 
 export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -36,7 +42,24 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const name = g?.name || PRODUCT_TYPES.find(t => t.slug === slug)!.name;
   return (
     <main className="mx-auto max-w-5xl px-5 py-10 sm:px-6">
-      <Link href="/guides" className="text-sm text-teal underline-offset-2 hover:underline">All guides</Link>
+      {g && !g.thin ? <JsonLd data={[
+        {
+          "@context": "https://schema.org", "@type": "Article",
+          headline: `${name}: what real buyers reported`,
+          description: `Repeated praise and complaints from ${g.totalReviews} real written buyer reviews across ${g.products.length} scanned products.`,
+          url: `${seoBaseUrl()}/guides/${slug}`, mainEntityOfPage: `${seoBaseUrl()}/guides/${slug}`,
+          author: { "@type": "Organization", name: "ReviewIntel", url: seoBaseUrl() },
+          publisher: { "@type": "Organization", name: "ReviewIntel", url: seoBaseUrl() },
+        },
+        ...(g.loves.length || g.complaints.length ? [{
+          "@context": "https://schema.org", "@type": "FAQPage",
+          mainEntity: [
+            ...(g.loves.length ? [{ "@type": "Question", name: `What do buyers like about ${name.toLowerCase()}?`, acceptedAnswer: { "@type": "Answer", text: `Buyers most often reported: ${g.loves.slice(0, 4).map(t => t.claim).join("; ")}.` } }] : []),
+            ...(g.complaints.length ? [{ "@type": "Question", name: `What do buyers complain about with ${name.toLowerCase()}?`, acceptedAnswer: { "@type": "Answer", text: `The most repeated problems were: ${g.complaints.slice(0, 4).map(t => t.claim).join("; ")}.` } }] : []),
+          ],
+        }] : []),
+      ]} /> : null}
+      <nav aria-label="Breadcrumb" className="text-sm text-slate-500"><Link href="/" className="text-teal underline-offset-2 hover:underline">Home</Link> / <Link href="/guides" className="text-teal underline-offset-2 hover:underline">All guides</Link></nav>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{name}: what real buyers reported</h1>
       {!g || g.thin ? (
         <p className="mt-4 rounded-2xl bg-butter p-5 text-sm text-slate-700" data-testid="guide-thin">
@@ -74,6 +97,10 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           </ul>
         </>
       ) : null}
+      <section className="mt-8 rounded-[1.5rem] bg-white p-5 ring-1 ring-slate-900/5">
+        <h2 className="text-base font-semibold text-slate-900">Check a specific product</h2>
+        <p className="mt-1 text-sm text-slate-600">Paste any Amazon link and get a Buy, Wait or Skip answer from its own real reviews. <Link href="/analyze" className="font-semibold text-teal underline">Scan a product</Link> · <Link href="/guides/spot-fake-amazon-reviews" className="font-semibold text-teal underline">How to spot fake reviews</Link></p>
+      </section>
       <p className="mt-8 text-xs leading-5 text-slate-500">These are summaries of what buyers wrote, not our own claims about any brand. {INDEPENDENCE_STATEMENT}</p>
     </main>
   );

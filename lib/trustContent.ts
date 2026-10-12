@@ -267,7 +267,7 @@ export const trustPages: Record<string, TrustPageContent> = {
     eyebrow: "How ReviewIntel handles data",
     summary:
       "This Privacy Policy explains what ReviewIntel collects, how review and TikTok data are used, how cookies and analytics work, and how users can access, correct, or delete data.",
-    updated: "July 30, 2026",
+    updated: "October 12, 2026",
     tone: "trust",
     sections: [
       {
@@ -284,7 +284,8 @@ export const trustPages: Record<string, TrustPageContent> = {
         items: [
           "Account data: email address, display name, role, plan, login status, language, country, company or store name, address fields you provide, and subscription status.",
           "Review-analysis data: product names, brands, stores, URLs, pasted review text, uploaded screenshots, uploaded TXT or CSV files, extracted review evidence, analysis outputs, Buy Scores, verdicts, recommendation results, seller reports, and saved history.",
-          "Operational data: usage counts, quotas, page paths, support messages, admin notes, security events, error logs, connected integration status, selected media, captions, and public media URLs used for social posts."
+          "Operational data: usage counts, quotas, page paths, support messages, admin notes, security events, error logs, connected integration status, selected media, captions, and public media URLs used for social posts.",
+          "Site analytics: our own first-party, privacy-safe counts of page visits, sign-ins, signups, scans, upgrade views, checkouts and affiliate clicks, stored in our own database. We use no third-party trackers for this, never store raw IP addresses (only a salted one-way hash to count unique visitors), keep only the referring site's address without query strings, and record nothing at all when your browser sends Do Not Track or Global Privacy Control."
         ]
       },
       {

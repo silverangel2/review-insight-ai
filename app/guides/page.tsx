@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import Link from "next/link";
 import { guides } from "@/lib/guides";
 import { formatGuideDate } from "@/components/GuideArticle";
 import { loadCategoryGuides } from "@/lib/guideData";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSeo("/guides", {
   title: "Guides",
   description:
     "Practical ReviewIntel guides on reading product reviews, plus category guides built only from real scanned buyer reviews."
-};
+});
 
 export default async function GuidesPage() {
   const categoryGuides = await loadCategoryGuides();

@@ -16,6 +16,13 @@ const PRIVATE_PATHS = [
   "/maintenance",
   "/owner-access",
   "/results",
+  "/analyze/result",
+  "/seller/",
+  "/seller-upsell",
+  "/manage-subscription",
+  "/delete-account",
+  "/mobile-more",
+  "/advertise/report/",
 ];
 
 export default function robots(): MetadataRoute.Robots {

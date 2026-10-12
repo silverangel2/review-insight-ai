@@ -257,7 +257,7 @@ function normalizeRecommendationUrls(
         price: null,
         badge: normalized.length === 0 ? "Primary Pick" : normalized.length === 1 ? "Better Value" : "Stronger Quality",
         whyBetter: "Search-based Amazon recommendation link generated because a unique verified product URL was not available.",
-        aiLikeRisk: "Not scored",
+        aiLikeRisk: "Low · 0 real reviews checked · scan this product to check",
       }),
     );
   }

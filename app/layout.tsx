@@ -37,13 +37,11 @@ export const metadata: Metadata = {
     "review screenshot analysis",
     "AI shopping assistant"
   ],
-  alternates: {
-    canonical: "/"
-  },
+  // No root canonical: each page sets its own via withSeo() (lib/pageSeo.ts).
   openGraph: {
     images: [{ url: "/og-reviewintel.png", width: 1200, height: 630, alt: "ReviewIntel AI Review Intelligence" }],
     title: "ReviewIntel",
-    description: "AI-powered review intelligence for shoppers and ecommerce sellers.",
+    description: "Paste a product link and get a plain Buy, Wait or Skip answer built from real written buyer reviews.",
     url: "/",
     siteName: "ReviewIntel",
     type: "website"
@@ -51,7 +49,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ReviewIntel",
-    description: "Upload a product screenshot or paste a product link. ReviewIntel checks public review signals, complaints, ratings, and AI-like review patterns to give a fast BUY, REVIEW FIRST, or AVOID verdict.",
+    description: "Paste a product link and get a plain Buy, Wait or Skip answer built from real written buyer reviews, with the quotes to prove it.",
     images: ["/og-reviewintel.png"]
   }
 };
@@ -87,22 +85,36 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebApplication",
-              name: "ReviewIntel",
-              applicationCategory: "BusinessApplication",
-              operatingSystem: "Web",
-              url: seoBaseUrl(),
-              description: "Review intelligence for shoppers and ecommerce sellers. The free plan has a daily scan limit. Paid plans are listed on the pricing page.",
-              offers: {
-                "@type": "Offer",
-                name: "Shopper Free",
-                price: "0",
-                priceCurrency: "CAD",
-                description: "Free plan with a daily scan limit."
-              }
-            })
+            __html: JSON.stringify([
+              {
+                "@context": "https://schema.org",
+                "@type": "Organization",
+                name: "ReviewIntel",
+                url: seoBaseUrl(),
+                logo: `${seoBaseUrl()}/icon`,
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                name: "ReviewIntel",
+                url: seoBaseUrl(),
+                potentialAction: {
+                  "@type": "SearchAction",
+                  target: { "@type": "EntryPoint", urlTemplate: `${seoBaseUrl()}/analyze?url={search_term_string}` },
+                  "query-input": "required name=search_term_string",
+                },
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "WebApplication",
+                name: "ReviewIntel",
+                applicationCategory: "ShoppingApplication",
+                operatingSystem: "Web",
+                url: seoBaseUrl(),
+                description: "Buy, Wait or Skip answers built from real written buyer reviews. The free plan has a daily scan limit; paid plans are on the pricing page.",
+                offers: { "@type": "Offer", name: "Shopper Free", price: "0", priceCurrency: "CAD" },
+              },
+            ])
           }}
         />
         <Header initialLocale={locale} />

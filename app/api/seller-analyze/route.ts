@@ -604,8 +604,8 @@ ${deepIntel.evidenceBrief}
           ? reviewEvidence.reviewAuthenticity
           : {
               score: null,
-              label: "Review scan not verified",
-              suspiciousReviewRisk: "Not scored",
+              label: `Low confidence · ${reviewEvidence?.commentsAnalyzed ?? 0} real reviews · scan the Amazon link or upload a review CSV`,
+              suspiciousReviewRisk: "Not scored", // internal enum only; UI shows the label above
               reasons: reviewEvidence?.reviewAuthenticity?.reasons ?? [],
               suspiciousComments: [],
             },

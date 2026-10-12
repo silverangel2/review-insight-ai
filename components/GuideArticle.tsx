@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { guides, type Guide } from "@/lib/guides";
+import { JsonLd } from "@/components/JsonLd";
+import { seoBaseUrl } from "@/lib/seoAutomation";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -14,14 +16,44 @@ export function formatGuideDate(iso: string): string {
 export function GuideArticle({ guide }: { guide: Guide }) {
   const others = guides.filter((item) => item.slug !== guide.slug).slice(0, 3);
 
+  const base = seoBaseUrl();
+  const url = `${base}/guides/${guide.slug}`;
   return (
     <main className="mx-auto max-w-4xl px-6 py-14">
+      <JsonLd data={[
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: guide.title,
+          description: guide.excerpt,
+          datePublished: guide.publishedAt,
+          dateModified: guide.publishedAt,
+          mainEntityOfPage: url,
+          url,
+          image: `${base}/og-reviewintel.png`,
+          author: { "@type": "Organization", name: "ReviewIntel", url: base },
+          publisher: { "@type": "Organization", name: "ReviewIntel", url: base, logo: { "@type": "ImageObject", url: `${base}/icon` } },
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: base },
+            { "@type": "ListItem", position: 2, name: "Guides", item: `${base}/guides` },
+            { "@type": "ListItem", position: 3, name: guide.title, item: url },
+          ],
+        },
+      ]} />
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        <Link href="/guides" className="transition hover:text-ocean dark:hover:text-cyan-300">
+        <Link href="/" className="shrink-0 transition hover:text-ocean dark:hover:text-cyan-300">
+          Home
+        </Link>
+        <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">/</span>
+        <Link href="/guides" className="shrink-0 transition hover:text-ocean dark:hover:text-cyan-300">
           Guides
         </Link>
         <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">/</span>
-        <span className="line-clamp-1 text-slate-700 dark:text-slate-200">{guide.title}</span>
+        <span className="line-clamp-1 min-w-0 text-slate-700 dark:text-slate-200">{guide.title}</span>
       </nav>
 
       <section className="relative mt-6 overflow-hidden rounded-[2rem] border border-line bg-[linear-gradient(135deg,#172033,#2356a3_52%,#08b7a8)] p-8 text-white shadow-glow sm:p-10">
@@ -64,9 +96,9 @@ export function GuideArticle({ guide }: { guide: Guide }) {
             Put this into practice on your next purchase
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-            ReviewIntel reads review language, complaint patterns, and trust signals for you —
-            and gives a clear BUY, REVIEW FIRST, or AVOID verdict. Your first 3 scans are free,
-            no account needed.
+            ReviewIntel reads real written buyer reviews for you and gives a plain Buy, Wait or
+            Skip answer, with the quotes behind it and an honest confidence level. Your first
+            scans are free, no account needed.
           </p>
           <Link
             href="/analyze"
@@ -74,6 +106,9 @@ export function GuideArticle({ guide }: { guide: Guide }) {
           >
             Try a free scan
           </Link>
+          <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
+            Or browse <Link href="/guides" className="font-bold text-ocean underline-offset-2 hover:underline dark:text-cyan-300">all buying guides</Link> and the <Link href="/amazon-review-analyzer" className="font-bold text-ocean underline-offset-2 hover:underline dark:text-cyan-300">Amazon review analyzer</Link>.
+          </p>
         </aside>
       </article>
 

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import { EmailPreferencesPanel } from "@/components/EmailPreferencesPanel";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSeo("/email-preferences", {
   title: "Email preferences",
   robots: { index: false, follow: false },
-};
+}, { noindex: true });
 
 export default async function EmailPreferencesPage({
   searchParams,

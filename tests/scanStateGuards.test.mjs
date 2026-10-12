@@ -270,7 +270,8 @@ test("runtime display guards cannot turn missing evidence fields into conclusion
   assert.match(consistency, /nextScore = null;/);
   assert.match(consistency, /nextConfidence = null;/);
   assert.match(compare, /confidence: hasConfidence/);
-  assert.match(compare, /Comparison not scored/);
+  assert.match(compare, /lowConfidenceShopperCompare/);
+  assert.doesNotMatch(compare, /Comparison not scored/);
   assert.match(compare, /if \(!hasWrittenReviewEvidence\(productAWithReviewEvidence\) \|\| !hasWrittenReviewEvidence\(productBWithReviewEvidence\)\)/);
   assert.match(sellerCompare, /confidence: readNumber\(raw\.confidence\)/);
   assert.match(sellerCompare, /if \(!hasWrittenReviewEvidence\(yourProductWithReviewEvidence\) \|\| !hasWrittenReviewEvidence\(competitorProductWithReviewEvidence\)\)/);

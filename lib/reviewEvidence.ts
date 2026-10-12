@@ -3752,7 +3752,7 @@ Scoring rules:
         score: hasAnalyzedReviewText ? score : null,
         label:
           !hasAnalyzedReviewText
-            ? "Review analysis not scored"
+            ? `Low confidence · ${actualCommentsAnalyzed || 0} real reviews analyzed`
             : actualCommentsAnalyzed > 0
             ? score === null
               ? "Review evidence analyzed"

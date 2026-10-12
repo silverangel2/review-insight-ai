@@ -1,4 +1,4 @@
-import { freeShopperCompare } from "@/lib/shopperCompareFree";
+import { freeShopperCompare, lowConfidenceShopperCompare, realReviewCount } from "@/lib/shopperCompareFree";
 import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { NextResponse } from "next/server";
 import { isAdminRole, normalizePlan, normalizeRole } from "@/lib/account";
@@ -73,10 +73,10 @@ function normalize(rawValue: unknown) {
     winner,
     directSubstitutes,
     confidence: hasConfidence ? Math.max(0, Math.min(100, Math.round(raw.confidence as number))) : null,
-    verdictHeadline: text(raw.verdictHeadline, "Comparison not scored"),
-    summary: text(raw.summary, "Not enough verified written review evidence was available to compare these products."),
-    reasons: list(raw.reasons, ["Not enough verified written review evidence was available to establish a comparison."]).slice(0, 4),
-    nextSteps: list(raw.nextSteps, ["Collect and verify written reviews for both products before comparing them."]).slice(0, 3),
+    verdictHeadline: text(raw.verdictHeadline, "Low confidence · too few real reviews to compare yet"),
+    summary: text(raw.summary, "One or both products have too few real written reviews to pick a winner honestly."),
+    reasons: list(raw.reasons, ["Too few real written reviews on at least one side."]).slice(0, 4),
+    nextSteps: list(raw.nextSteps, ["Scan the Amazon link for each product to pull in more real reviews.", "Or add a review screenshot."]).slice(0, 3),
   };
 }
 
@@ -254,14 +254,8 @@ async function handlePOST(request: Request): Promise<Response> {
     ]);
 
     if (!hasWrittenReviewEvidence(productAWithReviewEvidence) || !hasWrittenReviewEvidence(productBWithReviewEvidence)) {
-      return NextResponse.json(normalize({
-        winner: "INCOMPARABLE",
-        directSubstitutes: false,
-        verdictHeadline: "Comparison not scored",
-        summary: "Not enough verified written review evidence was available to compare these products.",
-        reasons: ["At least one product lacks verified written review evidence."],
-        nextSteps: ["Collect and verify written reviews for both products before comparing them."],
-      }));
+      // Low confidence with the real counts and a next step, never "not scored".
+      return NextResponse.json(normalize(lowConfidenceShopperCompare(realReviewCount(productAWithReviewEvidence), realReviewCount(productBWithReviewEvidence))));
     }
 
     if (!isOpenAiFeatureEnabled("shopper_compare")) {

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import { UnsubscribePanel } from "@/components/UnsubscribePanel";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSeo("/unsubscribe", {
   title: "Unsubscribe",
   robots: { index: false, follow: false },
-};
+}, { noindex: true });
 
 export default async function UnsubscribePage({
   searchParams,

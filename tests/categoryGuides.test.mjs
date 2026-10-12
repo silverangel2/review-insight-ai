@@ -27,7 +27,7 @@ test("guides: generic types only; thin below the threshold; quotes are real acce
 
 test("guides page: noindex when thin, neutral 'buyers reported' wording, no defamation verbs", () => {
   const page = readFileSync(root + "app/guides/[slug]/page.tsx", "utf8");
-  assert.match(page, /index: false/);
+  assert.match(page, /index: false|noindex: !g \|\| g\.thin/);
   assert.match(page, /Buyers reported/);
   assert.doesNotMatch(page, /\b(scam|fraud|dangerous|worst|terrible|garbage)\b/i);
   assert.doesNotMatch(readFileSync(root + "lib/categoryGuides.ts", "utf8") + readFileSync(root + "lib/guideData.ts", "utf8"), /api\.openai|callOpenAi/);

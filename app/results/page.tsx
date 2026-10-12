@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import { ResultsClient } from "@/components/ResultsClient";
 import { loadServerResult } from "@/lib/serverResult";
 import type { AnalyzeResponse } from "@/lib/types";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSeo("/results", {
   title: "Your ReviewIntel result",
   description: "A plain Buy, Wait or Skip answer built only from real written buyer reviews of this exact product.",
   robots: { index: false },
-};
+}, { noindex: true });
 export const dynamic = "force-dynamic";
 
 export default async function ResultsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

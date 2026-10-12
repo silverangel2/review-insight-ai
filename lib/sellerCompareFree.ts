@@ -31,11 +31,22 @@ function countOf(r: Rec): number | null {
 const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const minus = (a: string[], b: string[]) => { const bk = new Set(b.map(key)); return a.filter(x => !bk.has(key(x))); };
 
+/** Honest wording when either product has too few real reviews: Low confidence, real counts, next step. */
+export function lowConfidenceSellerCompare(yours: Rec, competitor: Rec) {
+  const yn = countOf(yours) ?? 0, cn = countOf(competitor) ?? 0;
+  return {
+    competitivePosition: `Low confidence · ${yn} vs ${cn} real reviews`,
+    confidence: null,
+    executiveSummary: `Your product has ${yn} and the competitor has ${cn} real written reviews so far, which is too few on at least one side to rank them honestly.`,
+    comparabilityWarning: "Scan each product's Amazon link or upload a review CSV to add more real reviews, then compare again.",
+  };
+}
+
 export function freeSellerCompare(yours: Rec, competitor: Rec, labels = { yours: "Your product", competitor: "Competitor" }) {
   const ys = scoreOf(yours), cs = scoreOf(competitor);
   const yp = praiseOf(yours), cp = praiseOf(competitor), yc = complaintsOf(yours), cc = complaintsOf(competitor);
   const yn = countOf(yours), cn = countOf(competitor);
-  let position = "Not scored";
+  let position = `Low confidence · ${yn ?? 0} vs ${cn ?? 0} real reviews`;
   if (ys !== null && cs !== null) position = ys - cs >= 8 ? "Ahead" : cs - ys >= 8 ? "Behind" : "Close fight";
   const scoreLine = ys !== null && cs !== null ? `${labels.yours} ${Math.round(ys)}/100 vs ${labels.competitor} ${Math.round(cs)}/100` : "Scores unavailable for one product";
   const evidenceLine = yn !== null && cn !== null ? ` from ${yn} and ${cn} written reviews` : "";

@@ -50,7 +50,8 @@ test("free seller compare makes zero OpenAI calls and only uses real review sign
     assert.ok(out.conversionGaps.some((l) => /battery drains/.test(l)));
     assert.ok(out.competitorAdvantages.some((l) => /loud sound/.test(l)));
     const none = freeSellerCompare({}, {});
-    assert.equal(none.competitivePosition, "Not scored");
+    assert.match(none.competitivePosition, /^Low confidence · 0 vs 0 real reviews$/);
+    assert.doesNotMatch(none.competitivePosition, /not scored/i);
   } finally { globalThis.fetch = realFetch; }
   assert.equal(openAi, 0);
   assert.match(read("app/api/seller-compare/route.ts"), /REVIEWINTEL_SELLER_COMPARE_OPENAI/);

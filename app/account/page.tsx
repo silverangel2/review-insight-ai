@@ -2,6 +2,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { AccountDashboard } from "@/components/AccountDashboard";
 import { ClearScanDataButton } from "@/components/ClearScanDataButton";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata = privatePage("/account", "Your account");
 
 export default function AccountPage() {
   return (

@@ -1,4 +1,8 @@
 import { AdvertiserApplyForm } from "@/components/advertising/AdvertiserApplyForm";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata: Metadata = withSeo("/advertise/apply", { title: "Apply to advertise", description: "Apply for a clearly labelled placement on ReviewIntel. Every ad is reviewed before it runs." });
 
 export default function AdvertiserApplicationPage() {
   return (

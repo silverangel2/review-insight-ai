@@ -7,7 +7,7 @@ import { normalizeLocale } from "@/lib/i18n";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
 import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
-import { freeSellerCompare } from "@/lib/sellerCompareFree";
+import { freeSellerCompare, lowConfidenceSellerCompare } from "@/lib/sellerCompareFree";
 
 /** Legacy OpenAI comparison is kept but OFF unless REVIEWINTEL_SELLER_COMPARE_OPENAI=on. */
 function sellerCompareOpenAiEnabled() {
@@ -55,9 +55,9 @@ function normalize(raw: Record<string, unknown>) {
   const oldActionPlan = textArray(raw.sellerActionPlan);
 
   return {
-    competitivePosition: readText(raw.competitivePosition, "Comparison not scored"),
+    competitivePosition: readText(raw.competitivePosition, "Low confidence · too few real reviews to compare yet"),
     confidence: readNumber(raw.confidence),
-    executiveSummary: readText(raw.executiveSummary, "Not enough verified written review evidence was available to compare these products."),
+    executiveSummary: readText(raw.executiveSummary, "One or both products have too few real written reviews to rank them honestly. Scan each Amazon link or upload a review CSV, then compare again."),
     marketMove: readText(raw.marketMove, readText(raw.fixFirst, "Collect and verify written review evidence before making a competitive claim.")),
     fixFirst: readText(raw.fixFirst, "Collect and verify written review evidence before choosing a priority fix."),
     outgrowStrategy: textArray(raw.outgrowStrategy).length ? textArray(raw.outgrowStrategy, 4) : oldActionPlan.slice(0, 4),
@@ -274,12 +274,8 @@ async function handlePOST(request: Request): Promise<Response> {
     ]);
 
     if (!hasWrittenReviewEvidence(yourProductWithReviewEvidence) || !hasWrittenReviewEvidence(competitorProductWithReviewEvidence)) {
-      return NextResponse.json(normalize({
-        competitivePosition: "Comparison not scored",
-        confidence: null,
-        executiveSummary: "Not enough verified written review evidence was available to compare these products.",
-        comparabilityWarning: "At least one product lacks verified written review evidence.",
-      }));
+      // Low confidence with the real counts and a next step, never "not scored".
+      return NextResponse.json(normalize(lowConfidenceSellerCompare(yourProductWithReviewEvidence as Record<string, unknown>, competitorProductWithReviewEvidence as Record<string, unknown>)));
     }
 
     if (!sellerCompareOpenAiEnabled()) {

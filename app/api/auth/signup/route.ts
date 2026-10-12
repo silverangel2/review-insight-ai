@@ -4,6 +4,7 @@ import { rateLimitRequest } from "@/lib/security";
 import { queueWelcomeEmail } from "@/lib/lifecycleEmail";
 import { signUpWithSupabase } from "@/lib/supabaseAuth";
 import { supabaseFetch, supabaseUpsert } from "@/lib/supabaseServer";
+import { recordServerEvent } from "@/lib/trafficAnalytics";
 
 type SignupResult = {
   access_token?: string;
@@ -195,6 +196,7 @@ export async function POST(request: Request) {
     });
 
     queueWelcomeEmail({ email, name: body.name ? String(body.name) : "", role });
+    await recordServerEvent(request, "sign_up", { method: "password", role });
 
     const emailConfirmationRequired = Boolean(result.user && !result.access_token);
 

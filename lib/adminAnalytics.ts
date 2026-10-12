@@ -14,7 +14,7 @@ export type AdminAnalytics = {
 
 function verdictLabel(result: Rec): string {
   const v = s(result.verdict || result.customerVerdict).toUpperCase();
-  if (/NOT ENOUGH/.test(v) || !v) return "Not enough reviews";
+  if (/NOT ENOUGH/.test(v) || !v) return "Low confidence (few reviews)";
   if (v === "BUY") return "Buy";
   if (/DO NOT BUY YET|WAIT/.test(v)) return "Wait";
   if (/AVOID|SKIP/.test(v)) return "Skip";

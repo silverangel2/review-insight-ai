@@ -1,5 +1,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata = privatePage("/dashboard", "Dashboard");
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();

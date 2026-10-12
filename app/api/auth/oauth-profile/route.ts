@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { setAccountSessionCookie } from "@/lib/accountSession";
+import { recordServerEvent } from "@/lib/trafficAnalytics";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { accountFromOAuthAccessToken, accountFromOAuthCode } from "@/lib/supabaseAuth";
 import { queueWelcomeEmail } from "@/lib/lifecycleEmail";
@@ -374,5 +375,6 @@ export async function POST(request: Request) {
   };
   const response = jsonWithClearedOAuthCookies({ ok: true, account: finalAccount });
   setAccountSessionCookie(response, finalAccount);
+  await recordServerEvent(request, existingProfile ? "sign_in" : "sign_up", { method: "oauth", role: String(finalAccount.role || "") });
   return response;
 }

@@ -50,7 +50,8 @@ export function SmartAdSlot({
     setShowAds(canShowAds());
   }, [pathname]);
 
-  if (!showAds) return null;
+  // Never show ads inside the private admin and owner areas.
+  if (!showAds || pathname?.startsWith("/admin") || pathname?.startsWith("/owner-access")) return null;
 
   return (
     <AdSlot

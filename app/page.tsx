@@ -11,6 +11,12 @@ import { supabaseCount } from "@/lib/supabaseServer";
 import { HomepageInstructionVideo } from "@/components/HomepageInstructionVideo";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { getHomepageVideo } from "@/lib/homepageVideo";
+import { withSeo } from "@/lib/pageSeo";
+
+export const metadata = withSeo("/", {
+  title: { absolute: "ReviewIntel | Should you buy it? We read the real reviews for you" },
+  description: "Paste a product link and get a plain Buy, Wait or Skip answer built from real written buyer reviews, with quotes and an honest confidence level. Free to start.",
+});
 
 
 

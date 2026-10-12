@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import Link from "next/link";
 import { planLabel, planPrice } from "@/lib/account";
 
-export const metadata: Metadata = { title: "Seller plans", robots: { index: false } };
+export const metadata: Metadata = withSeo("/seller-upsell", { title: "Seller plans", robots: { index: false } }, { noindex: true });
 
 type Props = { searchParams: Promise<{ feature?: string }> };
 

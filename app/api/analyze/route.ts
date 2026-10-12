@@ -1749,7 +1749,7 @@ async function researchAndVerdict(
         reasons: [
           PUBLIC_REVIEW_EVIDENCE_FAILURE,
           reason,
-          "Buy Score and AI-like review risk are not scored when public review evidence recovery returns zero evidence.",
+          "Confidence is Low: 0 real written reviews were recovered yet. Scan the Amazon link or add a review screenshot to get a score.",
         ],
         suspiciousComments: [],
       },

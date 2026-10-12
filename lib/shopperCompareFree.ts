@@ -2,13 +2,28 @@
 // A winner is only named when both sides have a real-review score and the gap is meaningful.
 import { deriveShopperAnswer } from "./shopperAnswer";
 
+/** Honest wording when one side has too few real reviews: Low confidence, the real counts, and a next step. */
+export function lowConfidenceShopperCompare(countA: number | null | undefined, countB: number | null | undefined) {
+  const a = Number(countA) || 0, b = Number(countB) || 0;
+  return {
+    winner: "INCOMPARABLE", directSubstitutes: false, confidence: null,
+    verdictHeadline: `Low confidence · ${a} vs ${b} real reviews`,
+    summary: `Product A has ${a} and Product B has ${b} real written reviews so far, which is too few on at least one side to pick a winner honestly.`,
+    reasons: [`Real written reviews found: Product A ${a}, Product B ${b}.`],
+    nextSteps: ["Scan the Amazon link for each product to pull in more real reviews.", "Or add a review screenshot for the product with fewer reviews."],
+  };
+}
+
+/** Real review count from a scan record, using the same reader as the shopper answer. */
+export function realReviewCount(record: unknown) {
+  return deriveShopperAnswer(record).reviewCount || 0;
+}
+
 export function freeShopperCompare(a: unknown, b: unknown) {
   const A = deriveShopperAnswer(a), B = deriveShopperAnswer(b);
   const rated = (x: typeof A) => x.kind !== "not_enough" && x.score !== null;
   if (!rated(A) || !rated(B)) {
-    return { winner: "INCOMPARABLE", directSubstitutes: false, confidence: null, verdictHeadline: "Comparison not scored",
-      summary: "At least one product doesn't have enough real written reviews to compare honestly.",
-      reasons: ["At least one product lacks enough verified written reviews."], nextSteps: ["Scan another listing of the same product or upload review screenshots."] };
+    return lowConfidenceShopperCompare(A.reviewCount, B.reviewCount);
   }
   const sa = A.score as number, sb = B.score as number, gap = Math.abs(sa - sb);
   const winner = gap < 0.5 ? "TIE" : sa > sb ? "A" : "B";

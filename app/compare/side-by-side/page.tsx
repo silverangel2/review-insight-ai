@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import Link from "next/link";
 import { listServerScans, loadServerResult } from "@/lib/serverResult";
 import { formatShopperConfidence } from "@/lib/shopperAnswer";
@@ -7,7 +8,7 @@ import { TrackedBuyLink } from "@/components/TrackedBuyLink";
 import { AMAZON_ASSOCIATES_DISCLOSURE, INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Compare two products side by side", robots: { index: false } };
+export const metadata: Metadata = withSeo("/compare/side-by-side", { title: "Compare two products side by side", robots: { index: false } }, { noindex: true });
 
 const CHIP: Record<string, string> = {
   buy: "bg-emerald-700 text-white", wait: "bg-[#fdf0d5] text-[#7a4a06]", skip: "bg-rose-700 text-white", not_enough: "bg-slate-100 text-slate-700",

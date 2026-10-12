@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import Link from "next/link";
 import { adPackages } from "@/lib/adConfig";
 import { loadAdvertiseStats } from "@/lib/advertiseStats";
 import { AdvertiseInquiry } from "@/components/advertising/AdvertiseInquiry";
 import { FeaturedDeals } from "@/components/advertising/FeaturedDeals";
 
-export const metadata: Metadata = { title: "Advertise with ReviewIntel", description: "Reach shoppers right when they're deciding, with clearly labelled, honest placements." };
+export const metadata: Metadata = withSeo("/advertise", { title: "Advertise with ReviewIntel", description: "Reach shoppers right when they're deciding, with clearly labelled, honest placements." });
 
 const PREVIEW = [
   { slug: "results_below_verdict", name: "Results page", where: "Just below the verdict, when a shopper has decided what to do next." },

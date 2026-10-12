@@ -18,7 +18,7 @@ test("admin analytics: counts only what exists", () => {
     { event_type: "affiliate_impression", metadata: {} },
   ]);
   assert.equal(a.scans, 3); assert.equal(a.sellerScans, 1);
-  assert.deepEqual(a.verdictMix.map(v => v.verdict).sort(), ["Buy", "Not enough reviews", "Wait"]);
+  assert.deepEqual(a.verdictMix.map(v => v.verdict).sort(), ["Buy", "Low confidence (few reviews)", "Wait"]);
   assert.equal(a.affiliateClicks, 2); assert.equal(a.affiliateImpressions, 1);
   assert.equal(a.topProducts[0].title, "Item A"); assert.equal(a.topProducts[0].scans, 2);
   assert.deepEqual(summarizeAdminAnalytics([], []).verdictMix, []);

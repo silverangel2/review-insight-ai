@@ -1,8 +1,11 @@
 import crypto from "crypto";
 import { readAccountSession } from "@/lib/accountSession";
-import { isSupabaseConfigured, supabaseInsert, supabaseSelect } from "@/lib/supabaseServer";
+import { isSupabaseConfigured, supabaseCount, supabaseInsert, supabaseSelect } from "@/lib/supabaseServer";
 
-type TrafficEventType = "page_view" | "affiliate_impression" | "affiliate_click" | "pricing_click" | "signup_intent" | "upsell_view" | "upsell_click" | "upsell_dismiss" | "checkout_start";
+type TrafficEventType = "page_view" | "affiliate_impression" | "affiliate_click" | "pricing_click" | "signup_intent" | "upsell_view" | "upsell_click" | "upsell_dismiss" | "checkout_start" | "sign_in" | "sign_up";
+
+/** Events only the server may record (sign-ins and signups); the public beacon cannot fake them. */
+const SERVER_ONLY_EVENTS = new Set<string>(["sign_in", "sign_up"]);
 
 type TrafficEventBody = {
   eventType?: string;
@@ -51,7 +54,24 @@ const allowedEvents = new Set<TrafficEventType>([
   "upsell_click",
   "upsell_dismiss",
   "checkout_start",
+  "sign_in",
+  "sign_up",
 ]);
+
+/** Do Not Track / Global Privacy Control: when either is on, nothing is recorded. */
+export function requestOptsOut(request: Request) {
+  return request.headers.get("dnt") === "1" || request.headers.get("sec-gpc") === "1";
+}
+
+function referrerWithoutQuery(value: string) {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`.slice(0, 800);
+  } catch {
+    return "";
+  }
+}
 
 function cleanText(value: unknown, max = 500) {
   return String(value || "").trim().slice(0, max);
@@ -178,10 +198,14 @@ function topItems(map: Map<string, number>, limit = 8) {
     .slice(0, limit);
 }
 
-export async function recordTrafficEvent(request: Request, rawBody: TrafficEventBody) {
+export async function recordTrafficEvent(request: Request, rawBody: TrafficEventBody, options: { server?: boolean } = {}) {
   const eventType = cleanText(rawBody.eventType || rawBody.event_type || "page_view", 40) as TrafficEventType;
-  if (!allowedEvents.has(eventType)) {
+  if (!allowedEvents.has(eventType) || (SERVER_ONLY_EVENTS.has(eventType) && !options.server)) {
     return { ok: false, error: "Unsupported traffic event." };
+  }
+
+  if (requestOptsOut(request)) {
+    return { ok: true, skipped: true, reason: "do-not-track" };
   }
 
   if (!isSupabaseConfigured()) {
@@ -198,7 +222,8 @@ export async function recordTrafficEvent(request: Request, rawBody: TrafficEvent
     return { ok: true, skipped: true };
   }
 
-  const referrer = cleanText(rawBody.referrer, 800);
+  // Only origin + path of the referrer is kept (no query strings that might carry personal data).
+  const referrer = referrerWithoutQuery(cleanText(rawBody.referrer, 800));
   const userAgent = cleanText(request.headers.get("user-agent"), 1000);
   const { country, region, city } = geoFromHeaders(request);
   const { deviceType, platform, browser } = parseUserAgent(userAgent);
@@ -227,7 +252,8 @@ export async function recordTrafficEvent(request: Request, rawBody: TrafficEvent
     device_type: deviceType,
     platform,
     browser,
-    user_agent: userAgent,
+    // Raw user agent and IP are never stored: only the parsed device/platform/browser and a salted hash.
+    user_agent: null,
     utm_source: cleanText(parsedUrl?.searchParams.get("utm_source"), 120),
     utm_medium: cleanText(parsedUrl?.searchParams.get("utm_medium"), 120),
     utm_campaign: cleanText(parsedUrl?.searchParams.get("utm_campaign"), 160),
@@ -330,6 +356,93 @@ export async function readTrafficSummary(days = 30) {
       createdAt: row.created_at || "",
       metadata: row.metadata || {},
     })),
+  };
+}
+
+/** Server-side event (sign-in, signup) recorded from an API route. Never throws. */
+export async function recordServerEvent(request: Request, eventType: "sign_in" | "sign_up", metadata: Record<string, unknown> = {}) {
+  try {
+    const referer = request.headers.get("referer") || "";
+    let path = "/login";
+    try { if (referer) path = new URL(referer).pathname; } catch { /* keep default */ }
+    return await recordTrafficEvent(request, { eventType, path, metadata }, { server: true });
+  } catch {
+    return { ok: false };
+  }
+}
+
+export type AnalyticsRange = 7 | 30 | 90;
+
+type DashboardRow = { event_type?: string | null; path?: string | null; referrer_host?: string | null; visitor_key?: string | null; account_role?: string | null; created_at?: string | null; metadata?: Record<string, unknown> | null };
+
+function pathOnly(path?: string | null) {
+  return cleanText((path || "/").split("?")[0] || "/", 160) || "/";
+}
+
+/** Everything the admin analytics dashboard shows, from first-party rows only. */
+export async function readAnalyticsDashboard(days: AnalyticsRange) {
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  since.setUTCDate(since.getUTCDate() - (days - 1));
+  const empty = { configured: isSupabaseConfigured(), days, since: since.toISOString(), daily: [] as Array<{ date: string; visits: number; visitors: number }>, totals: { visits: 0, visitors: 0, signIns: 0, signUps: 0, scans: 0, upsellViews: 0, checkouts: 0, affiliateClicks: 0 }, topPages: [] as Array<{ label: string; count: number }>, topReferrers: [] as Array<{ label: string; count: number }>, recentSignIns: [] as Array<{ at: string; role: string; method: string }>, truncated: false, error: "" };
+  if (!empty.configured) return empty;
+
+  const sinceParam = encodeURIComponent(since.toISOString());
+  const LIMIT = 20000;
+  let rows: DashboardRow[] = [];
+  let scans = 0;
+  try {
+    [rows, scans] = await Promise.all([
+      supabaseSelect<DashboardRow>("site_traffic_events", `select=event_type,path,referrer_host,visitor_key,account_role,created_at,metadata&created_at=gte.${sinceParam}&order=created_at.desc&limit=${LIMIT}`, { failClosed: true }),
+      supabaseCount("analyses", `select=id&created_at=gte.${sinceParam}`).catch(() => 0),
+    ]);
+  } catch {
+    return { ...empty, error: "The analytics table could not be read. Check the Supabase keys and that the site_analytics migration has been applied." };
+  }
+
+  const dayKeys: string[] = [];
+  for (let i = 0; i < days; i += 1) {
+    const d = new Date(since.getTime() + i * 86400000);
+    dayKeys.push(d.toISOString().slice(0, 10));
+  }
+  const dayViews = new Map(dayKeys.map((k) => [k, 0]));
+  const dayVisitors = new Map(dayKeys.map((k) => [k, new Set<string>()]));
+  const visitors = new Set<string>();
+  const pages = new Map<string, number>();
+  const referrers = new Map<string, number>();
+  const totals = { ...empty.totals, scans };
+  const recentSignIns: Array<{ at: string; role: string; method: string }> = [];
+
+  for (const row of rows) {
+    const type = row.event_type || "page_view";
+    const key = String(row.created_at || "").slice(0, 10);
+    if (type === "page_view") {
+      totals.visits += 1;
+      if (dayViews.has(key)) dayViews.set(key, (dayViews.get(key) || 0) + 1);
+      if (row.visitor_key) {
+        visitors.add(row.visitor_key);
+        dayVisitors.get(key)?.add(row.visitor_key);
+      }
+      increment(pages, pathOnly(row.path));
+      increment(referrers, row.referrer_host || "Direct / none");
+    } else if (type === "sign_in") {
+      totals.signIns += 1;
+      if (recentSignIns.length < 10) recentSignIns.push({ at: row.created_at || "", role: row.account_role || String(row.metadata?.role || "customer"), method: String(row.metadata?.method || "password") });
+    } else if (type === "sign_up") totals.signUps += 1;
+    else if (type === "upsell_view") totals.upsellViews += 1;
+    else if (type === "checkout_start") totals.checkouts += 1;
+    else if (type === "affiliate_click") totals.affiliateClicks += 1;
+  }
+  totals.visitors = visitors.size;
+
+  return {
+    ...empty,
+    daily: dayKeys.map((date) => ({ date, visits: dayViews.get(date) || 0, visitors: dayVisitors.get(date)?.size || 0 })),
+    totals,
+    topPages: topItems(pages, 10),
+    topReferrers: topItems(referrers, 10),
+    recentSignIns,
+    truncated: rows.length >= LIMIT,
   };
 }
 
