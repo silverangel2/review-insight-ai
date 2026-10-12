@@ -68,13 +68,12 @@ export async function GET(request: Request) {
         const token = signUnwatchToken(email, key);
         if (!token) continue;
         const msg = watchAlertEmail({
-          to: email,
           productName: String(w.product_name || "a product you watch"), reason: decision.reason,
           previousVerdict: prev.verdict, verdict: next.verdict, acceptedCount: next.acceptedCount,
           resultUrl: String(w.listing_url),
           unwatchUrl: `${origin}/api/product-watches?token=${encodeURIComponent(token)}`,
         });
-        await sendReviewIntelEmail({ emailType: "product_watch_alert", category: "watch_alerts", to: email, ...msg });
+        await sendReviewIntelEmail({ emailType: "product_watch_alert", to: email, ...msg });
         alerts += 1;
         await supabaseUpdate("product_watches", filter, { last_verdict: next.verdict, last_accepted_count: next.acceptedCount, last_result_hash: next.resultHash, last_checked_at: now, last_alerted_at: now });
       } else {

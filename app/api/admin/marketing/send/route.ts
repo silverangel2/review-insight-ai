@@ -103,7 +103,6 @@ export async function POST(request: Request): Promise<Response> {
 
       const sendResult = await sendReviewIntelEmail({
         emailType: "marketing_campaign",
-        category: "marketing",
         to: recipient.email,
         replyTo: SUPPORT_EMAIL,
         subject,
