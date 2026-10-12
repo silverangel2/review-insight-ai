@@ -49,13 +49,19 @@ test("requested RingConn capture reaches a coherent current route result", { ski
   assert.equal(result.commentsAnalyzed, 7);
   assert.equal(result.marketplaceReviewCount, 1048);
   assert.equal(result.sourceDiversity, 1);
-  assert.equal(result.buyScore, 6.1);
-  assert.equal(result.verdict, "DO NOT BUY YET");
+  // Buying Score v2 (docs/scoring-spec-v2.md): 4.1★ from 1,048 + 7 written reviews
+  // (1 reliability report, 1 minor complaint) -> 70/100 Wait, Medium. The legacy
+  // scorer gave 6.1/10 "DO NOT BUY YET" (same Wait-class outcome).
+  assert.equal(result.buyScore, 70);
+  assert.equal(result.verdict, "REVIEW FIRST");
+  assert.equal(result.buyingScoreV2.verdict, "Wait");
+  assert.equal(result.buyingScoreV2.confidence, "Medium");
+  assert.equal(result.buyingScoreV2.evidenceLine, "7 written reviews read · 4.1★ from 1,048 ratings");
   assert.equal(result.valueForMoney, "Unknown");
   assert.equal(result.evidenceState, "SUFFICIENT");
   assert.equal(result.canonicalEvidenceEligible, true);
   assert.equal(result.exactListingAccepted, true);
-  assert.equal(result.finalDecisionSource, "deterministicAcceptedReviewCorpus");
+  assert.equal(result.finalDecisionSource, "buyingScoreV2");
   for (const key of ["verdictConfidence", "buyerConfidence", "buyingConfidence", "confidence"]) assert.equal(result[key], 55);
   assert.match(result.bottomLine, /7 accepted written reviews from 1 source domain/);
   assert.equal(result.complaintProvenance.length, 2);
@@ -76,7 +82,12 @@ test("requested RingConn capture reaches a coherent current route result", { ski
   const unsupported = structuredClone(report.input);
   unsupported.reviewEvidence.evidenceAdjudication = corpusFor(Array.from({length: 6}, (_, i) => `这是一段真实用户评论，使用体验需要进一步分析 ${i}`));
   const unknown = buildReviewEvidenceShopperResult(unsupported);
-  assert.equal(unknown.buyScore, null);
+  // v2: no accepted written reviews survive, so the rating-only result is a
+  // clearly labelled Provisional Marketplace Score (Leaning verdict, Low).
+  assert.equal(unknown.buyingScoreV2.mode, "provisional_marketplace");
+  assert.equal(unknown.buyingScoreV2.audit.n, 0);
+  assert.equal(unknown.buyingScoreV2.confidence, "Low");
+  assert.equal(unknown.buyScore, unknown.buyingScoreV2.score);
   assert.equal(unknown.confidence, null);
   assert.equal(unknown.valueForMoney, "Unknown");
   assert.equal(unknown.canonicalEvidenceEligible, false);
