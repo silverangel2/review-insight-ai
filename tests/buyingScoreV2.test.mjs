@@ -250,3 +250,49 @@ test("marketplace aggregate extraction from a product page (no fill-ins)", () =>
   const none = extractMarketplaceAggregateFromHtml("<html>nothing</html>");
   assert.deepEqual(none, { rating: null, count: null, histogram: null, source: null });
 });
+
+test("Owner fix 1: too-new cap applies to the Provisional Marketplace Score", () => {
+  const r = computeBuyingScore(sig({ rating: 5.0, ratingCount: 12, n: 0, meanSentiment: 0 }));
+  assert.equal(r.mode, "provisional_marketplace");
+  assert.equal(r.score, 74);
+  assert.equal(r.leaning, "Wait");
+  assert.deepEqual(r.audit.capsApplied, ["too_new"]);
+  assert.ok(r.warnings.some((w) => w.tier === "too_new" && w.text.startsWith("Few ratings so far")));
+  // N >= 50 is not capped (Example 6 unchanged).
+  assert.equal(computeBuyingScore(sig({ rating: 4.5, ratingCount: 2143, n: 0, meanSentiment: 0 })).score, 85);
+});
+
+test("Owner fix 2: unclassifiable reviews count in the total but not in n_eff", () => {
+  const terse = [
+    { body: "这是一段用户评论 一", rating: 5, sourceUrl: "https://a.test/p" },
+    { body: "这是另一段完全不同的评论 二", rating: 5, sourceUrl: "https://a.test/p" },
+    { body: "Ok.", rating: 4, sourceUrl: "https://b.test/q" },
+  ];
+  const r = buyingScoreFromReviews({ marketplace: { rating: 4.4, count: 20000 }, reviews: terse });
+  assert.equal(r.mode, "buying_score");
+  assert.equal(r.audit.n, 3);
+  assert.equal(r.audit.nEff, 0);
+  assert.equal(r.audit.w, 0);
+  assert.equal(r.confidence, "Low");
+  assert.equal(r.evidenceLine, "3 written reviews read · 4.4★ from 20,000 ratings");
+  assert.equal(r.confidenceReason, "Low · 3 written reviews read, none detailed enough to analyze");
+  assert.equal(r.score, Math.round(r.audit.B));
+  // Mixed: 10 total, 9 classifiable -> EvidenceConf Medium, not High.
+  const mixed = buyingScoreFromReviews({
+    marketplace: { rating: 4.4, count: 20000 },
+    reviews: [{ body: "很好用的产品", rating: 5 }, ...Array.from({ length: 9 }, (_, i) => ({ body: `Works great and reliable, review number ${i} with its own words ${"xyz".repeat(i + 1)}`, rating: 5, reviewer: `R${i}` }))],
+  });
+  assert.equal(mixed.audit.n, 10);
+  assert.equal(mixed.audit.nEff, 9);
+  assert.equal(mixed.audit.evidenceConf, "Medium");
+  // Second-store threshold uses classifiable reviews only.
+  const second = buyingScoreFromReviews({
+    marketplace: { rating: 4.4, count: 20000 }, primaryStore: "a.test",
+    reviews: [
+      { body: "Great and reliable.", rating: 5, sourceUrl: "https://a.test/p" },
+      { body: "Love it, works well.", rating: 5, sourceUrl: "https://a.test/p" },
+      { body: "Ok.", rating: 5, sourceUrl: "https://b.test/q" }, { body: "Fine.", rating: 5, sourceUrl: "https://b.test/q" }, { body: "Hmm.", rating: 4, sourceUrl: "https://b.test/q" },
+    ],
+  });
+  assert.equal(second.audit.evidenceConf, "Low");
+});

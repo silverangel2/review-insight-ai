@@ -66,6 +66,10 @@ Then apply these caps in order. The lowest cap wins.
 | Rel ≥ 2 with the same failure theme | 74 (Wait) | "Repeated reports of …", quotes |
 | N < 50 and n < 10 (too new to trust) | 74 (Wait) | "Few ratings so far" |
 
+The "too new" cap also applies to the Provisional Marketplace Score (section 7): if N < 50 and n = 0, the provisional score is min(B, 74), so it shows "Leaning Wait" with "Few ratings so far". Example: 5.0★ from 12 ratings with 0 written reviews gives Provisional 74, Leaning Wait. (Owner amendment, 2026-10-12.)
+
+**Classifiable reviews (n_eff).** A written review is *classifiable* if the rules find a sentiment word or a reliability, safety or minor-complaint signal in its text. Non-English or very terse reviews with no such signal are not classifiable. They still count in the "N written reviews read" total (n), but NOT in n_eff. n_eff replaces n in w = n_eff / (n_eff + 10), in s̄ (mean over classifiable reviews), in the DiscrepancyFlag's n ≥ 3 requirement, in EvidenceConf and in the second-store threshold (≥ 3 classifiable reviews there). The "too new" cap still uses n. (Owner amendment, 2026-10-12.)
+
 Verdict bands: **Buy ≥ 75 · Wait 50–74 · Skip < 50.**
 
 **Effective weights:** the marketplace rating sets the baseline, about 60–70% of the outcome. Written evidence can move the score down by up to 30 points (more through caps) and up by at most 10. Rating volume N affects only the shrinkage and confidence. It never raises the score on its own.
@@ -74,16 +78,17 @@ Verdict bands: **Buy ≥ 75 · Wait 50–74 · Skip < 50.**
   Confidence = min(MarketConf, EvidenceConf), then downgrades
 
 - **MarketConf:** N ≥ 1,000 is High · 100–999 is Medium · < 100 is Low
-- **EvidenceConf:** n = 0 is Low · n = 1–2 is Low · n = 3–9 is Medium · n ≥ 10, or written reviews from a second store with ≥ 3 there, is High
+- **EvidenceConf** (uses n_eff, the classifiable reviews): n_eff = 0 is Low · n_eff = 1–2 is Low · n_eff = 3–9 is Medium · n_eff ≥ 10, or ≥ 3 classifiable written reviews from a second store, is High
+- If n ≥ 1 but n_eff = 0, it is still a full Buying Score, confidence Low, and the reason says so honestly, e.g. "Low · 3 written reviews read, none detailed enough to analyze".
 - **Downgrade one level** (not below Low) for each of: DiscrepancyFlag, or variant not fully resolved.
 - Display it as a label plus the reason, e.g. "Medium · 8 written reviews read · 4.5★ from 2,143 ratings".
 
 ## 7. Output modes
 | Data available | Output |
 |---|---|
-| n ≥ 1 and rating exists | **Buying Score** (S, verdict, confidence, quotes, strengths and complaints from real reviews only) |
-| n = 0, rating exists | **Provisional Marketplace Score** = B, rounded. Labelled "Provisional · based on marketplace rating only · 0 written reviews read". Shows "Leaning Buy / Leaning Wait / Leaning Skip", never a plain verdict. No strengths, complaints or quotes. Confidence is always Low. Main button: "Paste the exact product link for a full Buying Score" (retries on that exact listing). |
-| n ≥ 1, no rating | Buying Score from written evidence only: S = clamp(50 + 40·s̄·w − Neg, 0, 100), same caps, confidence Low. |
+| n ≥ 1 and rating exists | **Buying Score** (S, verdict, confidence, quotes, strengths and complaints from real reviews only). If n_eff = 0, confidence is Low with the reason "N written reviews read, none detailed enough to analyze". |
+| n = 0, rating exists | **Provisional Marketplace Score** = B rounded, capped at 74 when N < 50 ("Few ratings so far"). Labelled "Provisional · based on marketplace rating only · 0 written reviews read". Shows "Leaning Buy / Leaning Wait / Leaning Skip", never a plain verdict. No strengths, complaints or quotes. Confidence is always Low. Main button: "Paste the exact product link for a full Buying Score" (retries on that exact listing). |
+| n ≥ 1, no rating | Buying Score from written evidence only: S = clamp(50 + 40·s̄·w − Neg, 0, 100) with w from n_eff, same caps, confidence Low. |
 | n = 0, no rating | No score (the only case). Ask for the exact product link or a review screenshot. |
 
 ## 8. Worked examples

@@ -54,6 +54,8 @@ export type BuyingScoreSignals = {
   rating: number | null; // R̄
   ratingCount: number | null; // N
   n: number;
+  /** Classifiable reviews (text gives a sentiment or severity signal). Defaults to n. Drives w, EvidenceConf, discrepancy. */
+  nEff?: number;
   meanSentiment: number; // s̄
   visibleMeanStars: number | null; // r̄
   visibleLowShare?: number | null; // share (0-1) of 1-2★ among visible reviews
@@ -103,6 +105,7 @@ export type BuyingScoreResult = {
     Rstar: number | null;
     B: number | null;
     n: number;
+    nEff: number;
     sBar: number;
     rBar: number | null;
     w: number;
@@ -195,16 +198,17 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   const hasRating = rating !== null && count !== null;
   const n = Math.max(0, Math.floor(s.n));
   const quotes = s.quotes || { safety: [], reliability: [], positive: [], negative: [] };
-  const w = n / (n + EVIDENCE_HALF_WEIGHT);
-  const sBar = n > 0 ? clamp(s.meanSentiment, -1, 1) : 0;
-  const flag = hasRating ? discrepancyFlag({ ...s, n, rating }) : false;
+  const nEff = Math.min(n, Math.max(0, Math.floor(s.nEff ?? n)));
+  const w = nEff / (nEff + EVIDENCE_HALF_WEIGHT);
+  const sBar = nEff > 0 ? clamp(s.meanSentiment, -1, 1) : 0;
+  const flag = hasRating ? discrepancyFlag({ ...s, n: nEff, rating }) : false;
   const minCapped = Math.min(Math.max(0, s.min), 3);
   let neg = 6 * s.rel + 10 * s.saf + 4 * s.themes + 3 * minCapped;
   if (flag) neg *= 1.5;
   const pos = 10 * sBar * w;
   const A = clamp(pos - neg, ADJUSTMENT_MIN, ADJUSTMENT_MAX);
   const marketConf = hasRating ? marketConfidence(count) : null;
-  const evidenceConf = evidenceConfidence(n, s.secondStoreReviewCount || 0);
+  const evidenceConf = evidenceConfidence(nEff, s.secondStoreReviewCount || 0);
   const line = evidenceLine(n, rating, count);
   const recallText = recallStatement(s.recall);
   const warnings: BuyingScoreWarning[] = [];
@@ -214,7 +218,7 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
 
   const audit = (S: number | null, confidence: Confidence) => ({
     N: count, Rbar: rating, Rstar: base ? Math.round(base.rStar * 1000) / 1000 : null, B: base ? round1(base.B) : null,
-    n, sBar, rBar: s.visibleMeanStars, w: Math.round(w * 1000) / 1000, Pos: round1(pos), Neg: round1(neg), A: round1(A),
+    n, nEff, sBar, rBar: s.visibleMeanStars, w: Math.round(w * 1000) / 1000, Pos: round1(pos), Neg: round1(neg), A: round1(A),
     Rel: s.rel, Saf: s.saf, Min: minCapped, T: s.themes, discrepancyFlag: flag, capsApplied, S, confidence,
     marketConf, evidenceConf, openAiCalls: 0 as const, prior: { C: PRIOR_RATING_C, m: PRIOR_WEIGHT_M },
   });
@@ -222,12 +226,19 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   // ---- n = 0 ----------------------------------------------------------------
   if (n === 0) {
     if (hasRating) {
-      const score = Math.round(base!.B);
+      // Too-new cap also applies to the provisional score (Owner, 2026-10-12): N < 50 -> cap 74.
+      let raw = base!.B;
+      const provWarnings: BuyingScoreWarning[] = [];
+      if (count! < 50) {
+        provWarnings.push({ tier: "too_new", text: `Few ratings so far (only ${count} rating${count === 1 ? "" : "s"}).`, quotes: [] });
+        if (raw > CAP_TOO_NEW) { raw = CAP_TOO_NEW; capsApplied.push("too_new"); }
+      }
+      const score = Math.round(raw);
       return {
-        version: BUYING_SCORE_VERSION, mode: "provisional_marketplace", score, rawScore: round1(base!.B), verdict: null,
+        version: BUYING_SCORE_VERSION, mode: "provisional_marketplace", score, rawScore: round1(raw), verdict: null,
         leaning: verdictFromScore(score), label: "Provisional Marketplace Score",
         provisionalLabel: "Provisional · based on marketplace rating only · 0 written reviews read",
-        confidence: "Low", confidenceReason: `Low · ${line}`, evidenceLine: line, warnings: [],
+        confidence: "Low", confidenceReason: `Low · ${line}`, evidenceLine: line, warnings: provWarnings,
         notes: ["Based on the marketplace rating only. We couldn't read any written reviews yet. Paste the exact product link for a full Buying Score."],
         primaryAction: "Paste the exact product link for a full Buying Score", recallStatement: recallText,
         audit: audit(score, "Low"),
@@ -288,7 +299,9 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   return {
     version: BUYING_SCORE_VERSION, mode: hasRating ? "buying_score" : "written_only", score, rawScore: round1(S),
     verdict: verdictFromScore(score), leaning: null, label: "Buying Score", provisionalLabel: null,
-    confidence, confidenceReason: `${confidence} · ${line}`, evidenceLine: line, warnings, notes,
+    confidence, confidenceReason: nEff === 0
+      ? `${confidence} · ${n} written review${n === 1 ? "" : "s"} read, none detailed enough to analyze`
+      : nEff < n ? `${confidence} · ${line} (${nEff} detailed enough to analyze)` : `${confidence} · ${line}`, evidenceLine: line, warnings, notes,
     primaryAction: n < 3 ? "Paste the exact product link to read more reviews" : null, recallStatement: recallText,
     audit: audit(score, confidence),
   };
@@ -472,6 +485,8 @@ export type ClassifiedReview = {
   safety: string | null; // hazard key
   reliability: string | null; // failure key
   minor: string[];
+  /** false when the text gives no sentiment or severity signal (non-English, too terse). */
+  classifiable: boolean;
 };
 
 export function classifyReview(r: WrittenReview): ClassifiedReview {
@@ -484,7 +499,8 @@ export function classifyReview(r: WrittenReview): ClassifiedReview {
   const safety = SAFETY_HAZARDS.find((h) => hit(text, h.pattern))?.key || null;
   const reliability = RELIABILITY_FAILURES.find((f) => hit(text, f.pattern))?.key || null;
   const minor = MINOR_THEMES.filter((t) => hit(text, t.pattern)).map((t) => t.key);
-  return { sentiment: Math.round(sentiment * 1000) / 1000, safety, reliability, minor };
+  const classifiable = pos + neg > 0 || Boolean(safety || reliability) || minor.length > 0;
+  return { sentiment: Math.round(sentiment * 1000) / 1000, safety, reliability, minor, classifiable };
 }
 
 function shortQuote(r: WrittenReview, max = 220) {
@@ -560,15 +576,19 @@ export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
 
   const stores = new Map<string, number>();
   for (const r of deduped) stores.set(storeOf(r), (stores.get(storeOf(r)) || 0) + 1);
+  const classifiableStores = new Map<string, number>();
+  for (const { r, c } of classified) if (c.classifiable) classifiableStores.set(storeOf(r), (classifiableStores.get(storeOf(r)) || 0) + 1);
+  const usable = classified.filter(({ c }) => c.classifiable);
   const primary = input.primaryStore ? input.primaryStore.replace(/^www\./, "") : Array.from(stores.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-  const secondStoreReviewCount = Math.max(0, ...Array.from(stores.entries()).filter(([s]) => s !== primary).map(([, v]) => v));
+  const secondStoreReviewCount = Math.max(0, ...Array.from(classifiableStores.entries()).filter(([s]) => s !== primary).map(([, v]) => v));
 
   const marketOk = input.marketplace?.matchesExactModel !== false;
   const signals: BuyingScoreSignals = {
     rating: marketOk ? validRating(input.marketplace?.rating) : null,
     ratingCount: marketOk ? validCount(input.marketplace?.count) : null,
     n,
-    meanSentiment: n ? classified.reduce((a, { c }) => a + c.sentiment, 0) / n : 0,
+    nEff: usable.length,
+    meanSentiment: usable.length ? usable.reduce((a, { c }) => a + c.sentiment, 0) / usable.length : 0,
     visibleMeanStars,
     visibleLowShare,
     marketplaceLowShare: marketOk ? lowShareFromHistogram(input.marketplace?.histogram) : null,
