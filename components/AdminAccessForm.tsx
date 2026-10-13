@@ -107,7 +107,7 @@ export function AdminAccessForm() {
         />
       </label>
 
-      {error ? <p className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
 
       <button
         type="button"

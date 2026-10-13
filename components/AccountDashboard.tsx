@@ -13,7 +13,6 @@ import {
   profileCompletionMissingFields,
   type ClientAccount
 } from "@/lib/account";
-import { safeInternalPath } from "@/lib/safeNextPath";
 import {
   accountHeaders,
   clearClientAccount,
@@ -46,7 +45,7 @@ const planOptions: Array<{
   },
   {
     plan: "seller_premium",
-    title: "Seller Starter",
+    title: "Seller Premium",
     detail: "Seller analytics, complaint clustering, product improvement suggestions, and export-ready insights."
   },
   {
@@ -576,7 +575,7 @@ export function AccountDashboard() {
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const nextPath = safeInternalPath(params.get("next"));
+      const nextPath = params.get("next");
 
       if (params.get("completeProfile") === "1" && nextPath) {
         router.push(nextPath);
@@ -1028,7 +1027,7 @@ export function AccountDashboard() {
         </section>
       )}
 
-      {error ? <p className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
+      {error ? <p className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
 
       <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <h2 className="text-xl font-black tracking-tight text-ink dark:text-white">Saved analysis history</h2>
@@ -1090,7 +1089,7 @@ export function AccountDashboard() {
         <Link href="/manage-subscription" className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean dark:border-white/10 dark:bg-white/5 dark:text-white">
           Manage subscription
         </Link>
-        <button onClick={() => void signOut()} className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coralink dark:border-white/10 dark:bg-white/5 dark:text-white">
+        <button onClick={() => void signOut()} className="rounded-xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:bg-white/5 dark:text-white">
           Sign out
         </button>
       </div>

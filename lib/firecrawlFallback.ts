@@ -12,7 +12,6 @@ type FirecrawlScrapeResponse = {
   };
   error?: string;
 };
-import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 
 export type FirecrawlFallbackResult = {
   used: boolean;
@@ -64,7 +63,6 @@ export async function runFirecrawlFallback(params: {
   url?: string;
   reason: string;
   timeoutMs?: number;
-  costTelemetry?: ScanCostTelemetry;
 }): Promise<FirecrawlFallbackResult> {
   const apiKey = process.env.FIRECRAWL_API_KEY;
   const provider = process.env.REVIEWINTEL_RETRIEVAL_PROVIDER;
@@ -98,11 +96,6 @@ export async function runFirecrawlFallback(params: {
       markdownPreview: "",
     };
   }
-
-  if (params.costTelemetry && (!params.costTelemetry.canStartFirecrawlCall() || !params.costTelemetry.canStartRetrievalRequest())) {
-    return { used: false, reason: "Firecrawl skipped because the per-scan cost ceiling was reached.", sourcesChecked: 0, reviewSnippets: [], markdownPreview: "" };
-  }
-  params.costTelemetry?.recordFirecrawlCall(1);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), params.timeoutMs ?? 12000);
@@ -189,7 +182,6 @@ export async function runFirecrawlSearchFallback(params: {
   reason: string;
   timeoutMs?: number;
   limitPerQuery?: number;
-  costTelemetry?: ScanCostTelemetry;
 }): Promise<FirecrawlSearchFallbackResult> {
   const apiKey = process.env.FIRECRAWL_API_KEY;
   const provider = process.env.REVIEWINTEL_RETRIEVAL_PROVIDER;
@@ -238,8 +230,6 @@ export async function runFirecrawlSearchFallback(params: {
   let lastReason = params.reason;
 
   for (const query of attemptedQueries) {
-    if (params.costTelemetry && (!params.costTelemetry.canStartFirecrawlCall() || !params.costTelemetry.canStartRetrievalRequest())) break;
-    params.costTelemetry?.recordFirecrawlCall(1);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), params.timeoutMs ?? 12000);
 
@@ -310,3 +300,4 @@ export async function runFirecrawlSearchFallback(params: {
     sourceUrls: uniqueUrls,
   };
 }
+

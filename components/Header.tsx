@@ -155,7 +155,7 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
       : authenticatedAccount?.plan === "seller_pro"
       ? "Seller Pro"
       : authenticatedAccount?.plan === "seller_premium"
-        ? "Seller Starter"
+        ? "Seller Premium"
         : authenticatedAccount?.plan === "free_buyer"
           ? ""
           : authenticatedAccount?.plan

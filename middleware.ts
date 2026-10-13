@@ -32,53 +32,8 @@ function withSecurityHeaders(response: NextResponse) {
   return response;
 }
 
-// Admin API routes that must stay reachable without a session (they create or clear it).
-const ADMIN_API_OPEN = new Set(["/api/admin/access", "/api/admin/session", "/api/admin/logout"]);
-
-function adminSessionSecret() {
-  return (
-    process.env.REVIEWINTEL_ADMIN_SESSION_SECRET ||
-    process.env.REVIEWINTEL_ADMIN_CODE_HASH ||
-    process.env.REVIEWINTEL_ADMIN_CODE ||
-    (process.env.NODE_ENV === "production" ? "" : "reviewintel-local-admin-session")
-  );
-}
-
-function base64UrlFromBytes(bytes: ArrayBuffer) {
-  let binary = "";
-  for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-/** Edge-safe copy of verifyAdminSessionCookie (lib/adminAccess.ts): HMAC-SHA256 signature + expiry. */
-async function hasValidAdminSession(request: NextRequest) {
-  const value = request.cookies.get("reviewintel_admin_session")?.value;
-  const secret = adminSessionSecret();
-  if (!value || !secret) return false;
-  const [payload, signature] = value.split(".");
-  if (!payload || !signature) return false;
-  try {
-    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    const expected = base64UrlFromBytes(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload)));
-    if (expected.length !== signature.length) return false;
-    let diff = 0;
-    for (let i = 0; i < expected.length; i += 1) diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-    if (diff !== 0) return false;
-    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { role?: string; exp?: number };
-    return json.role === "admin" && typeof json.exp === "number" && json.exp > Math.floor(Date.now() / 1000);
-  } catch {
-    return false;
-  }
-}
-
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = request.nextUrl;
-
-  // Defence in depth: every /api/admin route needs a valid admin session, even if a
-  // route handler forgets its own check. Routes still verify the session themselves.
-  if (pathname.startsWith("/api/admin/") && !ADMIN_API_OPEN.has(pathname) && !(await hasValidAdminSession(request))) {
-    return withSecurityHeaders(NextResponse.json({ ok: false, error: "Admin access required." }, { status: 401 }));
-  }
 
   if (
     shouldBypass(pathname) ||
@@ -170,25 +125,15 @@ export async function middleware(request: NextRequest) {
     return withSecurityHeaders(NextResponse.redirect(target));
   }
 
-  // Signed-in shoppers never see seller tools: show a clean seller upsell at the same URL.
-  // (Seller APIs enforce the verified session separately; this cookie check only shapes the page.)
-  if (isProtectedSellerPath && isLoggedIn && !isSellerAccount) {
-    const target = request.nextUrl.clone();
-    target.pathname = "/seller-upsell";
-    target.search = "";
-    return withSecurityHeaders(NextResponse.rewrite(target));
-  }
-
-  // Seller Starter: competitor compare is Seller Pro. Show a locked preview, not a silent redirect.
   if (
     (pathname === "/dashboard/seller/compare" || pathname.startsWith("/dashboard/seller/compare/")) &&
     isPaidSellerAccount &&
     normalizedPlan !== "seller_pro"
   ) {
     const target = request.nextUrl.clone();
-    target.pathname = "/seller-upsell";
-    target.search = "?feature=compare";
-    return withSecurityHeaders(NextResponse.rewrite(target));
+    target.pathname = "/seller/analyze";
+    target.search = "";
+    return withSecurityHeaders(NextResponse.redirect(target));
   }
 
   if (
@@ -201,7 +146,16 @@ export async function middleware(request: NextRequest) {
     return withSecurityHeaders(NextResponse.redirect(target));
   }
 
-  // Free shoppers now see the hub as a preview (Premium tiles are shown locked with an upgrade path).
+  if (
+    (pathname === "/dashboard/customer" || pathname.startsWith("/dashboard/customer/")) &&
+    isBuyerAccount &&
+    !isShopperPremium
+  ) {
+    const target = request.nextUrl.clone();
+    target.pathname = "/analyze";
+    target.search = "";
+    return withSecurityHeaders(NextResponse.redirect(target));
+  }
 
   try {
     const response = await fetch(`${origin}/api/app-settings`, {

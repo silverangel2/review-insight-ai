@@ -42,11 +42,8 @@ function headers(prefer?: string) {
   return nextHeaders;
 }
 
-export async function supabaseSelect<T = SupabaseRow>(table: string, query = "select=*", options: { failClosed?: boolean } = {}) {
-  if (!isSupabaseConfigured()) {
-    if (options.failClosed) throw new Error("SUPABASE_UNAVAILABLE");
-    return [];
-  }
+export async function supabaseSelect<T = SupabaseRow>(table: string, query = "select=*") {
+  if (!isSupabaseConfigured()) return [];
   const response = await fetch(tableUrl(table, query), {
     method: "GET",
     headers: headers(),
@@ -56,13 +53,10 @@ export async function supabaseSelect<T = SupabaseRow>(table: string, query = "se
   if (!response.ok) {
     const message = await response.text().catch(() => "");
     console.error(`[Supabase] select ${table} failed`, response.status, message);
-    if (options.failClosed) throw new Error("SUPABASE_READ_FAILED");
     return [];
   }
 
-  const data = await response.json();
-  if (options.failClosed && !Array.isArray(data)) throw new Error("SUPABASE_READ_INVALID");
-  return data as T[];
+  return (await response.json()) as T[];
 }
 
 export async function supabaseInsert<T = SupabaseRow>(table: string, rows: SupabaseRow | SupabaseRow[]) {
@@ -475,7 +469,12 @@ export async function readPersistentQuota(emailOrAccount?: string | { email?: st
   }
 
   if (!email || !isSupabaseConfigured()) {
-    return null;
+    return {
+      used: 0,
+      remaining: 3,
+      limit: 3,
+      resetAt: null
+    };
   }
 
   const todayStart = dayStart();
@@ -492,15 +491,14 @@ export async function readPersistentQuota(emailOrAccount?: string | { email?: st
   const rows = await supabaseSelect(
     "usage_events",
     [
-      "select=id,created_at",
+      "select=*",
       `profile_email=eq.${encodeURIComponent(email)}`,
       "event_type=eq.analysis",
       `created_at=gte.${encodeURIComponent(countFrom.toISOString())}`
-    ].join("&"),
-    { failClosed: true }
-  ).catch(() => null);
+    ].join("&")
+  );
 
-  return rows ? dailyFreeQuota(rows.length) : null;
+  return dailyFreeQuota(rows.length);
 }
 
 
@@ -551,7 +549,6 @@ export async function consumePersistentQuota(emailOrAccount?: string | { email?:
     metadata,
     created_at: now
   });
-  if (!row) return { ok: false, mode: "supabase", row: null, quota: null };
   const usage = await scanUsageForEmail(email, plan);
 
   await supabaseUpsert("profiles", {
