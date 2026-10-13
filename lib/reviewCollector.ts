@@ -4,7 +4,7 @@ import { buildAmazonReviewPageUrls } from "./reviewRetrievalPolicy";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 
 
-import { extractMarketplaceAggregateFromHtml, type ExtractedMarketplaceAggregate } from "./marketplaceAggregate";
+import { extractMarketplaceAggregateFromHtml, marketplaceCountForCollection, type ExtractedMarketplaceAggregate } from "./marketplaceAggregate";
 export function isBlockedOrSignInReviewPage(input: {
   requestedUrl?: string | null;
   finalUrl?: string | null;
@@ -964,7 +964,7 @@ export async function collectWrittenReviewsFromListing(input: {
       sourcesUsed: Array.from(new Set(reviews.map((review) => review.sourceUrl || review.source))),
     });
 
-    const total = input.marketplaceReviewCount || null;
+    const total = marketplaceCountForCollection(marketplaceAggregate.count, input.marketplaceReviewCount);
     const coverage =
       total && reviews.length
         ? `${reviews.length} of ${total} public marketplace reviews were accessible as written text.`

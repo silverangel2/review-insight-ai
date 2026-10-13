@@ -153,7 +153,7 @@ test("actual shopper UI renders canonical values, review counts, and one-off cla
   assert.equal((html.match(/7 exact-product written reviews were analyzed from 1 source domain/g)||[]).length, 2);
   assert.equal((html.match(/unanswered customer support \(1 written review; one-off report\)/g)||[]).length, 2);
   assert.equal((html.match(/good value for the price \(1 written review; one-off report\)/g)||[]).length, 2);
-  assert.ok(html.includes("6.1"));
+  assert.ok(html.includes("6 / 100"));
   assert.ok(html.includes("Total marketplace reviews: 1,048"));
   assert.ok(html.includes("Single-source evidence"));
   assert.ok(html.includes("not your probability of satisfaction"));

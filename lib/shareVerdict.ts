@@ -3,7 +3,7 @@
 // without a database read, and the summary cannot be forged or edited.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
-import { deriveShopperAnswer } from "./shopperAnswer";
+import { deriveShopperAnswer, neutralProductLabel } from "./shopperAnswer";
 
 export type SharedPoint = { claim: string; quote: string | null; sourceUrl: string | null };
 export type SharedVerdict = {
@@ -36,7 +36,7 @@ const b64u = (buf: Buffer) => buf.toString("base64url");
 export function sharedVerdictFromResult(result: Record<string, unknown>, scanId: string, now = new Date()): SharedVerdict {
   const a = deriveShopperAnswer(result as never);
   const product = result.product && typeof result.product === "object" ? result.product as Record<string, unknown> : {};
-  const title = String(product.title || product.name || result.productName || "This product").slice(0, 140);
+  const title = (neutralProductLabel(product.title || product.name || result.productName) || "This product").slice(0, 140);
   const point = (p: (typeof a.loves)[number] | undefined): SharedPoint | null =>
     p ? { claim: p.claim, quote: p.quote ? p.quote.slice(0, 220) : null, sourceUrl: p.sourceUrl } : null;
   const listing = typeof result.exactListingUrl === "string" ? result.exactListingUrl : null;

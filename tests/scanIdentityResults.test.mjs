@@ -55,8 +55,8 @@ test("fetched listing title and ASIN outrank a screenshot nav name", () => {
   assert.equal(facts.authoritativeDisplayName({ listingTitle: FETCHED, screenshotName: NAV, asin: ASIN }), FETCHED);
   assert.equal(facts.authoritativeDisplayName({ listingTitle: "", screenshotName: OCR_TITLE, asin: ASIN }), OCR_TITLE);
   assert.equal(facts.authoritativeDisplayName({ listingTitle: "Robot Check", screenshotName: OCR_TITLE, asin: ASIN }), OCR_TITLE);
-  assert.equal(facts.authoritativeDisplayName({ listingTitle: "", screenshotName: NAV, asin: ASIN }), `Amazon ${ASIN}`);
-  assert.equal(facts.authoritativeDisplayName({ listingTitle: LISTING, screenshotName: NAV, asin: ASIN }), `Amazon ${ASIN}`);
+  assert.equal(facts.authoritativeDisplayName({ listingTitle: "", screenshotName: NAV, asin: ASIN }), "Amazon product");
+  assert.equal(facts.authoritativeDisplayName({ listingTitle: LISTING, screenshotName: NAV, asin: ASIN }), "Amazon product");
   assert.equal(facts.authoritativeDisplayName({ screenshotName: FETCHED }), FETCHED);
   assert.equal(facts.authoritativeDisplayName({ screenshotName: NAV }), "");
   const route = readFileSync(new URL("../app/api/analyze/route.ts", import.meta.url), "utf8");
@@ -96,10 +96,14 @@ test("a supplied ASIN is accepted even when the screenshot name is the nav menu"
 });
 
 test("signed-out scan owner can view their scan and cannot view someone else's", () => {
+  process.env.REVIEWINTEL_SCAN_ACCESS_SECRET = "test-scan-access-secret";
   const scanId = "scan_echo_dot_owner";
+  const token = access.scanAccessToken(scanId);
   assert.equal(ownership.signedOutOwnsScan(scanId, { cookieGrant: true }), true);
   assert.equal(ownership.signedOutOwnsScan(scanId, { sessionScanId: scanId }), true);
-  assert.equal(ownership.signedOutOwnsScan(scanId, { scanToken: "token-from-this-scan" }), true);
+  assert.equal(ownership.signedOutOwnsScan(scanId, { scanToken: token }), true);
+  assert.equal(ownership.signedOutOwnsScan(scanId, { scanToken: "token-from-this-scan" }), false);
+  assert.equal(ownership.signedOutOwnsScan(scanId, { scanToken: `${token.slice(0, -1)}x` }), false);
   assert.equal(ownership.signedOutOwnsScan(scanId, { ownedScanIds: [scanId] }), true);
   assert.equal(ownership.signedOutOwnsScan(scanId, { sessionScanId: "scan_other", ownedScanIds: ["scan_other"] }), false);
   assert.equal(ownership.signedOutOwnsScan("", { cookieGrant: true }), false);

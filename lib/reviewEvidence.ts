@@ -2941,6 +2941,7 @@ export async function collectAndAnalyzeReviewEvidence(
       evidenceAdjudication,
       reviewsFound: commentsAnalyzed,
       marketplaceReviewCount: firstPositiveNumber(
+        collectedWrittenReviews.marketplaceAggregate?.count,
         localDisplayListingEvidence?.reviewCount,
         input.reviewCount
       ),

@@ -47,7 +47,7 @@ test("blank anti-bot page falls back to the OCR product title, then Amazon ASIN"
 
   assert.equal(facts.authoritativeDisplayName({ listingTitle: page.title, screenshotName: ocr.name, asin: ASIN }), OCR_TITLE);
   assert.equal(facts.authoritativeDisplayName({ listingTitle: "Robot Check", screenshotName: ocr.name, asin: ASIN }), OCR_TITLE);
-  assert.equal(facts.authoritativeDisplayName({ listingTitle: "", screenshotName: NAV, asin: ASIN }), `Amazon ${ASIN}`);
+  assert.equal(facts.authoritativeDisplayName({ listingTitle: "", screenshotName: NAV, asin: ASIN }), "Amazon product");
   assert.equal(facts.authoritativeDisplayName({
     listingTitle: "Echo Dot (5th Gen, 2022 release) | Smart speaker with Alexa",
     screenshotName: ocr.name,

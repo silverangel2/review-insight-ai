@@ -66,24 +66,24 @@ export function VerdictSummaryCard({ summary, eyebrow, headingLevel = "h2" }: { 
       <Heading className="mt-2 text-xl font-semibold leading-snug text-slate-900 sm:text-2xl">{summary.product}</Heading>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <span className={`rounded-full px-4 py-1.5 text-base font-semibold ${LABEL_STYLE[summary.kind] || "bg-slate-100 text-slate-900"}`}>{summary.label}</span>
-        {summary.score !== null ? <span className="text-sm text-slate-600">Score <CountUp value={summary.score} /> / 10</span> : null}
+        {summary.score !== null ? <span className="text-sm text-slate-600">Score <CountUp value={summary.score} decimals={0} /> / 100</span> : null}
       </div>
       <p className="mt-4 text-base leading-7 text-slate-700">{summary.why}</p>
       {summary.example ? (
         <p className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-500" data-testid="example-note">Design illustration only: not a real product, real score or real reviews.</p>
-      ) : (
+      ) : summary.reviewCount > 0 ? (
       <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-sm">
         <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-0.5 font-semibold text-slate-900">{confidence}</dd></div>
         <div><dt className="text-slate-500">Based on</dt><dd className="mt-0.5 font-semibold text-slate-900">{summary.reviewCount} real buyer review{summary.reviewCount === 1 ? "" : "s"}</dd></div>
       </dl>
-      )}
+      ) : null}
       {summary.loves.length || summary.complaints.length ? (
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           {summary.loves.length ? <ul className="space-y-4" aria-label="What buyers love">{summary.loves.map((p, n) => <Quote key={p.claim} point={p} tone="love" delay={n * 120} />)}</ul> : null}
           {summary.complaints.length ? <ul className="space-y-4" aria-label="What buyers complain about">{summary.complaints.map((p, n) => <Quote key={p.claim} point={p} tone="complaint" delay={360 + n * 120} />)}</ul> : null}
         </div>
       ) : null}
-      {!summary.example && summary.sources.length ? <p className="mt-5 text-xs text-slate-500">Based on {summary.reviewCount} real buyer reviews from {summary.sources.join(", ")}.</p> : null}
+      {!summary.example && summary.reviewCount > 0 && summary.sources.length ? <p className="mt-5 text-xs text-slate-500">Based on {summary.reviewCount} real buyer reviews from {summary.sources.join(", ")}.</p> : null}
     </article>
   );
 }

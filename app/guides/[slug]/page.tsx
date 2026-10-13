@@ -91,7 +91,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             {g.products.map(p => (
               <li key={p.title} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
                 <span className="min-w-0 font-medium text-slate-900">{p.title}</span>
-                <span className="text-slate-600">{p.label}{p.score !== null ? ` · ${p.score.toFixed(1)}/10` : ""} · {p.reviewCount} reviews</span>
+                <span className="text-slate-600">{p.label}{p.score !== null ? ` · ${Math.round(p.score)} / 100` : ""} · {p.reviewCount} reviews</span>
               </li>
             ))}
           </ul>

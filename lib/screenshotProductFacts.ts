@@ -46,9 +46,12 @@ function cleanProductTitle(value: string | null | undefined): string {
   return text;
 }
 
+/** Neutral label when the only identity we have is an ASIN. Never show the raw code as the product name. */
+export const NEUTRAL_AMAZON_PRODUCT_LABEL = "Amazon product";
+
 /**
  * Prefer the link's fetched title. If that page cannot be read, use the screenshot's
- * product-title line (not nav or menu text). "Amazon <ASIN>" is only the last resort.
+ * product-title line (not nav or menu text). A bare ASIN becomes a neutral label.
  */
 export function authoritativeDisplayName(input: { listingTitle?: string | null; screenshotName?: string | null; asin?: string | null }): string {
   const listing = cleanProductTitle(input.listingTitle);
@@ -56,7 +59,7 @@ export function authoritativeDisplayName(input: { listingTitle?: string | null; 
   const screenshot = cleanProductTitle(input.screenshotName);
   if (screenshot) return screenshot;
   const asin = String(input.asin || "").trim().toUpperCase();
-  if (/^[A-Z0-9]{10}$/.test(asin)) return `Amazon ${asin}`;
+  if (/^[A-Z0-9]{10}$/.test(asin)) return NEUTRAL_AMAZON_PRODUCT_LABEL;
   return "";
 }
 

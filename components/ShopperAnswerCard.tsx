@@ -81,25 +81,31 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
         <p className="text-sm text-slate-500">Our answer</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <span className={`ri-reveal rounded-full px-5 py-2 text-2xl font-bold tracking-tight sm:text-3xl ${tone.chip}`}>{answer.label}</span>
-          {answer.score !== null ? <span className="text-sm text-slate-500">Score <CountUp value={answer.score} /> / 10</span> : null}
+          {answer.score !== null ? <span className="text-sm text-slate-500">Score <CountUp value={answer.score} decimals={0} /> / 100</span> : null}
         </div>
-        <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-800 sm:text-xl">{answer.why}</p>
+        <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-800 sm:text-xl" data-testid={answer.unreadable ? "unreadable-amazon-page" : undefined}>{answer.why}</p>
+        {answer.unreadable ? (
+          <p className="mt-4 text-sm leading-6 text-slate-600">Add a screenshot of the product page if a retry still cannot read it.</p>
+        ) : (
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-3">
           <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{formatShopperConfidence(answer)}</dd></div>
           <div><dt className="text-slate-500">Value for money</dt><dd className="mt-1 font-semibold text-slate-900">{answer.value}</dd></div>
           <div className="col-span-2 sm:col-span-1"><dt className="text-slate-500">Based on</dt><dd className="mt-1 font-semibold text-slate-900">{answer.reviewCount} real reviews</dd></div>
         </dl>
-        <p className="mt-5 text-sm text-slate-500">{answer.trustLine}</p>
+        )}
+        {answer.unreadable ? null : <p className="mt-5 text-sm text-slate-500">{answer.trustLine}</p>}
         <p className="mt-2 text-xs leading-5 text-slate-500" data-testid="independence-note">
           {INDEPENDENCE_STATEMENT}{" "}
           <a href="/affiliate-disclosure" className="underline underline-offset-2 hover:text-teal">Affiliate disclosure</a> · <a href="/terms" className="underline underline-offset-2 hover:text-teal">Terms</a> · <a href="/privacy" className="underline underline-offset-2 hover:text-teal">Privacy</a>
         </p>
       </section>
 
+      {answer.unreadable ? null : (
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <PointList title="What buyers love" points={answer.loves} empty="No repeated praise in the real reviews yet." tint="bg-mint" />
         <PointList title="What buyers complain about" points={answer.complaints} empty="No repeated complaints in the real reviews." tint="bg-peach" />
       </div>
+      )}
 
       {answer.nextSteps.length ? (
         <section className="rounded-3xl bg-butter p-5 sm:p-6">
@@ -111,7 +117,7 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
                 <p className="mt-1 text-sm leading-6 text-slate-600">{step.detail}</p>
                 {step.id === "screenshots" ? <ScreenshotUpload productName={productName} /> : (
                   <Link href={step.href || "/analyze"} className="mt-3 inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal">
-                    {step.id === "compare" ? "Scan another product" : "Scan the Amazon listing"}
+                    {step.label}
                   </Link>
                 )}
               </li>

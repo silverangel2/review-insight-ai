@@ -18,8 +18,24 @@ export type ShopperAnswer = {
   confidencePercent: number | null;
   value: string;
   score: number | null;
-  nextSteps: Array<{ id: "screenshots" | "amazon_listing" | "compare"; label: string; detail: string; href?: string }>;
+  /** The Amazon page was blank or unreadable, so this answer must not talk about review counts. */
+  unreadable: boolean;
+  nextSteps: Array<{ id: "screenshots" | "amazon_listing" | "compare" | "retry"; label: string; detail: string; href?: string }>;
 };
+
+export const UNREADABLE_AMAZON_MESSAGE = "We couldn't read this Amazon page right now.";
+export const NEUTRAL_AMAZON_PRODUCT_LABEL = "Amazon product";
+
+export function isAsinPlaceholder(value: unknown) {
+  return /^Amazon [A-Z0-9]{10}$/i.test(String(value || "").replace(/\s+/g, " ").trim());
+}
+
+/** Shopper-facing name. A raw ASIN placeholder becomes a neutral label. */
+export function neutralProductLabel(value: unknown) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (isAsinPlaceholder(text)) return NEUTRAL_AMAZON_PRODUCT_LABEL;
+  return text;
+}
 
 /** Shown when written evidence is thin. Names the real count elsewhere; this is the next step. */
 export const THIN_EVIDENCE_NEXT_STEP = "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
@@ -171,8 +187,31 @@ function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>): ShopperPo
   return points;
 }
 
+function productTitleOf(result: Rec) {
+  const product = obj(result.product);
+  return String(product.title || product.name || result.productName || result.title || "").trim();
+}
+
+/** Blank Amazon page: a link was given, no real title was read, and no written reviews exist. */
+export function isUnreadableAmazonPage(input: unknown): boolean {
+  const result = obj(input);
+  if (writtenReviewCount(result, acceptedRecords(result)) > 0) return false;
+  const buying = obj(result.buyingScoreV2);
+  if (buying.mode === "provisional_marketplace" || buying.mode === "buying_score" || buying.mode === "written_only") return false;
+  const title = productTitleOf(result);
+  const listing = obj(obj(result.reviewEvidence).listingEvidence);
+  const listingTitle = String(listing.exactListingTitle || listing.title || "").trim();
+  const realTitle = [title, listingTitle].some((value) => {
+    const text = value.trim();
+    return Boolean(text) && !isAsinPlaceholder(text) && text !== NEUTRAL_AMAZON_PRODUCT_LABEL && !/robot check|captcha|not a robot/i.test(text);
+  });
+  if (realTitle) return false;
+  return listingUrls(result).some(isAmazonListing) || isAsinPlaceholder(title) || title === NEUTRAL_AMAZON_PRODUCT_LABEL;
+}
+
 /** Shopper-facing confidence. A missing number stays missing — it is never shown as 0. Thin evidence is labeled Low with the real count. */
-export function formatShopperConfidence(answer: Pick<ShopperAnswer, "kind" | "confidencePercent" | "confidenceWords" | "reviewCount">): string {
+export function formatShopperConfidence(answer: Pick<ShopperAnswer, "kind" | "confidencePercent" | "confidenceWords" | "reviewCount"> & { unreadable?: boolean }): string {
+  if (answer.unreadable) return "Try again";
   const countLabel = `${answer.reviewCount} real review${answer.reviewCount === 1 ? "" : "s"}`;
   if (answer.kind === "not_enough") {
     const percent = answer.confidencePercent !== null && answer.confidencePercent > 0 ? `${answer.confidencePercent}% · ` : "";
@@ -235,6 +274,36 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const urls = listingUrls(result);
   const amazonUrl = urls.find(isAmazonListing) || null;
   const listingUrl = amazonUrl || urls[0] || null;
+  if (isUnreadableAmazonPage(result)) {
+    return {
+      kind: "not_enough",
+      label: "Try again",
+      why: UNREADABLE_AMAZON_MESSAGE,
+      loves: [],
+      complaints: [],
+      reviewCount: 0,
+      sources: [],
+      trustLine: "Add a screenshot of the product page and try the scan again.",
+      confidenceWords: "Unknown",
+      confidencePercent: null,
+      value: "Unknown",
+      score: null,
+      unreadable: true,
+      nextSteps: [
+        {
+          id: "retry",
+          label: "Try again",
+          detail: "We couldn't read this Amazon page right now. Retry the scan in a moment.",
+          href: amazonUrl ? `/analyze?url=${encodeURIComponent(amazonUrl)}` : "/analyze",
+        },
+        {
+          id: "screenshots",
+          label: "Add a screenshot",
+          detail: "Add a screenshot of the product page so we can read the title, stars, and reviews.",
+        },
+      ],
+    };
+  }
   const nextSteps: ShopperAnswer["nextSteps"] = (kind === "not_enough" || reviewCount < 10) ? [
     {
       id: "amazon_listing",
@@ -246,5 +315,5 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     { id: "compare", label: "Compare with an alternative", detail: "Scan a similar product and compare what real buyers say." },
   ] : [];
 
-  return { kind, label, why, loves, complaints, reviewCount, sources, trustLine, confidenceWords, confidencePercent, value, score, nextSteps };
+  return { kind, label, why, loves, complaints, reviewCount, sources, trustLine, confidenceWords, confidencePercent, value, score, unreadable: false, nextSteps };
 }

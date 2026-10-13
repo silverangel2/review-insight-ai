@@ -1,6 +1,7 @@
 import { stableProductSearchTerms } from "./productIdentityTokens";
 import { isBlockedOrSignInReviewPage } from "./reviewCollector";
 import { isDriftSearchQuery, isUnusableListingTitle, preferredAmazonHost } from "./listingAuthority";
+import { extractMarketplaceAggregateFromHtml } from "./marketplaceAggregate";
 
 export type RetrievedProductUrl = {
   url: string;
@@ -351,18 +352,11 @@ export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
     : null;
   const usableTitle = cleanTitle && !isUnusableListingTitle(cleanTitle) ? cleanTitle : null;
 
-  const ratingText =
-    html.match(/([0-5](?:\.\d)?)\s+out of\s+5\s+stars/i)?.[1] ||
-    html.match(/"ratingValue"\s*:\s*"?([0-5](?:\.\d)?)"?/i)?.[1] ||
-    null;
-
-  const reviewText =
-    html.match(/([\d,]+)\s+(?:ratings?|reviews?)/i)?.[1] ||
-    html.match(/"reviewCount"\s*:\s*"?([\d,]+)"?/i)?.[1] ||
-    null;
-
-  const rating = ratingText ? Number(ratingText) : null;
-  const reviewCount = reviewText ? Number(reviewText.replace(/,/g, "")) : null;
+  // Main rating block only. Comparison and sponsored widgets also say "N reviews"
+  // and must not become the marketplace count.
+  const aggregate = extractMarketplaceAggregateFromHtml(html);
+  const rating = aggregate.rating;
+  const reviewCount = aggregate.count;
 
   const products: Record<string, unknown>[] = [];
   const visit = (node: unknown, depth = 0) => {

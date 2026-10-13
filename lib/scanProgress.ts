@@ -42,7 +42,28 @@ function progressStoreBase() {
   return url.replace(/\/$/, "");
 }
 
+const PROGRESS_TABLE_MISSING = "__reviewIntelProgressTableMissing";
+
+/** True after one response shows reviewintel_scan_progress does not exist. Later writes are skipped. */
+export function progressTableWritesDisabled() {
+  return (globalThis as Record<string, unknown>)[PROGRESS_TABLE_MISSING] === true;
+}
+
+export function resetProgressTableProbeForTests() {
+  delete (globalThis as Record<string, unknown>)[PROGRESS_TABLE_MISSING];
+}
+
+/** Remember a missing-table response. Other failures (network, 500) are not cached. */
+export function observeProgressTableResponse(status: number, body: string) {
+  if (progressTableWritesDisabled()) return;
+  const missing =
+    status === 404 ||
+    /PGRST205|42P01|could not find the table|schema cache|does not exist/i.test(String(body || ""));
+  if (missing) (globalThis as Record<string, unknown>)[PROGRESS_TABLE_MISSING] = true;
+}
+
 function persistSnapshot(snapshot: ScanProgressSnapshot) {
+  if (progressTableWritesDisabled()) return;
   const base = progressStoreBase();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (!base || !key) return;
@@ -56,6 +77,10 @@ function persistSnapshot(snapshot: ScanProgressSnapshot) {
     },
     body: JSON.stringify({ scan_id: snapshot.scanId, snapshot, updated_at: new Date().toISOString() }),
     cache: "no-store",
+  }).then(async (response) => {
+    if (response.ok) return;
+    const body = await response.text().catch(() => "");
+    observeProgressTableResponse(response.status, body);
   }).catch(() => null);
 }
 
@@ -100,6 +125,7 @@ export function getScanProgress(scanId: string): ScanProgressSnapshot | null {
 export async function readScanProgress(scanId: string): Promise<ScanProgressSnapshot | null> {
   const local = getScanProgress(scanId);
   if (local) return local;
+  if (progressTableWritesDisabled()) return null;
   const base = progressStoreBase();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (!base || !key || !safeId(scanId)) return null;
@@ -107,7 +133,13 @@ export async function readScanProgress(scanId: string): Promise<ScanProgressSnap
     `${base}/rest/v1/reviewintel_scan_progress?select=snapshot&scan_id=eq.${encodeURIComponent(scanId)}&limit=1`,
     { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" },
   ).catch(() => null);
-  if (!response?.ok) return null;
+  if (!response?.ok) {
+    if (response) {
+      const body = await response.text().catch(() => "");
+      observeProgressTableResponse(response.status, body);
+    }
+    return null;
+  }
   const rows = await response.json().catch(() => []) as Array<{ snapshot?: ScanProgressSnapshot }>;
   const snapshot = rows?.[0]?.snapshot;
   return snapshot && typeof snapshot === "object" ? { ...snapshot, scanId } : null;
