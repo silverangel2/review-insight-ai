@@ -865,8 +865,8 @@ export async function runNativeReviewRetrieval(
   const normalFetchFailed = normalFetchAttempted && normalFetchSuccesses <= 0;
   const playwrightFailed = playwrightAttempted && playwrightSuccesses <= 0;
   const coverageNote = dedupedReviews.length
-    ? `Native retrieval collected ${dedupedReviews.length} written review texts from public pages without an external fallback scraper.`
-    : `Native retrieval checked ${uniqueSourcesChecked.length} search/page sources but did not extract usable written review texts.`;
+    ? "Native retrieval collected written review texts from public pages without an external fallback scraper."
+    : "Native retrieval checked public search and page sources but did not extract usable written review texts.";
 
   await renderer?.close();
   activePoliteFetcher = null;

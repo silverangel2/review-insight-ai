@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return { title: "Shared verdict", robots: { index: false } };
   const score = data.score !== null ? ` · ${Math.round(data.score)} / 100` : "";
   const title = `${data.label}: ${data.product}`;
-  const description = `${data.label}${score}. ${data.why}${data.reviewCount > 0 ? ` Based on ${data.reviewCount} real buyer reviews.` : ""}`;
+  const description = `${data.label}${score}. ${data.why}`;
   return {
     title, description, robots: { index: false },
     openGraph: { title, description, type: "article" },

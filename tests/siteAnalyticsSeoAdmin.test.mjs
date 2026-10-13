@@ -54,7 +54,8 @@ test("analytics: Do Not Track is respected and sign-ins can't be faked from the 
 test("low-review compares say Low + real counts + a next step, never 'not scored'", () => {
   const { lowConfidenceShopperCompare } = jiti("./lib/shopperCompareFree.ts");
   const s = lowConfidenceShopperCompare(2, 0);
-  assert.equal(s.verdictHeadline, "Low confidence · 2 vs 0 real reviews");
+  assert.equal(s.verdictHeadline, "Low confidence");
+  assert.doesNotMatch(`${s.summary} ${s.reasons.join(" ")}`, /\d+ real review/);
   assert.match(s.nextSteps.join(" "), /Scan the Amazon link/);
   const { lowConfidenceSellerCompare } = jiti("./lib/sellerCompareFree.ts");
   const p = lowConfidenceSellerCompare({ commentsAnalyzed: 3 }, {});

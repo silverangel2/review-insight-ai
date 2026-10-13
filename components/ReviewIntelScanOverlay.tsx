@@ -88,8 +88,6 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
   const counters: Array<{ label: string; value: string | null }> = [
     { label: "Product identified", value: live ? (live.productIdentified ? "Yes" : "Working…") : null },
     { label: "Sources checked", value: live ? String(live.sourcesChecked) : null },
-    { label: "Reviews found", value: live && live.reviewsFound !== null ? String(live.reviewsFound) : null },
-    { label: "Real reviews kept", value: live && live.reviewsAccepted !== null ? String(live.reviewsAccepted) : null },
   ];
 
   const overlay = (

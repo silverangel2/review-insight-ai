@@ -57,7 +57,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 export function watchAlertEmail(input: { productName: string; reason: WatchDecision["reason"]; previousVerdict: string | null; verdict: string | null; acceptedCount: number; resultUrl: string; unwatchUrl: string }) {
   const why = input.reason === "verdict_changed"
     ? `The verdict changed from ${input.previousVerdict || "unknown"} to ${input.verdict || "unknown"}.`
-    : `${input.acceptedCount} real buyer reviews are now included.`;
+    : "New buyer reviews are now included.";
   const subject = `Update on ${input.productName}`;
   const text = `${why}\n\nSee the full result: ${input.resultUrl}\n\nStop watching this product: ${input.unwatchUrl}`;
   const html = `<p>${esc(why)}</p><p><a href="${esc(input.resultUrl)}">See the full result</a></p><p style="color:#64748b;font-size:13px"><a href="${esc(input.unwatchUrl)}">Stop watching this product</a></p>`;

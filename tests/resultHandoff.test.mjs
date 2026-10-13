@@ -99,11 +99,10 @@ test("explicit history selection carries the selected scan identity", () => {
 });
 
 test("source wording separates accepted review evidence from discovery sources", () => {
-  assert.match(results, /exact-product written review/);
-  assert.match(results, /verified review evidence/);
+  assert.match(results, /Verified review evidence/);
   assert.match(results, /Additional web sources were checked for product matching and supporting context/);
   assert.match(results, /Discovery sources checked/);
-  assert.match(results, /Accepted written reviews/);
+  assert.doesNotMatch(results, /Accepted written reviews|Reviews analyzed by ReviewIntel|real reviews analyzed/);
   assert.match(results, /Discovery\/context:/);
 });
 

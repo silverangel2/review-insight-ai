@@ -179,10 +179,10 @@ export function discrepancyFlag(s: Pick<BuyingScoreSignals, "n" | "rating" | "vi
 function formatStars(r: number) {
   return `${Number.isInteger(r) ? r.toFixed(1) : String(round1(r))}★`;
 }
-export function evidenceLine(n: number, rating: number | null, count: number | null) {
-  const read = `${n} written review${n === 1 ? "" : "s"} read`;
-  if (rating === null) return count ? `${read} · ${count.toLocaleString("en-US")} ratings (no average shown)` : `${read} · no marketplace rating found`;
-  return `${read} · ${formatStars(rating)} from ${count ? count.toLocaleString("en-US") : "an unknown number of"} rating${count === 1 ? "" : "s"}`;
+export function evidenceLine(writtenCount: number, rating: number | null, count: number | null) {
+  void writtenCount;
+  if (rating === null) return count ? `${count.toLocaleString("en-US")} ratings (no average shown)` : "No marketplace rating found";
+  return `${formatStars(rating)} from ${count ? count.toLocaleString("en-US") : "an unknown number of"} rating${count === 1 ? "" : "s"}`;
 }
 
 /** Recall wording rule (section 8, example 5). Says nothing unless a source was actually queried this scan. */
@@ -237,7 +237,7 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
       return {
         version: BUYING_SCORE_VERSION, mode: "provisional_marketplace", score, rawScore: round1(raw), verdict: null,
         leaning: verdictFromScore(score), label: "Provisional Marketplace Score",
-        provisionalLabel: "Provisional · based on marketplace rating only · 0 written reviews read",
+        provisionalLabel: "Provisional · based on marketplace rating only",
         confidence: "Low", confidenceReason: `Low · ${line}`, evidenceLine: line, warnings: provWarnings,
         notes: ["Based on the marketplace rating only. We couldn't read any written reviews yet. Paste the exact product link for a full Buying Score."],
         primaryAction: "Paste the exact product link for a full Buying Score", recallStatement: recallText,
@@ -262,12 +262,12 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   }
   const hazard = s.safHazard || "a safety hazard";
   if (s.safSameHazard >= 2) {
-    caps.push({ cap: CAP_REPEATED_SAFETY, key: "repeated_safety", warning: { tier: "repeated_safety", text: `Several customers independently report ${hazard} (${s.safSameHazard} of ${n} reviews read).`, quotes: quotes.safety.slice(0, 3) } });
+    caps.push({ cap: CAP_REPEATED_SAFETY, key: "repeated_safety", warning: { tier: "repeated_safety", text: `Several customers independently report ${hazard}.`, quotes: quotes.safety.slice(0, 3) } });
   } else if (s.saf >= 1) {
     caps.push({ cap: CAP_SINGLE_SAFETY, key: "single_safety", warning: { tier: "single_safety", text: `One customer reported ${hazard} (single unverified report).`, quotes: quotes.safety.slice(0, 1) } });
   }
   if (s.relSameTheme >= 2) {
-    caps.push({ cap: CAP_REPEATED_RELIABILITY, key: "repeated_reliability", warning: { tier: "repeated_reliability", text: `Repeated reports of ${s.relTheme || "the product failing"} (${s.relSameTheme} of ${n} reviews read).`, quotes: quotes.reliability.slice(0, 3) } });
+    caps.push({ cap: CAP_REPEATED_RELIABILITY, key: "repeated_reliability", warning: { tier: "repeated_reliability", text: `Repeated reports of ${s.relTheme || "the product failing"}.`, quotes: quotes.reliability.slice(0, 3) } });
   }
   if ((count ?? 0) < 50 && n < 10) {
     caps.push({ cap: CAP_TOO_NEW, key: "too_new", warning: { tier: "too_new", text: hasRating
@@ -282,7 +282,7 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
     warnings.push({ tier: "discrepancy", text: `The reviews we could read are noticeably worse than the ${formatStars(rating!)} overall rating.`, quotes: [] });
   }
   if (s.topThemeLabel && (s.topThemeCount || 0) >= 2 && !s.relSameTheme) {
-    notes.push(`${Math.abs(sBar) < 0.15 ? "Buyers are split. " : ""}The most common complaint is ${s.topThemeLabel} (${s.topThemeCount} of ${n} reviews read).`);
+    notes.push(`${Math.abs(sBar) < 0.15 ? "Buyers are split. " : ""}The most common complaint is ${s.topThemeLabel}.`);
   }
 
   const score = Math.round(S);
@@ -299,9 +299,9 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   return {
     version: BUYING_SCORE_VERSION, mode: hasRating ? "buying_score" : "written_only", score, rawScore: round1(S),
     verdict: verdictFromScore(score), leaning: null, label: "Buying Score", provisionalLabel: null,
-    confidence, confidenceReason: nEff === 0
-      ? `${confidence} · ${n} written review${n === 1 ? "" : "s"} read, none detailed enough to analyze`
-      : nEff < n ? `${confidence} · ${line} (${nEff} detailed enough to analyze)` : `${confidence} · ${line}`, evidenceLine: line, warnings, notes,
+    confidence, confidenceReason: nEff === 0 && n > 0
+      ? `${confidence} · ${line}; written reviews were not detailed enough to analyze`
+      : `${confidence} · ${line}`, evidenceLine: line, warnings, notes,
     primaryAction: n < 3 ? "Paste the exact product link to read more reviews" : null, recallStatement: recallText,
     audit: audit(score, confidence),
   };

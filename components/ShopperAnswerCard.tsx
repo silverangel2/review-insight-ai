@@ -23,7 +23,6 @@ function PointList({ title, points, empty, tint = "bg-white" }: { title: string;
             <li key={point.claim}>
               <p className="font-semibold text-slate-900">
                 {point.claim.charAt(0).toUpperCase() + point.claim.slice(1)}
-                <span className="ml-2 text-xs font-normal text-slate-400">{point.count} review{point.count === 1 ? "" : "s"}</span>
               </p>
               {point.quote && point.quote !== point.claim ? (
                 <blockquote className="ri-fade-in mt-2 border-l-2 border-teal pl-3 text-sm leading-6 text-slate-600">
@@ -58,7 +57,7 @@ function ScreenshotUpload({ productName }: { productName: string }) {
       const data = await response.json().catch(() => null);
       if (!response.ok) { setStatus(data?.error || "We couldn't read those screenshots."); return; }
       const accepted = (data?.results || []).reduce((sum: number, item: { accepted?: unknown[] }) => sum + (item.accepted?.length || 0), 0);
-      setStatus(accepted ? `We found ${accepted} real review${accepted === 1 ? "" : "s"} of this product in your screenshots.` : "We read the screenshots but found no reviews we could verify for this exact product.");
+      setStatus(accepted ? "We found real reviews of this product in your screenshots." : "We read the screenshots but found no reviews we could verify for this exact product.");
     } catch { setStatus("Upload failed. Please try again."); } finally { setBusy(false); }
   }
   return (
@@ -87,10 +86,9 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
         {answer.unreadable ? (
           <p className="mt-4 text-sm leading-6 text-slate-600">Add a screenshot of the product page if a retry still cannot read it.</p>
         ) : (
-        <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-3">
+        <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm">
           <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{formatShopperConfidence(answer)}</dd></div>
           <div><dt className="text-slate-500">Value for money</dt><dd className="mt-1 font-semibold text-slate-900">{answer.value}</dd></div>
-          <div className="col-span-2 sm:col-span-1"><dt className="text-slate-500">Based on</dt><dd className="mt-1 font-semibold text-slate-900">{answer.reviewCount} real reviews</dd></div>
         </dl>
         )}
         {answer.unreadable ? null : <p className="mt-5 text-sm text-slate-500">{answer.trustLine}</p>}

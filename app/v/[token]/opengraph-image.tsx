@@ -23,7 +23,7 @@ export default async function Image({ params }: { params: Promise<{ token: strin
             {data?.score !== null && data?.score !== undefined ? <div style={{ display: "flex", marginLeft: 28, fontSize: 36, color: "#475569" }}>{`Score ${Math.round(data.score)} / 100`}</div> : null}
           </div>
         </div>
-        <div style={{ display: "flex", fontSize: 28, color: "#475569" }}>{data && data.reviewCount > 0 ? `Based on ${data.reviewCount} real buyer reviews${data.sources.length ? ` from ${data.sources.join(", ")}` : ""}` : data ? "Not enough written reviews to judge yet" : "Real buyer reviews, plain answers"}</div>
+        <div style={{ display: "flex", fontSize: 28, color: "#475569" }}>{data?.confidenceFromV2 && data.confidenceWords && data.confidenceWords !== "Unknown" ? data.confidenceWords : data?.confidencePercent && data.confidenceWords && data.confidenceWords !== "Unknown" ? `${data.confidencePercent}% · ${data.confidenceWords}` : data?.confidenceWords && data.confidenceWords !== "Unknown" ? data.confidenceWords : "Real buyer reviews, plain answers"}</div>
       </div>
     ),
     size,

@@ -10,6 +10,7 @@ export type VerdictSummary = {
   confidencePercent: number | null;
   confidenceWords: string;
   reviewCount: number;
+  confidenceFromV2?: boolean;
   sources: string[];
   loves: Point[];
   complaints: Point[];
@@ -58,7 +59,7 @@ export function VerdictSummaryCard({ summary, eyebrow, headingLevel = "h2" }: { 
     kind: summary.kind === "buy" || summary.kind === "wait" || summary.kind === "skip" || summary.kind === "not_enough" ? summary.kind : "wait",
     confidencePercent: summary.confidencePercent,
     confidenceWords: summary.confidenceWords === "High" || summary.confidenceWords === "Medium" || summary.confidenceWords === "Low" || summary.confidenceWords === "Unknown" ? summary.confidenceWords : "Unknown",
-    reviewCount: summary.reviewCount,
+    confidenceFromV2: summary.confidenceFromV2,
   });
   return (
     <article className="rounded-[1.75rem] bg-white p-6 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 sm:p-8">
@@ -71,19 +72,18 @@ export function VerdictSummaryCard({ summary, eyebrow, headingLevel = "h2" }: { 
       <p className="mt-4 text-base leading-7 text-slate-700">{summary.why}</p>
       {summary.example ? (
         <p className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-500" data-testid="example-note">Design illustration only: not a real product, real score or real reviews.</p>
-      ) : summary.reviewCount > 0 ? (
+      ) : (
       <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 text-sm">
         <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-0.5 font-semibold text-slate-900">{confidence}</dd></div>
-        <div><dt className="text-slate-500">Based on</dt><dd className="mt-0.5 font-semibold text-slate-900">{summary.reviewCount} real buyer review{summary.reviewCount === 1 ? "" : "s"}</dd></div>
       </dl>
-      ) : null}
+      )}
       {summary.loves.length || summary.complaints.length ? (
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           {summary.loves.length ? <ul className="space-y-4" aria-label="What buyers love">{summary.loves.map((p, n) => <Quote key={p.claim} point={p} tone="love" delay={n * 120} />)}</ul> : null}
           {summary.complaints.length ? <ul className="space-y-4" aria-label="What buyers complain about">{summary.complaints.map((p, n) => <Quote key={p.claim} point={p} tone="complaint" delay={360 + n * 120} />)}</ul> : null}
         </div>
       ) : null}
-      {!summary.example && summary.reviewCount > 0 && summary.sources.length ? <p className="mt-5 text-xs text-slate-500">Based on {summary.reviewCount} real buyer reviews from {summary.sources.join(", ")}.</p> : null}
+      {!summary.example && summary.sources.length ? <p className="mt-5 text-xs text-slate-500">Real buyer reviews from {summary.sources.join(", ")}.</p> : null}
     </article>
   );
 }

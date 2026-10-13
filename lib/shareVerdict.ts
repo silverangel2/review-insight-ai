@@ -16,6 +16,7 @@ export type SharedVerdict = {
   score: number | null;
   confidencePercent: number | null;
   confidenceWords: string;
+  confidenceFromV2?: boolean;
   reviewCount: number;
   sources: string[];
   love: SharedPoint | null;
@@ -42,7 +43,7 @@ export function sharedVerdictFromResult(result: Record<string, unknown>, scanId:
   const listing = typeof result.exactListingUrl === "string" ? result.exactListingUrl : null;
   return {
     v: 1, scanId, product: title, label: a.label, kind: a.kind, why: a.why.slice(0, 260), score: a.score,
-    confidencePercent: a.confidencePercent, confidenceWords: a.confidenceWords, reviewCount: a.reviewCount,
+    confidencePercent: a.confidencePercent, confidenceWords: a.confidenceWords, confidenceFromV2: a.confidenceFromV2, reviewCount: a.reviewCount,
     sources: a.sources.slice(0, 4), love: point(a.loves[0]), complaint: point(a.complaints[0]),
     listingUrl: listing, createdAt: now.toISOString(),
   };

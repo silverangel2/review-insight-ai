@@ -2782,8 +2782,8 @@ export async function collectAndAnalyzeReviewEvidence(
   collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
     reviews: adjudicatedReviews,
     coverageNote: exactListingAccepted
-      ? `${collectedWrittenReviews.coverageNote} Canonical adjudication accepted ${evidenceAdjudication.acceptedRecordCount} written review record(s); rejected ${evidenceAdjudication.rejectedRecordCount}, deduplicated ${evidenceAdjudication.deduplicatedRecordCount}.`
-      : `${collectedWrittenReviews.coverageNote} Collected ${preAdjudicationRecordCount} written-review candidate record(s); canonical exact-product association is not yet established, so none are accepted evidence.`,
+      ? `${collectedWrittenReviews.coverageNote} Canonical adjudication accepted the written reviews that match this exact product.`
+      : `${collectedWrittenReviews.coverageNote} Written-review candidates were collected, but canonical exact-product association is not yet established, so none are accepted evidence.`,
   });
 
   // Keep the original adjudication ledger. Re-adjudicating accepted-only
@@ -3742,11 +3742,11 @@ Scoring rules:
             nativeRetrievalNote,
             openAiReviewUrlDiscoveryNote,
             collectorHasWrittenReviews
-              ? `ReviewIntel analyzed ${actualCommentsAnalyzed} written review bodies from the marketplace or a same-product fallback source.`
+              ? "ReviewIntel analyzed written review bodies from the marketplace or a same-product fallback source."
               : hasReviewIntelligenceEvidence
                 ? usedOpenAiReviewUrlDiscovery
-                  ? `Direct written review bodies were limited, so ReviewIntel used review evidence scraped from one OpenAI-discovered URL set. Signals analyzed: ${actualCommentsAnalyzed}.`
-                  : `Direct written review bodies were limited, so ReviewIntel used collected native review intelligence for the exact product. Signals analyzed: ${actualCommentsAnalyzed}.`
+                  ? "Direct written review bodies were limited, so ReviewIntel used review evidence scraped from one OpenAI-discovered URL set."
+                  : "Direct written review bodies were limited, so ReviewIntel used collected native review intelligence for the exact product."
                 : "ReviewIntel did not calculate a product verdict because no product review intelligence was collected.",
           ]
         : Array.isArray(parsed.sourceNotes)
@@ -3766,7 +3766,7 @@ Scoring rules:
         score: hasAnalyzedReviewText ? score : null,
         label:
           !hasAnalyzedReviewText
-            ? `Low confidence · ${actualCommentsAnalyzed || 0} real reviews analyzed`
+            ? "Low confidence"
             : actualCommentsAnalyzed > 0
             ? score === null
               ? "Review evidence analyzed"

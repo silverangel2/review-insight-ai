@@ -847,7 +847,7 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
       const claim = item as Record<string, unknown>;
       const count = Number(claim.supportCount);
       return typeof claim.claim === "string" && Number.isInteger(count) && count > 0
-        ? [`${claim.claim} (${count} written review${count === 1 ? "; one-off report" : "s"})`]
+        ? [count === 1 ? `${claim.claim} (one-off report)` : String(claim.claim)]
         : [];
     });
   };
@@ -1227,13 +1227,19 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     typeof verdictConfidenceRaw === "number" && Number.isFinite(verdictConfidenceRaw) && verdictConfidenceRaw > 0
       ? Math.round(verdictConfidenceRaw)
       : null;
+  const buyingScoreForConfidence = isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2)
+    ? (result as Record<string, unknown>).buyingScoreV2 as { confidence?: string }
+    : null;
+  const v2Confidence = buyingScoreForConfidence?.confidence === "High" || buyingScoreForConfidence?.confidence === "Medium" || buyingScoreForConfidence?.confidence === "Low"
+    ? buyingScoreForConfidence.confidence
+    : null;
   const confidenceBadge = pageUnreadable
     ? "Try again"
-    : reviewEvidenceState === "not_enough"
-    ? `${verdictConfidence !== null ? `${verdictConfidence}% · ` : ""}Low · ${shopper.acceptedWrittenReviewCount} real reviews`
-    : verdictConfidence !== null
-      ? `${verdictConfidence}%`
-      : "Low";
+    : v2Confidence
+      ? v2Confidence
+    : reviewEvidenceState === "not_enough" || verdictConfidence === null
+      ? "Low"
+      : `${verdictConfidence}%`;
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -1289,8 +1295,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const sourcesLine = pageUnreadable
     ? `${UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.`
     : shopper.acceptedWrittenReviewCount > 0
-    ? `${shopper.acceptedWrittenReviewCount} exact-product written review${shopper.acceptedWrittenReviewCount === 1 ? "" : "s"} were analyzed${Number.isFinite(acceptedSourceCount) ? ` from ${acceptedSourceCount} source domain${acceptedSourceCount === 1 ? "" : "s"}` : " from verified review evidence"}.${acceptedSourceCount === 1 ? " Single-source evidence; other sources did not corroborate these reviews." : ""}`
-    : `Low confidence · ${shopper.acceptedWrittenReviewCount} real reviews analyzed. Scan the Amazon listing link or add a review screenshot to read more real reviews.`;
+    ? `${Number.isFinite(acceptedSourceCount) && acceptedSourceCount === 1 ? "Single-source evidence; other sources did not corroborate these reviews. " : ""}Verified review evidence.`
+    : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
   const supportingSourcesLine = shopper.discoverySourceCount > 0
     ? `Additional web sources were checked for product matching and supporting context (${shopper.discoverySourceCount} discovery/retrieval source${shopper.discoverySourceCount === 1 ? "" : "s"}).`
     : copy.sourcesLimited;
@@ -1327,7 +1333,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {buyingScoreV2 ? buyingScoreV2.confidence : confidenceBadge} {copy.buyerConfidence}
+            {v2Confidence || confidenceBadge} {copy.buyerConfidence}
           </div>
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
@@ -1347,7 +1353,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             <MiniMetric
               label={copy.aiLikeReviews}
               value={shopper.fakeReviewPercent === null ? "—" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? `${shopper.acceptedWrittenReviewCount} real reviews` : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? "Low" : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
             <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
           </div>
@@ -1498,8 +1504,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence !== null ? `${verdictConfidence}%` : "Low"}</p>
-                  <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{pageUnreadable ? "Try again" : reviewEvidenceState === "not_enough" ? `Low · ${shopper.acceptedWrittenReviewCount} real reviews` : copy.buyerConfidence}</p>
+                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{pageUnreadable ? "Try again" : v2Confidence || (verdictConfidence !== null ? `${verdictConfidence}%` : "Low")}</p>
+                  <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
             </div>
@@ -1513,7 +1519,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               <MiniMetric
               label={copy.aiLikeReviews}
               value={shopper.fakeReviewPercent === null ? "—" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? `${shopper.acceptedWrittenReviewCount} real reviews` : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? "Low" : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
               <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
             </div>
@@ -1667,12 +1673,6 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     false;
 
   const sourcesChecked = getToolProofArray(reviewEvidence, "sourcesChecked");
-  const evidenceAdjudication = reviewEvidence
-    ? getToolProofRecord(reviewEvidence, "evidenceAdjudication")
-    : null;
-  const acceptedEvidenceRecords = getToolProofArray(evidenceAdjudication, "acceptedRecords");
-  const acceptedWrittenReviewCount =
-    getToolProofNumber(evidenceAdjudication, "acceptedRecordCount") ?? acceptedEvidenceRecords.length;
   const commentsAnalyzed = getToolProofNumber(reviewEvidence, "commentsAnalyzed");
   const marketplaceReviewCount =
     getToolProofNumber(raw, "marketplaceReviewCount") ??
@@ -1730,8 +1730,6 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     getToolProofNumber(productIdentity, "reviewCount") ??
     getToolProofNumber(listingEvidence, "reviewCount");
   const totalMarketplaceReviews = marketplaceReviewCount ?? reviewCount;
-  const reviewsAnalyzedByReviewIntel = commentsAnalyzed ?? reviewsCollected ?? 0;
-
   const exactListingUrl = getToolProofString(listingEvidence, "exactListingUrl");
   const exactListingTitle = getToolProofString(listingEvidence, "exactListingTitle");
 
@@ -1757,7 +1755,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
             {isUnreadableAmazonPage(result)
               ? `${UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.`
               : zeroReviewEvidence
-              ? `Low confidence · ${acceptedWrittenReviewCount} real reviews analyzed. Scan the Amazon listing link or add a review screenshot to read more real reviews.`
+              ? "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
               : "Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available."}
           </p>
         </div>
@@ -1783,9 +1781,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Stable key" value={stableProductKey ? "Matched" : "New/unknown"} />
         <ToolProofPill label="Rating" value={rating !== null ? `${rating}/5` : null} />
         <ToolProofPill label="Total marketplace reviews" value={totalMarketplaceReviews} />
-        <ToolProofPill label="Reviews analyzed by ReviewIntel" value={reviewsAnalyzedByReviewIntel} />
         <ToolProofPill label="Discovery sources checked" value={sourcesChecked.length} />
-        <ToolProofPill label="Accepted written reviews" value={acceptedWrittenReviewCount} />
         <ToolProofPill label="Coverage ratio" value={formatCoverageRatio(reviewCoverageRatio)} />
         <ToolProofPill
           label="Evidence mode"
@@ -1807,7 +1803,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Collector source" value={collectorSourceAccepted ? "Accepted" : "Rejected"} />
         <ToolProofPill label="Verdict" value={displayShopperVerdict(verdict)} />
         <ToolProofPill label="Buy score" value={buyScore !== null ? `${Math.round(buyScore)} / 100` : "—"} />
-        <ToolProofPill label="Verdict confidence" value={isUnreadableAmazonPage(result) ? "Try again" : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : `Low · ${acceptedWrittenReviewCount} real reviews`} />
+        <ToolProofPill label="Verdict confidence" value={isUnreadableAmazonPage(result) ? "Try again" : isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2) ? String(((result as Record<string, unknown>).buyingScoreV2 as { confidence?: string }).confidence || "Low") : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : "Low"} />
         <ToolProofPill label="AI-like risk" value={aiLikeScore !== null ? `${aiLikeScore}%` : "—"} />
         <ToolProofPill label="Memory" value={stableProductKey ? "Saved/merged" : "Not saved"} />
       </div>
@@ -1818,7 +1814,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         </div>
       ) : zeroReviewEvidence ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-          {`Low confidence · ${acceptedWrittenReviewCount} real reviews analyzed. Scan the Amazon listing link or add a review screenshot to read more real reviews.`}
+          {"Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."}
         </div>
       ) : null}
 

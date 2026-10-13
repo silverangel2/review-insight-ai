@@ -46,7 +46,8 @@ test("'better' only when backed by our real-review data: same type, BUY verdict,
   const reviewed = picks.filter(p => p.kind === "reviewed");
   assert.deepEqual(reviewed.map(p => p.title), ["Bolt BX20 Cordless Drill Driver"]);
   assert.equal(reviewed[0].evidence.acceptedReviews, 24);
-  assert.match(reviewed[0].whyBetter, /24 real buyer reviews/);
+  assert.match(reviewed[0].whyBetter, /ReviewIntel's verdict: Buy \(score 8 \/ 100\)/);
+  assert.doesNotMatch(reviewed[0].whyBetter, /real buyer reviews|\b24\b/);
   assert.equal(new URL(reviewed[0].affiliateUrl).searchParams.get("tag"), "reviewintel-test-20");
   assert.equal(isBackedBetter({ verdict: "BUY", score: 6.3, acceptedReviews: 9 }, { ...scanned, verdict: "BUY" }), false, "tiny score gap is not 'better'");
   assert.equal(storedReviewSummary({ analysis_json: { result: { analysisVersion: "review-evidence-v2", evidenceState: "NOT_ENOUGH", verdict: "BUY", product: { title: "X" } } } }), null);

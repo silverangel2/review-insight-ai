@@ -134,8 +134,15 @@ test("an unreadable Amazon page asks to retry and never mentions zero reviews or
   assert.doesNotMatch(visible, new RegExp(`Amazon ${ASIN}`));
   assert.match(answer.nextSteps.find((step) => step.id === "retry").href, new RegExp(ASIN));
 
-  const named = { ...result, product: { title: "Echo Dot (5th Gen)", url: LINK }, productName: "Echo Dot (5th Gen)" };
-  assert.equal(shopper.isUnreadableAmazonPage(named), false);
+  const named = {
+    ...result,
+    product: { title: "Echo Dot (5th Gen)", name: "Echo Dot (5th Gen)", url: LINK },
+    productName: "Echo Dot (5th Gen)",
+    reviewEvidence: { commentsAnalyzed: 0, listingEvidence: { exactListingUrl: LINK, exactListingTitle: "Echo Dot (5th Gen)", reviewCount: null, rating: null } },
+  };
+  assert.equal(shopper.isUnreadableAmazonPage(named), true, "a guessed title is not proof the Amazon page was read");
+  const rated = { ...named, product: { ...named.product, rating: "4.7/5", reviewCount: "200,849" } };
+  assert.equal(shopper.isUnreadableAmazonPage(rated), false, "a marketplace rating means the listing was read");
 
   const ts = require("typescript");
   const uiJiti = require("jiti")(process.cwd(), {
@@ -158,6 +165,33 @@ test("an unreadable Amazon page asks to retry and never mentions zero reviews or
   assert.match(html, /screenshot of the product page/i);
   assert.doesNotMatch(html, /0 real reviews|Scan the Amazon listing/i);
   assert.doesNotMatch(html.replace(/href="[^"]*"/g, ""), new RegExp(ASIN));
+
+  const namedHtml = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result: named, productName: "Echo Dot (5th Gen)" }));
+  assert.match(namedHtml, /data-testid="unreadable-amazon-page"/);
+  assert.match(namedHtml, /We couldn(?:'|&#x27;)t read this Amazon page right now/);
+  assert.doesNotMatch(namedHtml, /0 real reviews|real reviews analyzed|Based on|Scan the Amazon listing|Low · 0/);
+
+  const high = {
+    verdict: "BUY",
+    buyScore: 84,
+    verdictConfidence: 65,
+    buyerConfidence: 65,
+    evidenceState: "SUFFICIENT",
+    buyingScoreV2: { version: "buying-score-v2", mode: "buying_score", confidence: "High", score: 84 },
+    product: { title: "Echo Dot (5th Gen)", url: LINK, rating: "4.7/5", reviewCount: "200849" },
+    reviewEvidence: {
+      commentsAnalyzed: 4,
+      listingEvidence: { exactListingUrl: LINK, rating: 4.7, reviewCount: 200849 },
+      evidenceAdjudication: { acceptedRecords: [{ body: "Battery lasts all day and the sound is clear enough.", sourceUrl: LINK }] },
+    },
+  };
+  const highAnswer = shopper.deriveShopperAnswer(high);
+  assert.equal(highAnswer.confidenceWords, "High");
+  assert.equal(highAnswer.confidenceFromV2, true);
+  assert.equal(shopper.formatShopperConfidence(highAnswer), "High");
+  const highHtml = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result: high, productName: "Echo Dot" }));
+  assert.match(highHtml, /data-testid="answer-confidence">High</);
+  assert.doesNotMatch(highHtml, /65%|Medium/);
 
   assert.equal(email.cleanProductLabel(`Amazon ${ASIN}`), "Amazon product");
   const results = readFileSync(new URL("../components/ResultsClient.tsx", import.meta.url), "utf8");

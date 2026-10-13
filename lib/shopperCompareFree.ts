@@ -2,14 +2,15 @@
 // A winner is only named when both sides have a real-review score and the gap is meaningful.
 import { deriveShopperAnswer } from "./shopperAnswer";
 
-/** Honest wording when one side has too few real reviews: Low confidence, the real counts, and a next step. */
-export function lowConfidenceShopperCompare(countA: number | null | undefined, countB: number | null | undefined) {
-  const a = Number(countA) || 0, b = Number(countB) || 0;
+/** Honest wording when one side has too few real reviews: Low confidence and a next step. */
+export function lowConfidenceShopperCompare(countA?: number | null, countB?: number | null) {
+  void countA;
+  void countB;
   return {
     winner: "INCOMPARABLE", directSubstitutes: false, confidence: null,
-    verdictHeadline: `Low confidence · ${a} vs ${b} real reviews`,
-    summary: `Product A has ${a} and Product B has ${b} real written reviews so far, which is too few on at least one side to pick a winner honestly.`,
-    reasons: [`Real written reviews found: Product A ${a}, Product B ${b}.`],
+    verdictHeadline: "Low confidence",
+    summary: "At least one product does not have enough written reviews yet to pick a winner honestly.",
+    reasons: ["Low confidence until both products have stronger written evidence."],
     nextSteps: ["Scan the Amazon link for each product to pull in more real reviews.", "Or add a review screenshot for the product with fewer reviews."],
   };
 }
@@ -30,7 +31,7 @@ export function freeShopperCompare(a: unknown, b: unknown) {
   const conf = Math.min(A.confidencePercent ?? 50, B.confidencePercent ?? 50);
   const firstC = (x: typeof A) => x.complaints[0]?.claim, firstL = (x: typeof A) => x.loves[0]?.claim;
   const reasons = [
-    `Real-review score: Product A ${sa.toFixed(1)} vs Product B ${sb.toFixed(1)} (${A.reviewCount} vs ${B.reviewCount} reviews read).`,
+    `Real-review score: Product A ${sa.toFixed(1)} vs Product B ${sb.toFixed(1)}.`,
     firstL(A) || firstL(B) ? `Most praised: A "${firstL(A) ?? "nothing repeated"}", B "${firstL(B) ?? "nothing repeated"}".` : null,
     firstC(A) || firstC(B) ? `Most repeated complaint: A "${firstC(A) ?? "none repeated"}", B "${firstC(B) ?? "none repeated"}".` : null,
     `Value from reviews: A ${A.value}, B ${B.value}.`,

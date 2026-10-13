@@ -26,7 +26,6 @@ function Column({ c }: { c: SideColumn }) {
       <p className="mt-3 text-sm leading-6 text-slate-700">{a.why}</p>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div><dt className="text-slate-500">How sure we are</dt><dd className="font-semibold text-slate-900">{formatShopperConfidence(a)}</dd></div>
-        <div><dt className="text-slate-500">Based on</dt><dd className="font-semibold text-slate-900">{a.reviewCount} real reviews</dd></div>
       </dl>
       {[["What buyers love", a.loves, "bg-mint"], ["What buyers complain about", a.complaints, "bg-peach"]].map(([title, points, tint]) => (
         <section key={title as string} className={`mt-4 rounded-2xl ${tint} p-4`}>

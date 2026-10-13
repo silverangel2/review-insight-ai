@@ -760,7 +760,7 @@ export async function collectWrittenReviewsFromUrls(input: {
     reviewsCollected: reviews.length,
     collectorHasWrittenReviews: reviews.length > 0,
     coverageNote: reviews.length
-      ? `ReviewIntel scraped ${reviews.length} written review texts from OpenAI-discovered candidate review URLs.`
+      ? "ReviewIntel scraped written review texts from OpenAI-discovered candidate review URLs."
       : `ReviewIntel fetched ${urls.length} OpenAI-discovered candidate review URL(s), but did not extract usable written review text.`,
     fallbackUrlsTried: urls,
   };
@@ -967,9 +967,9 @@ export async function collectWrittenReviewsFromListing(input: {
     const total = marketplaceCountForCollection(marketplaceAggregate.count, input.marketplaceReviewCount);
     const coverage =
       total && reviews.length
-        ? `${reviews.length} of ${total} public marketplace reviews were accessible as written text.`
+        ? "Written review text was readable from the listing, alongside the public marketplace rating count."
         : reviews.length
-          ? `${reviews.length} written review texts were collected.`
+          ? "Written review text was collected from the listing."
           : total
             ? `${total} public marketplace reviews were visible, but written review text was not accessible from the listing HTML or fetched public review pages.`
             : "No written review text was accessible from the listing HTML or fetched public review pages.";
