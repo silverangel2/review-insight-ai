@@ -636,6 +636,51 @@ export function buyingScoreFromReviews(input: BuyingScoreFromReviewsInput) {
   return { ...result, quotes: signals.quotes!, droppedForModelMismatch: dropped.length, duplicatesRemoved, stores };
 }
 
+/**
+ * Page aggregate when the listing was read. Screenshot OCR stars and review
+ * count are the marketplace aggregate only when that page did not yield a rating.
+ * A rejected listing does not borrow a screenshot string rating.
+ */
+export function marketplaceAggregateForScore(input: {
+  exactListingAccepted: boolean;
+  pageRating?: unknown;
+  pageCount?: unknown;
+  screenshotRating?: unknown;
+  screenshotCount?: unknown;
+}): { rating: number | null; count: number | null; source: "page" | "screenshot" | "none" } {
+  if (!input.exactListingAccepted) {
+    const rating = typeof input.screenshotRating === "number" ? validRating(input.screenshotRating) : null;
+    const count = Number(input.screenshotCount) > 0 ? validCount(input.screenshotCount) : null;
+    return rating !== null ? { rating, count, source: "screenshot" } : { rating: null, count: null, source: "none" };
+  }
+  const pageRating = validRating(input.pageRating);
+  if (pageRating !== null) return { rating: pageRating, count: validCount(input.pageCount), source: "page" };
+  const screenshotRating = validRating(input.screenshotRating);
+  if (screenshotRating !== null) return { rating: screenshotRating, count: validCount(input.screenshotCount), source: "screenshot" };
+  return { rating: null, count: null, source: "none" };
+}
+
+/**
+ * Zero analyzed written reviews never keep a review-evidence Buy or a 0–10 score.
+ * The customer-facing result is the v2 card: Provisional Marketplace Score when a
+ * marketplace rating is known.
+ */
+export function customerFacingDecision(input: {
+  analyzedReviews: number;
+  buyingScore: ReturnType<typeof buyingScoreFromReviews>;
+}): { verdict: "BUY" | "REVIEW FIRST" | "AVOID"; buyScore: number | null; finalDecisionSource: "buyingScoreV2"; buyingScore: ReturnType<typeof buyingScoreFromReviews> } {
+  const analyzed = Math.max(0, Math.floor(input.analyzedReviews || 0));
+  const card = analyzed > 0 || input.buyingScore.audit.n === 0
+    ? input.buyingScore
+    : buyingScoreFromReviews({
+        marketplace: { rating: input.buyingScore.audit.Rbar, count: input.buyingScore.audit.N, matchesExactModel: true },
+        reviews: [],
+      });
+  const label = card.verdict || card.leaning;
+  const verdict = label === "Buy" ? "BUY" : label === "Skip" ? "AVOID" : "REVIEW FIRST";
+  return { verdict, buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
+}
+
 /** One structured log line per scan (section 10). */
 export function buyingScoreLogFields(r: BuyingScoreResult) {
   const a = r.audit;

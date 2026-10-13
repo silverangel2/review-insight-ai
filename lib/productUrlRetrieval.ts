@@ -1,5 +1,6 @@
 import { stableProductSearchTerms } from "./productIdentityTokens";
 import { isBlockedOrSignInReviewPage } from "./reviewCollector";
+import { isDriftSearchQuery, isUnusableListingTitle, preferredAmazonHost } from "./listingAuthority";
 
 export type RetrievedProductUrl = {
   url: string;
@@ -28,6 +29,7 @@ export type ProductUrlRetrievalInput = {
   enrichmentAttemptedUrls?: Set<string>;
   costTelemetry?: ScanCostTelemetry;
   searchQueries?: string[];
+  listingUrl?: string | null;
 };
 
 function cleanText(value: unknown) {
@@ -221,7 +223,7 @@ export function buildRetrievalQueries(input: ProductUrlRetrievalInput) {
         `${brand} ${family} ${store}`,
       ];
 
-  return Array.from(new Set(queries.map(dedupeWords).filter((q) => q.length > 8))).slice(0, 5);
+  return Array.from(new Set(queries.map(dedupeWords).filter((q) => q.length > 8 && !isDriftSearchQuery(q)))).slice(0, 5);
 }
 
 async function fetchBingCandidates(query: string, timeoutMs: number, costTelemetry?: ScanCostTelemetry): Promise<RetrievedProductUrl[]> {
@@ -272,14 +274,16 @@ async function fetchBingCandidates(query: string, timeoutMs: number, costTelemet
   }
 }
 
-async function fetchAmazonCandidates(query: string, timeoutMs: number, costTelemetry?: ScanCostTelemetry): Promise<RetrievedProductUrl[]> {
+async function fetchAmazonCandidates(query: string, timeoutMs: number, costTelemetry?: ScanCostTelemetry, host = "www.amazon.ca"): Promise<RetrievedProductUrl[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const q = cleanText(query).replace(/\bAmazon\.ca\b/gi, "").replace(/\bAmazon\b/gi, "").trim();
+    const q = cleanText(query).replace(/\bAmazon\.(?:ca|com|co\.uk)\b/gi, "").replace(/\bAmazon\b/gi, "").trim();
+    const searchHost = host || "www.amazon.ca";
+    const domain = searchHost.replace(/^www\./, "");
 
-    const searchUrl = `https://www.amazon.ca/s?k=${encodeURIComponent(q)}`;
+    const searchUrl = `https://${searchHost}/s?k=${encodeURIComponent(q)}`;
     if (costTelemetry && !costTelemetry.reserveIdentitySearchUrl(searchUrl)) return [];
     costTelemetry?.recordIdentitySearchRequest("search");
     const response = await fetch(searchUrl, {
@@ -305,15 +309,15 @@ async function fetchAmazonCandidates(query: string, timeoutMs: number, costTelem
       if (!asin || seen.has(asin)) continue;
       seen.add(asin);
 
-      const url = `https://www.amazon.ca/dp/${asin}`;
+      const url = `https://${searchHost}/dp/${asin}`;
 
       out.push({
         url,
-        title: titleNear(html, match.index) || `Amazon.ca product ${asin}`,
-        domain: "amazon.ca",
+        title: titleNear(html, match.index) || `Amazon product ${asin}`,
+        domain,
         source: "amazon-direct",
         query,
-        notes: [`Parsed Amazon.ca ASIN from direct Amazon search.`],
+        notes: [`Parsed ${domain} ASIN from direct Amazon search.`],
       });
     }
 
@@ -345,9 +349,7 @@ export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
   const cleanTitle = title
     ? htmlDecodeLight(title.replace(/<[^>]+>/g, " ").replace(/\s*:\s*Amazon\.ca.*$/i, ""))
     : null;
-  const usableTitle = cleanTitle && !/^(?:Amazon(?:\.[a-z]{2,})?|Amazon(?:\.[a-z]{2,})? product\s+[A-Z0-9]{10})$/i.test(cleanTitle)
-    ? cleanTitle
-    : null;
+  const usableTitle = cleanTitle && !isUnusableListingTitle(cleanTitle) ? cleanTitle : null;
 
   const ratingText =
     html.match(/([0-5](?:\.\d)?)\s+out of\s+5\s+stars/i)?.[1] ||
@@ -501,14 +503,15 @@ export async function retrieveProductUrls(input: ProductUrlRetrievalInput) {
   const queries = Array.from(new Set([
     ...(input.searchQueries || []),
     ...buildRetrievalQueries(input),
-  ].map(dedupeWords).filter((query) => query.length > 8))).slice(0, 8);
+  ].map(dedupeWords).filter((query) => query.length > 8 && !isDriftSearchQuery(query)))).slice(0, 8);
+  const amazonHost = preferredAmazonHost({ store: input.store, listingUrl: input.listingUrl, query: queries.join(" ") }) || "www.amazon.ca";
 
   const perProviderTimeout = Math.max(2500, Math.min(4500, Math.floor(timeoutMs / 2)));
 
   const searchedQueries = queries.slice(0, 4);
   const tasks = searchedQueries.flatMap((query) => [
     fetchBingCandidates(query, perProviderTimeout, input.costTelemetry),
-    fetchAmazonCandidates(query, perProviderTimeout, input.costTelemetry),
+    fetchAmazonCandidates(query, perProviderTimeout, input.costTelemetry, amazonHost),
   ]);
 
   const settled = await Promise.allSettled(tasks);

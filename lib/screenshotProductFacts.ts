@@ -1,6 +1,7 @@
 // Free (zero OpenAI) product identification from a product-page screenshot via local OCR.
 // Only text actually read with good confidence is used; unclear fields stay empty and a warning is added.
 import type { ScreenshotOcrResult } from "./reviewScreenshotOcr";
+import { isUnusableListingTitle } from "./listingAuthority";
 
 export type ScreenshotProductFacts = {
   name: string; brand: string; category: string; store: string; price: string; rating: string; reviewCount: string;
@@ -41,20 +42,22 @@ export function isAmazonNavOrHeaderText(value: string): boolean {
 
 function cleanProductTitle(value: string | null | undefined): string {
   const text = String(value || "").replace(/\s+/g, " ").trim();
-  if (!text || isAmazonNavOrHeaderText(text) || /^https?:\/\//i.test(text)) return "";
+  if (!text || isAmazonNavOrHeaderText(text) || isUnusableListingTitle(text)) return "";
   return text;
 }
 
 /**
- * The product URL's fetched title names the product. A screenshot name is used only
- * when no listing URL/ASIN was supplied, and never when it is Amazon chrome.
+ * Prefer the link's fetched title. If that page cannot be read, use the screenshot's
+ * product-title line (not nav or menu text). "Amazon <ASIN>" is only the last resort.
  */
 export function authoritativeDisplayName(input: { listingTitle?: string | null; screenshotName?: string | null; asin?: string | null }): string {
   const listing = cleanProductTitle(input.listingTitle);
   if (listing) return listing;
+  const screenshot = cleanProductTitle(input.screenshotName);
+  if (screenshot) return screenshot;
   const asin = String(input.asin || "").trim().toUpperCase();
   if (/^[A-Z0-9]{10}$/.test(asin)) return `Amazon ${asin}`;
-  return cleanProductTitle(input.screenshotName);
+  return "";
 }
 
 export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70): ScreenshotProductFacts {

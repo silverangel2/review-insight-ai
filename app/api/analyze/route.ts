@@ -1,5 +1,6 @@
 import { ocrReviewScreenshot } from "@/lib/reviewScreenshotOcr";
 import { authoritativeDisplayName, isAmazonNavOrHeaderText, productFactsFromOcr } from "@/lib/screenshotProductFacts";
+import { amazonStoreLabel, isAnalyzableProductUrl } from "@/lib/listingAuthority";
 import { attachScanAccess } from "@/lib/scanAccess";
 import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
@@ -25,7 +26,7 @@ import { claimFreeScan } from "@/lib/freeScanQuota";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
-import { buyingScoreFromReviews, buyingScoreLogFields } from "@/lib/buyingScore";
+import { buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
@@ -1801,7 +1802,7 @@ async function researchAndVerdict(
       color: [...vision.visibleFeatures, vision.name].join(" ").match(/\b(white|black|gray|grey|silver|blue|red|gold)\b/i)?.[1],
       categoryBreadcrumbs: [vision.category].filter(Boolean),
       marketingText: vision.visibleBadges,
-      store: vision.store,
+      store: amazonStoreLabel(productLink) || vision.store,
       price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
         ? vision.price
         : undefined,
@@ -2255,19 +2256,22 @@ function buildReviewEvidenceShopperResult(input: {
   // Inputs: real marketplace aggregate for the exact listing + the accepted,
   // exact-model written reviews (deduplicated across ALL stores inside).
   const collectorAggregate = asRecord(asRecord(evidence.reviewCollector).marketplaceAggregate);
+  const marketplaceAggregate = marketplaceAggregateForScore({
+    exactListingAccepted,
+    pageRating: collectorAggregate.rating ?? listingEvidence?.rating ?? evidence.rating,
+    pageCount: collectorAggregate.count ?? listingEvidence?.reviewCount ?? evidence.reviewCount,
+    screenshotRating: vision.rating,
+    screenshotCount: vision.reviewCount,
+  });
   const v2RequestedModel = (() => {
     const explicit = String(asRecord(vision).model || asRecord(listingEvidence).model || "").trim();
     if (explicit) return explicit;
     const token = String(productName || "").match(/\b(?=[A-Za-z0-9-]*\d)(?=[A-Za-z0-9-]*[A-Za-z])[A-Za-z0-9-]{4,}\b/);
     return token ? token[0] : null;
   })();
-  const v2Rating = exactListingAccepted
-    ? (typeof collectorAggregate.rating === "number" ? collectorAggregate.rating : listingRatingForMetadataScore)
-    : (typeof asRecord(vision).rating === "number" ? asRecord(vision).rating as number : null);
-  const v2Count = exactListingAccepted
-    ? (typeof collectorAggregate.count === "number" && collectorAggregate.count > 0 ? collectorAggregate.count : marketplaceReviewCount || null)
-    : (Number(asRecord(vision).reviewCount) > 0 ? Number(asRecord(vision).reviewCount) : null);
-  const buyingScoreV2 = buyingScoreFromReviews({
+  const v2Rating = marketplaceAggregate.rating;
+  const v2Count = marketplaceAggregate.count;
+  let buyingScoreV2 = buyingScoreFromReviews({
     marketplace: {
       rating: v2Rating,
       count: v2Count,
@@ -2698,15 +2702,17 @@ function buildReviewEvidenceShopperResult(input: {
   valueForMoney = deterministic.valueForMoney;
   bottomLine = deterministic.bottomLine;
   scoreAudit = deterministic.deterministicScoringInputs;
-  // v2 replaces the old customer-facing score and verdict.
+  // v2 replaces the old customer-facing score and verdict. Zero analyzed reviews
+  // never keep a review-evidence Buy or a 0-10 score.
   {
-    const v2Verdict = buyingScoreV2.verdict || buyingScoreV2.leaning;
-    verdict = v2Verdict === "Buy" ? "BUY" : v2Verdict === "Skip" ? "AVOID" : "REVIEW FIRST";
-    buyScore = buyingScoreV2.score;
-    decisionStatus = buyingScoreV2.mode === "buying_score" || buyingScoreV2.mode === "written_only"
+    const faced = customerFacingDecision({ analyzedReviews: commentsAnalyzed, buyingScore: buyingScoreV2 });
+    buyingScoreV2 = faced.buyingScore;
+    verdict = faced.verdict;
+    buyScore = faced.buyScore;
+    decisionStatus = faced.buyingScore.mode === "buying_score" || faced.buyingScore.mode === "written_only"
       ? "evidence_based"
-      : buyingScoreV2.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
-    finalDecisionSource = "buyingScoreV2";
+      : faced.buyingScore.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
+    finalDecisionSource = faced.finalDecisionSource;
   }
 
   console.log("[ReviewIntel PIPELINE] exact-product-gate", JSON.stringify({
@@ -3006,15 +3012,16 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
 
     if (securityResponse) return securityResponse;
 
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Please upload a product screenshot.", scanId, resultSource: "analyze" }, { status: 400 });
+    const imageFile = file instanceof File ? file : null;
+    if (!imageFile && !isAnalyzableProductUrl(productLink)) {
+      return NextResponse.json({ error: "Paste a product link or upload a product screenshot.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
-    if (!file.type.startsWith("image/")) {
+    if (imageFile && !imageFile.type.startsWith("image/")) {
       return NextResponse.json({ error: "Please upload an image file.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
-    if (file.size > 8 * 1024 * 1024) {
+    if (imageFile && imageFile.size > 8 * 1024 * 1024) {
       return NextResponse.json({ error: "Image is too large. Please upload a screenshot under 8MB.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
@@ -3186,8 +3193,8 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
       };
     };
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const imageDataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+    const buffer = imageFile ? Buffer.from(await imageFile.arrayBuffer()) : Buffer.alloc(0);
+    const imageDataUrl = imageFile ? `data:${imageFile.type};base64,${buffer.toString("base64")}` : "";
 
     operationKey = scanOperationKey(
       `${email || "unknown"}:${normalizedPlanForAnalyze || "unknown"}`,
@@ -3217,7 +3224,25 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
       return NextResponse.json({ status: "RUNNING", scanId: operation.scanId }, { status: 202 });
     }
 
-    const vision = await extractScreenshotFacts(imageDataUrl, costTelemetry);
+    const vision = imageDataUrl
+      ? await extractScreenshotFacts(imageDataUrl, costTelemetry)
+      : {
+          name: "",
+          brand: "",
+          category: "",
+          store: amazonStoreLabel(productLink),
+          price: "",
+          rating: "",
+          reviewCount: "",
+          priceBelongsToProduct: false,
+          ratingBelongsToProduct: false,
+          reviewCountBelongsToProduct: false,
+          visibleFeatures: [],
+          visibleBadges: [],
+          identityWarnings: [],
+          normalizedSearchQuery: "",
+          imageConfidence: 80,
+        };
     detectedProductKey = createStableProductKey(vision, productLink);
 
     const hasVisibleProductIdentity =

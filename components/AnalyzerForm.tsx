@@ -11,6 +11,7 @@ import { saveLatestPreview, saveLatestResult, clearLatestResult, setActiveScanId
 import { incrementStoredScanTally } from "@/lib/clientAccount";
 import { ReviewIntelScanOverlay, type ScanStage } from "@/components/ReviewIntelScanOverlay";
 import { LimitReachedCard } from "@/components/upsell/LimitReachedCard";
+import { isAnalyzableProductUrl } from "@/lib/listingAuthority";
 
 // Anonymous-visitor free scans: 3 per day, per device. The localStorage
 // counter is UX-only — the server enforces the real limit by IP hash
@@ -189,11 +190,11 @@ function analyzerFormCopy(locale: string) {
         analyze: "⚡ Analyze Product",
         clearUpload: "Clear upload",
         uploadTitle: "Upload product screenshot",
-        uploadHint: "Screenshot the product page, price, rating, or reviews.",
-        linkPlaceholder: "Optional: paste product link",
+        uploadHint: "A screenshot is optional and encouraged. It helps when the product page is hard to read.",
+        linkPlaceholder: "Paste the product link",
         clearerScreenshot: "We need a clearer screenshot or product link to analyze this properly.",
         analyzeError: "We could not analyze this screenshot.",
-        intro: "Add a screenshot of the product page (and its link) and we check what real buyers wrote about that exact product.",
+        intro: "Paste a product link, or add a product-page screenshot. A screenshot is optional and helps when the store page is hard to read.",
         previewAlt: "Product screenshot preview",
         scanLimitMessage: "You have used all 3 free scans for today. Your scans reset tomorrow."
       };
@@ -213,7 +214,7 @@ export default function AnalyzerForm() {
   const [error, setError] = useState("");
   const [anonScansUsed, setAnonScansUsed] = useState(0);
 
-  const canAnalyze = Boolean(image) && !isLoading;
+  const canAnalyze = (Boolean(image) || isAnalyzableProductUrl(productLink)) && !isLoading;
   const scanLimitMessage = analyzerFormCopy(readStoredLocale()).scanLimitMessage;
   // Read the browser-stored account only after hydration so server and first client render match.
   const [hydrated, setHydrated] = useState(false);
@@ -301,7 +302,7 @@ export default function AnalyzerForm() {
   }
 
   async function analyzeProduct() {
-    if (!image) return;
+    if (!image && !isAnalyzableProductUrl(productLink)) return;
 
     const currentAccount = getClientAccount();
     if (currentAccount?.email && currentAccount.email !== "guest" && !isAccountProfileComplete(currentAccount)) {
@@ -336,7 +337,7 @@ export default function AnalyzerForm() {
       await refreshServerQuota();
 
       const formData = new FormData();
-      formData.append("image", image);
+      if (image) formData.append("image", image);
       formData.append("productLink", productLink);
       formData.append("locale", readStoredLocale());
       formData.append("scanId", scanId);

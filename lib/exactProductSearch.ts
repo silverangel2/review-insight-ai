@@ -1,4 +1,5 @@
 import { retrieveProductUrls, isProductUrl, normalizeProductUrl } from "./productUrlRetrieval";
+import { isDriftSearchQuery, preferredAmazonHost, withoutDriftQueries } from "./listingAuthority";
 import {
   prepareCandidateForVerification,
   type ProductSearchJob,
@@ -362,10 +363,10 @@ function searchJobFor(input: ExactProductSearchInput, product: string): ProductS
 }
 
 
-function amazonSearchUrlForQuery(query: string) {
-  return `https://www.amazon.ca/s?k=${encodeURIComponent(
+function amazonSearchUrlForQuery(query: string, host = "www.amazon.ca") {
+  return `https://${host}/s?k=${encodeURIComponent(
     cleanExactSearchQuery(query)
-      .replace(/\bAmazon\.ca\b/gi, "")
+      .replace(/\bAmazon\.(?:ca|com|co\.uk)\b/gi, "")
       .replace(/\bAmazon\b/gi, "")
       .trim()
   )}`;
@@ -393,12 +394,14 @@ function amazonTitleFromHtmlAround(html: string, hrefIndex: number) {
   return null;
 }
 
-async function fetchAmazonSearchCandidates(query: string, maxCandidates = 4, timeoutMs = 3500, costTelemetry?: ScanCostTelemetry) {
+async function fetchAmazonSearchCandidates(query: string, maxCandidates = 4, timeoutMs = 3500, costTelemetry?: ScanCostTelemetry, host = "www.amazon.ca") {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const searchUrl = amazonSearchUrlForQuery(query);
+    const searchUrl = amazonSearchUrlForQuery(query, host);
+    const domain = host.replace(/^www\./, "");
+    const storeLabel = domain === "amazon.com" ? "Amazon.com" : domain === "amazon.co.uk" ? "Amazon.co.uk" : "Amazon.ca";
     if (costTelemetry && !costTelemetry.canStartIdentitySearchRequest()) return [];
     costTelemetry?.recordIdentitySearchRequest("search");
     const response = await fetch(searchUrl, {
@@ -439,15 +442,15 @@ async function fetchAmazonSearchCandidates(query: string, maxCandidates = 4, tim
       const title = amazonTitleFromHtmlAround(html, match.index) || `Amazon product ${asin}`;
 
       candidates.push({
-        url: `https://www.amazon.ca/dp/${asin}`,
+        url: `https://${host}/dp/${asin}`,
         title,
-        domain: "amazon.ca",
-        store: "Amazon.ca",
+        domain,
+        store: storeLabel,
         price: null,
         rating: null,
         reviewCount: null,
         source: "amazon-search-fallback",
-        notes: [`Parsed from Amazon.ca search page for query: ${cleanExactSearchQuery(query)}`],
+        notes: [`Parsed from ${storeLabel} search page for query: ${cleanExactSearchQuery(query)}`],
       });
     }
 
@@ -692,16 +695,20 @@ export async function findExactProductCandidates(
   const maxCandidates = Math.max(1, Math.min(input.maxCandidates || 5, 5));
   const providedSearchQueries = Array.isArray(input.searchQueries) ? input.searchQueries : [];
   const appendProductQuery = input.appendProductQuery !== false || providedSearchQueries.length === 0;
-  const searchQueries = Array.from(
+  const searchQueries = withoutDriftQueries(Array.from(
     new Set(
       [
         ...providedSearchQueries,
         ...(appendProductQuery ? [product] : []),
       ]
         .map(cleanSearchQuery)
-        .filter((query) => query.length >= 3)
+        .filter((query) => query.length >= 3 && !isDriftSearchQuery(query))
     )
-  ).slice(0, 6);
+  )).slice(0, 6);
+
+  if (!searchQueries.length) {
+    return emptyCandidateSearchResult("Search query had no product words (store name or star rating only).", startedAt);
+  }
 
   const retrievalFirst = await retrieveProductUrls({
     store: input.store,
@@ -716,6 +723,7 @@ export async function findExactProductCandidates(
     enrichmentAttemptedUrls: input.enrichmentAttemptedUrls,
     costTelemetry: input.costTelemetry,
     searchQueries,
+    listingUrl: input.listingUrl,
   }).catch(() => null);
 
   const searchJob = searchJobFor(input, product);
@@ -821,9 +829,10 @@ export async function findExactProductCandidates(
     };
   }
 
+  const amazonHost = preferredAmazonHost({ store: input.store, listingUrl: input.listingUrl, query: searchQueries.join(" ") });
   const amazonFallbackCandidates =
-    /amazon\.ca/i.test(searchQueries.join(" "))
-      ? await fetchAmazonSearchCandidates(searchQueries[0], maxCandidates, 3500, input.costTelemetry)
+    amazonHost && searchQueries.length
+      ? await fetchAmazonSearchCandidates(searchQueries[0], maxCandidates, 3500, input.costTelemetry, amazonHost)
       : [];
 
   if (amazonFallbackCandidates.length > 0) {

@@ -56,6 +56,7 @@ import {
   type ProductVerifierResult,
 } from "./productSearchVerifier";
 import { normalizeProductUrl } from "./productUrlRetrieval";
+import { collectorListingForAuthoritativeAsin, isDriftSearchQuery } from "./listingAuthority";
 import { stableProductSearchTerms } from "./productIdentityTokens";
 import {
   collectWrittenReviewsFromListing,
@@ -1778,6 +1779,7 @@ function takeNextAgentQuery(queries: unknown[], usedQueries: Set<string>) {
     const key = agentQueryKey(text);
     if (!key || usedQueries.has(key)) continue;
     usedQueries.add(key);
+    if (isDriftSearchQuery(text)) continue;
     return text;
   }
 
@@ -2357,6 +2359,13 @@ export async function collectAndAnalyzeReviewEvidence(
     verifiedListingUrlForCollection.trim()
       ? verifiedListingUrlForCollection
       : null;
+  const authoritativeCollectorUrl = collectorListingForAuthoritativeAsin({
+    listingUrl: input.listingUrl,
+    verifiedListingUrl: listingUrlForReviewCollector,
+    canonicalIdentifier: productVerifierResult.canonicalIdentifier,
+    canCollectReviews: productVerifierResult.canCollectReviews,
+  });
+  if (authoritativeCollectorUrl) listingUrlForReviewCollector = authoritativeCollectorUrl;
   let listingRejectedForCollection = !listingUrlForReviewCollector;
   let exactListingRejectedReason = listingRejectedForCollection
     ? collectionNotesText ||

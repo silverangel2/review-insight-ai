@@ -51,7 +51,10 @@ test("Amazon nav menu text is not the product name, and ratings still come throu
 });
 
 test("fetched listing title and ASIN outrank a screenshot nav name", () => {
+  const OCR_TITLE = "Amazon Echo Dot (newest model) - Vibrant...";
   assert.equal(facts.authoritativeDisplayName({ listingTitle: FETCHED, screenshotName: NAV, asin: ASIN }), FETCHED);
+  assert.equal(facts.authoritativeDisplayName({ listingTitle: "", screenshotName: OCR_TITLE, asin: ASIN }), OCR_TITLE);
+  assert.equal(facts.authoritativeDisplayName({ listingTitle: "Robot Check", screenshotName: OCR_TITLE, asin: ASIN }), OCR_TITLE);
   assert.equal(facts.authoritativeDisplayName({ listingTitle: "", screenshotName: NAV, asin: ASIN }), `Amazon ${ASIN}`);
   assert.equal(facts.authoritativeDisplayName({ listingTitle: LISTING, screenshotName: NAV, asin: ASIN }), `Amazon ${ASIN}`);
   assert.equal(facts.authoritativeDisplayName({ screenshotName: FETCHED }), FETCHED);

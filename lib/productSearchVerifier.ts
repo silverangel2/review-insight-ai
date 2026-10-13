@@ -7,6 +7,7 @@ import {
 } from "./productUrlRetrieval";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 import { PRODUCT_COLOR_WORDS, extractProductIdentityTokenRoles, stableProductSearchTerms } from "./productIdentityTokens";
+import { canonicalAmazonListingUrl, isDriftSearchQuery } from "./listingAuthority";
 
 export type ProductSearchJob = {
   scanId: string;
@@ -441,7 +442,7 @@ export function buildProductRetryQueries(job: ProductSearchJob, reason?: string)
     new Set(
       queries
         .map(cleanRetryQuery)
-        .filter((q) => q.length > 8)
+        .filter((q) => q.length > 8 && !isDriftSearchQuery(q))
     )
   ).slice(0, 8);
 }
@@ -497,20 +498,34 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
     };
   }
 
-  const authoritativeAsin = amazonAsinFromUrl(job.authoritativeListingUrl);
+  const authoritativeListing = canonicalAmazonListingUrl(job.authoritativeListingUrl);
+  const authoritativeAsin = amazonAsinFromUrl(authoritativeListing || job.authoritativeListingUrl);
   if (authoritativeAsin && candidateAsin && authoritativeAsin === candidateAsin) {
+    const requestedRating = numberFrom(job.rating);
+    const candidateRating = numberFrom(candidate.rating);
+    const requestedReviews = numberFrom(job.reviewCount);
+    const candidateReviews = numberFrom(candidate.reviewCount);
+    const ratingDiffers = requestedRating !== null && candidateRating !== null && Math.abs(requestedRating - candidateRating) > 0.15;
+    const countDiffers = requestedReviews !== null && candidateReviews !== null && requestedReviews > 0 &&
+      Math.abs(candidateReviews - requestedReviews) / requestedReviews > 0.35;
+    const mismatchNote = ratingDiffers || countDiffers
+      ? `Rating/review-count difference noted, not a rejection: screenshot ${requestedRating ?? "n/a"} stars / ${requestedReviews ?? "n/a"} reviews vs listing ${candidateRating ?? "n/a"} stars / ${candidateReviews ?? "n/a"} reviews.`
+      : null;
     return {
       verifierStatus: "verified_exact_match",
       verifierConfidence: 96,
-      verifierReasons: ["Supplied product URL/ASIN is authoritative. The fetched listing title names the product; screenshot text is not used as identity."],
-      verifiedListingUrl: normalizeProductUrl(candidateUrl),
+      verifierReasons: [
+        "Supplied product URL/ASIN is authoritative. Rating or review-count differences versus the screenshot are a note, not a rejection.",
+        ...(mismatchNote ? [mismatchNote] : []),
+      ],
+      verifiedListingUrl: authoritativeListing || normalizeProductUrl(candidateUrl),
       rejectedListingUrl: null,
       rejectedListingTitle: null,
       retrySearchQueries: [],
       canCollectReviews: true,
       canScoreProduct: true,
       canonicalIdentifier: candidateAsin,
-      canonicalMarketplace: candidateDomain || null,
+      canonicalMarketplace: domainFromUrl(authoritativeListing) || candidateDomain || null,
     };
   }
 
