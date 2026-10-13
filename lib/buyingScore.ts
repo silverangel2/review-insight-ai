@@ -323,6 +323,21 @@ export type WrittenReview = {
   reviewedVariant?: string | null;
 };
 
+const STUB_TEXT = /^(?:read more|see more|show more|translate(?: review)?(?: to english)?|review (?:text )?(?:unavailable|not available|hidden|removed)|this review (?:is|has been) (?:not available|removed|hidden)|no (?:review )?text|n\/?a|helpful|report|verified purchase|[0-9.]+ out of 5 stars?)$/i;
+
+/**
+ * A review counts as "read" only if real text was retrieved. Count-only
+ * entries, empty bodies, punctuation and UI stubs ("Read more", "Translate
+ * review") are excluded entirely: they never count as written reviews read,
+ * toward n_eff or toward confidence (they are part of the marketplace total only).
+ */
+export function hasReadableText(r: { body?: unknown } | null | undefined) {
+  const text = String(r?.body ?? "").replace(/\s+/g, " ").trim();
+  if (!/[\p{L}\p{N}]/u.test(text)) return false;
+  const stripped = text.replace(/[.…:!\-–—()\[\]]+/g, " ").replace(/\s+/g, " ").trim();
+  return stripped.length > 0 && !STUB_TEXT.test(stripped) && !STUB_TEXT.test(text.replace(/[…!]+$/g, "").trim());
+}
+
 export function normalizeReviewText(text: string) {
   return String(text || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
@@ -375,7 +390,7 @@ export function dedupeAcrossStores<T extends WrittenReview>(reviews: T[]): Array
   const ordered = [...reviews].sort((a, b) => (b.body || "").length - (a.body || "").length);
   const kept: Array<T & { alsoSeenAt: string[] }> = [];
   for (const r of ordered) {
-    if (!r || !String(r.body || "").trim()) continue;
+    if (!r || !hasReadableText(r)) continue;
     const dup = kept.find((k) => isSameReview(k, r));
     if (dup) { const s = storeOf(r); if (s && !dup.alsoSeenAt.includes(s)) dup.alsoSeenAt.push(s); continue; }
     kept.push({ ...r, alsoSeenAt: [] });
@@ -529,7 +544,7 @@ export type BuyingScoreFromReviewsInput = {
 export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
   const dropped: Array<{ reason: string; body: string }> = [];
   const matched = (input.reviews || []).filter((r) => {
-    if (!r || !String(r.body || "").trim()) return false;
+    if (!r || !hasReadableText(r)) return false;
     const m = reviewMatchesExactModel(r, input.requestedModel, input.requestedVariant);
     if (!m.ok) dropped.push({ reason: m.reason!, body: shortQuote(r, 80) });
     return m.ok;

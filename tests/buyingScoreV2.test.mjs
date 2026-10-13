@@ -296,3 +296,56 @@ test("Owner fix 2: unclassifiable reviews count in the total but not in n_eff", 
   });
   assert.equal(second.audit.evidenceConf, "Low");
 });
+
+test("Plain rule 1: count-only or stub reviews are not 'read' and add no confidence", () => {
+  assert.equal(bs.hasReadableText({ body: "" }), false);
+  assert.equal(bs.hasReadableText({ body: "   …  " }), false);
+  assert.equal(bs.hasReadableText({ body: "Read more" }), false);
+  assert.equal(bs.hasReadableText({ body: "Translate review to English" }), false);
+  assert.equal(bs.hasReadableText({ body: "5.0 out of 5 stars" }), false);
+  assert.equal(bs.hasReadableText({ body: "Works great" }), true);
+  const stubs = [{ body: "", rating: 5 }, { body: "Read more", rating: 5 }, { body: null, rating: 4 }, { body: "…", rating: 5 }];
+  const r = buyingScoreFromReviews({ marketplace: { rating: 4.5, count: 2143 }, reviews: stubs });
+  assert.equal(r.audit.n, 0);
+  assert.equal(r.mode, "provisional_marketplace");
+  assert.equal(r.evidenceLine, "0 written reviews read · 4.5★ from 2,143 ratings");
+  assert.equal(r.confidence, "Low");
+  const mixed = buyingScoreFromReviews({ marketplace: { rating: 4.4, count: 20000 }, reviews: [...stubs, { body: "Great and reliable.", rating: 5 }] });
+  assert.equal(mixed.audit.n, 1);
+  assert.equal(mixed.audit.nEff, 1);
+});
+
+test("Plain rule 2: single report wording is exact and no recall text appears anywhere", () => {
+  const r = buyingScoreFromReviews({ marketplace: { rating: 4.6, count: 3000 }, reviews: [
+    { body: "The charger overheated and melted.", rating: 1 }, { body: "Great and reliable.", rating: 5 }, { body: "Love it.", rating: 5 },
+  ] });
+  const w = r.warnings.find((x) => x.tier === "single_safety");
+  assert.equal(w.text, "One customer reported overheating (single unverified report).");
+  assert.equal(r.recallStatement, null);
+  const visible = JSON.stringify({ w: r.warnings, n: r.notes, l: r.label, e: r.evidenceLine, c: r.confidenceReason, a: r.primaryAction });
+  assert.doesNotMatch(visible, /recall/i);
+  const src = readFileSync(new URL("../components/BuyingScoreV2Card.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /no (?:official )?recall/i);
+});
+
+test("Plain rule 3: the same review on Amazon, Walmart and Best Buy counts once", () => {
+  const text = "Stopped working after a month, the motor just died one morning.";
+  const r = buyingScoreFromReviews({ marketplace: { rating: 4.5, count: 5000 }, reviews: [
+    { body: text, rating: 1, sourceUrl: "https://www.amazon.com/dp/B000000001" },
+    { body: text.toUpperCase(), rating: 1, sourceUrl: "https://www.walmart.com/ip/1" },
+    { body: text + "!", rating: 1, sourceUrl: "https://www.bestbuy.com/site/1" },
+  ] });
+  assert.equal(r.audit.n, 1);
+  assert.equal(r.audit.Rel, 1);
+  assert.equal(r.duplicatesRemoved, 2);
+  assert.ok(!r.warnings.some((x) => x.tier === "repeated_reliability"));
+  assert.equal(r.audit.evidenceConf, "Low"); // duplicates never create second-store evidence
+});
+
+test("Plain rule 4: written evidence can lower the score much more than raise it", () => {
+  assert.equal(bs.ADJUSTMENT_MAX, 10);
+  assert.equal(bs.ADJUSTMENT_MIN, -30);
+  const spec = readFileSync(new URL("../docs/scoring-spec-v2.md", import.meta.url), "utf8");
+  assert.match(spec, /Written reviews can lower the score much more than they can raise it\./);
+  assert.doesNotMatch(spec, /asymmetric|downward-only/i);
+});

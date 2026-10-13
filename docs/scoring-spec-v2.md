@@ -3,12 +3,18 @@
 Author: Luca Bennett (COO). Revised from v1 per the Owner's feedback. For review before any code change.
 
 ## 0. What changed from v1
-1. The Bayesian marketplace baseline is kept. Written reviews pull down harder than they push up.
+1. The Bayesian marketplace baseline is kept. Written reviews can lower the score much more than they can raise it.
 2. **All t-tests, ANOVA and p-values are removed.** The visible Amazon sample is biased and non-random, so we use deterministic discrepancy rules instead.
 3. **0 written reviews gives a Provisional Marketplace Score**, never a full Buying Score. The full Buying Score needs at least 1 real written review (and gets stronger from 3).
 4. **Safety has three tiers:** one customer report, repeated independent reports, and an official recall.
 5. **The prior comes from no historical scan data.** It's a fixed, documented neutral prior that we'll recalibrate later on clean future data only.
 6. Retrieval stays simple: real public reviews, strict exact-model matching, second-store evidence when available. We stop chasing hundreds of reviews.
+
+## Plain-language rules (Owner)
+1. If ReviewIntel can see that a review exists but cannot actually read its text, that review does not increase confidence. It can count toward the marketplace total, but not toward confidence in the written-review analysis.
+2. ReviewIntel never says "there is no recall" unless it actually checked an official recall source during that scan. If it didn't check, it only says the safety complaint is from one customer and has not been verified.
+3. If the same review appears on Amazon, Walmart or Best Buy, it counts only once. Copied or syndicated reviews are never treated as separate people.
+4. Written reviews can lower the score much more than they can raise it.
 
 ## 1. Hard rules (unchanged)
 - Real public data only. No fake or AI-written reviews, and no invented opinions.
@@ -144,6 +150,6 @@ Verdict bands: **Buy ≥ 75 · Wait 50–74 · Skip < 50.**
 
 ## 11. Known limits (stated plainly)
 - The visible Amazon reviews are a biased sample. We use them for themes and failures, not as a precise measure of satisfaction.
-- The star average reflects Amazon's own weighting and possible incentivized reviews. That's mitigated by shrinkage and by written evidence being intentionally asymmetric: it can reduce the marketplace baseline by substantially more than it can increase it (up to −30 plus caps, versus at most +10).
+- The star average reflects Amazon's own weighting and possible incentivized reviews. That's mitigated by shrinkage and by this rule: Written reviews can lower the score much more than they can raise it. (Up to −30 plus caps, versus at most +10.)
 - Rule-based sentiment misses sarcasm and nuance. Quotes are always shown so shoppers can judge for themselves.
 - Starting parameters are judgement calls until clean data allows calibration.
