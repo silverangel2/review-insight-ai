@@ -18,7 +18,10 @@ export async function POST(request: Request) {
   const results = [];
   for (const file of files) {
     if (file.size > MAX_BYTES || !/^image\/(png|jpeg|webp)$/.test(file.type)) { results.push({ name: file.name, error: "unsupported image" }); continue; }
-    const ocr = await ocrReviewScreenshot(Buffer.from(await file.arrayBuffer()));
+    let ocr;
+    try { ocr = await ocrReviewScreenshot(Buffer.from(await file.arrayBuffer())); } catch {
+      results.push({ name: file.name, error: "screenshot could not be read" }); continue;
+    }
     const out = adjudicateScreenshotReviews(ocr, { productName, brand: String(form.get("brand") || "") || null, model: String(form.get("model") || "") || null, exactListingUrl: String(form.get("listingUrl") || "") || null });
     results.push({ name: file.name, fileSha256: ocr.fileSha256, ocrConfidence: ocr.ocrConfidence, titleVerified: out.titleVerified, droppedLowConfidence: out.droppedLowConfidence, accepted: out.corpus.acceptedRecords.map(r => ({ body: r.body, hash: r.stableEvidenceHash })), rejected: out.corpus.rejectedRecords.map(r => r.rejectionReason) });
   }

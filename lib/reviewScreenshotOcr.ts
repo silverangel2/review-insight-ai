@@ -24,8 +24,17 @@ export type ScreenshotReviewCandidate = CollectedReview & {
   provenance: { source: "user_screenshot"; fileSha256: string; ocrConfidence: number; blockConfidence: number; ocrVersion: string };
 };
 
-export async function ocrReviewScreenshot(image: Buffer): Promise<ScreenshotOcrResult> {
-  const fileSha256 = createHash("sha256").update(image).digest("hex");
+export const SCREENSHOT_OCR_TIMEOUT_MS = 15_000;
+
+export class ScreenshotOcrTimeoutError extends Error {
+  code = "SCREENSHOT_OCR_TIMEOUT";
+  constructor(ms: number) { super(`Screenshot OCR did not finish within ${ms}ms`); }
+}
+
+type OcrWorker = { recognize: (...args: unknown[]) => Promise<any>; terminate: () => Promise<unknown> }; // eslint-disable-line @typescript-eslint/no-explicit-any
+type CreateWorker = (...args: unknown[]) => Promise<OcrWorker>;
+
+async function loadCreateWorker(): Promise<{ createWorker: CreateWorker; langPath?: string; gzip?: boolean }> {
   // Dynamic import (kept external to the Next bundle via serverExternalPackages).
   const tesseract = await import("tesseract.js");
   const createWorker = (tesseract as { createWorker?: unknown; default?: { createWorker?: unknown } }).createWorker
@@ -33,17 +42,47 @@ export async function ocrReviewScreenshot(image: Buffer): Promise<ScreenshotOcrR
   const engModule = await import("@tesseract.js-data/eng") as { langPath?: string; gzip?: boolean; default?: { langPath?: string; gzip?: boolean } };
   const eng = engModule.langPath ? engModule : (engModule.default || {});
   if (typeof createWorker !== "function") throw new Error("tesseract.js createWorker unavailable");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const worker = await (createWorker as (...args: unknown[]) => Promise<{ recognize: (...args: unknown[]) => Promise<any>; terminate: () => Promise<unknown> }>)("eng", 1, { langPath: eng.langPath, gzip: eng.gzip, cacheMethod: "none", logger: () => undefined });
-  try {
-    const { data } = await worker.recognize(image, {}, { blocks: true, text: true });
+  return { createWorker: createWorker as CreateWorker, langPath: eng.langPath, gzip: eng.gzip };
+}
+
+/**
+ * OCR one screenshot with a hard timeout. If the tesseract worker crashes (e.g. its .wasm
+ * is missing from the deployed bundle) its promise can never settle, so the whole call is
+ * raced against a timer, the worker is terminated in the background, and the caller gets a
+ * ScreenshotOcrTimeoutError it can fall back from instead of hanging the scan.
+ */
+export async function ocrReviewScreenshot(
+  image: Buffer,
+  opts: { timeoutMs?: number; loader?: typeof loadCreateWorker } = {},
+): Promise<ScreenshotOcrResult> {
+  const fileSha256 = createHash("sha256").update(image).digest("hex");
+  const timeoutMs = opts.timeoutMs ?? SCREENSHOT_OCR_TIMEOUT_MS;
+  let worker: OcrWorker | undefined;
+  let timedOut = false;
+  const run = async (): Promise<ScreenshotOcrResult> => {
+    const { createWorker, langPath, gzip } = await (opts.loader ?? loadCreateWorker)();
+    const w = await createWorker("eng", 1, { langPath, gzip, cacheMethod: "none", logger: () => undefined, errorHandler: () => undefined });
+    worker = w;
+    if (timedOut) { void w.terminate().catch(() => null); throw new ScreenshotOcrTimeoutError(timeoutMs); }
+    const { data } = await w.recognize(image, {}, { blocks: true, text: true });
     const lines: ScreenshotOcrLine[] = [];
     for (const block of data.blocks || []) for (const para of block.paragraphs || []) for (const line of para.lines || []) {
       lines.push({ text: String(line.text || "").replace(/\s+/g, " ").trim(), confidence: Number(line.confidence) || 0 });
     }
     return { fileSha256, ocrConfidence: Number(data.confidence) || 0, lines: lines.filter(l => l.text), engine: "tesseract.js" };
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => { timedOut = true; reject(new ScreenshotOcrTimeoutError(timeoutMs)); }, timeoutMs);
+  });
+  const work = run();
+  work.catch(() => null); // a late rejection after the timeout must not become unhandled
+  try {
+    return await Promise.race([work, timeout]);
   } finally {
-    await worker.terminate();
+    if (timer) clearTimeout(timer);
+    const w = worker;
+    if (w) void Promise.resolve().then(() => w.terminate()).catch(() => null);
   }
 }
 

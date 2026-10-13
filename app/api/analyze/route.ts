@@ -1594,8 +1594,15 @@ function normalizeVision(rawValue: unknown): VisionFacts {
 async function extractScreenshotFacts(imageDataUrl: string, costTelemetry?: ScanCostTelemetry): Promise<VisionFacts> {
   // Zero-OpenAI default: free local OCR identification. AI vision only with REVIEWINTEL_OPENAI_ANALYZE_SCREENSHOT=on.
   if (!isOpenAiFeatureEnabled("analyze_screenshot")) {
-    const ocr = await ocrReviewScreenshot(Buffer.from(imageDataUrl.slice(imageDataUrl.indexOf(",") + 1), "base64"));
-    return productFactsFromOcr(ocr);
+    try {
+      const ocr = await ocrReviewScreenshot(Buffer.from(imageDataUrl.slice(imageDataUrl.indexOf(",") + 1), "base64"));
+      return productFactsFromOcr(ocr);
+    } catch (error) {
+      // OCR is best-effort: a crashed or slow worker must never hang or fail the scan.
+      // Continue with no screenshot facts; the product link still drives retrieval.
+      console.warn("[ReviewIntel] screenshot OCR unavailable, continuing from the link", error instanceof Error ? error.message : error);
+      return productFactsFromOcr({ fileSha256: "", ocrConfidence: 0, lines: [], engine: "unavailable" });
+    }
   }
   const raw = await openAIResponse({
     model: process.env.OPENAI_MODEL || "gpt-4.1",
