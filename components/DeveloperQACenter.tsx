@@ -23,7 +23,7 @@ type Diagnostics = {
 const validationItems = [
   "Shopper Free flow",
   "Shopper Premium simulation",
-  "Seller Starter simulation",
+  "Seller Premium simulation",
   "Seller Pro simulation",
   "Admin access guard",
   "Screenshot upload",
@@ -78,7 +78,7 @@ const testModes: Array<{
     detail: "Unlimited shopper verdicts, still no seller analytics interface."
   },
   {
-    label: "Seller Starter",
+    label: "Seller Premium",
     email: "seller.premium@reviewintel.test",
     profileId: "SELL-PREMIUM-001",
     role: "seller",
@@ -229,7 +229,7 @@ export function DeveloperQACenter() {
         </article>
       </section>
 
-      {error ? <p className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
+      {error ? <p className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
 
       <section className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">

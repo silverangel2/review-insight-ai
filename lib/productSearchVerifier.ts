@@ -1,25 +1,13 @@
-import { captureStage } from "./devScanCapture";
-import {
-  enrichRetrievedProductCandidate,
-  normalizeProductUrl,
-  isProductUrl,
-  type RetrievedProductUrl,
-} from "./productUrlRetrieval";
-import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
-import { PRODUCT_COLOR_WORDS, extractProductIdentityTokenRoles, stableProductSearchTerms } from "./productIdentityTokens";
-
 export type ProductSearchJob = {
   scanId: string;
   store?: string | null;
   brand?: string | null;
   productName?: string | null;
   productKey?: string | null;
-  model?: string | null;
   color?: string | null;
   price?: string | number | null;
   rating?: string | number | null;
   reviewCount?: string | number | null;
-  costTelemetry?: ScanCostTelemetry;
 };
 
 export type ProductCandidate = {
@@ -32,17 +20,6 @@ export type ProductCandidate = {
   reviewCount?: string | number | null;
   source?: string | null;
   notes?: string[];
-  identityFetched?: boolean;
-  enrichmentAttempted?: boolean;
-  enrichmentSucceeded?: boolean;
-  asin?: string | null;
-  brand?: string | null;
-  model?: string | null;
-};
-
-export type EnrichedProductCandidate = ProductCandidate & {
-  enrichmentAttempted: boolean;
-  enrichmentSucceeded: boolean;
 };
 
 export type ProductVerifierDecision =
@@ -51,6 +28,7 @@ export type ProductVerifierDecision =
   | "rejected_similar_product"
   | "rejected_wrong_store"
   | "rejected_wrong_variant"
+  | "rejected_rating_review_count_mismatch"
   | "rejected_missing_distinctive_terms"
   | "rejected_non_product_page";
 
@@ -64,36 +42,20 @@ export type ProductVerifierResult = {
   retrySearchQueries: string[];
   canCollectReviews: boolean;
   canScoreProduct: boolean;
-  canonicalIdentifier?: string | null;
-  canonicalMarketplace?: string | null;
 };
-
-function numberFrom(value: unknown) {
-  const n = Number(String(value || "").replace(/[^0-9.]/g, ""));
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
 
 function normalize(value: unknown) {
   return String(value || "")
     .toLowerCase()
     .replace(/amazon'?s choice/g, " ")
     .replace(/[^a-z0-9.%+-]+/g, " ")
-    .replace(/\b(quarts?|qts?)\b/g, "qt")
-    .replace(/\b(pounds?)\b/g, "lb")
-    .replace(/\btouch[\s-]*screen\b/g, "touchscreen")
-    .replace(/\bair\s+fryer\b/g, "airfryer")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function amazonAsinFromUrl(value: unknown): string | null {
-  try {
-    const url = new URL(String(value || ""));
-    if (!url.hostname.toLowerCase().includes("amazon.")) return null;
-    return url.pathname.match(/\/(?:dp|gp\/product|gp\/aw\/d|product-reviews)\/([A-Z0-9]{10})(?:[/?#]|$)/i)?.[1]?.toUpperCase() || null;
-  } catch {
-    return null;
-  }
+function numberFrom(value: unknown) {
+  const n = Number(String(value || "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function domainFromUrl(url: string | null | undefined) {
@@ -102,111 +64,6 @@ function domainFromUrl(url: string | null | undefined) {
   } catch {
     return "";
   }
-}
-
-export async function enrichProductCandidate(
-  job: ProductSearchJob,
-  candidate: ProductCandidate,
-  timeoutMs = 2200,
-  force = false,
-  attemptedUrls?: Set<string>
-): Promise<EnrichedProductCandidate> {
-  const initial = {
-    ...candidate,
-    enrichmentAttempted: Boolean(candidate.enrichmentAttempted),
-    enrichmentSucceeded: Boolean(candidate.enrichmentSucceeded),
-  };
-  const title = String(candidate.title || "").trim();
-  const weakTitle = !title ||
-    /^Amazon(?:\.[a-z]{2,})?(?:\s+product\s+[A-Z0-9]{10})?$/i.test(title) ||
-    /^https?:\/\//i.test(title);
-  const normalizedUrl = normalizeProductUrl(String(candidate.url || ""));
-  if (!isProductUrl(normalizedUrl) || (!force && !weakTitle) || candidate.enrichmentAttempted) {
-    return initial;
-  }
-
-  if (attemptedUrls?.has(normalizedUrl)) return initial;
-  attemptedUrls?.add(normalizedUrl);
-
-  const enriched = await enrichRetrievedProductCandidate({
-    url: String(candidate.url),
-    title: title || String(candidate.url),
-    domain: candidate.domain || new URL(String(candidate.url)).hostname,
-    source: "manual-pattern",
-    query: "exact-product-identity-enrichment",
-    notes: candidate.notes || [],
-    ...(candidate.identityFetched ? { identityFetched: true } : {}),
-  } as RetrievedProductUrl, timeoutMs, job.costTelemetry);
-
-  return {
-    ...candidate,
-    url: enriched.url || candidate.url,
-    title: enriched.title || candidate.title || null,
-    brand: enriched.brand || candidate.brand || null,
-    model: enriched.model || candidate.model || null,
-    ...(enriched.rating !== undefined ? { rating: enriched.rating } : {}),
-    ...(enriched.reviewCount !== undefined ? { reviewCount: enriched.reviewCount } : {}),
-    notes: enriched.notes,
-    identityFetched: Boolean(enriched.identityFetched),
-    enrichmentAttempted: true,
-    enrichmentSucceeded: Boolean(enriched.enrichmentSucceeded),
-  };
-}
-
-export async function prepareCandidateForVerification(
-  job: ProductSearchJob,
-  candidate: ProductCandidate,
-  attemptedUrls?: Set<string>
-) {
-  // Search-result metadata is frequently incomplete. A candidate can appear
-  // to be missing brand/model/capacity simply because those fields were not
-  // present in the discovery result. Do not reject it before the native
-  // identity enrichment step has had one opportunity to inspect the actual
-  // candidate.
-  //
-  // The enriched candidate is still passed through verifyProductCandidate()
-  // immediately below, so genuinely wrong brands/models/sizes/bundles remain
-  // rejected.
-  const initiallyEnriched = await enrichProductCandidate(
-    job,
-    candidate,
-    2200,
-    false,
-    attemptedUrls
-  );
-  const initialDecision = verifyProductCandidate(job, initiallyEnriched);
-
-  // Search-result metadata can make a plausible Amazon listing look like a
-  // bundle/variant before the canonical product page has been inspected. Give
-  // that bounded suspicion one page-level identity check, then let the same
-  // verifier make the final decision. Hard identity mismatches remain
-  // rejected and are not rescued by this path.
-  const needsFetchedIdentityVerification =
-    (initialDecision.verifierStatus === "rejected_missing_distinctive_terms" &&
-      (normalize(initiallyEnriched.title).includes(normalize(job.brand)) ||
-        String(initiallyEnriched.title || "").split(/\s+/).length < 4)) ||
-    initialDecision.verifierStatus === "rejected_wrong_variant" ||
-    initialDecision.verifierReasons.some((reason) => /bundle|packaged variant/i.test(reason)) ||
-    (() => {
-      const requestedRating = numberFrom(job.rating);
-      const candidateRating = numberFrom(initiallyEnriched.rating);
-      const requestedReviews = numberFrom(job.reviewCount);
-      const candidateReviews = numberFrom(initiallyEnriched.reviewCount);
-      return (
-        (requestedRating !== null && candidateRating !== null && Math.abs(requestedRating - candidateRating) > 0.15) ||
-        (requestedReviews !== null && candidateReviews !== null && requestedReviews > 0 &&
-          Math.abs(candidateReviews - requestedReviews) / requestedReviews > 0.35)
-      );
-    })();
-
-  if (
-    !needsFetchedIdentityVerification ||
-    initiallyEnriched.enrichmentAttempted
-  ) {
-    return initiallyEnriched;
-  }
-
-  return enrichProductCandidate(job, initiallyEnriched, 2200, true, attemptedUrls);
 }
 
 function storeDomain(store: unknown) {
@@ -221,7 +78,26 @@ function storeDomain(store: unknown) {
   return s;
 }
 
-const COLOR_WORDS = new Set(PRODUCT_COLOR_WORDS);
+const COLOR_WORDS = new Set([
+  "black",
+  "white",
+  "gray",
+  "grey",
+  "pink",
+  "blue",
+  "green",
+  "red",
+  "purple",
+  "yellow",
+  "orange",
+  "silver",
+  "gold",
+  "beige",
+  "brown",
+  "navy",
+  "cream",
+  "clear",
+]);
 
 function colorsIn(value: unknown) {
   const colors = new Set<string>();
@@ -233,12 +109,7 @@ function colorsIn(value: unknown) {
 }
 
 function importantTerms(job: ProductSearchJob) {
-  const identity = stableProductSearchTerms(job);
-  const text = normalize([
-    ...identity.brands,
-    identity.family,
-    ...identity.models,
-  ].filter(Boolean).join(" "));
+  const text = normalize([job.brand, job.productName, job.productKey].filter(Boolean).join(" "));
   const terms = new Set<string>();
 
   for (const term of text.split(/\s+/)) {
@@ -247,7 +118,7 @@ function importantTerms(job: ProductSearchJob) {
     terms.add(term);
   }
 
-  const rawText = [identity.family, ...identity.models].filter(Boolean).join(" ");
+  const rawText = [job.productName, job.productKey].filter(Boolean).join(" ");
   for (const match of rawText.matchAll(/\b\d+(?:\.\d+)?\s*(?:mah|ml|oz|inch|inches|cm|mm|w|v|gb|tb|pack|pcs|piece|speed|hours?)\b/gi)) {
     terms.add(match[0].replace(/\s+/g, ""));
   }
@@ -273,7 +144,7 @@ function cleanRetryQuery(value: unknown) {
 
   for (const part of parts) {
     const key = part.replace(/^"|"$/g, "").toLowerCase();
-    if (!key) continue;
+    if (!key || key === "s") continue;
     if (["color", "variant", "requested", "candidate", "appears", "product", "page"].includes(key)) continue;
     if (hasAmazonDomain && key === "amazon") continue;
     if (hasWalmartDomain && key === "walmart") continue;
@@ -334,15 +205,6 @@ function featureTermsForJob(job: ProductSearchJob) {
   return Array.from(new Set(terms.map(cleanDisplayToken).filter(Boolean))).slice(0, 6);
 }
 
-function meaningfulSizeTokens(value: unknown) {
-  const normalized = normalize(value);
-  const tokens = new Set<string>();
-  for (const match of normalized.matchAll(/\b(\d+(?:\.\d+)?)\s*(lb|qt|oz|ml|mah|gb|tb|w|v|cm|mm|in|inch|inches)\b/gi)) {
-    tokens.add(`${match[1]}${match[2].replace(/inches?/i, "in")}`.toLowerCase());
-  }
-  return tokens;
-}
-
 function productTypeTermsForJob(job: ProductSearchJob) {
   const brandKey = normalize(job.brand);
   const colorKey = normalize(colorForJob(job));
@@ -401,39 +263,28 @@ function productTypeTermsForJob(job: ProductSearchJob) {
 
 export function buildProductRetryQueries(job: ProductSearchJob, reason?: string) {
   void reason;
-  const identity = stableProductSearchTerms(job);
-  const brand = identity.roles.primaryBrand || identity.brands[0] || "";
-  const parent = identity.roles.manufacturerOrParent && identity.roles.manufacturerOrParent !== brand
-    ? identity.roles.manufacturerOrParent
-    : "";
+  const brand = cleanDisplayToken(job.brand || job.productName?.split(/\s+/)[0] || "");
   const store = cleanDisplayToken(job.store || storeDomain(job.store) || "Amazon.ca");
-  const modelTokens = identity.models;
-  // Family is a bag of distinctive words, not a coherent phrase. Emit it as
-  // separate unquoted terms so the search engine ANDs them instead of
-  // requiring an adjacency that never occurs in real titles (e.g., quoting
-  // "ring life size galaxy" produces dead queries that waste search budget).
-  const productTypeTerms = identity.family
-    ? identity.family.split(" ").filter(Boolean)
-    : productTypeTermsForJob(job);
-  const productTypePhrase = productTypeTerms.join(" ");
-  const variant = identity.variants.join(" ");
+  const rating = job.rating ? `${job.rating} stars` : "";
+  const reviews = job.reviewCount ? `${job.reviewCount} reviews` : "";
+  const color = colorForJob(job);
+  const features = featureTermsForJob(job);
+  const productType = productTypeTermsForJob(job);
+  const firstFeature = features[0] || "";
+  const variantFeatures = features.slice(0, 3);
+  const quotedParts = [brand, firstFeature, color, store]
+    .filter(Boolean)
+    .map((term) => `"${term}"`)
+    .join(" ");
   const siteTarget = storeDomain(store) || store.toLowerCase();
 
-  const effectiveModelTokens = primaryModelSearchTokens(job, modelTokens);
-
-  const queries = effectiveModelTokens.length > 0
-    ? [
-        `site:${siteTarget} "${brand}" "${effectiveModelTokens.join(" ")}" ${productTypePhrase}`,
-        `site:${siteTarget} "${brand}" "${effectiveModelTokens.join(" ")}" ${identity.roles.capacityOrSize.map((size) => `"${size}"`).join(" ")} ${productTypePhrase}`,
-        `"${brand} ${effectiveModelTokens.join(" ")}" ${productTypePhrase} ${store}`,
-        `${parent} "${brand}" "${effectiveModelTokens.join(" ")}" ${productTypePhrase} ${variant} ${store}`,
-      ]
-    : [
-        `site:${siteTarget} "${brand}" ${identity.roles.capacityOrSize.map((size) => `"${size}"`).join(" ")} ${productTypePhrase}`,
-        `site:${siteTarget} "${brand}" ${productTypePhrase}`,
-        `"${brand}" ${productTypePhrase} ${store}`,
-        `${brand} ${productTypePhrase} ${variant} ${store}`,
-      ];
+  const queries = [
+    `${brand} ${productType.join(" ")} ${firstFeature} ${color} ${store}`,
+    `${brand} ${firstFeature} ${color} ${variantFeatures.slice(1).join(" ")} ${store}`,
+    `${brand} ${color} ${rating} ${reviews} ${store}`,
+    quotedParts,
+    `site:${siteTarget} ${brand} ${firstFeature} ${color} ${productType.join(" ")}`,
+  ];
 
   return Array.from(
     new Set(
@@ -444,26 +295,16 @@ export function buildProductRetryQueries(job: ProductSearchJob, reason?: string)
   ).slice(0, 8);
 }
 
-
-function primaryModelSearchTokens(
-  job: ProductSearchJob,
-  suppliedTokens: string[]
-): string[] {
-  void suppliedTokens;
-  return stableProductSearchTerms(job).models;
-}
-
-function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCandidate): ProductVerifierResult {
+export function verifyProductCandidate(job: ProductSearchJob, candidate: ProductCandidate): ProductVerifierResult {
   const reasons: string[] = [];
-  const jobText = normalize([job.brand, job.productName, job.productKey, job.color].filter(Boolean).join(" "));
-  const candidateText = normalize([candidate.title, candidate.brand, candidate.model].filter(Boolean).join(" "));
-  const candidateUrl = candidate.url ? normalizeProductUrl(candidate.url) : null;
+  const jobText = normalize([job.brand, job.productName, job.productKey].filter(Boolean).join(" "));
+  const candidateText = normalize([candidate.title, candidate.url, candidate.notes?.join(" ")].filter(Boolean).join(" "));
+  const candidateUrl = candidate.url || null;
   const candidateDomain = domainFromUrl(candidateUrl);
   const expectedDomain = storeDomain(job.store);
   const preferredStoreMismatch = Boolean(expectedDomain && candidateDomain && !candidateDomain.includes(expectedDomain));
-  const candidateAsin = amazonAsinFromUrl(candidateUrl);
 
-  if (!candidateUrl || !isProductUrl(candidateUrl)) {
+  if (!candidateUrl || /\/s(?:[/?#]|$)|[?&]k=|search|keyword|category|browse|\/c(?:[/?#]|$)|\/brand(?:[/?#]|$)/i.test(candidateUrl)) {
     return {
       verifierStatus: "rejected_non_product_page",
       verifierConfidence: 0,
@@ -474,54 +315,14 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
       retrySearchQueries: buildProductRetryQueries(job, "exact product page"),
       canCollectReviews: false,
       canScoreProduct: false,
-      canonicalIdentifier: null,
-      canonicalMarketplace: candidateDomain || null,
     };
   }
-
-  if (candidateDomain.includes("amazon.") && !candidateAsin) {
-    return {
-      verifierStatus: "rejected_non_product_page",
-      verifierConfidence: 0,
-      verifierReasons: ["Amazon candidate does not expose a canonical ASIN."],
-      verifiedListingUrl: null,
-      rejectedListingUrl: candidateUrl,
-      rejectedListingTitle: candidate.title || null,
-      retrySearchQueries: buildProductRetryQueries(job, "canonical Amazon ASIN"),
-      canCollectReviews: false,
-      canScoreProduct: false,
-      canonicalIdentifier: null,
-      canonicalMarketplace: candidateDomain,
-    };
-  }
-
-  const stableIdentity = stableProductSearchTerms(job);
-  const brand = normalize(stableIdentity.roles.primaryBrand);
-  const identityText = candidateText;
-  if (brand && !new RegExp(`(?:^|\\s)${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|$)`, "i").test(identityText)) {
-    reasons.push(`Candidate does not contain the known brand identity: ${brand}.`);
-  }
-  if (candidate.brand && brand && normalize(candidate.brand) !== brand) reasons.push("Fetched candidate brand conflicts with the authoritative requested brand.");
-  for (const size of stableIdentity.roles.capacityOrSize) {
-    const canonicalSize = (value: string) => normalize(value).replace(/cubic feet|cu\.?\s*ft\.?/g, "cuft").replace(/\d+(?:\.\d+)?/g, (number) => String(Number(number))).replace(/\s+/g, "");
-    if (!canonicalSize(identityText).includes(canonicalSize(size))) reasons.push(`Candidate has missing or conflicting capacity identity: ${size}.`);
-  }
-  // A selected child size cannot inherit exact identity from a parent title.
-  for (const variant of stableIdentity.roles.primaryVariants.filter(value => /^size\s+\d|^(?:xl|xxl)$/i.test(value))) {
-    const normalizedVariant = normalize(variant);
-    if (!new RegExp(`(?:^|\\s)${normalizedVariant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|$)`, "i").test(candidateText)) {
-      reasons.push(`Candidate has missing or conflicting child variant: ${variant}.`);
-    }
-  }
-  const pageEnrichmentFailed = candidate.enrichmentAttempted && !candidate.enrichmentSucceeded && !candidate.identityFetched;
 
   const requestedColors = colorsIn(jobText);
   const candidateColors = colorsIn(candidateText);
-  const requestedBundleTerms = normalize(jobText).match(/\b(bundle|kit|set|pack|pieces?|count)\b/g) || [];
-  const candidateBundleTerms = normalize(candidateText).match(/\b(bundle|kit|set|pack|pieces?|count)\b/g) || [];
-  if (candidateBundleTerms.length > 0 && requestedBundleTerms.length === 0) {
-    reasons.push("Candidate appears to be a bundle or packaged variant not requested by the product identity.");
-  }
+  const requested5000 = /5000\s*mah|5000mah/i.test(jobText);
+  const candidate5000 = /5000\s*mah|5000mah/i.test(candidateText);
+
   if (requestedColors.size > 0 && candidateColors.size > 0) {
     const hasRequestedColor = Array.from(requestedColors).some((color) => candidateColors.has(color));
     const hasDifferentColor = Array.from(candidateColors).some((color) => !requestedColors.has(color));
@@ -532,72 +333,31 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
     }
   }
 
-  const requestedSizes = meaningfulSizeTokens(stableIdentity.roles.capacityOrSize.join(" "));
-  const candidateSizes = meaningfulSizeTokens(candidateText);
-  const missingSizes = Array.from(requestedSizes).filter((size) => !candidateSizes.has(size));
-  if (missingSizes.length > 0) {
-    reasons.push(`Candidate is missing requested size/capacity identity: ${missingSizes.join(", ")}.`);
-  }
-  const requestedModel = primaryModelSearchTokens(
-    job,
-    stableProductSearchTerms(job).models
-  ).map((value) => normalize(value));
-
-  if (candidate.model && requestedModel.length) {
-    const fetchedModel = normalize(candidate.model).replace(/^(?:model|sku|item model number)\s+/, "").replace(/[^a-z0-9]/g, "");
-    const supplementarySkuForNamedModel = requestedModel.some(model => /\s/.test(model)) &&
-      /^[a-z]+\d[a-z0-9_-]*$/i.test(String(candidate.model)) &&
-      requestedModel.every(model => normalize(candidate.title).includes(model));
-    if (!supplementarySkuForNamedModel && !requestedModel.some((model) => model.replace(/[^a-z0-9]/g, "") === fetchedModel)) {
-      reasons.push("Fetched candidate model conflicts with the requested primary model.");
-    }
+  if (requested5000 && !candidate5000) {
+    reasons.push("Requested 5000mAh but candidate does not confirm 5000mAh.");
   }
 
-  if (requestedModel.length > 0) {
-    const missingModelTokens = requestedModel.filter(
-      (model) => {
-        const pattern = model.split(/[\s_/-]+/).filter(Boolean)
-          .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s_/-]*");
-        return !new RegExp(`(?:^|\\s)${pattern}(?:\\s|$)`, "i").test(candidateText);
-      }
-    );
+  const requestedRating = numberFrom(job.rating);
+  const candidateRating = numberFrom(candidate.rating);
+  if (
+    !preferredStoreMismatch &&
+    requestedRating !== null &&
+    candidateRating !== null &&
+    Math.abs(requestedRating - candidateRating) > 0.15
+  ) {
+    reasons.push(`Requested rating ${requestedRating}, but candidate rating is ${candidateRating}.`);
+  }
 
-    if (missingModelTokens.length > 0) {
-      reasons.push(
-        `Candidate is missing the requested product family/model marker: ${missingModelTokens.join(", ")}.`
-      );
-    }
-  }
-  const primaryTitle = normalize(String(candidate.title || "").split(/\b(?:compatible\s+with|works\s+with|for\s+use\s+with)\b/i)[0]);
-  const categories = [
-    /\b(?:airfryer|air fryer)\b/i, /\b(?:vacuum|vacuum cleaner)\b/i,
-    /\b(?:smart ring|ring)\b/i, /\b(?:dryer)\b/i, /\b(?:washer)\b/i,
-    /\b(?:pressure cooker)\b/i, /\b(?:doorbell)\b/i, /\b(?:speaker)\b/i,
-    /\b(?:power station|generator)\b/i, /\b(?:headphones?|earbuds?)\b/i,
-  ];
-  const requestedCategories = categories.filter((category) => category.test(normalize(job.productName)));
-  const candidateCategories = categories.filter((category) => category.test(primaryTitle));
-  if (requestedCategories.length && candidateCategories.length && !requestedCategories.some((category) => category.test(primaryTitle))) {
-    reasons.push("Candidate identifies a conflicting product category.");
-  }
-  if (/\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(primaryTitle)
-    && !/\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(normalize(job.productName))) {
-    reasons.push("Candidate is an accessory or replacement, not the requested primary product.");
-  }
-  if (stableIdentity.models.some((model) => /\s/.test(model))) {
-    const candidateModels = extractProductIdentityTokenRoles({ brand: job.brand, productName: candidate.title }).primaryModels;
-    // A named model can be followed by family words on a less richly
-    // described page. Only the requested family vocabulary may be removed;
-    // generation/tier suffixes and unrelated model words stay conflicts.
-    const namedCore = (model: string) => {
-      const words = normalize(model).split(" ");
-      const familyWords = new Set(stableIdentity.roles.primaryProductFamily);
-      while (words.length > 1 && familyWords.has(words[words.length - 1])) words.pop();
-      return words.join(" ").replace(/[^a-z0-9]/g, "");
-    };
-    if (candidateModels.length && !candidateModels.some((model) => namedCore(model) === namedCore(requestedModel.join(" ")))) {
-      reasons.push("Candidate has a conflicting named product model/family.");
-    }
+  const requestedReviews = numberFrom(job.reviewCount);
+  const candidateReviews = numberFrom(candidate.reviewCount);
+  if (
+    !preferredStoreMismatch &&
+    requestedReviews !== null &&
+    candidateReviews !== null &&
+    requestedReviews > 0 &&
+    Math.abs(candidateReviews - requestedReviews) / requestedReviews > 0.35
+  ) {
+    reasons.push(`Requested review count ${requestedReviews}, but candidate review count is ${candidateReviews}.`);
   }
 
   const terms = importantTerms(job);
@@ -618,12 +378,15 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
   }
 
   if (reasons.length > 0) {
-    const variantProblem = reasons.some((r) => /color\/variant/i.test(r));
+    const variantProblem = reasons.some((r) => /color\/variant|5000mah/i.test(r));
+    const ratingProblem = reasons.some((r) => /rating|review count/i.test(r));
 
     return {
       verifierStatus: variantProblem
         ? "rejected_wrong_variant"
-        : "rejected_missing_distinctive_terms",
+        : ratingProblem
+          ? "rejected_rating_review_count_mismatch"
+          : "rejected_missing_distinctive_terms",
       verifierConfidence: Math.max(0, Math.round(termCoverage * 45)),
       verifierReasons: reasons,
       verifiedListingUrl: null,
@@ -632,8 +395,6 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
       retrySearchQueries: buildProductRetryQueries(job, reasons[0]),
       canCollectReviews: false,
       canScoreProduct: false,
-      canonicalIdentifier: null,
-      canonicalMarketplace: candidateDomain || null,
     };
   }
 
@@ -643,33 +404,13 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
     verifierReasons: [
       preferredStoreMismatch
         ? "Candidate is outside the preferred store, but passed strict exact-product fallback checks."
-        : candidate.identityFetched
-          ? "Fetched candidate passed store, variant, size, and distinctive-term identity checks; mutable aggregate metadata is ignored for identity."
-          : pageEnrichmentFailed
-            ? "Tier B candidate passed canonical Amazon ASIN, discovery metadata, store, variant, size, and distinctive-term checks; page enrichment was unavailable."
-            : "Candidate passed store, variant, size, and distinctive-term checks; mutable aggregate metadata is ignored for identity.",
+        : "Candidate passed store, variant, rating/review-count, and distinctive-term checks.",
     ],
-    verifiedListingUrl: normalizeProductUrl(candidateUrl),
+    verifiedListingUrl: candidateUrl,
     rejectedListingUrl: null,
     rejectedListingTitle: null,
     retrySearchQueries: [],
     canCollectReviews: true,
     canScoreProduct: true,
-    canonicalIdentifier: candidateAsin,
-    canonicalMarketplace: candidateDomain || null,
   };
-}
-
-export function verifyProductCandidate(...args: Parameters<typeof verifyProductCandidateImpl>): ReturnType<typeof verifyProductCandidateImpl> {
-  const result = verifyProductCandidateImpl(...args);
-  captureStage("verification", () => ({
-    args,
-    parsedProductIdentity: extractProductIdentityTokenRoles({
-      brand: args[0].brand,
-      productName: args[1].title,
-      model: args[1].model ?? null,
-    }),
-    result,
-  }));
-  return result;
 }

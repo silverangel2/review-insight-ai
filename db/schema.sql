@@ -584,11 +584,7 @@ alter table if exists public.profiles
   add column if not exists profile_notes text,
   add column if not exists stripe_customer_id text,
   add column if not exists subscription_status text not null default 'free',
-  add column if not exists last_login timestamptz,
-  add column if not exists email_product_updates boolean,
-  add column if not exists email_upgrade_tips boolean not null default true,
-  add column if not exists welcome_email_sent_at timestamptz,
-  add column if not exists first_scan_upgrade_sent_at timestamptz;
+  add column if not exists last_login timestamptz;
 
 create unique index if not exists profiles_email_idx on public.profiles(email);
 create index if not exists profiles_plan_idx on public.profiles(plan);

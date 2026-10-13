@@ -1,11 +1,7 @@
-import { runZeroOpenAi } from "@/lib/openAiGuard";
-import { rateLimitRequest } from "@/lib/security";
 import { NextRequest, NextResponse } from "next/server";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 
-async function handlePOST(req: NextRequest): Promise<Response> {
-  const limit = await rateLimitRequest(req, { key: "review_evidence", limit: 10, windowMs: 10 * 60 * 1000, eventType: "review_evidence_rate_limited" });
-  if (!limit.allowed) return limit.response ?? NextResponse.json({ error: "Too many requests. Please try again shortly." }, { status: 429 });
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const productName = String(body.productName || body.name || "").trim();
@@ -39,10 +35,4 @@ async function handlePOST(req: NextRequest): Promise<Response> {
       { status: 500 }
     );
   }
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(req));
-  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
-  return response;
 }

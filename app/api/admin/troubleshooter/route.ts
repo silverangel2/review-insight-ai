@@ -1,4 +1,3 @@
-import { guardedOpenAiFetch } from "@/lib/openAiGuard";
 import { NextResponse } from "next/server";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const response = await guardedOpenAiFetch("admin_tools", "https://api.openai.com/v1/responses", {
+    const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,

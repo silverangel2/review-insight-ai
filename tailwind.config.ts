@@ -14,14 +14,9 @@ const config: Config = {
         mist: "#f5f7fb",
         panel: "#ffffff",
         line: "#d8e0eb",
-        teal: "#0b7c78", // WCAG AA (4.9:1 on white); was #0f9f9a (3.25:1)
+        teal: "#0f9f9a",
         ocean: "#2356a3",
-        coral: "#e8664a", // decorative/borders only
-        coralink: "#b2402c", // coral text, AA 5.6:1 on white
-        butter: "#fff6d6",
-        mint: "#e6f7f1",
-        peach: "#ffeee6",
-        lavender: "#f1edff",
+        coral: "#d95d5d",
         amber: "#d68b1f",
         plum: "#7657b8"
       },

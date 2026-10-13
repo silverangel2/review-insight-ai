@@ -10,11 +10,6 @@ const compat = new FlatCompat({
 const eslintConfig = [
   {
     ignores: [
-      ".reviewintel-backups/**",
-      ".reviewintel-tmp/**",
-      "**/*.backup*",
-      "**/*.bak*",
-      "**/*.before-*",
       ".next/**",
       ".next-*/**",
       ".next_*/**",

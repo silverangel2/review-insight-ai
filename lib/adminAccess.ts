@@ -57,11 +57,7 @@ function parseCookieHeader(cookieHeader: string | null) {
   for (const part of cookieHeader.split(";")) {
     const [rawName, ...rawValue] = part.trim().split("=");
     if (!rawName || !rawValue.length) continue;
-    try {
-      cookies.set(rawName, decodeURIComponent(rawValue.join("=")));
-    } catch {
-      // Malformed unrelated cookies must not crash authentication checks.
-    }
+    cookies.set(rawName, decodeURIComponent(rawValue.join("=")));
   }
 
   return cookies;
