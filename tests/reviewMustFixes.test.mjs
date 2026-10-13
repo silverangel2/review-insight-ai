@@ -130,6 +130,7 @@ test("an unreadable Amazon page asks to retry and never mentions zero reviews or
   assert.ok(answer.nextSteps.some((step) => step.id === "retry" && /try again/i.test(step.label)));
   assert.ok(answer.nextSteps.some((step) => /screenshot of the product page/i.test(step.detail)));
   const visible = `${answer.label} ${answer.why} ${answer.trustLine} ${answer.nextSteps.map((step) => `${step.label} ${step.detail}`).join(" ")}`;
+  assert.match(visible, /Retrying is free/);
   assert.doesNotMatch(visible, /0 real reviews|Scan the Amazon listing/i);
   assert.doesNotMatch(visible, new RegExp(`Amazon ${ASIN}`));
   assert.match(answer.nextSteps.find((step) => step.id === "retry").href, new RegExp(ASIN));
@@ -161,6 +162,7 @@ test("an unreadable Amazon page asks to retry and never mentions zero reviews or
   const { renderToStaticMarkup } = require("react-dom/server");
   const html = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result, productName: `Amazon ${ASIN}` }));
   assert.match(html, /We couldn(?:'|&#x27;)t read this Amazon page right now/);
+  assert.match(html, /Retrying is free/);
   assert.match(html, /Try again/);
   assert.match(html, /screenshot of the product page/i);
   assert.doesNotMatch(html, /0 real reviews|Scan the Amazon listing/i);
@@ -169,6 +171,7 @@ test("an unreadable Amazon page asks to retry and never mentions zero reviews or
   const namedHtml = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result: named, productName: "Echo Dot (5th Gen)" }));
   assert.match(namedHtml, /data-testid="unreadable-amazon-page"/);
   assert.match(namedHtml, /We couldn(?:'|&#x27;)t read this Amazon page right now/);
+  assert.match(namedHtml, /Retrying is free/);
   assert.doesNotMatch(namedHtml, /0 real reviews|real reviews analyzed|Based on|Scan the Amazon listing|Low · 0/);
 
   const high = {
@@ -196,6 +199,7 @@ test("an unreadable Amazon page asks to retry and never mentions zero reviews or
   assert.equal(email.cleanProductLabel(`Amazon ${ASIN}`), "Amazon product");
   const results = readFileSync(new URL("../components/ResultsClient.tsx", import.meta.url), "utf8");
   assert.match(results, /UNREADABLE_AMAZON_MESSAGE/);
+  assert.match(results, /Retrying is free/);
   assert.match(results, /neutralProductLabel/);
 });
 

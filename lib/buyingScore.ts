@@ -638,8 +638,8 @@ export function buyingScoreFromReviews(input: BuyingScoreFromReviewsInput) {
 
 /**
  * Page aggregate when the listing was read. Screenshot OCR stars and review
- * count are the marketplace aggregate only when that page did not yield a rating.
- * A rejected listing does not borrow a screenshot string rating.
+ * count (including "4.7" / "200,809" strings) are the marketplace aggregate
+ * when that page did not yield a rating, and also when the listing was not accepted.
  */
 export function marketplaceAggregateForScore(input: {
   exactListingAccepted: boolean;
@@ -649,8 +649,8 @@ export function marketplaceAggregateForScore(input: {
   screenshotCount?: unknown;
 }): { rating: number | null; count: number | null; source: "page" | "screenshot" | "none" } {
   if (!input.exactListingAccepted) {
-    const rating = typeof input.screenshotRating === "number" ? validRating(input.screenshotRating) : null;
-    const count = Number(input.screenshotCount) > 0 ? validCount(input.screenshotCount) : null;
+    const rating = validRating(input.screenshotRating);
+    const count = validCount(input.screenshotCount);
     return rating !== null ? { rating, count, source: "screenshot" } : { rating: null, count: null, source: "none" };
   }
   const pageRating = validRating(input.pageRating);

@@ -22,7 +22,8 @@ import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import {
   ANON_SCAN_LIMIT,
 } from "@/lib/anonymousScans";
-import { claimFreeScan } from "@/lib/freeScanQuota";
+import { claimFreeScan, releaseFreeScan, type FreeScanIdentityKind } from "@/lib/freeScanQuota";
+import { isUnreadableAmazonPage } from "@/lib/shopperAnswer";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
@@ -2989,6 +2990,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     const role = resolvedAccount.role;
     const plan = resolvedAccount.plan;
     let claimedQuota: Awaited<ReturnType<typeof claimFreeScan>> | null = null;
+    let quotaSubject: { kind: FreeScanIdentityKind; identity: string; scanId: string } | null = null;
 
     const contentType = request.headers.get("content-type") || "";
     const canReadFormData =
@@ -3078,17 +3080,20 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
           { status: 429 }
         );
       }
+
+      quotaSubject = { kind: "authenticated", identity: email, scanId };
     }
 
     if (role === "guest") {
-      const anonymousIdentity =
+      const anonymousIdentity = (
         request.headers.get("x-forwarded-for") ||
         request.headers.get("x-real-ip") ||
         request.headers.get("cf-connecting-ip") ||
-        "unknown";
+        "unknown"
+      ).split(",")[0]?.trim() || "unknown";
       const quotaClaim = await claimFreeScan({
         kind: "anonymous",
-        identity: anonymousIdentity.split(",")[0]?.trim() || "unknown",
+        identity: anonymousIdentity,
         scanId,
       });
       claimedQuota = quotaClaim;
@@ -3119,9 +3124,16 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
           { status: 403 }
         );
       }
+
+      quotaSubject = { kind: "anonymous", identity: anonymousIdentity, scanId };
     }
 
     const recordCompletedScan = async (scanResult: JsonRecord) => {
+      const unreadablePage = isUnreadableAmazonPage(scanResult);
+      if (unreadablePage && quotaSubject) {
+        const released = await releaseFreeScan(quotaSubject);
+        if (released.code !== "unavailable") claimedQuota = released;
+      }
       const finalDecisionSource = String(scanResult.finalDecisionSource || "");
       const terminalScanResult = scanResult.scanState
         ? scanResult
@@ -3164,7 +3176,9 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
           const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json,created_at&id=eq.${encodeURIComponent(id)}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
           return rows[0];
         },
-        consume: (id) => consumePersistentQuota(
+        consume: (id) => unreadablePage
+          ? Promise.resolve({ ok: true, quota: claimedQuota })
+          : consumePersistentQuota(
           {
             email,
             plan: accountPlan
@@ -3213,9 +3227,16 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     }
     if (operation.status === "COMPLETED" && operation.result) {
       if (operation.result.scanId !== scanId) throw new Error("RESULT_PERSISTENCE_IDENTITY_MISMATCH");
+      // Release before the persistence check. A replay re-claims this scan id, and a
+      // signed-out cache hit may not have an account row to assert.
+      let completedResult = operation.result;
+      if (isUnreadableAmazonPage(operation.result) && quotaSubject) {
+        const released = await releaseFreeScan(quotaSubject);
+        if (released.code !== "unavailable") completedResult = { ...operation.result, quota: released };
+      }
       const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json&id=eq.${encodeURIComponent(String(operation.result.analysisId || ""))}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
       assertPersistedScan(rows[0], email, scanId);
-      return NextResponse.json(operation.result);
+      return NextResponse.json(completedResult);
     }
     if (operation.status === "FAILED") {
       return NextResponse.json({ error: "This scan operation already failed. Start a new explicit scan to retry.", code: "SCAN_ALREADY_FAILED", scanId: operation.scanId }, { status: 409 });

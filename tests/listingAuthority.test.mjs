@@ -78,6 +78,36 @@ test("OCR stars and review count become the provisional marketplace score when t
   assert.ok(score.leaning);
   assert.match(score.label, /Provisional Marketplace Score/);
 
+  const rejected = buying.marketplaceAggregateForScore({
+    exactListingAccepted: false,
+    pageRating: 4.1,
+    pageCount: 12,
+    screenshotRating: "4.7",
+    screenshotCount: "200,809",
+  });
+  assert.equal(rejected.source, "screenshot");
+  assert.equal(rejected.rating, 4.7);
+  assert.equal(rejected.count, 200809);
+  const rejectedScore = buying.buyingScoreFromReviews({
+    marketplace: { rating: rejected.rating, count: rejected.count, matchesExactModel: true },
+    reviews: [],
+  });
+  assert.equal(rejectedScore.mode, "provisional_marketplace");
+  assert.equal(typeof rejectedScore.score, "number");
+  const shopper = jiti("./lib/shopperAnswer.ts");
+  const screenshotResult = {
+    product: { name: "Echo Dot (5th Gen)", url: LINK, rating: "4.7", reviewCount: "200,809" },
+    buyScore: rejectedScore.score,
+    buyingScoreV2: rejectedScore,
+    exactListingUrl: LINK,
+    reviewEvidence: { commentsAnalyzed: 0, listingEvidence: { exactListingUrl: LINK, rating: null, reviewCount: null } },
+  };
+  assert.equal(shopper.isUnreadableAmazonPage(screenshotResult), false);
+  const answer = shopper.deriveShopperAnswer(screenshotResult);
+  assert.equal(answer.unreadable, false);
+  assert.equal(answer.score, rejectedScore.score);
+  assert.notEqual(answer.why, "We couldn't read this Amazon page right now.");
+
   const pageWins = buying.marketplaceAggregateForScore({
     exactListingAccepted: true,
     pageRating: 4.4,

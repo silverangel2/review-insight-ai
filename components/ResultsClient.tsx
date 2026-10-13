@@ -1293,7 +1293,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const acceptedSourceCount = Number((result as Record<string, unknown>).sourceDiversity ??
     ((result as Record<string, unknown>).deterministicScoringInputs as Record<string, unknown> | undefined)?.independentSourceCount);
   const sourcesLine = pageUnreadable
-    ? `${UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.`
+    ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
     : shopper.acceptedWrittenReviewCount > 0
     ? `${Number.isFinite(acceptedSourceCount) && acceptedSourceCount === 1 ? "Single-source evidence; other sources did not corroborate these reviews. " : ""}Verified review evidence.`
     : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
@@ -1316,13 +1316,13 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       : buyingScoreV2.verdict ? buyingScoreV2.verdict.toUpperCase() : "ADD LINK"
     : null;
   const verdictMessage = pageUnreadable
-    ? `${UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.`
+    ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
     : verdict.message;
   return (
     <>
       {/* Mobile-only compact shopper result */}
       <div className="ri-results-mobile space-y-3">
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
         <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${verdict.soft}`}>
           <div className="mx-auto grid size-16 place-items-center rounded-full border-[4px] border-emerald-400 bg-white text-3xl font-black text-emerald-700 shadow-sm">
             {shopper.verdict === "BUY" ? "✓" : shopper.verdict === "AVOID" ? "!" : "?"}
@@ -1448,7 +1448,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
       {/* Desktop report layout unchanged */}
       <div className="ri-results-desktop space-y-4 sm:space-y-6">
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
         <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.75rem] sm:p-4">
           <div className="relative grid h-[260px] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02] sm:h-[360px] sm:rounded-2xl lg:h-[520px]">
@@ -1753,7 +1753,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-200">
             {isUnreadableAmazonPage(result)
-              ? `${UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.`
+              ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
               : zeroReviewEvidence
               ? "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
               : "Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available."}
@@ -1810,7 +1810,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 
       {isUnreadableAmazonPage(result) ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-          {`${UNREADABLE_AMAZON_MESSAGE} Try again, or add a screenshot of the product page.`}
+          {`${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`}
         </div>
       ) : zeroReviewEvidence ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">

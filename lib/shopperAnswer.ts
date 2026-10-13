@@ -288,7 +288,8 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     : `Based on real buyer reviews from ${sourceText}.`;
 
   const storedScore = num(result.buyScore) ?? num(result.score) ?? num(result.productScore);
-  const score = reviewCount > 0 ? storedScore : null;
+  const provisionalScore = obj(result.buyingScoreV2).mode === "provisional_marketplace" ? num(obj(result.buyingScoreV2).score) : null;
+  const score = provisionalScore !== null ? provisionalScore : reviewCount > 0 ? storedScore : null;
   const storedConfidence = canonicalConfidencePercent(result);
   // Keep a real percent. Never replace a missing or thin-evidence value with 0.
   const confidencePercent = thin && (storedConfidence === null || storedConfidence <= 0) ? null : storedConfidence;
@@ -310,7 +311,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
       complaints: [],
       reviewCount: 0,
       sources: [],
-      trustLine: "Add a screenshot of the product page and try the scan again.",
+      trustLine: "Retrying is free. Add a screenshot of the product page and try the scan again.",
       confidenceWords: "Unknown",
       confidenceFromV2: false,
       confidencePercent: null,
@@ -321,7 +322,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
         {
           id: "retry",
           label: "Try again",
-          detail: "We couldn't read this Amazon page right now. Retry the scan in a moment.",
+          detail: "We couldn't read this Amazon page right now. Retrying is free.",
           href: amazonUrl ? `/analyze?url=${encodeURIComponent(amazonUrl)}` : "/analyze",
         },
         {
