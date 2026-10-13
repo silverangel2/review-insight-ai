@@ -32,7 +32,7 @@ test("stripe: test keys only; checkout carries campaign id; webhook signature ve
   assert.equal(f.stripeTestKey({ STRIPE_SECRET_KEY: "sk_test_x" }).key, "sk_test_x");
   let sent;
   const out = await f.createCheckoutSession({ campaignId: "c1", packageId: "featured_monthly", packageName: "Featured", origin: "http://localhost:3010" }, { STRIPE_SECRET_KEY: "sk_test_x" },
-    async (url, init) => { sent = { url, body: String(init.body) }; return new Response(JSON.stringify({ id: "cs_1", url: "https://checkout.stripe.com/c/cs_1" }), { status: 200 }); });
+    async (url, init) => { sent = { url, body: String(init.body) }; return new Response(JSON.stringify({ id: "cs_test_1", url: "https://checkout.stripe.com/c/cs_test_1" }), { status: 200 }); });
   assert.equal(out.ok, true); assert.match(sent.url, /api\.stripe\.com\/v1\/checkout\/sessions/); assert.match(sent.body, /metadata%5Bcampaign_id%5D=c1/);
   assert.equal((await f.createCheckoutSession({ campaignId: "c1", packageId: "x", packageName: "x", origin: "o" }, { STRIPE_SECRET_KEY: "sk_live_1" }, () => { throw new Error("must not call"); })).ok, false);
   const payload = '{"type":"checkout.session.completed"}', t = 1000;

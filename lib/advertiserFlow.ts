@@ -72,8 +72,12 @@ export async function createCheckoutSession(input: { campaignId: string; package
     "metadata[campaign_id]": input.campaignId, client_reference_id: input.campaignId,
   });
   if (input.email) form.set("customer_email", input.email);
-  const res = await fetchImpl("https://api.stripe.com/v1/checkout/sessions", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/x-www-form-urlencoded" }, body: form });
+  const res = await fetchImpl("https://api.stripe.com/v1/checkout/sessions", { method: "POST", headers: {
+    Authorization: `Bearer ${key}`, "Content-Type": "application/x-www-form-urlencoded",
+    "Idempotency-Key": checkoutIdempotencyKey(input.campaignId, amount, input.origin),
+  }, body: form });
   const data = await res.json().catch(() => ({})) as { url?: string; id?: string; error?: { message?: string } };
+  if (res.ok && data.id && !String(data.id).startsWith("cs_test_")) return { ok: false as const, error: "Stripe returned a non-test session; refused." };
   return res.ok && data.url ? { ok: true as const, url: data.url, id: data.id } : { ok: false as const, error: data.error?.message || `Stripe error ${res.status}` };
 }
 
@@ -86,6 +90,20 @@ export function verifyStripeSignature(payload: string, header: string | null, se
   if (!t || !sigs.length || Math.abs(nowSec - t) > toleranceSec) return false;
   const expected = createHmac("sha256", secret).update(`${t}.${payload}`).digest("hex");
   return sigs.some(s => s.length === expected.length && timingSafeEqual(Buffer.from(s), Buffer.from(expected)));
+}
+
+/** Stripe idempotency key: repeated clicks on the same payment link reuse one Checkout Session. */
+export function checkoutIdempotencyKey(campaignId: string, amountCents: number, origin: string, day = new Date().toISOString().slice(0, 10)) {
+  return `ri-adv-${createHmac("sha256", "reviewintel-checkout").update(`${campaignId}|${amountCents}|${origin}|${day}`).digest("hex").slice(0, 40)}`;
+}
+
+/**
+ * Approval side effects run at most once per campaign. The payment-link email is only sent when
+ * the campaign is unpaid and no link was sent before; the DB claim (payment_link_sent_at=is.null)
+ * makes concurrent approvals safe too.
+ */
+export function shouldSendPaymentLink(app: { payment_status?: unknown; payment_link_sent_at?: unknown; contact_email?: unknown }) {
+  return String(app.payment_status || "unpaid") !== "paid" && !app.payment_link_sent_at && Boolean(String(app.contact_email || "").trim());
 }
 
 export function ctr(impressions: number, clicks: number): string {

@@ -101,3 +101,41 @@ test("quota claim is before expensive vision and fail-closed paths are present",
   assert.match(migration, /revoke all on function/i);
   assert.match(migration, /grant execute[\s\S]*service_role/i);
 });
+
+// Regression (2026-10-12): authenticated free-scan identity comes only from the signed session.
+test("authenticated claim identity: user A cannot claim as user B", async () => {
+  const { createRequire } = await import("node:module");
+  const require = createRequire(import.meta.url);
+  const jiti = require("jiti")(root + "/x.js", { alias: { "@": root } });
+  process.env.REVIEWINTEL_SESSION_SECRET = "test-session-secret";
+  const sessions = jiti("./lib/accountSession.ts");
+  const quota = jiti("./lib/freeScanQuota.ts");
+
+  const tokenA = sessions.createAccountSession({ email: "a@example.com", role: "buyer", plan: "free_buyer" });
+  // A edits the payload to B's email but cannot re-sign it.
+  const [, sig] = tokenA.split(".");
+  const forgedPayload = Buffer.from(JSON.stringify({ email: "b@example.com", role: "buyer", plan: "free_buyer", exp: Date.now() + 60000 })).toString("base64url");
+  assert.equal(sessions.verifyAccountSessionToken(`${forgedPayload}.${sig}`), null);
+  const req = (cookie, extra = {}) => new Request("http://localhost/api/analyze", { headers: { cookie, ...extra } });
+  assert.equal(sessions.readAccountSession(req(`reviewintel_account_session=${forgedPayload}.${sig}`)), null);
+  // Headers/body naming another user are ignored: identity is the signed cookie's email.
+  const a = sessions.readAccountSession(req(`reviewintel_account_session=${encodeURIComponent(tokenA)}`, { "x-reviewintel-email": "b@example.com" }));
+  assert.equal(a.email, "a@example.com");
+
+  // Claims are keyed per identity, so A's usage never consumes or reads B's allowance.
+  const store = new quota.InMemoryFreeScanClaims();
+  const now = new Date("2026-10-12T12:00:00Z");
+  for (let i = 0; i < 3; i++) assert.equal(store.claim({ kind: "authenticated", identity: a.email, scanId: `a${i}`, now }).allowed, true);
+  assert.equal(store.claim({ kind: "authenticated", identity: a.email, scanId: "a4", now }).allowed, false);
+  assert.equal(store.claim({ kind: "authenticated", identity: "b@example.com", scanId: "b1", now }).code, "claimed");
+  // Anonymous and authenticated keys never collide.
+  assert.notEqual(quota.hashFreeScanIdentity("anonymous", "a@example.com"), quota.hashFreeScanIdentity("authenticated", "a@example.com"));
+});
+
+test("analyze route derives the claim identity from the signed session, never from the request body", () => {
+  assert.match(route, /const accountSession = readAccountSession\(request\);/);
+  assert.match(route, /const email = accountSession\?\.email \|\| adminSession\?\.email \|\| "";/);
+  assert.match(route, /claimFreeScan\(\{\s*kind: "authenticated",\s*identity: email,/);
+  assert.match(migration, /revoke all on function public\.claim_reviewintel_free_scan\(text, text, text, timestamptz\)\s*from public, anon, authenticated;/);
+  assert.match(migration, /grant execute on function public\.claim_reviewintel_free_scan\(text, text, text, timestamptz\)\s*to service_role;/);
+});

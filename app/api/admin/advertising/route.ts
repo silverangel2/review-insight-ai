@@ -3,7 +3,7 @@ import { adPackages, type AdPackageId, type AdPlacement } from "@/lib/adConfig";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { saveAdCreative } from "@/lib/adCreativeUpload";
 import { supabaseFetch } from "@/lib/supabaseServer";
-import { signCampaignToken } from "@/lib/advertiserFlow";
+import { shouldSendPaymentLink, signCampaignToken } from "@/lib/advertiserFlow";
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
 
 type AdminAdvertisingBody = {
@@ -167,6 +167,15 @@ async function createOrUpdateAdFromApplication(application: ApplicationRow, forc
       created_at: new Date().toISOString(),
     }),
   });
+
+  // A concurrent approval may have created the ad first (unique application_id): update that one instead.
+  if (!response.ok && response.status === 409 && id) {
+    const raced = await readAdByApplication(id);
+    if (raced?.id) {
+      const retry = await supabaseFetch(`/rest/v1/sponsor_ads?id=eq.${encodeURIComponent(clean(raced.id))}`, { method: "PATCH", body: JSON.stringify(payload) });
+      return retry.ok;
+    }
+  }
 
   return response.ok;
 }
@@ -392,7 +401,18 @@ export async function POST(request: Request): Promise<Response> {
       const contact = clean(application.contact_email);
       const payToken = signCampaignToken("pay", applicationId);
       const reportToken = signCampaignToken("report", applicationId);
-      if (contact && payToken && reportToken && clean(application.payment_status) !== "paid") {
+      // Idempotent: only the first approval of an unpaid campaign emails a payment link. The conditional
+      // PATCH claims payment_link_sent_at atomically, so double clicks or parallel requests send once.
+      let claimedLink = false;
+      if (contact && payToken && reportToken && shouldSendPaymentLink(application)) {
+        const claim = await supabaseFetch(
+          `/rest/v1/advertiser_applications?id=eq.${encodeURIComponent(applicationId)}&payment_link_sent_at=is.null`,
+          { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ payment_link_sent_at: new Date().toISOString() }) },
+        ).catch(() => null);
+        const claimedRows = claim?.ok ? await readJsonSafe(claim) : null;
+        claimedLink = Array.isArray(claimedRows) && claimedRows.length > 0;
+      }
+      if (claimedLink && payToken && reportToken) {
         const origin = new URL(request.url).origin;
         const payUrl = `${origin}/api/advertising/checkout?t=${encodeURIComponent(payToken)}`;
         const reportUrl = `${origin}/advertise/report/${encodeURIComponent(reportToken)}`;
@@ -403,14 +423,19 @@ export async function POST(request: Request): Promise<Response> {
           html: `<p>Your campaign is approved${when}.</p><p><a href="${payUrl}">Pay to schedule your campaign</a></p><p>Your private report: <a href="${reportUrl}">${reportUrl}</a></p><p>The ad starts automatically on the start date once payment is received.</p>`,
         }).catch(() => null);
         paymentEmailSent = Boolean(sent && (sent as { ok?: boolean }).ok);
-        await supabaseFetch(`/rest/v1/advertiser_applications?id=eq.${encodeURIComponent(applicationId)}`, { method: "PATCH", body: JSON.stringify({ payment_link_sent_at: paymentEmailSent ? new Date().toISOString() : null }) }).catch(() => null);
+        // Release the claim if nothing went out (e.g. outbound email blocked) so a later approval can retry.
+        if (!paymentEmailSent) {
+          await supabaseFetch(`/rest/v1/advertiser_applications?id=eq.${encodeURIComponent(applicationId)}`, { method: "PATCH", body: JSON.stringify({ payment_link_sent_at: null }) }).catch(() => null);
+        }
       }
 
       return NextResponse.json({
         ok: adCreated,
         message: clean(application.payment_status) === "paid"
           ? "Approved and live."
-          : paymentEmailSent ? "Approved. Payment link emailed to the advertiser." : "Approved. Mark payment verified before it goes live.",
+          : paymentEmailSent ? "Approved. Payment link emailed to the advertiser."
+          : clean(application.payment_link_sent_at) ? "Already approved. The payment link was sent before, so nothing was resent."
+          : "Approved. Mark payment verified before it goes live.",
       });
     }
 

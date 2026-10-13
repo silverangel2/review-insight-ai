@@ -207,7 +207,9 @@ export async function deliverFirstScanUpgrade(
   const profile = await deps.load(email);
   const plan = String(input.plan || profile?.plan || "free_buyer");
   if (PAID_PLANS.has(plan)) return skipped("paid-plan");
-  if (profile && profile.upgradeTips === false) return skipped("opted-out");
+  // Marketing mail fails closed: no stored profile or no explicit permission means no send.
+  if (!profile) return skipped("no-preferences");
+  if (profile.upgradeTips !== true) return skipped("opted-out");
   if (profile?.upgradeSentAt) return skipped("already-sent");
   const scans = await deps.countScans(email);
   if (scans !== 1) return skipped(scans < 1 ? "scan-not-recorded" : "not-first");

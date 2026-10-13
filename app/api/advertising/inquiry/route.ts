@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   let saved = false;
   if (isSupabaseConfigured()) {
     const res = await supabaseFetch("/rest/v1/advertiser_applications", { method: "POST", body: JSON.stringify({
-      source: "inquiry", brand_name: v.company, contact_name: v.name, contact_email: v.email, website_url: v.website || null,
+      source: "inquiry", brand_name: v.company, contact_name: v.name, contact_email: v.email, website_url: v.website || "",
       preferred_placement: v.placement || null, budget_range: v.budget || null, inquiry_message: v.message || null,
       campaign_goal: v.message ? v.message.slice(0, 300) : "Inquiry", status: "pending", payment_status: "unpaid",
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),

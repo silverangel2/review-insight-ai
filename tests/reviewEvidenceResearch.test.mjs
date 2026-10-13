@@ -150,7 +150,7 @@ function researchArgs(overrides = {}) {
 test("WEB_SEARCH_ENABLED: web research executes and stops when sufficient", async () => {
   const { web, research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       assert.equal(web.isOpenAiWebSearchEnabled(), true);
       const calls = mockFetch(async () => openAiJsonResponse(reviewJson(25)));
@@ -230,7 +230,7 @@ test("disabled web search is recorded in diagnostics as skippedDisabled", async 
 test("STAGNATION: two consecutive empty passes stop the loop", async () => {
   const { research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       mockFetch(async () => openAiJsonResponse(reviewJson(0)));
       const out = await research.runAdaptiveReviewResearch(researchArgs());
@@ -244,7 +244,7 @@ test("STAGNATION: two consecutive empty passes stop the loop", async () => {
 test("MAX_5_CALLS: slow-but-improving research never exceeds 5 calls", async () => {
   const { research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       // Each pass adds exactly 1 new distinct signal: improving, never sufficient.
       let n = 0;
@@ -266,7 +266,7 @@ test("MAX_5_CALLS: slow-but-improving research never exceeds 5 calls", async () 
 test("ADAPTIVE_RESEARCH: improving then sufficient stops early", async () => {
   const { research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       let n = 0;
       mockFetch(async () => {
