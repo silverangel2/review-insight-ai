@@ -54,6 +54,12 @@ export function TrustPage({ page }: { page: TrustPageContent }) {
         </div>
       </section>
 
+      {page.draft ? (
+        <p role="note" className="mt-4 rounded-2xl bg-[#fff6d6] px-5 py-3 text-sm font-semibold text-[#7a4a06]" data-testid="legal-draft">
+          Draft, have a lawyer review. This page is a working draft and not yet final legal text.
+        </p>
+      ) : null}
+
       {tocItems.length > 3 ? (
         <section className="mt-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <h2 className="text-xl font-black text-ink dark:text-white">Table of contents</h2>

@@ -7,12 +7,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { isAccountProfileComplete, profileCompletionMissingFields } from "@/lib/account";
 import type { AnalyzeResponse, QuotaInfo } from "@/lib/types";
 import { accountHeaders, getClientAccount, saveQuota } from "@/lib/clientAccount";
-import { saveLatestPreview, saveLatestResult, clearLatestResult, setActiveScanId } from "@/lib/resultStorage";
+import { saveLatestPreview, saveLatestResult, clearLatestResult, setActiveScanId, reviewIntelDevDiagnostic, readLatestResult } from "@/lib/resultStorage";
 import { incrementStoredScanTally } from "@/lib/clientAccount";
 import { ReviewIntelScanOverlay, type ScanStage } from "@/components/ReviewIntelScanOverlay";
-
-// SCAN_PROGRESS_STEPS removed: the overlay now uses real upload progress
-// plus an indeterminate (never fake-percentaged) analyzing stage.
+import { LimitReachedCard } from "@/components/upsell/LimitReachedCard";
 
 // Anonymous-visitor free scans: 3 per day, per device. The localStorage
 // counter is UX-only — the server enforces the real limit by IP hash
@@ -65,29 +63,26 @@ function createClientScanId() {
 }
 
 /**
- * POST the scan with XMLHttpRequest so the overlay can show REAL upload
- * progress. fetch() has no upload-progress events, which is why the old UI
- * faked the bar. The analyzing stage stays indeterminate by design — the
- * server returns one synchronous response, so no fake percentages there.
+ * POST the scan without introducing a separate progress overlay.
  */
 type ScanApiPayload = {
   quota?: QuotaInfo;
   error?: string;
   code?: string;
   scanId?: string;
-  scanState?: "COMPLETE" | "INSUFFICIENT_EVIDENCE" | "FAILED";
-  productName?: string;
-  product?: { name?: string; title?: string };
 };
 
 function postScanRequest(
   formData: FormData,
   headers: Record<string, string>,
-  onUploadProgress: (percent: number) => void
+  onUploadProgress?: (percent: number) => void,
+  onUploaded?: () => void
 ): Promise<{ status: number; data: ScanApiPayload | null }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/analyze");
+    xhr.upload.onprogress = (event) => { if (event.lengthComputable) onUploadProgress?.((event.loaded / event.total) * 100); };
+    xhr.upload.onload = () => onUploaded?.();
 
     for (const [key, value] of Object.entries(headers)) {
       try {
@@ -96,12 +91,6 @@ function postScanRequest(
         // Skip headers the browser won't allow.
       }
     }
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) {
-        onUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
-      }
-    };
 
     xhr.onload = () => {
       let data: ScanApiPayload | null = null;
@@ -217,16 +206,19 @@ export default function AnalyzerForm() {
   const [previewDataUrl, setPreviewDataUrl] = useState("");
   const [productLink, setProductLink] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [scanStage, setScanStage] = useState<ScanStage>("uploading");
-  const [identifiedProductLabel, setIdentifiedProductLabel] = useState("");
+  const [scanStage, setScanStage] = useState<ScanStage | null>(null);
+  const [uploadPercent, setUploadPercent] = useState(0);
+  const [liveScanId, setLiveScanId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [anonScansUsed, setAnonScansUsed] = useState(0);
 
   const canAnalyze = Boolean(image) && !isLoading;
   const scanLimitMessage = analyzerFormCopy(readStoredLocale()).scanLimitMessage;
-  const clientAccount = getClientAccount();
-  const isAnonymousVisitor = !clientAccount?.email || clientAccount.email === "guest";
+  // Read the browser-stored account only after hydration so server and first client render match.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+  const clientAccount = hydrated ? getClientAccount() : null;
+  const isAnonymousVisitor = hydrated && (!clientAccount?.email || clientAccount.email === "guest");
   const anonLimitReached = isAnonymousVisitor && anonScansUsed >= ANON_SCAN_LIMIT_CLIENT;
   const anonScansLeft = Math.max(0, ANON_SCAN_LIMIT_CLIENT - anonScansUsed);
   const isBetaAccount = clientAccount?.plan === "buyer_beta" || clientAccount?.plan === "seller_beta";
@@ -268,6 +260,12 @@ export default function AnalyzerForm() {
     setAnonScansUsed(readAnonScanCount());
   }, []);
 
+  // Prefill from the homepage hero (?url=...). Never auto-starts a scan.
+  useEffect(() => {
+    const link = new URLSearchParams(window.location.search).get("url");
+    if (link && /^https?:\/\//i.test(link)) setProductLink(link.slice(0, 2000));
+  }, []);
+
   useEffect(() => {
     void refreshServerQuota();
 
@@ -283,9 +281,6 @@ export default function AnalyzerForm() {
       document.removeEventListener("visibilitychange", handleFocus);
     };
   }, [refreshServerQuota]);
-
-  // No timer-driven reset: analyzeProduct resets the overlay at scan start
-  // and the stages follow real request state from there.
 
   function handleImage(file: File | null) {
     setError("");
@@ -331,10 +326,9 @@ export default function AnalyzerForm() {
 
     setIsLoading(true);
     setError("");
-    setIsLoading(true);
+    setLiveScanId(scanId);
+    setUploadPercent(0);
     setScanStage("uploading");
-    setUploadProgress(0);
-    setIdentifiedProductLabel("");
 
     try {
       await refreshServerQuota();
@@ -345,18 +339,18 @@ export default function AnalyzerForm() {
       formData.append("locale", readStoredLocale());
       formData.append("scanId", scanId);
 
-      // XHR so the overlay shows REAL upload progress; once the request body
-      // is sent we enter the indeterminate research stage until the terminal
-      // server response lands.
       const { status, data } = await postScanRequest(
         formData,
         accountHeaders(),
-        (percent) => {
-          setUploadProgress(percent);
-          if (percent >= 100) setScanStage("analyzing");
-        }
+        (percent) => setUploadPercent(percent),
+        () => setScanStage("analyzing")
       );
-      setUploadProgress(100);
+
+      reviewIntelDevDiagnostic("ANALYZE_RESPONSE_SCAN_ID", {
+        requestedScanId: scanId,
+        returnedScanId: data?.scanId || null,
+        ok: status === 200,
+      });
 
       if (!data || status !== 200) {
         if (data?.quota) saveQuota(data.quota);
@@ -370,21 +364,30 @@ export default function AnalyzerForm() {
       }
       if (data?.quota) saveQuota(data.quota);
 
-      const identifiedLabel = String(
-        data?.productName || data?.product?.name || data?.product?.title || ""
-      ).trim();
-      if (identifiedLabel) setIdentifiedProductLabel(identifiedLabel);
-
       if (data?.scanId !== scanId) {
         throw new Error("This scan finished out of order. Please run the scan again.");
       }
 
       try {
         const account = getClientAccount();
-        saveLatestResult(
-          { ...(data as unknown as AnalyzeResponse), resultSource: "analyze" },
-          account
-        );
+        const storedResult: AnalyzeResponse = {
+          ...(data as unknown as AnalyzeResponse),
+          resultSource: "analyze",
+        };
+        const storageSuccess = saveLatestResult(storedResult, account);
+        const storedScan = readLatestResult(account, { scanId });
+
+        reviewIntelDevDiagnostic("RESULT_STORAGE_SUCCESS", {
+          scanId,
+          storageSuccess,
+          readBackSuccess: Boolean(storedScan),
+        });
+
+        if (!storageSuccess || !storedScan) {
+          throw new Error(
+            "The scan completed, but its result could not be saved locally. Please retry without private browsing or storage blocking."
+          );
+        }
         incrementStoredScanTally();
         if (isAnonymousVisitor) {
           const next = readAnonScanCount() + 1;
@@ -397,14 +400,19 @@ export default function AnalyzerForm() {
         window.localStorage.removeItem("reviewintel_latest_result_fallback");
         window.sessionStorage.removeItem("reviewintel_selected_history_id");
         window.localStorage.removeItem("reviewintel_selected_history_id");
-      } catch {
-        // Keep scan flow alive even if browser storage is unavailable.
+      } catch (storageError) {
+        throw storageError;
       }
 
+      const resultUrl = `/results?scanId=${encodeURIComponent(data.scanId)}`;
+      reviewIntelDevDiagnostic("NAVIGATION_TARGET", {
+        target: resultUrl,
+        scanId,
+      });
       setScanStage("done");
-      router.push("/results");
+      router.push(resultUrl);
     } catch (err) {
-      setScanStage("failed");
+      setScanStage(null);
       setError(err instanceof Error ? err.message : analyzerFormCopy(readStoredLocale()).analyzeError);
     } finally {
       setIsLoading(false);
@@ -413,6 +421,7 @@ export default function AnalyzerForm() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+      {scanStage ? <ReviewIntelScanOverlay stage={scanStage} uploadProgress={uploadPercent} scanId={liveScanId} /> : null}
       <div className="text-center">
         <p className="text-sm font-black uppercase tracking-[0.3em] text-teal">Know the Truth Before You Buy</p>
         <h1 className="mt-4 text-5xl font-black tracking-tight text-ink dark:text-white sm:text-6xl">
@@ -425,33 +434,7 @@ export default function AnalyzerForm() {
 
       <div className="mx-auto mt-10 max-w-2xl">
         {anonLimitReached ? (
-          <div className="relative overflow-hidden rounded-[2rem] border border-[#ffbd58]/35 bg-[linear-gradient(135deg,#101a30_0%,#16244a_55%,#1e2f5e_100%)] p-8 text-center text-white shadow-[0_24px_70px_rgba(10,18,38,0.35)] sm:p-10">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#ffbd58]/80 to-transparent"
-            />
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[#ffbd58]">
-              Free scans used
-            </p>
-            <h2 className="mt-3 text-3xl font-black">You&apos;ve used today&apos;s 3 free scans</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-6 text-slate-300">
-              Come back tomorrow for 3 more — or sign in now to keep scanning. It&apos;s free, and your scan history and premium verdicts are waiting.
-            </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <a
-                href="/login?next=/analyze"
-                className="inline-flex items-center justify-center rounded-2xl bg-[#ffbd58] px-7 py-3.5 text-sm font-black text-[#172033] shadow-[0_10px_30px_rgba(255,189,88,0.35)] transition hover:-translate-y-0.5 hover:bg-[#ffd07a]"
-              >
-                Sign in to continue
-              </a>
-              <a
-                href="/signup?next=/analyze"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-7 py-3.5 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/20"
-              >
-                Create free account
-              </a>
-            </div>
-          </div>
+          <LimitReachedCard guest />
         ) : (
         <>
         {isAnonymousVisitor ? (
@@ -493,7 +476,9 @@ export default function AnalyzerForm() {
           className="mt-5 w-full rounded-2xl border border-line bg-white px-5 py-4 text-base font-bold text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/15 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
         />
 
-        {error ? (
+        {error && isScanLimitError ? (
+          <div className="mt-5"><LimitReachedCard guest={isAnonymousVisitor} /></div>
+        ) : error ? (
           <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-black text-rose-700 dark:border-rose-400/30 dark:bg-rose-950/30 dark:text-rose-200">
             <p>{error.includes("confidence") ? "I can see the product, but I need a closer screenshot or product link for a stronger verdict." : error}</p>
 
@@ -514,29 +499,11 @@ export default function AnalyzerForm() {
           onClick={analyzeProduct}
           className="relative mt-6 min-h-16 w-full overflow-hidden rounded-3xl bg-ink px-8 py-5 text-xl font-black text-white shadow-glow transition hover:-translate-y-0.5 hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-white dark:text-ink dark:disabled:bg-white/20 dark:disabled:text-white/40"
         >
-          {isLoading && scanStage === "uploading" ? (
-            <span
-              className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,rgba(8,183,168,0.45),rgba(35,86,163,0.55),rgba(255,178,56,0.45))] transition-[width] duration-200"
-              style={{ width: `${uploadProgress}%` }}
-              aria-hidden="true"
-            />
-          ) : null}
           <span className="relative z-10">
-            {isLoading
-              ? scanStage === "uploading"
-                ? `${analyzerFormCopy(readStoredLocale()).analyzing} ${uploadProgress}%`
-                : analyzerFormCopy(readStoredLocale()).analyzing
-              : analyzerFormCopy(readStoredLocale()).analyze}
+            {isLoading ? analyzerFormCopy(readStoredLocale()).analyzing : analyzerFormCopy(readStoredLocale()).analyze}
           </span>
         </button>
 
-        {(isLoading || scanStage === "done" || scanStage === "failed") && !anonLimitReached ? (
-          <ReviewIntelScanOverlay
-            stage={scanStage}
-            uploadProgress={uploadProgress}
-            productLabel={identifiedProductLabel || undefined}
-          />
-        ) : null}
         </>
         )}
       </div>

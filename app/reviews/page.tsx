@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import { Badge } from "@/components/Badge";
 import { PublicReviewForm } from "@/components/PublicReviewForm";
 import { listSiteReviews } from "@/lib/siteReviews";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSeo("/reviews", {
   title: "User Reviews",
   description: "Read approved ReviewIntel user feedback and submit your own ReviewIntel review."
-};
+});
 
 export const dynamic = "force-dynamic";
 

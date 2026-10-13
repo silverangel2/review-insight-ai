@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata = privatePage("/mobile-more", "More");
 const groups = [
   {
     title: "Support",

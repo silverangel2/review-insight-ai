@@ -20,6 +20,7 @@ import { getUiTextTranslation, readStoredLocale, type ReviewIntelLocale } from "
 import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
 import { makeSellerAdvice, makeSellerAction, makeSellerHeadline } from "@/lib/sellerAdviceEngine";
+import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
 import { AdSlot } from "@/components/advertising/AdSlot";
 
 
@@ -241,6 +242,7 @@ function uniqueSellerItems(items: Array<string | undefined>, fallback: string[] 
     const themeText = sellerFriendlyTheme(item, "")?.trim().replace(/\s+/g, " ");
     const text = fullText && fullText.split(/\s+/).length > 4 ? fullText : themeText;
     if (!text || text.length < 8) continue;
+    if (/not enough evidence|not scored|no reviews analyzed|not enough review data/i.test(text)) continue;
     const key = text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -248,7 +250,7 @@ function uniqueSellerItems(items: Array<string | undefined>, fallback: string[] 
     if (cleaned.length >= limit) break;
   }
 
-  return cleaned.length ? cleaned : ["Not enough review data for a confident read."];
+  return cleaned.length ? cleaned : ["Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."];
 }
 
 function countTextSignals(text: string, words: string[]) {
@@ -907,7 +909,7 @@ function SellerTrustCriteriaSnapshot({ result, accountPlan }: { result: AnalyzeR
           <Badge tone="info">{t("trustSnapshot", { plan: sellerPlanLabel })}</Badge>
           <h2 className="mt-4 text-3xl font-black leading-tight text-ink dark:text-white">{t("coreSellerTrustRead")}</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Seller Premium gets the growth diagnosis and buyer confidence summary. Seller Pro unlocks deeper evidence, blockers, action sequencing, command tools, and full criteria detail.
+            Seller Starter gets the growth diagnosis and buyer confidence summary. Seller Pro unlocks deeper evidence, blockers, action sequencing, command tools, and full criteria detail.
           </p>
           <div className="mt-5 rounded-2xl border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{t("overallTrust")}</p>
@@ -966,7 +968,7 @@ function SellerMagicMoment({ result, isSellerPro }: { result: AnalyzeResponse; i
       <div className="ri-result-firework absolute right-12 top-8 hidden md:block" />
       <div className="relative grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
         <div>
-          <Badge tone={isSellerPro ? "warn" : "info"}>{isSellerPro ? "Seller Pro magic moment" : "Seller Premium insight"}</Badge>
+          <Badge tone={isSellerPro ? "warn" : "info"}>{isSellerPro ? "Seller Pro magic moment" : "Seller Starter insight"}</Badge>
           <h2 className="mt-5 text-3xl font-black leading-tight lg:text-3xl">Turn review pain into product revenue moves.</h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
             This report is not a shopper verdict. It is a {isSellerPro ? "seller operating map" : "seller review snapshot"} built from {meta.review_count_estimate} valid reviews.
@@ -1028,7 +1030,7 @@ function ShopperFlipCard({ card }: { card: ShopperCard }) {
           }
         : {
             shell: "from-coral/12 via-white to-rose-100/80",
-            badge: "bg-coral/12 text-coral",
+            badge: "bg-coral/12 text-coralink",
             bar: "from-coral to-rose-500",
             border: "border-coral/25"
           };
@@ -1292,9 +1294,9 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
           <div className="rounded-[2rem] border border-white/70 bg-white/70 p-5 shadow-soft backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]">
             <div className="grid gap-3 sm:grid-cols-2">
               {[
-                [translateResultText(locale, "Fake Review Risk"), localizedFakeRiskShort, fakeRisk >= 65 ? "text-coral" : fakeRisk >= 35 ? "text-amber" : "text-teal"],
-                [translateResultText(locale, "Value"), localizedValueVerdict, valueScore >= 72 ? "text-teal" : valueScore >= 48 ? "text-amber" : "text-coral"],
-                [translateResultText(locale, "Main Warning"), localizedBiggestComplaint, "text-coral"],
+                [translateResultText(locale, "Fake Review Risk"), localizedFakeRiskShort, fakeRisk >= 65 ? "text-coralink" : fakeRisk >= 35 ? "text-amber" : "text-teal"],
+                [translateResultText(locale, "Value"), localizedValueVerdict, valueScore >= 72 ? "text-teal" : valueScore >= 48 ? "text-amber" : "text-coralink"],
+                [translateResultText(locale, "Main Warning"), localizedBiggestComplaint, "text-coralink"],
                 [translateResultText(locale, "Buying Notes"), localizedBuyingNotesPhrase, "text-ocean"]
               ].map(([label, value, color]) => (
                 <div key={label} className="min-h-28 rounded-[1.4rem] border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
@@ -1412,7 +1414,7 @@ function SellerResults({ result, accountPlan }: { result: AnalyzeResponse; accou
 
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           <article className="rounded-2xl border border-coral/20 bg-coral/10 p-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-coral">Fix first</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-coralink">Fix first</p>
             <p className="mt-3 text-sm font-bold leading-6 text-ink dark:text-white">
               {buildSellerGrowthMoves(analysis).fixFirst}
             </p>
@@ -1701,8 +1703,63 @@ function safeStringArray(value: unknown): string[] {
   return [];
 }
 
-function safeNumber(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+function hasGroundedSellerResult(result: AnalyzeResponse) {
+  if (!hasSufficientReviewEvidenceRecord(result)) return false;
+
+  const raw = (result.analysis || {}) as Record<string, unknown>;
+  const resultRecord = result as unknown as Record<string, unknown>;
+  const evidence = resultRecord.reviewEvidence && typeof resultRecord.reviewEvidence === "object"
+    ? resultRecord.reviewEvidence as Record<string, unknown>
+    : null;
+  const collector = evidence?.reviewCollector && typeof evidence.reviewCollector === "object"
+    ? evidence.reviewCollector as Record<string, unknown>
+    : null;
+  const writtenReviewCount = Number(
+    evidence?.commentsAnalyzed ??
+      evidence?.reviewsCollected ??
+      collector?.reviewsCollected ??
+      resultRecord.commentsAnalyzed ??
+      resultRecord.reviewsCollected ??
+      0
+  );
+  const writtenMode = String(evidence?.reviewIntelligenceMode || "").toLowerCase();
+  const writtenEvidence = writtenReviewCount > 0 && writtenMode !== "listing_metadata";
+  const sellerInsights = raw.seller_insights && typeof raw.seller_insights === "object"
+    ? raw.seller_insights as Record<string, unknown>
+    : null;
+  const numericFields = [
+    raw.product_score,
+    raw.confidence_score,
+    raw.fake_review_risk_score,
+    raw.value_score,
+    raw.sentiment_score,
+    raw.sentiment_percentage,
+    raw.complaint_severity_score,
+    raw.buyingConfidence,
+    sellerInsights?.customer_satisfaction_score
+  ];
+  const completeNumbers = numericFields.every((value) => typeof value === "number" && Number.isFinite(value));
+  const recommendation = raw.buyer_recommendation || raw.customer_recommendation;
+  const completeRecommendation = recommendation && typeof recommendation === "object" &&
+    ["Buy", "Maybe", "Avoid"].includes(String((recommendation as Record<string, unknown>).verdict));
+  const hasSummary = typeof raw.overall_summary === "string" || typeof raw.summary === "string";
+  const hasStrengthField = ["positive_points", "positivePoints", "praised_features", "strengths"]
+    .some((key) => Array.isArray(raw[key]));
+  const hasComplaintField = ["common_complaints", "negative_points", "complaints", "mainConcerns"]
+    .some((key) => Array.isArray(raw[key]));
+  const hasValueOpinion = typeof raw.value_for_money_opinion === "string" || typeof raw.valueForMoney === "string";
+
+  return writtenEvidence && completeNumbers && completeRecommendation && hasSummary && hasStrengthField && hasComplaintField && hasValueOpinion;
+}
+
+function SellerEvidenceUnavailable() {
+  return (
+    <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10">
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200">Low confidence</p>
+      <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">Low confidence</h2>
+      <p className="mt-3 text-sm leading-7 text-slate-700 dark:text-slate-200">Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews. Seller scores stay hidden until those real reviews are in.</p>
+    </section>
+  );
 }
 
 function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
@@ -1750,11 +1807,11 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
     feature_requests: safeStringArray(sellerInsightsRaw.feature_requests),
     competitor_opportunity_insights: safeStringArray(sellerInsightsRaw.competitor_opportunity_insights),
     seller_recommendations: safeStringArray(sellerInsightsRaw.seller_recommendations),
-    customer_satisfaction_score: safeNumber(sellerInsightsRaw.customer_satisfaction_score, 70)
+    customer_satisfaction_score: sellerInsightsRaw.customer_satisfaction_score as number
   };
 
-  const productScore = safeNumber(raw.product_score, safeNumber(raw.score, safeNumber(raw.buyingConfidence, 70)));
-  const confidence = safeNumber(raw.confidence_score, 0.7);
+  const productScore = raw.product_score as number;
+  const confidence = raw.confidence_score as number;
 
   return {
     ...result,
@@ -1771,17 +1828,17 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
       summary: raw.summary || raw.overall_summary || "Latest scan loaded.",
 
       product_score: productScore,
-      score: safeNumber(raw.score, productScore),
-      buyingConfidence: safeNumber(raw.buyingConfidence, productScore),
+      score: typeof raw.score === "number" && Number.isFinite(raw.score) ? raw.score : productScore,
+      buyingConfidence: raw.buyingConfidence as number,
       confidence_score: confidence > 1 ? confidence / 100 : confidence,
-      sentiment_score: safeNumber(raw.sentiment_score, 0.65),
-      sentiment_percentage: safeNumber(raw.sentiment_percentage, Math.round((confidence > 1 ? confidence : confidence * 100))),
-      value_score: safeNumber(raw.value_score, productScore),
-      complaint_severity_score: safeNumber(raw.complaint_severity_score, Math.min(100, negatives.length * 14)),
-      fake_review_risk_score: safeNumber(raw.fake_review_risk_score, 35),
+      sentiment_score: raw.sentiment_score as number,
+      sentiment_percentage: raw.sentiment_percentage as number,
+      value_score: raw.value_score as number,
+      complaint_severity_score: raw.complaint_severity_score as number,
+      fake_review_risk_score: raw.fake_review_risk_score as number,
 
-      value_for_money_opinion: raw.value_for_money_opinion || raw.valueForMoney || "Fair",
-      valueForMoney: raw.valueForMoney || raw.value_for_money_opinion || "Fair",
+      value_for_money_opinion: String(raw.value_for_money_opinion ?? raw.valueForMoney),
+      valueForMoney: String(raw.valueForMoney ?? raw.value_for_money_opinion),
 
       positive_points: positives,
       positivePoints: positives,
@@ -1814,20 +1871,10 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
       not_ideal_for: safeStringArray(raw.not_ideal_for),
 
       buyer_recommendation:
-        raw.buyer_recommendation ||
-        raw.customer_recommendation ||
-        {
-          verdict: productScore >= 75 ? "Buy" : productScore >= 55 ? "Maybe" : "Avoid",
-          rationale: String(raw.summary || raw.overall_summary || "Review positives and complaints before buying.")
-        },
+        raw.buyer_recommendation || raw.customer_recommendation,
 
       customer_recommendation:
-        raw.customer_recommendation ||
-        raw.buyer_recommendation ||
-        {
-          verdict: productScore >= 75 ? "Buy" : productScore >= 55 ? "Maybe" : "Avoid",
-          rationale: String(raw.summary || raw.overall_summary || "Review positives and complaints before buying.")
-        },
+        raw.customer_recommendation || raw.buyer_recommendation,
 
       seller_insights: sellerInsights,
 
@@ -1839,6 +1886,10 @@ function withDashboardSafeAnalysis(result: AnalyzeResponse): AnalyzeResponse {
 
 
 export function ResultsDashboard({ result, accountPlan }: { result: AnalyzeResponse; accountPlan?: SubscriptionPlan | null }) {
+  if (!hasGroundedSellerResult(result)) {
+    return <SellerEvidenceUnavailable />;
+  }
+
   const safeResult = withDashboardSafeAnalysis(result);
 
   if (safeResult.meta.audience === "seller" || safeResult.meta.audience === "both") {

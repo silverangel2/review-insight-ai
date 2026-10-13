@@ -56,7 +56,7 @@ export function SellerProCommandPanel() {
         <Badge tone="warn">Seller Pro feature</Badge>
         <h2 className="mt-3 text-2xl font-black text-ink dark:text-white">Command board is reserved for Seller Pro.</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-          Seller Premium includes seller analytics and product tracking. Seller Pro unlocks command-board intelligence, calendar history, and deeper action planning.
+          Seller Starter includes seller analytics and product tracking. Seller Pro unlocks command-board intelligence, calendar history, and deeper action planning.
         </p>
       </article>
     );

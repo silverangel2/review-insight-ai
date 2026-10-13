@@ -1,3 +1,4 @@
+import { rateLimitRequest } from "@/lib/security";
 import { NextResponse } from "next/server";
 import { adPackages, type AdPackageId, type AdPlacement } from "@/lib/adConfig";
 import { saveAdCreative } from "@/lib/adCreativeUpload";
@@ -91,6 +92,8 @@ async function readPayload(request: Request) {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const limit = await rateLimitRequest(request, { key: "advertiser_apply", limit: 5, windowMs: 60 * 60 * 1000, eventType: "advertiser_apply_rate_limited" });
+  if (!limit.allowed) return limit.response ?? NextResponse.json({ error: "Too many submissions. Please try again later." }, { status: 429 });
   try {
     const { body } = await readPayload(request);
 
@@ -154,9 +157,9 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     if (!response.ok) {
-      const text = await response.text();
+      console.error("advertiser application insert failed", response.status, await response.text().catch(() => ""));
       return NextResponse.json(
-        { error: "Could not submit advertiser application.", details: text },
+        { error: "Could not submit advertiser application." },
         { status: 500 },
       );
     }
@@ -172,7 +175,6 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json(
       {
         error: "Advertiser application failed.",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );

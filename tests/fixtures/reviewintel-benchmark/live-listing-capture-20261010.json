@@ -1,0 +1,129 @@
+{
+ "provenance": "Records extracted live from the public listing page during the single Owner-approved scan scan_live-epson-proof-luca-20261010 (2026-10-10). Bodies verbatim; nothing synthesized.",
+ "capture": "/private/tmp/reviewintel-replay-captures/scan_live-epson-proof-luca-20261010.json",
+ "adjudicationOptions": {
+  "productName": "Epson Lifestudio Pop Plus 4K PRO-UHD Personal Lifestyle Projector",
+  "brand": "Epson",
+  "exactListingAccepted": true,
+  "exactListingUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+  "exactListingTitle": "Epson Lifestudio Pop Plus 4K PRO-UHD Personal Lifestyle Projector"
+ },
+ "evaluationMetadata": {
+  "exactProductAccepted": true,
+  "rating": 4.5,
+  "marketplaceReviewCount": 62,
+  "price": null,
+  "verifiedProductMetadata": {
+   "productName": "Epson Lifestudio Pop Plus 4K PRO-UHD Personal Lifestyle Projector",
+   "brand": "Epson",
+   "store": "Amazon.ca",
+   "canonicalUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "asin": "B0FNHDT93H"
+  },
+  "riskFeatures": {
+   "reviewAuthenticityScore": null
+  },
+  "summaryModelVersion": "gpt-4.1-mini"
+ },
+ "records": [
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 5,
+   "body": "This is my first projector and so far I love it:",
+   "date": "Reviewed in Canada on June 30, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: Navy",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 5,
+   "body": "Après une installation millimétrique pour obtenir mon écran de 120 pouces à une distance précise du plafond, je peux dire que la puissance lumineuse est suffisante pour dans un sous sol en éclairant sur le mur lui même et 120 pouces de diagonales.(à condition d’avoir le projecteur parfaitement aligné et de ne pas utiliser le Keystone électronique qui lui dégrade l’image.). J’ai investi dans un câble hdmi 2.1 pour le connecter à Apple tv4k. Il faut bien optimiser les réglages de l’Apple TV en forçant le 4k hdr10 en sortie, plutôt que laisse le projecteur faire du 4k hdr par lui même. Avec ces réglages plus le mode cinéma,plus l autofocus plus la correction colorimetrique auto lié à la projection sur le mur: l’image est bluffante. Cette il n’y a pas les noirs les meilleurs du marché mais ça fait très très bien l affaire. Sur les films galactiques de G.Lucas c’est vraiment Top. Idem avec une série plus recente. Ne sachant pas si nous étions sensibles à l’effet ARC nous avons opté pour Epson pour en être sur. Côté niveau son je ne m’en sers pas pour ça, juste pour l’image. Il est monté au plafond à 17 cm du plafond pour projeter sans aucune correction de trapèze numérique. Je l’ai testé en même temps que le Epson EF72. J’ai retourné le EF72: trop Bruyant le ventilateur, impossible de le mettre au dessus de nos têtes, trop encombrant. Le EF62 (pop plus) est mieux dans ma situation ( sédentaire et salle dédiée au sous sol). Pas besoin de plus de puissance comme avec lepson2350 (distance de projection plus éloigné pour même taille d’image, plus bruyant, lampe à l’ancienne)",
+   "date": "Reviewed in Canada on July 1, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: Navy",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 5,
+   "body": "Unbelievably great !!!",
+   "date": "Reviewed in Canada on March 7, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: Navy",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 2,
+   "body": "If you're new to projectors and you don't worry about money, great, try this. But if you like me have been waiting for a ~$1k LED or laser unit from a known brand, this ain't it. Picture is soft and washed-out even if just compared to my ancient BenQ W1070 unit. Software is overly intrusive, setup is super frustrating - if Epson and Google think I agreed to anything they have another thing coming as it took nearly an hour to make the image right side up as I have a ceiling mount. Likely to be returning this unit.",
+   "date": "Reviewed in Canada on January 11, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: Navy",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 5,
+   "body": "A great projector. It’s a Google TV. Easy to set up and Autoadjust is a breeze. Sound is perfect for the backyard. Don’t have to deal with setting up speakers. Love it. Have had many backyard movie nights already!",
+   "date": "Reviewed in the United States on August 1, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: White",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 5,
+   "body": "De gran calidad, fácil de usar y con un inmejorable audio, lo recomiendo altamente, olvídense de conectar todo con cables, esto es la solución.",
+   "date": "Reviewed in Mexico on September 20, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: Navy",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 5,
+   "body": "Excelente nitidez, solo baja la calidad cuando hay mucha luz",
+   "date": "Reviewed in Mexico on July 16, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: White",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 5,
+   "body": "Muy bueno, estoy conforme. Muy nítido, con todas las plataformas pre-instaladas. Para casa y trabajo.",
+   "date": "Reviewed in Mexico on June 8, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: Navy",
+   "marketplaceProductId": "B0FNHDT93H"
+  },
+  {
+   "source": "Amazon written review",
+   "sourceUrl": "https://www.amazon.ca/dp/B0FNHDT93H",
+   "rating": 4,
+   "body": "If you take the time to navigate the settings you'll find that *most* of the complaints can be bypassed including google autostart. The sound is also good quality.",
+   "date": "Reviewed in the United States on July 8, 2026",
+   "verified": true,
+   "reviewStructureVerified": true,
+   "reviewedVariant": "Colour Name: Black",
+   "marketplaceProductId": "B0FNHDT93H"
+  }
+ ]
+}

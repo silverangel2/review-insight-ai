@@ -11,17 +11,21 @@
     "repair:social-video-urls": "node scripts/repair-social-video-public-urls.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:single-facebook-reel": "node scripts/single-facebook-reel-checks.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "reviewintel:replay": "node scripts/reviewintel-replay.mjs",
+    "reviewintel:monitor": "node scripts/reviewintel-passive-monitor.mjs --captures"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@supabase/supabase-js": "^2.110.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "ffprobe-static": "^3.1.0",
     "next": "^15.3.4",
     "next-intl": "^4.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "resend": "^6.12.4"
+    "resend": "^6.12.4",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -30,6 +34,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.18.0",
     "eslint-config-next": "^15.3.4",
+    "playwright": "^1.64.0",
     "postcss": "8.5.10",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"

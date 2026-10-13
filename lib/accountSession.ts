@@ -88,8 +88,12 @@ export function readAccountSession(request: Request) {
 
   if (!cookie) return null;
 
-  const token = decodeURIComponent(cookie.slice(ACCOUNT_SESSION_COOKIE.length + 1));
-  return verifyAccountSessionToken(token);
+  try {
+    const token = decodeURIComponent(cookie.slice(ACCOUNT_SESSION_COOKIE.length + 1));
+    return verifyAccountSessionToken(token);
+  } catch {
+    return null;
+  }
 }
 
 export function setAccountSessionCookie(

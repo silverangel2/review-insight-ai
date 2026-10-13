@@ -63,8 +63,8 @@ export function normalizeRole(role: string | null | undefined): UserRole {
 export function planLabel(plan: SubscriptionPlan) {
   if (plan === "buyer_pro") return "Shopper Premium";
   if (plan === "buyer_beta") return "Beta Shopper Premium";
-  if (plan === "seller_premium") return "Seller Premium";
-  if (plan === "seller_beta") return "Beta Seller Premium";
+  if (plan === "seller_premium") return "Seller Starter";
+  if (plan === "seller_beta") return "Beta Seller Starter";
   if (plan === "seller_pro") return "Seller Pro";
   return "Shopper Free";
 }
@@ -172,12 +172,12 @@ export function forceSellerPremiumTesterAccount<T extends Record<string, unknown
     "seller.starter@reviewintel.test": {
       role: "seller",
       plan: "seller_premium",
-      name: "Seller Premium Tester"
+      name: "Seller Starter Tester"
     },
     "seller.premium@reviewintel.test": {
       role: "seller",
       plan: "seller_premium",
-      name: "Seller Premium Tester"
+      name: "Seller Starter Tester"
     },
     "seller.pro@reviewintel.test": {
       role: "seller",

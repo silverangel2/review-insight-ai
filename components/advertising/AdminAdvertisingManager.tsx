@@ -133,7 +133,9 @@ export function AdminAdvertisingManager() {
     }
   }
 
-  async function runAction(action: string, id: string, type: "application" | "ad") {
+  const [schedules, setSchedules] = useState<Record<string, { startsAt?: string; endsAt?: string; placement?: string }>>({});
+
+  async function runAction(action: string, id: string, type: "application" | "ad", extra: Record<string, string> = {}) {
     setBusyId(id);
     setNotice("");
 
@@ -143,7 +145,7 @@ export function AdminAdvertisingManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           type === "application"
-            ? { action, applicationId: id }
+            ? { action, applicationId: id, ...extra }
             : { action, adId: id },
         ),
       });
@@ -458,6 +460,16 @@ export function AdminAdvertisingManager() {
                     </div>
 
                     <div className="flex shrink-0 flex-col gap-2 sm:min-w-44">
+                      {!approved ? (
+                        <fieldset className="grid gap-1.5 rounded-2xl border border-white/10 p-2 text-xs text-slate-300">
+                          <legend className="px-1 font-bold">Schedule on approve</legend>
+                          <label>Start <input type="date" className="mt-0.5 w-full rounded-lg bg-white/10 px-2 py-1 text-white" value={schedules[application.id]?.startsAt || ""} onChange={e => setSchedules(v => ({ ...v, [application.id]: { ...v[application.id], startsAt: e.target.value } }))} /></label>
+                          <label>End <input type="date" className="mt-0.5 w-full rounded-lg bg-white/10 px-2 py-1 text-white" value={schedules[application.id]?.endsAt || ""} onChange={e => setSchedules(v => ({ ...v, [application.id]: { ...v[application.id], endsAt: e.target.value } }))} /></label>
+                          <label>Placement <select className="mt-0.5 w-full rounded-lg bg-white/10 px-2 py-1 text-white" value={schedules[application.id]?.placement || application.preferred_placement || ""} onChange={e => setSchedules(v => ({ ...v, [application.id]: { ...v[application.id], placement: e.target.value } }))}>
+                            {["results_below_verdict", "analyze_below_card", "homepage_mid", "buyer_dashboard", "pricing", "footer"].map(p => <option key={p} value={p} className="text-slate-900">{p}</option>)}
+                          </select></label>
+                        </fieldset>
+                      ) : null}
                       <button
                         type="button"
                         disabled={busyId === application.id || paid}
@@ -469,10 +481,10 @@ export function AdminAdvertisingManager() {
                       <button
                         type="button"
                         disabled={busyId === application.id || approved}
-                        onClick={() => void runAction("approve", application.id, "application")}
+                        onClick={() => void runAction("approve", application.id, "application", Object.fromEntries(Object.entries(schedules[application.id] || {}).filter(([, v]) => v)) as Record<string, string>)}
                         className="rounded-full bg-emerald-300 px-4 py-2 text-sm font-black text-slate-950 disabled:opacity-40"
                       >
-                        Approve creative
+                        Approve + email payment link
                       </button>
                       <button
                         type="button"

@@ -25,7 +25,7 @@ function testAccountOverride(email: string) {
   if (normalizedEmail === "seller.starter@reviewintel.test") {
     return {
       email: normalizedEmail,
-      name: "Seller Premium Test",
+      name: "Seller Starter Test",
       role: "seller",
       plan: "seller_premium",
       subscriptionStatus: "active",
@@ -302,7 +302,10 @@ export async function POST(request: NextRequest) {
     preferred_language: body.preferredLanguage ?? body.preferred_language ?? "en",
     preferred_currency: body.preferredCurrency ?? body.preferred_currency ?? "CAD",
     profile_notes: body.profileNotes ?? body.profile_notes ?? null,
-    marketing_consent: Boolean(body.marketingConsent ?? body.marketing_consent),
+    // Only an explicit choice from the signed-in person changes marketing consent.
+    ...(typeof (body.marketingConsent ?? body.marketing_consent) === "boolean"
+      ? { marketing_consent: (body.marketingConsent ?? body.marketing_consent) as boolean }
+      : {}),
     updated_at: new Date().toISOString(),
     last_login: new Date().toISOString()
   });

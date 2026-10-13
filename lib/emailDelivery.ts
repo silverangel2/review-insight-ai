@@ -4,6 +4,9 @@ export const SUPPORT_EMAIL = "support@getreviewintel.com";
 export const EMAIL_FROM = "ReviewIntel <support@getreviewintel.com>";
 const EMAIL_LOGS_TABLE = "admin_email_logs";
 
+export const EMAIL_MAX_ATTEMPTS = 3;
+export const EMAIL_RETRY_DELAYS_MS = [500, 1500];
+
 type EmailLogStatus = "sent" | "failed" | "skipped";
 
 type EmailLogInput = {
@@ -26,6 +29,29 @@ type SendReviewIntelEmailInput = {
   replyTo?: string;
   headers?: Record<string, string>;
   metadata?: Record<string, unknown>;
+};
+
+export type EmailSendPayload = {
+  from: string;
+  to: string;
+  replyTo?: string;
+  subject: string;
+  html: string;
+  text?: string;
+  headers?: Record<string, string>;
+};
+
+export type EmailTransportResult = {
+  id?: string | null;
+  error?: { message?: string; statusCode?: number | null } | null;
+};
+
+export type EmailTransport = (payload: EmailSendPayload) => Promise<EmailTransportResult>;
+
+type SendOptions = {
+  transport?: EmailTransport;
+  sleep?: (ms: number) => Promise<void>;
+  maxAttempts?: number;
 };
 
 function supabaseUrl() {
@@ -58,6 +84,45 @@ function supabaseHeaders() {
     "Content-Type": "application/json",
     Prefer: "return=representation",
   };
+}
+
+export function isRetryableEmailFailure(status: number | null, message: string) {
+  if (status === 408 || status === 429 || (status !== null && status >= 500)) return true;
+  if (status !== null && status >= 400 && status < 500) return false;
+  return /timeout|timed out|network|econnreset|econnrefused|etimedout|fetch failed|socket|temporarily|rate limit/i.test(message);
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function resendTransport(payload: EmailSendPayload): Promise<EmailTransportResult> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    return { error: { message: "RESEND_API_KEY is missing.", statusCode: null } };
+  }
+
+  const resend = new Resend(resendApiKey);
+  const result = await resend.emails.send({
+    from: payload.from,
+    to: payload.to,
+    replyTo: payload.replyTo,
+    subject: payload.subject,
+    html: payload.html,
+    text: payload.text,
+    headers: payload.headers,
+  });
+
+  if (result.error) {
+    return {
+      error: {
+        message: result.error.message || "Email provider error.",
+        statusCode: result.error.statusCode ?? null,
+      },
+    };
+  }
+
+  return { id: result.data?.id ?? null };
 }
 
 export async function logEmailAttempt(input: EmailLogInput) {
@@ -102,76 +167,81 @@ export async function logEmailAttempt(input: EmailLogInput) {
   };
 }
 
-export async function sendReviewIntelEmail(input: SendReviewIntelEmailInput) {
-  const resendApiKey = process.env.RESEND_API_KEY;
-
-  if (!resendApiKey) {
-    await logEmailAttempt({
-      emailType: input.emailType,
-      status: "failed",
-      recipient: input.to,
-      sender: EMAIL_FROM,
-      subject: input.subject,
-      error: "RESEND_API_KEY is missing.",
-      metadata: input.metadata,
-    });
-
+export async function sendReviewIntelEmail(input: SendReviewIntelEmailInput, options: SendOptions = {}) {
+  if (process.env.REVIEWINTEL_BLOCK_OUTBOUND_EMAIL === "1" && !options.transport) {
     return {
       ok: false,
-      error: "RESEND_API_KEY is missing.",
-      logStorageReady: hasEmailLogStorage(),
+      blocked: true,
+      attempts: 0,
+      error: "Outbound email is blocked.",
+      logStorageReady: false,
     };
   }
 
-  const resend = new Resend(resendApiKey);
+  const transport = options.transport ?? resendTransport;
+  const pause = options.sleep ?? wait;
+  const maxAttempts = Math.max(1, options.maxAttempts ?? EMAIL_MAX_ATTEMPTS);
+  let lastError = "Unknown email send error.";
+  let attempts = 0;
 
-  try {
-    const result = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: input.to,
-      replyTo: input.replyTo || SUPPORT_EMAIL,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-      headers: input.headers,
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    attempts = attempt;
+    try {
+      const result = await transport({
+        from: EMAIL_FROM,
+        to: input.to,
+        replyTo: input.replyTo || SUPPORT_EMAIL,
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+        headers: input.headers,
+      });
 
-    const providerMessageId =
-      typeof result.data?.id === "string" ? result.data.id : undefined;
+      if (!result.error) {
+        const providerMessageId = typeof result.id === "string" ? result.id : undefined;
+        await logEmailAttempt({
+          emailType: input.emailType,
+          status: "sent",
+          recipient: input.to,
+          sender: EMAIL_FROM,
+          subject: input.subject,
+          providerMessageId,
+          metadata: { ...(input.metadata || {}), attempts },
+        });
+        return {
+          ok: true,
+          provider: "resend",
+          providerMessageId,
+          attempts,
+          logStorageReady: hasEmailLogStorage(),
+        };
+      }
 
-    await logEmailAttempt({
-      emailType: input.emailType,
-      status: "sent",
-      recipient: input.to,
-      sender: EMAIL_FROM,
-      subject: input.subject,
-      providerMessageId,
-      metadata: input.metadata,
-    });
+      lastError = result.error.message || "Email provider error.";
+      const status = result.error.statusCode ?? null;
+      if (!isRetryableEmailFailure(status, lastError) || attempt === maxAttempts) break;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Unknown email send error.";
+      if (!isRetryableEmailFailure(null, lastError) || attempt === maxAttempts) break;
+    }
 
-    return {
-      ok: true,
-      provider: "resend",
-      providerMessageId,
-      logStorageReady: hasEmailLogStorage(),
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown email send error.";
-
-    await logEmailAttempt({
-      emailType: input.emailType,
-      status: "failed",
-      recipient: input.to,
-      sender: EMAIL_FROM,
-      subject: input.subject,
-      error: message,
-      metadata: input.metadata,
-    });
-
-    return {
-      ok: false,
-      error: message,
-      logStorageReady: hasEmailLogStorage(),
-    };
+    await pause(EMAIL_RETRY_DELAYS_MS[attempt - 1] ?? EMAIL_RETRY_DELAYS_MS[EMAIL_RETRY_DELAYS_MS.length - 1]);
   }
+
+  await logEmailAttempt({
+    emailType: input.emailType,
+    status: "failed",
+    recipient: input.to,
+    sender: EMAIL_FROM,
+    subject: input.subject,
+    error: lastError,
+    metadata: { ...(input.metadata || {}), attempts },
+  });
+
+  return {
+    ok: false,
+    attempts,
+    error: lastError,
+    logStorageReady: hasEmailLogStorage(),
+  };
 }

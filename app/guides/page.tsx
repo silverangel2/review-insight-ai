@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
+import { withSeo } from "@/lib/pageSeo";
 import Link from "next/link";
 import { guides } from "@/lib/guides";
 import { formatGuideDate } from "@/components/GuideArticle";
+import { loadCategoryGuides } from "@/lib/guideData";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withSeo("/guides", {
   title: "Guides",
   description:
-    "Practical ReviewIntel guides on reading product reviews like a pro: spotting fake reviews, understanding star ratings, and checking products before you buy."
-};
+    "Practical ReviewIntel guides on reading product reviews, plus category guides built only from real scanned buyer reviews."
+});
 
-export default function GuidesPage() {
+export default async function GuidesPage() {
+  const categoryGuides = await loadCategoryGuides();
+
   return (
     <main className="mx-auto max-w-7xl px-6 py-14">
       <section className="relative overflow-hidden rounded-[2rem] border border-line bg-[linear-gradient(135deg,#172033,#2356a3_52%,#08b7a8)] p-8 text-white shadow-glow sm:p-10">
@@ -22,7 +26,7 @@ export default function GuidesPage() {
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
             Practical, no-hype guides to reading product reviews like a pro — how to spot
             suspicious patterns, interpret star ratings, and check a product before you buy.
-            New guides are added regularly.
+            Category pages below are built only from products ReviewIntel has scanned.
           </p>
         </div>
       </section>
@@ -48,6 +52,25 @@ export default function GuidesPage() {
             </span>
           </Link>
         ))}
+      </section>
+
+      <section className="mt-14">
+        <p className="inline-flex rounded-full bg-mint px-3 py-1 text-sm font-semibold text-teal">From real scans</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">What buyers reported, by category</h2>
+        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">Each category guide is built only from products ReviewIntel has scanned. No paid placements and no made-up reviews.</p>
+        {categoryGuides.length ? (
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+            {categoryGuides.map(g => (
+              <li key={g.slug}>
+                <Link href={`/guides/${g.slug}`} className="ri-lift block rounded-[1.5rem] bg-white p-5 ring-1 ring-slate-900/5">
+                  <p className="text-lg font-semibold text-slate-900">{g.name}</p>
+                  <p className="mt-1 text-sm text-slate-600">{g.products.length} product{g.products.length === 1 ? "" : "s"} · {g.totalReviews} real reviews</p>
+                  {g.thin ? <p className="mt-2 inline-flex rounded-full bg-butter px-2.5 py-0.5 text-xs font-semibold text-[#7a4a06]">Not enough data yet</p> : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="mt-8 rounded-2xl bg-butter p-5 text-sm text-slate-700">No category guides yet. They appear once enough products in a category have been scanned.</p>}
       </section>
     </main>
   );

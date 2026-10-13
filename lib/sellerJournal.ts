@@ -76,6 +76,15 @@ function journalNotesKey() {
   return `${SELLER_JOURNAL_NOTES_KEY_BASE}:${currentSellerJournalScope().key}`;
 }
 
+/** Storage keys for this account's journal and notes (used by the database sync). */
+export function sellerJournalStorageKeys() {
+  return { journal: journalKey(), notes: journalNotesKey() };
+}
+
+function announceWorkspaceChange() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("reviewintel:seller-workspace-changed"));
+}
+
 export function canUseSellerProJournal() {
   return currentSellerJournalScope().isSellerTrackingEnabled;
 }
@@ -127,6 +136,7 @@ export function saveSellerJournalScan(result: AnalyzeResponse, productName: stri
     journalKey(),
     JSON.stringify([scanWithMemory, ...current.filter((item) => item.id !== scanWithMemory.id)].slice(0, 120))
   );
+  announceWorkspaceChange();
 }
 
 
@@ -203,6 +213,7 @@ export function saveStoredSellerResultToJournal(stored: StoredSellerDashboardRes
     journalKey(),
     JSON.stringify([scanWithMemory, ...current.filter((item) => item.id !== scanWithMemory.id)].slice(0, 120))
   );
+  announceWorkspaceChange();
 }
 
 export function readSellerJournalNotes(): Record<string, string> {
@@ -222,4 +233,5 @@ export function saveSellerJournalNote(date: string, note: string) {
   if (!canUseStorage() || !canUseSellerProJournal()) return;
   const notes = readSellerJournalNotes();
   window.localStorage.setItem(journalNotesKey(), JSON.stringify({ ...notes, [date]: note }));
+  announceWorkspaceChange();
 }

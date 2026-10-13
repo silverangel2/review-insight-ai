@@ -67,7 +67,7 @@ export function ManageSubscriptionPanel() {
           </Link>
         </div>
         {status ? <p className="mt-4 rounded-2xl border border-teal/20 bg-teal/10 px-4 py-3 text-sm font-bold text-teal">{status}</p> : null}
-        {error ? <p className="mt-4 rounded-2xl border border-coral/25 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">{error}</p> : null}
+        {error ? <p className="mt-4 rounded-2xl border border-coral/25 bg-coral/10 px-4 py-3 text-sm font-bold text-coralink">{error}</p> : null}
       </article>
 
       <article className="rounded-[2rem] border border-line bg-mist p-6 shadow-soft dark:border-white/10 dark:bg-white/[0.04]">

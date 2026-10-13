@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { normalizePlan } from "@/lib/account";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
+import { emailActionLinks, emailLinkSecret, publicEmailSiteUrl, unsubscribeHeaders } from "@/lib/emailLinks";
+import { renderBrandedEmail } from "@/lib/emailTemplate";
 import {isSupabaseConfigured,
   scanUsageForEmail,
   supabaseInsert,
@@ -37,8 +39,8 @@ type ProfileRow = {
 
 function planLabel(plan?: string | null) {
   if (plan === "seller_pro") return "Seller Pro";
-  if (plan === "seller_starter" || plan === "seller_premium") return "Seller Premium";
-  if (plan === "seller_beta") return "Beta Seller Premium";
+  if (plan === "seller_starter" || plan === "seller_premium") return "Seller Starter";
+  if (plan === "seller_beta") return "Beta Seller Starter";
   if (plan === "buyer_pro") return "Shopper Premium";
   if (plan === "buyer_beta") return "Beta Shopper Premium";
   return "Shopper Free";
@@ -262,24 +264,32 @@ export async function POST(request: Request) {
   await logAdminAction(adminSession.email, action, email, reason || note);
 
   if (action === "make_beta_shopper" || action === "make_beta_seller") {
-    const betaPlanName = action === "make_beta_shopper" ? "Beta Shopper Premium" : "Beta Seller Premium";
+    const betaPlanName = action === "make_beta_shopper" ? "Beta Shopper Premium" : "Beta Seller Starter";
     const betaExpiry = update.beta_expires_at ? new Date(String(update.beta_expires_at)).toLocaleDateString() : "in 30 days";
 
+    const links = emailActionLinks(email, publicEmailSiteUrl(), emailLinkSecret());
+    const betaMessage = renderBrandedEmail({
+      preheader: `${betaPlanName} is active until ${betaExpiry}.`,
+      eyebrow: "Beta access",
+      title: `Welcome to ${betaPlanName}`,
+      paragraphs: [
+        "Your beta access is now active.",
+        `Beta access runs until ${betaExpiry}.`,
+        "During beta, send observations, bugs, confusing parts, wrong results, or feature requests from your Account page.",
+      ],
+      cta: { label: "Open your account", href: `${publicEmailSiteUrl()}/account` },
+      reason: "You are receiving this because beta access was turned on for your account.",
+      preferencesUrl: links.preferencesUrl,
+      unsubscribeUrl: links.unsubscribeUrl,
+      postalAddress: process.env.REVIEWINTEL_POSTAL_ADDRESS || "",
+    });
     await sendReviewIntelEmail({
       emailType: "beta_welcome",
       to: email,
       subject: `Welcome to ReviewIntel ${betaPlanName}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
-          <h2>Welcome to ReviewIntel ${betaPlanName}</h2>
-          <p>Your beta access is now active.</p>
-          <p><strong>Beta expiry:</strong> ${betaExpiry}</p>
-          <p>During beta, please send observations, bugs, confusing parts, wrong results, or feature requests from your Account page.</p>
-          <p>Weekly beta surveys may also be sent so we can improve ReviewIntel based on your testing.</p>
-          <p>Thank you for helping improve ReviewIntel.</p>
-        </div>
-      `,
-      text: `Welcome to ReviewIntel ${betaPlanName}. Your beta access is active until ${betaExpiry}. Please send beta observations from your Account page.`,
+      html: betaMessage.html,
+      text: betaMessage.text,
+      headers: unsubscribeHeaders(links.oneClickUrl),
       metadata: {
         action,
         betaPlanName,
@@ -297,7 +307,7 @@ export async function POST(request: Request) {
     unban: "Account restored to active.",
     note: "Admin note saved.",
     make_beta_shopper: "Beta Shopper Premium started. Welcome email sent if email delivery is configured.",
-    make_beta_seller: "Beta Seller Premium started. Welcome email sent if email delivery is configured.",
+    make_beta_seller: "Beta Seller Starter started. Welcome email sent if email delivery is configured.",
     remove_beta: "Beta access removed."
   };
 

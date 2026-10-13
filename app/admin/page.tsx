@@ -31,6 +31,12 @@ export default async function AdminPage() {
       action: "Manage accounts"
     },
     {
+      title: "Analytics",
+      detail: "Daily visits, unique visitors, sign-ins, signups, scans, upsells, checkouts and affiliate clicks.",
+      href: "/admin/analytics",
+      action: "Open analytics"
+    },
+    {
       title: "Traffic",
       detail: "Page views, visitors, locations, platforms, referrers, UTM campaigns, pricing clicks, and affiliate clicks.",
       href: "/admin/traffic",

@@ -34,6 +34,9 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
   if (!value || typeof value !== "object") return value;
 
   const record = asRecord(value);
+  // Canonical evidence scores, unknown value, and confidence must never be
+  // rewritten to fit an older display band.
+  if (typeof record.scorerVersion === "string" && record.scorerVersion.startsWith("deterministic-evidence-scorer-") && record.finalResultHash) return value;
   const verdict = normalizedVerdict(record);
 
   if (!verdict) return value;
@@ -48,8 +51,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
     getNumber(record.confidence) ??
     getNumber(record.confidenceScore);
 
-  let nextScore = currentScore ?? 0;
-  let nextConfidence = currentConfidence ?? 0;
+  let nextScore: number | null = currentScore;
+  let nextConfidence: number | null = currentConfidence;
   let nextValue = getString(record.valueForMoney) || getString(record.value) || "Unknown";
   let nextBottomLine =
     getString(record.stableVerdictReason) ||
@@ -57,8 +60,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
     getString(record.summary);
 
   if (verdict === "BUY") {
-    nextScore = Math.max(nextScore, 8);
-    nextConfidence = Math.max(nextConfidence, 75);
+    nextScore = nextScore === null ? null : Math.max(nextScore, 8);
+    nextConfidence = nextConfidence === null ? null : Math.max(nextConfidence, 75);
     nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Strong" : nextValue;
     nextBottomLine =
       nextBottomLine ||
@@ -67,9 +70,9 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
 
   if (verdict === "REVIEW FIRST") {
     // Mixed evidence can legitimately sit anywhere in the REVIEW FIRST band.
-    nextScore = nextScore > 0 ? Math.min(7, Math.max(nextScore, 4)) : 5;
-    nextConfidence = Math.min(82, Math.max(nextConfidence || 60, 60));
-    nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Fair" : nextValue;
+    nextScore = nextScore === null ? null : nextScore > 0 ? Math.min(7, Math.max(nextScore, 4)) : null;
+    nextConfidence = nextConfidence === null ? null : Math.min(82, Math.max(nextConfidence, 60));
+    nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Unknown" : nextValue;
     nextBottomLine =
       nextBottomLine && !nextBottomLine.toLowerCase().includes("avoid")
         ? nextBottomLine
@@ -77,8 +80,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
   }
 
   if (verdict === "AVOID") {
-    nextScore = Math.min(nextScore || 3, 4);
-    nextConfidence = Math.min(nextConfidence || 40, 55);
+    nextScore = nextScore === null ? null : Math.min(nextScore, 4);
+    nextConfidence = nextConfidence === null ? null : Math.min(nextConfidence, 55);
     nextValue = "Poor";
     nextBottomLine =
       nextBottomLine ||
@@ -86,8 +89,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
   }
 
   if (verdict === "REVIEW EVIDENCE NOT ENOUGH" || verdict === "NOT ENOUGH EVIDENCE") {
-    nextScore = 0;
-    nextConfidence = Math.min(nextConfidence || 25, 35);
+    nextScore = null;
+    nextConfidence = null;
     nextValue = "Unknown";
     nextBottomLine =
       "ReviewIntel could not confirm enough review evidence to score this product honestly. This is not an Avoid verdict; it means stronger listing/review evidence is needed.";

@@ -101,7 +101,7 @@ export function PublicReviewForm() {
           placeholder="Example: ReviewIntel helped me compare two products quickly and avoid the one with repeated durability complaints."
         />
       </label>
-      {error ? <p className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
       {status ? <p className="mt-4 rounded-xl border border-teal/30 bg-teal/10 px-4 py-3 text-sm text-teal">{status}</p> : null}
       <button
         type="submit"
