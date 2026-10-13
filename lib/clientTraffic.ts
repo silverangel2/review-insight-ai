@@ -39,20 +39,12 @@ function readVisitorId(consentChoice: string) {
   }
 }
 
-/** Do Not Track or Global Privacy Control switched on: we record nothing. */
-export function browserOptsOut() {
-  if (!canUseBrowser()) return true;
-  const nav = navigator as Navigator & { globalPrivacyControl?: boolean; msDoNotTrack?: string };
-  const win = window as Window & { doNotTrack?: string };
-  return nav.doNotTrack === "1" || win.doNotTrack === "1" || nav.msDoNotTrack === "1" || nav.globalPrivacyControl === true;
-}
-
 export function canTrackTraffic() {
-  return canUseBrowser() && !browserOptsOut() && Boolean(readCookieConsentChoice());
+  return canUseBrowser() && Boolean(readCookieConsentChoice());
 }
 
 export function trackTrafficEvent(input: TrafficEventInput = {}) {
-  if (!canUseBrowser() || browserOptsOut()) return false;
+  if (!canUseBrowser()) return false;
 
   const consentChoice = readCookieConsentChoice();
   if (!consentChoice) return false;

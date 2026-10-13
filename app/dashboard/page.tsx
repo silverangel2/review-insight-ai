@@ -1,9 +1,5 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { Metadata } from "next";
-import { withSeo, privatePage } from "@/lib/pageSeo";
-
-export const metadata = privatePage("/dashboard", "Dashboard");
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -20,8 +16,8 @@ export default async function DashboardPage() {
     redirect("/pricing?plan=seller_premium");
   }
 
-  if (role === "buyer") {
-    redirect("/dashboard/customer"); // Premium hub, or the Free preview of it
+  if (role === "buyer" && (plan === "buyer_pro" || plan === "buyer_beta")) {
+    redirect("/dashboard/customer");
   }
 
   redirect("/analyze");

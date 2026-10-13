@@ -15,7 +15,6 @@ function sellerShortName(name: string, max = 22) {
 }
 
 import Link from "next/link";
-import { normalizePlan, planLabel } from "@/lib/account";
 import { useEffect, useMemo, useState } from "react";
 import { DashboardMetric, DashboardShell, MiniBarChart } from "@/components/DashboardShell";
 import { InsightList } from "@/components/InsightList";
@@ -24,9 +23,9 @@ import { SellerImprovementCalendar } from "@/components/SellerImprovementCalenda
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { readSellerProducts, type SellerProduct } from "@/lib/sellerProducts";
 import { readSellerJournal } from "@/lib/sellerJournal";
-import { startSellerWorkspaceSync } from "@/lib/sellerWorkspaceSync";
 import { getClientAccount } from "@/lib/clientAccount";
 import { sellerHistoryKey } from "@/lib/sellerResultStorage";
+import { AdSlot } from "@/components/advertising/AdSlot";
 import { displayCodeForResult, productDisplayCode } from "@/lib/productDisplay";
 
 function uniqueTop(items: string[], limit = 6) {
@@ -259,7 +258,7 @@ function priorityTone(priority: string) {
   if (priority === "Strong") return "text-teal";
   if (priority === "Watch") return "text-ocean";
   if (priority === "Improve") return "text-amber-600";
-  return "text-coralink";
+  return "text-coral";
 }
 
 function sellerTrendSeries(scans: unknown[]) {
@@ -349,10 +348,6 @@ export default function SellerDashboardPage() {
     setAccount(getClientAccount());
     setProducts(readSellerProducts());
     setJournalScans(readSellerJournal());
-    void startSellerWorkspaceSync(() => {
-      setProducts(readSellerProducts());
-      setJournalScans(readSellerJournal());
-    });
 
     const refresh = () => {
       setAccount(getClientAccount());
@@ -533,7 +528,7 @@ export default function SellerDashboardPage() {
       <ProOnlyGate>
         <DashboardShell
           title="Seller dashboard"
-          subtitle={isSellerPro ? "Seller Pro tools include competitor compare and advanced improvement tracking." : "Seller Starter includes seller analysis, reports, and improvement planning."}
+          subtitle={isSellerPro ? "Seller Pro tools include competitor compare and advanced improvement tracking." : "Seller Premium includes seller analysis, reports, and improvement planning."}
           experience="seller"
         >
 <section className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
@@ -598,39 +593,6 @@ export default function SellerDashboardPage() {
     }
   ];
 
-  const productsTracked = new Set(
-    [...dashboard.productRows.map((row) => row.name), ...dashboard.scans.map((scan) => scanText(scan, ["productName", "product_name", "name", "title"], ""))]
-      .map((name) => String(name || "").trim().toLowerCase())
-      .filter(Boolean)
-  ).size;
-
-  if (!dashboard.latestScans.length) {
-    return (
-      <ProOnlyGate>
-        <DashboardShell title="Seller dashboard" subtitle={`${account ? planLabel(normalizePlan(account.plan)) : "Seller"} workspace`} experience="seller">
-          <section data-testid="seller-empty-state" className="rounded-[1.75rem] bg-[linear-gradient(135deg,#f1edff_0%,#ffffff_50%,#e6f7f1_100%)] p-8 text-center ring-1 ring-slate-900/5 sm:p-12">
-            <p className="text-sm font-semibold text-teal">Start here</p>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Upload your first review file</h2>
-            <p className="mx-auto mt-3 max-w-xl text-base leading-7 text-slate-600">
-              Export your product reviews as a CSV. ReviewIntel finds the complaints and praise in real buyer words, then builds this dashboard from them.
-            </p>
-            <Link href="/dashboard/seller/upload" className="mt-6 inline-flex rounded-full bg-teal px-7 py-3 text-base font-semibold text-white hover:bg-teal/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal">
-              Upload review CSV
-            </Link>
-            {hasData ? (
-              <p className="mt-4 text-sm text-slate-600">
-                You have {dashboard.scans.length} saved {dashboard.scans.length === 1 ? "scan" : "scans"} in History. Product tracking starts with your next upload.
-              </p>
-            ) : null}
-            <p className="mt-4 text-sm text-slate-500">
-              {isSellerPro ? "Competitor compare and your improvement calendar unlock as soon as you have saved scans." : <>Competitor compare and the improvement calendar are part of <Link href="/pricing" className="font-medium text-teal underline-offset-2 hover:underline">Seller Pro</Link>.</>}
-            </p>
-          </section>
-        </DashboardShell>
-      </ProOnlyGate>
-    );
-  }
-
   return (
     <ProOnlyGate>
       <DashboardShell
@@ -646,7 +608,7 @@ export default function SellerDashboardPage() {
       >
         <SponsorAnalytics placement="seller_dashboard" />
 
-        <section className="seller-premium-hero mb-6 rounded-[2rem] border border-line bg-[linear-gradient(135deg,#f1edff_0%,#ffffff_55%,#fff6d6_100%)] p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+        <section className="seller-premium-hero mb-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-ocean">Seller Pro summary</p>
           <h2 className="mt-2 text-3xl font-black text-ink dark:text-white">Your product improvement command center.</h2>
           <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300">
@@ -669,33 +631,29 @@ export default function SellerDashboardPage() {
 
         <section className="seller-premium-metrics mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <DashboardMetric
-            label="Products scanned"
-            value={String(productsTracked)}
-            detail="Distinct products in your saved seller scans."
+            label="Products tracked"
+            value={String(dashboard.productRows.length)}
+            detail={dashboard.productRows.length ? "Products with saved seller scan history." : "Run seller scans to start tracking products."}
             tone="info"
           />
           <DashboardMetric
-            label="Saved scans"
+            label="Scans this month"
             value={String(dashboard.scans.length)}
-            detail="Seller scans saved to your history (compare runs not included)."
+            detail="Normal saved seller scans used for product improvement."
             tone="info"
           />
-          {safeProductScore !== null ? (
-            <DashboardMetric
-              label="Avg product score"
-              value={`${safeProductScore}%`}
-              detail="Average score across those saved scans."
-              tone={productScoreTone}
-            />
-          ) : null}
-          {dashboard.weakestProduct ? (
-            <DashboardMetric
-              label="Improvement focus"
-              value={dashboard.weakestProduct.priority}
-              detail={productDisplayCode(dashboard.weakestProduct.name)}
-              tone={dashboard.weakestProduct.latestScore < 70 ? "bad" : "warn"}
-            />
-          ) : null}
+          <DashboardMetric
+            label="Avg product score"
+            value={safeProductScore === null ? "—" : `${safeProductScore}%`}
+            detail="Average score from saved seller product scans."
+            tone={productScoreTone}
+          />
+          <DashboardMetric
+            label="Improvement focus"
+            value={dashboard.weakestProduct ? dashboard.weakestProduct.priority : "—"}
+            detail={dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "No product focus yet."}
+            tone={dashboard.weakestProduct && dashboard.weakestProduct.latestScore < 70 ? "bad" : "warn"}
+          />
         </section>
 
         {isSellerPro && dashboard.trendSeries.length ? (
@@ -770,7 +728,7 @@ export default function SellerDashboardPage() {
                 </article>
                 <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-900">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Movement</p>
-                  <p className={`mt-2 text-3xl font-black ${dashboard.trendDelta >= 0 ? "text-teal" : "text-coralink"}`}>
+                  <p className={`mt-2 text-3xl font-black ${dashboard.trendDelta >= 0 ? "text-teal" : "text-coral"}`}>
                     {dashboard.trendDelta > 0 ? "+" : ""}{dashboard.trendDelta} pts
                   </p>
                 </article>
@@ -801,7 +759,7 @@ export default function SellerDashboardPage() {
 
             <div className="seller-growth-pulse-grid mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
               <article className="rounded-[1.25rem] border border-coral/20 bg-rose-50 p-4 dark:border-rose-300/20 dark:bg-rose-400/10">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-coralink">Fix next</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-coral">Fix next</p>
                 <h3 className="mt-2 text-xl font-black text-ink dark:text-white">
                   {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "Run a seller scan"}
                 </h3>
@@ -892,7 +850,7 @@ export default function SellerDashboardPage() {
 
         <section className="seller-premium-focus-grid mb-6 grid gap-5 lg:grid-cols-2">
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-coralink">Focus first</p>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-coral">Focus first</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">
               {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "No product selected yet"}
             </h3>
@@ -963,14 +921,7 @@ export default function SellerDashboardPage() {
                 Track scan history, product score movement, buyer concerns, and notes in one clean calendar view.
               </p>
             </div>
-            {dashboard.latestScans.length ? (
-              <SellerImprovementCalendar />
-            ) : (
-              <details className="rounded-2xl bg-slate-50 px-4 py-3">
-                <summary className="cursor-pointer text-sm font-semibold text-slate-700">Open the calendar (fills in after your first saved scan)</summary>
-                <div className="mt-4"><SellerImprovementCalendar /></div>
-              </details>
-            )}
+            <SellerImprovementCalendar />
           </section>
         ) : null}
 
@@ -1063,7 +1014,7 @@ export default function SellerDashboardPage() {
                 Run Seller Analysis
               </Link>
               <Link href="/dashboard/seller/compare" className="rounded-xl border border-line px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:text-white">
-                Seller Starter
+                Seller Premium
               </Link>
             </div>
           </section>
@@ -1150,19 +1101,13 @@ export default function SellerDashboardPage() {
           <section className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <h2 className="text-2xl font-black text-ink dark:text-white">Seller Pro unlocks the improvement calendar.</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-              Seller Starter gets the seller intelligence dashboard and improvement planning. Seller Pro adds competitor compare, saved calendar, notes, scan momentum, and deeper tracking tools.
+              Seller Premium gets the seller intelligence dashboard and improvement planning. Seller Pro adds competitor compare, saved calendar, notes, scan momentum, and deeper tracking tools.
             </p>
           </section>
         ) : null}
 
-        {/* No ads inside paid seller workspaces. */}
+        <AdSlot placement="seller_dashboard" compact className="mt-6" />
         <style jsx global>{`
-          /* Premium shopper style for the seller workspace: one teal accent, lighter weights, calm cards. */
-          .reviewintel-route-dashboard-seller main .font-black { font-weight: 600; }
-          .reviewintel-route-dashboard-seller main .uppercase { letter-spacing: 0.08em; }
-          .reviewintel-route-dashboard-seller main a.bg-ink { background: #0b7c78; }
-          .reviewintel-route-dashboard-seller main a.bg-ink:hover { background: #09615e; }
-          .reviewintel-route-dashboard-seller .seller-command-card { background: #fff !important; border-color: rgba(15,23,42,.08) !important; }
           .reviewintel-route-dashboard-seller .seller-command-card-risk {
             border-color: rgba(223, 95, 99, .26);
             background: linear-gradient(180deg, #fff7f7, #ffffff);

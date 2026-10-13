@@ -140,7 +140,7 @@ export function DashboardMetric({ label, value, detail, tone = "info" }: { label
     info: "text-ocean dark:text-cyan-300",
     good: "text-teal",
     warn: "text-amber",
-    bad: "text-coralink"
+    bad: "text-coral"
   }[tone];
 
   return (

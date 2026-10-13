@@ -1,9 +1,5 @@
 import { Badge } from "@/components/Badge";
 import { PricingCards } from "@/components/PricingCards";
-import type { Metadata } from "next";
-import { withSeo, privatePage } from "@/lib/pageSeo";
-
-export const metadata: Metadata = withSeo("/pricing", { title: "Pricing: free scans and Premium plans", description: "Start free with daily scans of real buyer reviews. Upgrade for unlimited scans, compare, price watches and seller tools. Cancel anytime." });
 export default function PricingPage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-14">

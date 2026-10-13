@@ -686,9 +686,9 @@ function ProductCompareToolProof({ label, result }: { label: string; result: Ana
         <CompareProofPill label="Total marketplace reviews" value={proof.totalMarketplaceReviews} />
         <CompareProofPill label="Sources checked" value={proof.sourcesChecked.length} />
         <CompareProofPill label="Reviews analyzed by ReviewIntel" value={proof.reviewsAnalyzedByReviewIntel} />
-        <CompareProofPill label="Evidence strength" value={proof.evidenceStrength || "Low"} />
+        <CompareProofPill label="Evidence strength" value={proof.evidenceStrength || "Not enough"} />
         <CompareProofPill label="Exact listing" value={proof.exactListingConfidence || "Not confirmed"} />
-        <CompareProofPill label="AI-like risk" value={proof.aiLikeRisk !== null ? `${proof.aiLikeRisk}%` : `Low · ${Number(proof.reviewsAnalyzedByReviewIntel) || 0} real reviews · scan the Amazon link for more`} />
+        <CompareProofPill label="AI-like risk" value={proof.aiLikeRisk !== null ? `${proof.aiLikeRisk}%` : "Not scored"} />
         <CompareProofPill label="Memory" value={proof.stableKey ? "Saved/merged" : "New/unknown"} />
         <CompareProofPill label="Stable key" value={proof.stableKey ? "Matched" : "Not matched"} />
       </div>

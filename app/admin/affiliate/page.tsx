@@ -1,4 +1,5 @@
-import { buildAffiliateDiagnostics } from "@/lib/affiliateDiagnostics";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -51,14 +52,32 @@ type AffiliateDiagnostics = {
   error?: string;
 };
 
-// Admin-only (app/admin/layout.tsx checks the admin session). Reads diagnostics directly
-// instead of calling its own API over HTTP, which broke when NEXT_PUBLIC_SITE_URL pointed elsewhere.
+async function getBaseUrl() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) return siteUrl.replace(/\/$/, "");
+
+  const headerStore = await headers();
+  const host = headerStore.get("host") || "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+
+  return `${protocol}://${host}`;
+}
+
 async function getDiagnostics(): Promise<AffiliateDiagnostics> {
-  try {
-    return buildAffiliateDiagnostics() as AffiliateDiagnostics;
-  } catch {
-    return { ok: false, error: "Could not read affiliate diagnostics." };
-  }
+  const cookieStore = await cookies();
+  const baseUrl = await getBaseUrl();
+
+  const response = await fetch(`${baseUrl}/api/admin/affiliate-diagnostics`, {
+    cache: "no-store",
+    headers: { cookie: cookieStore.toString() },
+  });
+
+  if (response.status === 401) redirect("/owner-access");
+
+  return response.json().catch(() => ({
+    ok: false,
+    error: "Could not read affiliate diagnostics.",
+  }));
 }
 
 export default async function AffiliateAdminPage() {
