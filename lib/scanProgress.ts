@@ -28,9 +28,44 @@ const ORDER: ScanProgressStage[] = ["starting", "identifying", "searching", "rea
 
 function safeId(id: string) { return /^[A-Za-z0-9_.:-]{6,120}$/.test(id); }
 function hostOf(url: unknown) { try { return new URL(String(url)).hostname.replace(/^www\./, ""); } catch { return null; } }
+function progressStoreBase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!url || !key) return null;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    // Fake/local env must never open a database connection.
+    if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host.endsWith(".invalid")) return null;
+  } catch {
+    return null;
+  }
+  return url.replace(/\/$/, "");
+}
+
+function persistSnapshot(snapshot: ScanProgressSnapshot) {
+  const base = progressStoreBase();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!base || !key) return;
+  void fetch(`${base}/rest/v1/reviewintel_scan_progress?on_conflict=scan_id`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    },
+    body: JSON.stringify({ scan_id: snapshot.scanId, snapshot, updated_at: new Date().toISOString() }),
+    cache: "no-store",
+  }).catch(() => null);
+}
+
 function publish(ctx: Ctx) {
   ctx.snapshot.updatedAt = Date.now();
-  for (const id of ctx.ids) store.set(id, { ...ctx.snapshot, scanId: id, sourceHosts: [...ctx.snapshot.sourceHosts], snippets: [...ctx.snapshot.snippets] });
+  for (const id of ctx.ids) {
+    const snapshot = { ...ctx.snapshot, scanId: id, sourceHosts: [...ctx.snapshot.sourceHosts], snippets: [...ctx.snapshot.snippets] };
+    store.set(id, snapshot);
+    persistSnapshot(snapshot);
+  }
   const cutoff = Date.now() - TTL_MS;
   for (const [id, snap] of store) if (snap.updatedAt < cutoff) store.delete(id);
 }
@@ -59,6 +94,30 @@ export function aliasScanProgress(scanId: string) {
 
 export function getScanProgress(scanId: string): ScanProgressSnapshot | null {
   return safeId(scanId) ? store.get(scanId) || null : null;
+}
+
+/** Memory first, then the shared progress row (other serverless instances). */
+export async function readScanProgress(scanId: string): Promise<ScanProgressSnapshot | null> {
+  const local = getScanProgress(scanId);
+  if (local) return local;
+  const base = progressStoreBase();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!base || !key || !safeId(scanId)) return null;
+  const response = await fetch(
+    `${base}/rest/v1/reviewintel_scan_progress?select=snapshot&scan_id=eq.${encodeURIComponent(scanId)}&limit=1`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" },
+  ).catch(() => null);
+  if (!response?.ok) return null;
+  const rows = await response.json().catch(() => []) as Array<{ snapshot?: ScanProgressSnapshot }>;
+  const snapshot = rows?.[0]?.snapshot;
+  return snapshot && typeof snapshot === "object" ? { ...snapshot, scanId } : null;
+}
+
+/** Valid scan ids that have not published yet are pending (200), not a missing route. */
+export function scanProgressHttp(scanId: string, progress: ScanProgressSnapshot | null) {
+  if (!safeId(scanId)) return { status: 404, body: { scanId, progress: null } };
+  if (!progress) return { status: 200, body: { scanId, progress: null, pending: true } };
+  return { status: 200, body: { scanId, progress } };
 }
 
 /** Retrieval counter: unique raw reviews collected so far. */

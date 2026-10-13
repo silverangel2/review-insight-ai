@@ -354,6 +354,7 @@ function searchJobFor(input: ExactProductSearchInput, product: string): ProductS
     productName: input.productName,
     model: input.model,
     productKey: product,
+    authoritativeListingUrl: input.listingUrl || null,
     price: input.price,
     rating: input.rating,
     reviewCount: input.reviewCount,

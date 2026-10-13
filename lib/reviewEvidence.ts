@@ -1821,6 +1821,7 @@ async function runExactProductAgent({
     productName: input.productName,
     model: input.model,
     productKey: reviewSearchIdentity || cleanVisibleIdentity || product,
+    authoritativeListingUrl: input.listingUrl || null,
     price: input.price,
     rating: input.rating,
     reviewCount: input.reviewCount,

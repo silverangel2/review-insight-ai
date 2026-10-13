@@ -18,12 +18,31 @@ import { canAccessSellerAnalytics } from "@/lib/account";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
 import { getUiTextTranslation, normalizeLocale, readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 import { clearLatestResult, readActiveScanId, readLatestPreview, readLatestResult, saveLatestResult, reviewIntelDevDiagnostic } from "@/lib/resultStorage";
+import { signedOutOwnsScan } from "@/lib/scanOwnership";
 import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
 import { realReviewQuotes, THIN_EVIDENCE_NEXT_STEP } from "@/lib/shopperAnswer";
 
+
+function signedOutProof(scanId: string, cookieGrant: boolean) {
+  let ownedScanIds: string[] | null = null;
+  let sessionScanId: string | null = null;
+  let scanToken: string | null = null;
+  try {
+    sessionScanId = window.sessionStorage.getItem("reviewintel_scan_session");
+    scanToken = window.sessionStorage.getItem(`reviewintel_scan_token_${scanId}`);
+    const parsed = JSON.parse(window.localStorage.getItem("reviewintel_owned_scan_ids") || "[]");
+    ownedScanIds = Array.isArray(parsed) ? parsed.map(String) : null;
+  } catch { /* storage blocked */ }
+  return { cookieGrant, sessionScanId, scanToken, ownedScanIds };
+}
+
+function envelopeAccountEmail(result: AnalyzeResponse | null) {
+  const record = result as (AnalyzeResponse & { accountEmail?: string }) | null;
+  return String(record?.accountEmail || "").trim();
+}
 
 function displayShopperVerdict(value: unknown) {
   const verdict = String(value || "").trim().toUpperCase();
@@ -2044,7 +2063,7 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
 }
 
 
-export function ResultsClient({ initialResult = null, initialScanId = null }: { initialResult?: AnalyzeResponse | null; initialScanId?: string | null } = {}) {
+export function ResultsClient({ initialResult = null, initialScanId = null, initialOwnerGrant = false }: { initialResult?: AnalyzeResponse | null; initialScanId?: string | null; initialOwnerGrant?: boolean } = {}) {
   // Server-rendered result (signed-in owner, exact scanId) paints in the first HTML; the client loader below still runs and confirms it.
   const [result, setResult] = useState<AnalyzeResponse | null>(initialResult);
   const [preview, setPreview] = useState("");
@@ -2114,10 +2133,14 @@ export function ResultsClient({ initialResult = null, initialScanId = null }: { 
         requestedScanId: requestedScanId || null,
         selectedHistoryId: selectedHistoryId || null,
       });
-      let parsed: AnalyzeResponse | null = requestedScanId || selectedHistoryId ? null : readLatestResult(
-        account,
-        activeScanId ? { scanId: activeScanId } : { allowAnyScan: Boolean(selectedHistoryId) }
-      );
+      let parsed: AnalyzeResponse | null = requestedScanId
+        ? readLatestResult(account, { scanId: requestedScanId })
+        : null;
+      if (parsed && requestedScanId && !account?.email) {
+        const owns = signedOutOwnsScan(requestedScanId, signedOutProof(requestedScanId, initialOwnerGrant));
+        const envelopeEmail = envelopeAccountEmail(parsed);
+        if (!owns || envelopeEmail) parsed = null;
+      }
 
       if (account?.email && (activeScanId || selectedHistoryId)) {
         const params = new URLSearchParams({

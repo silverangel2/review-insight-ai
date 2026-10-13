@@ -77,7 +77,7 @@ function postScanRequest(
   headers: Record<string, string>,
   onUploadProgress?: (percent: number) => void,
   onUploaded?: () => void
-): Promise<{ status: number; data: ScanApiPayload | null }> {
+): Promise<{ status: number; data: ScanApiPayload | null; scanAccessToken?: string | null }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/analyze");
@@ -99,7 +99,8 @@ function postScanRequest(
       } catch {
         data = null;
       }
-      resolve({ status: xhr.status, data });
+      const scanAccessToken = xhr.getResponseHeader("x-reviewintel-scan-token");
+      resolve({ status: xhr.status, data, scanAccessToken });
     };
 
     xhr.onerror = () => reject(new Error("Network error while uploading your scan. Please try again."));
@@ -312,6 +313,7 @@ export default function AnalyzerForm() {
     }
 
     const scanId = createClientScanId();
+    try { window.sessionStorage.setItem("reviewintel_scan_session", scanId); } catch { /* private mode */ }
 
     try {
       clearLatestResult();
@@ -339,7 +341,7 @@ export default function AnalyzerForm() {
       formData.append("locale", readStoredLocale());
       formData.append("scanId", scanId);
 
-      const { status, data } = await postScanRequest(
+      const { status, data, scanAccessToken } = await postScanRequest(
         formData,
         accountHeaders(),
         (percent) => setUploadPercent(percent),
@@ -395,6 +397,13 @@ export default function AnalyzerForm() {
           setAnonScansUsed(next);
         }
         saveLatestPreview(previewDataUrl || preview);
+        try {
+          window.sessionStorage.setItem(`reviewintel_scan_token_${scanId}`, scanAccessToken || scanId);
+          const ownedKey = "reviewintel_owned_scan_ids";
+          const prior = JSON.parse(window.localStorage.getItem(ownedKey) || "[]");
+          const nextOwned = Array.isArray(prior) ? [...prior.filter((id) => id !== scanId), scanId].slice(-20) : [scanId];
+          window.localStorage.setItem(ownedKey, JSON.stringify(nextOwned));
+        } catch { /* ownership cookie from the response still covers this browser */ }
         window.sessionStorage.removeItem("reviewintel_latest_result");
         window.localStorage.removeItem("reviewintel_latest_result_last");
         window.localStorage.removeItem("reviewintel_latest_result_fallback");

@@ -72,7 +72,9 @@ test("recovery uses persistence only and never starts another provider scan", ()
 });
 
 test("a requested URL scan ID is a hard identity constraint", () => {
-  assert.match(results, /requestedScanId \|\| selectedHistoryId \? null : readLatestResult/);
+  assert.match(results, /readLatestResult\(account, \{ scanId: requestedScanId \}\)/);
+  assert.match(results, /signedOutOwnsScan\(requestedScanId/);
+  assert.match(results, /if \(!owns \|\| envelopeEmail\) parsed = null/);
   assert.match(results, /if \(!parsed && !requestedScanId && !selectedHistoryId\)/);
   assert.match(results, /const activeScanId = requestedScanId \|\|/);
   assert.match(results, /if \(activeScanId && parsedScanId !== activeScanId\) \{/);

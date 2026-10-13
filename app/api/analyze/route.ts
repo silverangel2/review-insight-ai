@@ -1,5 +1,6 @@
 import { ocrReviewScreenshot } from "@/lib/reviewScreenshotOcr";
-import { productFactsFromOcr } from "@/lib/screenshotProductFacts";
+import { authoritativeDisplayName, isAmazonNavOrHeaderText, productFactsFromOcr } from "@/lib/screenshotProductFacts";
+import { attachScanAccess } from "@/lib/scanAccess";
 import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
 import { aliasScanProgress, runWithScanProgress } from "@/lib/scanProgress";
@@ -494,10 +495,15 @@ function createStableProductKey(vision: VisionFacts, productLink: string) {
   }
 
   const store = vision.store || linkHost;
-  const title = vision.normalizedSearchQuery || [vision.brand, vision.name, vision.category].filter(Boolean).join(" ");
-  const price = normalizeProductPriceForKey(vision.price);
+  const asin = asinFromMarketplaceUrl(productLink);
+  const screenshotTitle = isAmazonNavOrHeaderText(vision.name) || isAmazonNavOrHeaderText(vision.normalizedSearchQuery)
+    ? ""
+    : (vision.normalizedSearchQuery || [vision.brand, vision.name, vision.category].filter(Boolean).join(" "));
+  // A pasted listing URL/ASIN is the memory key. Screenshot chrome must not collide with it.
+  const title = asin || screenshotTitle;
+  const price = asin ? "" : normalizeProductPriceForKey(vision.price);
 
-  return createProductKey([store, vision.brand, title, price]);
+  return createProductKey([store, asin || vision.brand, title, price]);
 }
 
 async function brainFetch(path: string) {
@@ -1670,13 +1676,20 @@ async function researchAndVerdict(
   // research state into the final UI.
   const raw: JsonRecord = {};
 
-  const productForReviewEvidence = uniqueIdentityText(
-    uniqueTextArray([
-      vision.brand,
-      vision.name || vision.normalizedSearchQuery,
-    ].filter(Boolean), 18),
-    28
-  );
+  const suppliedAsin = asinFromMarketplaceUrl(productLink);
+  const screenshotName = isAmazonNavOrHeaderText(vision.name) || isAmazonNavOrHeaderText(vision.normalizedSearchQuery)
+    ? ""
+    : (vision.name || vision.normalizedSearchQuery);
+  // The product link/ASIN is the identity. Screenshot text may add ratings, not a rival name.
+  const productForReviewEvidence = suppliedAsin
+    ? ""
+    : uniqueIdentityText(
+        uniqueTextArray([
+          vision.brand,
+          screenshotName,
+        ].filter(Boolean), 18),
+        28
+      );
 
   console.log("[ReviewIntel DEBUG vision]", {
     name: vision.name,
@@ -1782,8 +1795,8 @@ async function researchAndVerdict(
   // shortly after, the scan continues with what we have (v2 handles low n / provisional).
   const budgets = scanBudgets();
   const { value: reviewEvidence } = await raceWithBudget(budgets.collectionMs + 5_000, () => withScanDeadline(budgets.collectionMs, () => collectAndAnalyzeReviewEvidence({
-      productName: productForReviewEvidence || vision.category || "unknown product",
-      brand: vision.brand,
+      productName: productForReviewEvidence || (suppliedAsin ? "" : vision.category) || "unknown product",
+      brand: suppliedAsin ? "" : vision.brand,
       model: undefined,
       color: [...vision.visibleFeatures, vision.name].join(" ").match(/\b(white|black|gray|grey|silver|blue|red|gold)\b/i)?.[1],
       categoryBreadcrumbs: [vision.category].filter(Boolean),
@@ -1841,12 +1854,13 @@ async function researchAndVerdict(
   });
 
   return buildReviewEvidenceShopperResult({
-    vision: vision as Record<string, unknown>,
+    vision: (suppliedAsin ? { ...vision, name: screenshotName, normalizedSearchQuery: screenshotName, brand: "" } : vision) as Record<string, unknown>,
     reviewEvidence: reviewEvidence as unknown as Record<string, unknown>,
     reviewAuthenticity,
     rawRecord,
     scanId,
     detectedProductKey: cleanDetectedProductKey(detectedProductKey),
+    suppliedListingUrl: productLink,
   });
 }
 
@@ -2135,6 +2149,7 @@ function buildReviewEvidenceShopperResult(input: {
   rawRecord?: Record<string, unknown>;
   scanId?: string;
   detectedProductKey?: string;
+  suppliedListingUrl?: string | null;
 }) {
   const vision = input.vision || {};
   const evidence = input.reviewEvidence || {};
@@ -2170,19 +2185,22 @@ function buildReviewEvidenceShopperResult(input: {
       ? exactListingRejectedReason || "Written review collection was not tied to an accepted exact product source."
       : null);
 
-  const productName = String(
-    (exactListingAccepted
-      ? listingEvidence?.exactListingTitle ||
-        listingEvidence?.title ||
-        listingEvidence?.name
-      : "") ||
-      vision.name ||
-      vision.title ||
-      vision.category ||
-      "Unknown product"
+  const fetchedListingTitle = exactListingAccepted
+    ? String(listingEvidence?.exactListingTitle || listingEvidence?.title || listingEvidence?.name || "")
+    : "";
+  const listingAsin = String(
+    listingEvidence?.asin ||
+    asinFromMarketplaceUrl(rawExactListingUrl) ||
+    asinFromMarketplaceUrl(input.suppliedListingUrl) ||
+    ""
   ).trim();
+  const productName = authoritativeDisplayName({
+    listingTitle: fetchedListingTitle,
+    screenshotName: String(vision.name || vision.title || ""),
+    asin: listingAsin || null,
+  }) || String(vision.category || "Unknown product").trim();
 
-  const brand = String(vision.brand || listingEvidence?.brand || "").trim();
+  const brand = String((exactListingAccepted ? listingEvidence?.brand : "") || (isAmazonNavOrHeaderText(String(vision.brand || "")) ? "" : vision.brand) || "").trim();
   const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
   const price = String(vision.price || listingEvidence?.price || "").trim();
   const exactListingUrl = exactListingAccepted ? rawExactListingUrl : "";
@@ -3290,7 +3308,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     const memory = await getProductMemory(productKey);
     void memory;
 
-    captureStage("identity", { productName: vision.name, brand: vision.brand, model: null, store: vision.store, visibleFeatures: vision.visibleFeatures, price: vision.price, rating: vision.rating, reviewCount: vision.reviewCount });
+    captureStage("identity", { productName: vision.name || asinFromMarketplaceUrl(productLink) || null, brand: vision.brand, model: null, store: vision.store, visibleFeatures: vision.visibleFeatures, price: vision.price, rating: vision.rating, reviewCount: vision.reviewCount });
     const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale, scanId, productKey, costTelemetry);
 
     // Shopper v2: do not re-score, normalize, or apply old product memory after the review-evidence result is built.
@@ -3369,5 +3387,5 @@ export async function POST(request: Request): Promise<Response> {
   const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
   try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
   if (run.openAiCalls > 0) console.warn("[openai-guard] OpenAI calls in run", run);
-  return response;
+  return attachScanAccess(request, response);
 }

@@ -20,6 +20,8 @@ export type ProductSearchJob = {
   rating?: string | number | null;
   reviewCount?: string | number | null;
   costTelemetry?: ScanCostTelemetry;
+  /** When set, this exact listing URL/ASIN outranks any screenshot-derived name. */
+  authoritativeListingUrl?: string | null;
 };
 
 export type ProductCandidate = {
@@ -492,6 +494,23 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
       canScoreProduct: false,
       canonicalIdentifier: null,
       canonicalMarketplace: candidateDomain,
+    };
+  }
+
+  const authoritativeAsin = amazonAsinFromUrl(job.authoritativeListingUrl);
+  if (authoritativeAsin && candidateAsin && authoritativeAsin === candidateAsin) {
+    return {
+      verifierStatus: "verified_exact_match",
+      verifierConfidence: 96,
+      verifierReasons: ["Supplied product URL/ASIN is authoritative. The fetched listing title names the product; screenshot text is not used as identity."],
+      verifiedListingUrl: normalizeProductUrl(candidateUrl),
+      rejectedListingUrl: null,
+      rejectedListingTitle: null,
+      retrySearchQueries: [],
+      canCollectReviews: true,
+      canScoreProduct: true,
+      canonicalIdentifier: candidateAsin,
+      canonicalMarketplace: candidateDomain || null,
     };
   }
 
