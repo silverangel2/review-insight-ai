@@ -50,10 +50,10 @@ const tiers: Array<{
   },
   {
     plan: "seller_premium",
-    name: "Seller Premium",
+    name: "Seller Starter",
     label: "Seller intelligence",
     description: "For sellers who need to understand what buyers keep praising or complaining about.",
-    cta: "Upgrade Seller Premium",
+    cta: "Upgrade Seller Starter",
     bestFor: "Finding product issues, review patterns, and listing fixes.",
     features: [
       "Seller product health scan",
@@ -133,7 +133,7 @@ export function PricingCards() {
 
   return (
     <section>
-      {error ? <p className="mb-5 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
+      {error ? <p className="mb-5 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {tiers.map((tier) => (
           <article

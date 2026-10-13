@@ -203,7 +203,6 @@ export async function PATCH(request: Request): Promise<Response> {
     return NextResponse.json(
       {
         error: "Could not update ad settings.",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );

@@ -6,6 +6,10 @@ import { createClient } from "@supabase/supabase-js";
 type JsonRecord = Record<string, unknown>;
 
 type ReviewEvidenceLike = {
+  exactListingAccepted?: boolean | null;
+  evidenceAdjudication?: {
+    sufficientByExistingThreshold?: boolean;
+  } | null;
   exactListingConfirmed?: boolean | null;
   sourcesChecked?: unknown[];
   reviewsFound?: number;
@@ -296,6 +300,11 @@ function hasSevereComplaintSignal(result: JsonRecord, reviewEvidence?: ReviewEvi
 
 function stableVerdict(memory: ProductMemory, result: JsonRecord) {
   const { commentsAnalyzed, aiLikeScore } = evidenceCounts(memory.reviewEvidence);
+  const exactListingAccepted =
+    memory.reviewEvidence?.exactListingAccepted === true &&
+    Boolean(memory.reviewEvidence?.listingEvidence?.exactListingUrl);
+  const canonicalSufficiencyPassed =
+    memory.reviewEvidence?.evidenceAdjudication?.sufficientByExistingThreshold === true;
   const rating = memory.rating;
   const reviewCount = memory.reviewCount;
   const severeComplaints = hasSevereComplaintSignal(result, memory.reviewEvidence);
@@ -305,6 +314,8 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
     reviewCount,
     aiLikeRisk: aiLikeScore,
     commentsAnalyzed,
+    exactListingAccepted,
+    canonicalSufficiencyPassed,
     severeComplaints,
     currentVerdict:
       typeof result.verdict === "string"
@@ -331,6 +342,16 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
     return governedDecision;
   }
 
+  if (!exactListingAccepted || !canonicalSufficiencyPassed) {
+    return {
+      verdict: "REVIEW EVIDENCE NOT ENOUGH",
+      buyerConfidence: null,
+      buyScore: null,
+      valueForMoney: "Unknown",
+      bottomLine: "ReviewIntel could not verify the exact listing, so it did not score this product.",
+    };
+  }
+
   const humanRule = humanVerdictRules({
     rating,
     reviewCount,
@@ -339,10 +360,7 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
     severeComplaints,
   });
 
-  if (
-    humanRule.reason.includes("Review evidence is not enough") ||
-    (typeof rating === "number" && typeof reviewCount === "number" && reviewCount >= 100)
-  ) {
+  if (humanRule.reason.includes("Review evidence is not enough")) {
     return {
       verdict: humanRule.verdict,
       buyerConfidence: humanRule.confidence,
@@ -352,17 +370,15 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
     };
   }
 
-  const hasReviewEvidence =
-    commentsAnalyzed >= 5 ||
-    (typeof rating === "number" && typeof reviewCount === "number" && reviewCount >= 10);
+  const hasReviewEvidence = canonicalSufficiencyPassed && commentsAnalyzed >= 3;
 
   if (!hasReviewEvidence) {
     return {
-      verdict: "REVIEW FIRST",
-      buyerConfidence: 50,
-      buyScore: 5,
-      valueForMoney: "Needs review evidence",
-      bottomLine: "Review evidence not enough. Do not downgrade to Avoid based only on a screenshot crop.",
+      verdict: "REVIEW EVIDENCE NOT ENOUGH",
+      buyerConfidence: null,
+      buyScore: null,
+      valueForMoney: "Unknown",
+      bottomLine: "Review evidence not enough. ReviewIntel did not collect enough written review text to make a product judgment.",
     };
   }
 
@@ -375,10 +391,10 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
     (aiLikeScore === null || aiLikeScore < 60)
   ) {
     return {
-      verdict: "REVIEW FIRST",
-      buyerConfidence: 60,
-      buyScore: 7,
-      valueForMoney: "Good",
+    verdict: "REVIEW FIRST",
+    buyerConfidence: 60,
+    buyScore: 7,
+    valueForMoney: "Good",
       bottomLine:
         "Cautious buy. The rating and review count are strong enough to avoid an Avoid verdict, but check durability complaints and return terms first.",
     };
@@ -681,8 +697,8 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
   const finalMemory: ProductMemory = {
     ...remembered,
     verdict: stable.verdict,
-    buyerConfidence: stable.buyerConfidence,
-    buyScore: stable.buyScore,
+    buyerConfidence: stable.buyerConfidence ?? undefined,
+    buyScore: stable.buyScore ?? undefined,
     valueForMoney: stable.valueForMoney,
     bottomLine: stable.bottomLine,
     updatedAt: new Date().toISOString(),
@@ -710,19 +726,18 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
   const currentReviewCount = Number(currentListing?.reviewCount || 0);
   const rememberedReviewCount = Number(rememberedListing?.reviewCount || 0);
 
-  const finalReviewEvidence =
-    currentExactListingConfirmed
-      ? currentReviewEvidence
-      : rememberedExactListingConfirmed
-        ? rememberedReviewEvidence
-        : currentReviewCount > rememberedReviewCount
-          ? currentReviewEvidence
-          : rememberedReviewEvidence || currentReviewEvidence || null;
+  // Current scan truth always dominates memory. Historical memory may supply
+  // metadata only when the current scan did not provide an evidence object;
+  // it may never replace a current rejected or insufficient scan.
+  const finalReviewEvidence = currentReviewEvidence || rememberedReviewEvidence || null;
 
   const exactListing = finalReviewEvidence?.listingEvidence || null;
   const exactListingConfirmed =
     Boolean(finalReviewEvidence?.exactListingConfirmed) ||
     exactListing?.confidence === "high";
+
+  const canonicalSufficiencyPassed =
+    finalReviewEvidence?.evidenceAdjudication?.sufficientByExistingThreshold === true;
 
   const promotedRating =
     exactListingConfirmed && typeof exactListing?.rating === "number" && exactListing.rating > 0
@@ -797,12 +812,14 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     typeof evidenceRecord.rating === "number" ? evidenceRecord.rating : null;
 
   const hasActualReviewEvidence =
-    readableComments >= 10 ||
+    canonicalSufficiencyPassed && (
+    readableComments >= 3 ||
     reviewSnippets.length >= 3 ||
     repeatedComplaints.length + repeatedPraises.length >= 3 ||
     (typeof evidenceRating === "number" &&
       typeof evidenceReviewCount === "number" &&
-      evidenceReviewCount >= 10);
+      evidenceReviewCount >= 10)
+  );
 
   const hasWeakReviewEvidence =
     readableComments > 0 ||

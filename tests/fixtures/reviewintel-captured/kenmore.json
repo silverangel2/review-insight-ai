@@ -1,0 +1,25 @@
+{
+  "id": "kenmore",
+  "provenance": {
+    "artifact": "owner-provided scan_55695f6d-1762-4d31-98de-81c3c9ff5cb7 audit",
+    "limitations": "Candidate URLs, titles and written review bodies not present in available saved artifacts."
+  },
+  "product": {
+    "productName": "Kenmore 7.0 cu. ft. Front Load Electric Dryer",
+    "brand": "Kenmore",
+    "color": "White",
+    "store": "Amazon.ca",
+    "price": 999,
+    "rating": 4,
+    "reviewCount": 92
+  },
+  "candidates": "UNKNOWN",
+  "rawRecords": "UNKNOWN",
+  "reportedCounts": {
+    "rawReviewsDiscovered": 73,
+    "dedupedReviews": 20,
+    "NEW_RECORDS": 16,
+    "GROUNDED_SIGNALS": 16
+  },
+  "pages": "UNKNOWN"
+}

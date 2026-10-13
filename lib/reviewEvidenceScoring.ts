@@ -41,6 +41,59 @@ export type ReviewEvidenceScoreResult = {
   };
 };
 
+export function isSufficientReviewEvidence(input: {
+  exactListingAccepted?: boolean | null;
+  commentsAnalyzed?: number | null;
+  evidenceSignals?: number | null;
+  evidenceStrength?: string | null;
+}) {
+  const commentsAnalyzed = Math.max(0, Math.round(finiteNumber(input.commentsAnalyzed) || 0));
+  const evidenceSignals = Math.max(0, Math.round(finiteNumber(input.evidenceSignals) || 0));
+  const strength = String(input.evidenceStrength || "").toLowerCase();
+
+  return (
+    input.exactListingAccepted === true &&
+    commentsAnalyzed >= 3 &&
+    evidenceSignals >= 3 &&
+    strength !== "none" &&
+    Boolean(strength)
+  );
+}
+
+export function hasSufficientReviewEvidenceRecord(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+  const evidence = record.reviewEvidence && typeof record.reviewEvidence === "object" && !Array.isArray(record.reviewEvidence)
+    ? (record.reviewEvidence as Record<string, unknown>)
+    : {};
+  const listingEvidence = evidence.listingEvidence && typeof evidence.listingEvidence === "object" && !Array.isArray(evidence.listingEvidence)
+    ? (evidence.listingEvidence as Record<string, unknown>)
+    : {};
+  const arrayLength = (key: string) => Array.isArray(evidence[key]) ? evidence[key].length : 0;
+  const commentsAnalyzed = Number(evidence.commentsAnalyzed ?? record.commentsAnalyzed ?? 0);
+  const evidenceSignals = Math.max(
+    arrayLength("reviewSnippets"),
+    arrayLength("repeatedPraises") + arrayLength("repeatedComplaints"),
+    arrayLength("productPros") + arrayLength("productCons"),
+    arrayLength("buyerExperienceSignals"),
+    arrayLength("aiPatternSignals"),
+    Number.isFinite(Number(evidence.reviewIntelligenceSignals))
+      ? Number(evidence.reviewIntelligenceSignals)
+      : 0
+  );
+
+  return isSufficientReviewEvidence({
+    exactListingAccepted:
+      evidence.exactListingAccepted === true &&
+      typeof listingEvidence.exactListingUrl === "string" &&
+      listingEvidence.exactListingUrl.trim().length > 0,
+    commentsAnalyzed,
+    evidenceSignals,
+    evidenceStrength: typeof evidence.evidenceStrength === "string" ? evidence.evidenceStrength : null,
+  });
+}
+
 const CRITICAL_COMPLAINT_TERMS = [
   "unsafe",
   "danger",

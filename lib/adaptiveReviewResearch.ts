@@ -1,3 +1,142 @@
+import {
+  callOpenAiWebSearchResponse,
+  getOpenAiWebSearchDiagnostics,
+  isOpenAiWebSearchEnabled,
+  type OpenAiWebSearchContext,
+} from "./openAiWebSearch";
+
+export type AdaptiveReviewRecord = {
+  body?: string | null;
+  text?: string | null;
+  title?: string | null;
+  source?: string | null;
+  sourceUrl?: string | null;
+  [key: string]: unknown;
+};
+
+export type AdaptiveResearchDiagnostic = {
+  PASS_NUMBER: number;
+  QUERY: string;
+  NEW_RECORDS: number;
+  DEDUPED_RECORDS: number;
+  GROUNDED_SIGNALS: number;
+  SUFFICIENCY: "SUFFICIENT" | "NOT_ENOUGH";
+  STOP_REASON: string;
+};
+
+export type AdaptiveResearchResult<T extends AdaptiveReviewRecord> = {
+  records: T[];
+  diagnostics: AdaptiveResearchDiagnostic[];
+  stopReason: string;
+  providerCalls: number;
+};
+
+export type AdaptiveResearchOptions<T extends AdaptiveReviewRecord> = {
+  queries: string[];
+  maxCalls?: number;
+  corpusCap?: number;
+  budgetExhausted?: () => boolean;
+  stagnantPasses?: number;
+  sufficient: (records: T[]) => boolean;
+  search: (query: string, passNumber: number) => Promise<string[]>;
+  collect: (urls: string[], query: string, passNumber: number) => Promise<T[]>;
+  exactProduct: (record: T) => boolean;
+  fingerprint?: (record: T) => string;
+  onDiagnostic?: (diagnostic: AdaptiveResearchDiagnostic) => void;
+};
+
+function defaultFingerprint(record: AdaptiveReviewRecord) {
+  return [record.body, record.text, record.title]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function runGenericAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
+  options: AdaptiveResearchOptions<T>
+): Promise<AdaptiveResearchResult<T>> {
+  const maxCalls = Math.max(0, Math.min(Math.round(options.maxCalls ?? 5), 5));
+  const stagnantLimit = Math.max(1, Math.min(Math.round(options.stagnantPasses ?? 2), 2));
+  const queries = Array.from(new Set(options.queries.map((query) => query.trim()).filter(Boolean))).slice(0, maxCalls);
+  const fingerprint = options.fingerprint || defaultFingerprint;
+  const records: T[] = [];
+  const corpusCap = Math.max(1, Math.min(Math.floor(options.corpusCap ?? 240), 500));
+  const seen = new Set<string>();
+  const diagnostics: AdaptiveResearchDiagnostic[] = [];
+  let stagnant = 0;
+  let providerCalls = 0;
+  let stopReason = "query_ladder_exhausted";
+
+  for (let index = 0; index < queries.length; index += 1) {
+    const passNumber = index + 1;
+    const query = queries[index];
+    if (records.length >= corpusCap || options.budgetExhausted?.()) {
+      stopReason = records.length >= corpusCap ? "corpus_cap_reached" : "resource_budget_reached";
+      break;
+    }
+
+    providerCalls += 1;
+    let urls: string[] = [];
+    let candidates: T[] = [];
+    let retrievalFailure = false;
+    try {
+      urls = await options.search(query, passNumber);
+      candidates = await options.collect(urls, query, passNumber);
+    } catch {
+      // A bounded provider/network failure is an explicit retrieval failure,
+      // never a reason to manufacture evidence or continue with metadata.
+      retrievalFailure = true;
+    }
+    const accepted = candidates.filter(options.exactProduct);
+    let dedupedRecords = 0;
+    let newRecords = 0;
+
+    for (const record of accepted) {
+      const key = fingerprint(record);
+      if (!key || seen.has(key)) {
+        dedupedRecords += 1;
+        continue;
+      }
+      seen.add(key);
+      records.push(record);
+      newRecords += 1;
+      if (records.length >= corpusCap) break;
+    }
+
+    if (newRecords === 0) stagnant += 1;
+    else stagnant = 0;
+
+    const sufficient = options.sufficient(records);
+    if (retrievalFailure) stopReason = "retrieval_failure";
+    else if (records.length >= corpusCap) stopReason = "corpus_cap_reached";
+    else if (stagnant >= stagnantLimit) stopReason = "stagnant_pass_limit";
+    else if (passNumber >= maxCalls || passNumber >= queries.length) stopReason = "max_web_search_calls";
+    else stopReason = "continue_useful_research";
+
+    const diagnostic: AdaptiveResearchDiagnostic = {
+      PASS_NUMBER: passNumber,
+      QUERY: query,
+      NEW_RECORDS: newRecords,
+      DEDUPED_RECORDS: dedupedRecords,
+      GROUNDED_SIGNALS: records.length,
+      SUFFICIENCY: sufficient ? "SUFFICIENT" : "NOT_ENOUGH",
+      STOP_REASON: stopReason,
+    };
+    diagnostics.push(diagnostic);
+    options.onDiagnostic?.(diagnostic);
+
+    if (retrievalFailure || records.length >= corpusCap || stagnant >= stagnantLimit || passNumber >= maxCalls || passNumber >= queries.length) break;
+  }
+
+  if (!records.length && !diagnostics.length) stopReason = "no_research_passes_available";
+  return { records, diagnostics, stopReason, providerCalls };
+}
+
 /**
  * Adaptive bounded OpenAI web research for ReviewIntel evidence collection.
  *
@@ -15,13 +154,6 @@
  * - Stop after TWO consecutive stagnant passes (no new signals).
  * - Firecrawl is NOT used here; it remains a separate fallback-only path.
  */
-
-import {
-  callOpenAiWebSearchResponse,
-  getOpenAiWebSearchDiagnostics,
-  isOpenAiWebSearchEnabled,
-  type OpenAiWebSearchContext,
-} from "@/lib/openAiWebSearch";
 
 export function stripJsonCodeFence(text: string) {
   return text
@@ -228,7 +360,7 @@ export type AdaptiveResearchStopReason =
   | "web_search_disabled"
   | "call_limit";
 
-export type AdaptiveResearchResult = {
+type OpenAiAdaptiveResearchResult = {
   aggregate: Record<string, unknown>;
   evidence: Record<string, unknown>[];
   passesExecuted: number;
@@ -283,9 +415,9 @@ const ADAPTIVE_STRATEGIES = [
 const QUERY_LADDER =
   'exact product title; exact product title + reviews; exact product title + Amazon.ca; exact product title + Walmart; exact product title + Reddit; exact product title + YouTube review; exact product title + complaints; exact product title + "worth it"; exact product title + "problems"; exact product title + Q&A; exact product title + review blog';
 
-export async function runAdaptiveReviewResearch(
+async function runOpenAiAdaptiveReviewResearch(
   args: AdaptiveResearchInput
-): Promise<AdaptiveResearchResult> {
+): Promise<OpenAiAdaptiveResearchResult> {
   const {
     product,
     reviewSearchIdentity,
@@ -472,4 +604,28 @@ Rules:
     webSearchCalls: diagnostics().calls,
     webSearchEnabled,
   };
+}
+
+/**
+ * Shopper retrieval passes a search/collect callback and never calls OpenAI.
+ * The OpenAI web-research loop remains available for the evidence-research
+ * tests and any caller that passes an OpenAI research context instead.
+ */
+export async function runAdaptiveReviewResearch<T extends AdaptiveReviewRecord>(
+  options: AdaptiveResearchOptions<T>
+): Promise<AdaptiveResearchResult<T>>;
+export async function runAdaptiveReviewResearch(
+  args: AdaptiveResearchInput
+): Promise<OpenAiAdaptiveResearchResult>;
+export async function runAdaptiveReviewResearch(
+  args: AdaptiveResearchOptions<AdaptiveReviewRecord> | AdaptiveResearchInput
+): Promise<AdaptiveResearchResult<AdaptiveReviewRecord> | OpenAiAdaptiveResearchResult> {
+  if (
+    "search" in args &&
+    typeof args.search === "function" &&
+    Array.isArray(args.queries)
+  ) {
+    return runGenericAdaptiveReviewResearch(args);
+  }
+  return runOpenAiAdaptiveReviewResearch(args as AdaptiveResearchInput);
 }

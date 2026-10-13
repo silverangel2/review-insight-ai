@@ -450,7 +450,7 @@ export function SellerImprovementCalendar() {
         <Badge tone="warn">Seller Pro feature</Badge>
         <h2 className="mt-4 text-3xl font-black text-ink dark:text-white">Daily product improvement journal</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-          The saved scan calendar is reserved for Seller Pro. Seller Premium keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.
+          The saved scan calendar is reserved for Seller Pro. Seller Starter keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.
         </p>
       </section>
     );
@@ -592,7 +592,7 @@ export function SellerImprovementCalendar() {
                   {selectedScans.length ? "A clean daily view of product scores, buyer concerns, and the next seller move." : "No scans are stored for this day yet. Add a note or run a seller analysis."}
                 </p>
               </div>
-              <button type="button" onClick={() => setSelectedDate(null)} className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:text-white">
+              <button type="button" onClick={() => setSelectedDate(null)} className="rounded-xl border border-line px-4 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coralink dark:border-white/10 dark:text-white">
                 Close
               </button>
             </div>
@@ -608,11 +608,11 @@ export function SellerImprovementCalendar() {
               </div>
               <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
                 <p className="text-xs font-black uppercase text-slate-500">Main complaint</p>
-                <p className="mt-2 text-sm font-black text-coral">{selectedScans.length ? selectedMetrics.complaint : "Run a scan"}</p>
+                <p className="mt-2 text-sm font-black text-coralink">{selectedScans.length ? selectedMetrics.complaint : "Run a scan"}</p>
               </div>
               <div className="rounded-2xl bg-mist p-4 dark:bg-white/[0.04]">
                 <p className="text-xs font-black uppercase text-slate-500">Before/after</p>
-                <p className={`mt-2 text-2xl font-black ${scoreDelta >= 0 ? "text-teal" : "text-coral"}`}>{selectedScans.length > 1 ? `${scoreDelta >= 0 ? "+" : ""}${scoreDelta}` : "Track"}</p>
+                <p className={`mt-2 text-2xl font-black ${scoreDelta >= 0 ? "text-teal" : "text-coralink"}`}>{selectedScans.length > 1 ? `${scoreDelta >= 0 ? "+" : ""}${scoreDelta}` : "Track"}</p>
               </div>
             </div>
 

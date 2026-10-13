@@ -70,11 +70,11 @@ export function humanVerdictRules(input: {
 
   if (!hasReviewVolume && commentsAnalyzed < 5) {
     return {
-      verdict: "REVIEW FIRST",
-      confidence: 50,
-      score: 5,
-      value: "Needs review evidence",
-      reason: "Review evidence is not enough. Do not downgrade to Avoid based only on a screenshot.",
+      verdict: "REVIEW EVIDENCE NOT ENOUGH",
+      confidence: null,
+      score: null,
+      value: "Unknown",
+      reason: "Review evidence is not enough. Do not issue a normal verdict or score from metadata alone.",
     };
   }
 

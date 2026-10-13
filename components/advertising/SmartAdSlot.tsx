@@ -40,15 +40,18 @@ export function SmartAdSlot({
   placement,
   className = "",
   compact = false,
-}: SmartAdSlotProps) {
+  initialShowAds = false,
+}: SmartAdSlotProps & { initialShowAds?: boolean }) {
   const pathname = usePathname();
-  const [showAds, setShowAds] = useState(false);
+  // Server computes the same rule from the verified session so the slot is in the first HTML (no layout shift).
+  const [showAds, setShowAds] = useState(initialShowAds);
 
   useEffect(() => {
     setShowAds(canShowAds());
   }, [pathname]);
 
-  if (!showAds) return null;
+  // Never show ads inside the private admin and owner areas.
+  if (!showAds || pathname?.startsWith("/admin") || pathname?.startsWith("/owner-access")) return null;
 
   return (
     <AdSlot

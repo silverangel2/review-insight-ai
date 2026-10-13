@@ -1,4 +1,5 @@
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
+import { escapeHtml, escapeHtmlAttribute } from "@/lib/emailHtml";
 import { supabaseInsert, supabaseSelect, supabaseUpdate } from "@/lib/supabaseServer";
 
 const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL || "junel.abellana@gmail.com";
@@ -42,19 +43,19 @@ export async function createAdminNotification(input: {
               ReviewIntel Admin Notification
             </p>
             <h1 style="margin:0 0 14px;font-size:26px;line-height:1.15;color:#0f172a;">
-              ${input.title}
+              ${escapeHtml(input.title)}
             </h1>
             <p style="margin:0 0 18px;font-size:15px;line-height:1.7;color:#334155;">
-              ${input.message}
+              ${escapeHtml(input.message)}
             </p>
             <div style="background:#f1f5f9;border-radius:18px;padding:16px;font-size:13px;line-height:1.6;color:#334155;">
-              <strong>Type:</strong> ${type}<br/>
-              <strong>Severity:</strong> ${severity}<br/>
-              <strong>Created:</strong> ${createdAt}
+              <strong>Type:</strong> ${escapeHtml(type)}<br/>
+              <strong>Severity:</strong> ${escapeHtml(severity)}<br/>
+              <strong>Created:</strong> ${escapeHtml(createdAt)}
             </div>
             ${
               input.action_url
-                ? `<a href="${input.action_url}" style="display:inline-block;margin-top:18px;background:#07111f;color:#ffffff;text-decoration:none;font-weight:900;border-radius:14px;padding:12px 18px;">Open in ReviewIntel</a>`
+                ? `<a href="${escapeHtmlAttribute(input.action_url)}" style="display:inline-block;margin-top:18px;background:#07111f;color:#ffffff;text-decoration:none;font-weight:900;border-radius:14px;padding:12px 18px;">Open in ReviewIntel</a>`
                 : ""
             }
           </div>

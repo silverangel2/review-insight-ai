@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { pricingLabelForPlan } from "@/lib/pricing";
 import { useEffect, useState } from "react";
 import {
   type AdPlacement,
@@ -11,6 +11,7 @@ import {
 import { COOKIE_CONSENT_EVENT, hasOptionalCookieConsent } from "@/lib/cookieConsent";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
 import type { LiveAdSettings } from "@/lib/adSettingsStore";
+import { FeaturedDeals, type DealSlide } from "@/components/advertising/FeaturedDeals";
 
 declare global {
   interface Window {
@@ -25,10 +26,6 @@ type AdSlotProps = {
 };
 
 type AdSource = "direct" | "affiliate" | "placeholder";
-
-function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url);
-}
 
 function hasGoogleAdSenseConfig(): boolean {
   return Boolean(
@@ -100,41 +97,6 @@ function affiliateBannerTone(ad: SponsorAd) {
         accent: "bg-cyan-400",
       };
   }
-}
-
-function AffiliateFallbackBanner({ ad }: { ad: SponsorAd }) {
-  const tone = affiliateBannerTone(ad);
-
-  return (
-    <div
-      className={`relative h-24 w-full overflow-hidden rounded-2xl border ${tone.ring} bg-gradient-to-br ${tone.bg} p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.74)] sm:w-40`}
-      aria-hidden="true"
-    >
-      <div className="absolute right-3 top-3 flex gap-1.5">
-        <span className={`size-2 rounded-full ${tone.accent} opacity-80`} />
-        <span className="size-2 rounded-full bg-ocean/55" />
-        <span className="size-2 rounded-full bg-white shadow-sm" />
-      </div>
-      <div className="relative z-10 flex h-full flex-col justify-between">
-        <div className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-xl bg-white/82 text-sm font-black text-ink shadow-sm">
-            RI
-          </span>
-          <span className="rounded-full bg-white/70 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-ocean">
-            Sponsored
-          </span>
-        </div>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-slate-500">
-            Powered by
-          </p>
-          <p className="truncate text-lg font-black leading-none text-ink">
-            {tone.brand}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function affiliateDisplayCopy(ad: SponsorAd) {
@@ -215,10 +177,10 @@ function GoogleAdSenseBlock({ className = "" }: { className?: string }) {
 
   return (
     <aside
-      className={`rounded-3xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70 ${className}`}
+      className={`rounded-[1.75rem] bg-[linear-gradient(135deg,#ffffff_0%,#f1edff_100%)] p-4 ring-1 ring-slate-900/5 ${className}`}
       aria-label="Google AdSense advertisement"
     >
-      <div className="mb-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#b98a2f]">
+      <div className="mb-2 text-xs font-semibold text-slate-500">
         Advertisement
       </div>
 
@@ -349,16 +311,6 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
     return () => window.removeEventListener(COOKIE_CONSENT_EVENT, onConsentChange);
   }, []);
 
-  useEffect(() => {
-    if (!ad) return;
-    if (adSource === "direct") sendAdEvent("impression", ad.id, placement);
-    if (adSource === "affiliate") {
-      trackTrafficEvent({
-        eventType: "affiliate_impression",
-        metadata: affiliateEventMetadata(ad, placement),
-      });
-    }
-  }, [ad, adSource, placement]);
 
   const effectiveSettings: LiveAdSettings = settings ?? {
     ...defaultAdSettings,
@@ -393,121 +345,44 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
         ) ?? null
       : null;
 
-  const visibleAd = ad ?? fallbackAd;
-  const visibleAdSource = ad ? adSource : fallbackAd ? "placeholder" : null;
-
-  if (!visibleAd) return null;
-
-  const isHouseAd = visibleAdSource === "placeholder";
-  const isAffiliateAd = visibleAdSource === "affiliate" || visibleAd.sponsorType === "affiliate";
-  const ctaLabel =
-    visibleAd.ctaLabel ||
-    (isHouseAd ? "Advertise with ReviewIntel" : isAffiliateAd ? "View offer" : visibleAdSource === "direct" ? "Learn more" : "Apply for ads");
-  const badgeLabels = visibleAd.labels?.length
-    ? visibleAd.labels
-    : [isHouseAd ? "Advertisement" : "Sponsored"];
-  const partnerCopy = isAffiliateAd ? affiliateDisplayCopy(visibleAd) : null;
-  const displaySponsorName = partnerCopy?.sponsorName || visibleAd.sponsorName;
-  const displayHeadline = partnerCopy?.headline || visibleAd.headline;
-  const displayDescription = partnerCopy?.description || visibleAd.description;
-  const ctaClassName =
-    "inline-flex shrink-0 items-center justify-center rounded-full bg-[#ffbd58] px-6 py-2.5 text-sm font-black text-[#172033] shadow-[0_10px_30px_rgba(255,189,88,0.35)] transition hover:-translate-y-0.5 hover:bg-[#ffd07a]";
-  const mediaUrl = visibleAd.mediaUrl || visibleAd.imageUrl;
-  const media = mediaUrl ? (
-    visibleAd.mediaType === "video" ? (
-      <video
-        src={mediaUrl}
-        muted
-        loop
-        playsInline
-        autoPlay
-        className="h-24 w-full rounded-2xl border border-cyan-200/70 object-cover sm:w-36"
-      />
-    ) : (
-      <img
-        src={mediaUrl}
-        alt=""
-        loading="lazy"
-        className="h-24 w-full rounded-2xl border border-cyan-200/70 object-cover sm:w-36"
-      />
-    )
-  ) : isAffiliateAd ? (
-    <AffiliateFallbackBanner ad={visibleAd} />
-  ) : null;
-  const trackClick = () => {
-    if (visibleAdSource === "direct") sendAdEvent("click", visibleAd.id, placement);
-    if (isAffiliateAd) {
-      trackTrafficEvent({
-        eventType: "affiliate_click",
-        metadata: {
-          ...affiliateEventMetadata(visibleAd, placement),
-          destinationUrl: visibleAd.destinationUrl,
-        },
-      });
-    }
-  };
-  const cta = isExternalUrl(visibleAd.destinationUrl) ? (
-    <a
-      href={visibleAd.destinationUrl}
-      target="_blank"
-      rel="noopener noreferrer sponsored"
-      className={ctaClassName}
-      data-sponsor-click={visibleAd.id}
-      onClick={trackClick}
-    >
-      {ctaLabel}
-    </a>
-  ) : (
-    <Link href={visibleAd.destinationUrl} className={ctaClassName} data-sponsor-click={visibleAd.id} onClick={trackClick}>
-      {ctaLabel}
-    </Link>
-  );
-
+  const pool: Array<{ ad: SponsorAd; source: AdSource }> = rotatingAds.length ? rotatingAds : fallbackAd ? [{ ad: fallbackAd, source: "placeholder" }] : [];
+  if (!pool.length) return <FeaturedDeals slides={[premiumHouseSlide(placement)]} className={className} onClickSlide={() => trackTrafficEvent({ eventType: "upsell_click", metadata: { placement: `featured_deals_${placement}`, plan: "buyer_pro" } })} />;
+  const slides: DealSlide[] = pool.map(({ ad: item, source }) => {
+    const isHouse = source === "placeholder";
+    const isAff = source === "affiliate" || item.sponsorType === "affiliate";
+    const copy = isAff ? affiliateDisplayCopy(item) : null;
+    return {
+      ad: item, kind: isHouse ? "house" : isAff ? "affiliate" : "direct",
+      partner: copy?.sponsorName || item.sponsorName,
+      headline: (isAff && item.campaignTitle) || copy?.headline || item.headline,
+      description: copy?.description || item.description,
+      cta: item.ctaLabel || (isHouse ? "Advertise with ReviewIntel" : isAff ? "Check price" : "Learn more"),
+    };
+  });
+  // Subscription value as a clearly labelled "ReviewIntel" slide (ads only render for non-paid users).
+  if (placement !== "pricing") slides.push(premiumHouseSlide(placement));
   return (
-    <aside
-      className={`relative overflow-hidden rounded-[1.75rem] border border-[#ffbd58]/35 bg-[linear-gradient(135deg,#101a30_0%,#16244a_55%,#1e2f5e_100%)] p-5 text-white shadow-[0_24px_70px_rgba(10,18,38,0.35)] sm:p-6 ${isHouseAd ? "ri-house-ad-slot" : ""} ${className}`}
-      aria-label="Sponsored placement"
-      data-ri-no-translate
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#ffbd58]/80 to-transparent"
-      />
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center">
-          {media}
-
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap gap-2">
-              {badgeLabels.map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex rounded-full border border-[#ffbd58]/40 bg-[#ffbd58]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#ffbd58]"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-
-            <p className="text-sm font-bold text-[#ffbd58]">{displaySponsorName}</p>
-            <h3 className={compact ? "mt-1 text-lg font-black text-white" : "mt-1 text-xl font-black text-white"}>
-              {displayHeadline}
-            </h3>
-            {displayDescription ? (
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                {displayDescription}
-              </p>
-            ) : null}
-            {visibleAd.disclosureText ? (
-              <p className="mt-2 max-w-2xl text-xs font-semibold leading-5 text-slate-400">
-                {visibleAd.disclosureText}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        {cta}
-      </div>
-    </aside>
+    <FeaturedDeals
+      slides={slides}
+      className={className}
+      onImpression={(slide) => {
+        if (slide.kind === "direct") sendAdEvent("impression", slide.ad.id, placement);
+        if (slide.kind === "affiliate") trackTrafficEvent({ eventType: "affiliate_impression", metadata: affiliateEventMetadata(slide.ad, placement) });
+      }}
+      onClickSlide={(slide) => {
+        if (slide.kind === "direct") sendAdEvent("click", slide.ad.id, placement);
+        if (slide.kind === "affiliate") trackTrafficEvent({ eventType: "affiliate_click", metadata: { ...affiliateEventMetadata(slide.ad, placement), destinationUrl: slide.ad.destinationUrl } });
+        if (slide.ad.id.startsWith("house-premium")) trackTrafficEvent({ eventType: "upsell_click", metadata: { placement: `featured_deals_${placement}`, plan: "buyer_pro" } });
+      }}
+    />
   );
+}
+
+function premiumHouseSlide(placement: string): DealSlide {
+  const headline = "Unlimited scans with Premium";
+  const description = `${pricingLabelForPlan("buyer_pro", "CAD")}/month: unlimited scans, saved history, avoid list and side-by-side compare.`;
+  return {
+    ad: { id: `house-premium-${placement}`, sponsorName: "ReviewIntel", headline, description, destinationUrl: "/pricing?plan=buyer_pro", placement: placement as SponsorAd["placement"], active: true, status: "approved" },
+    kind: "house", partner: "ReviewIntel", headline, description, cta: "See Premium",
+  };
 }

@@ -1,7 +1,9 @@
 import { hasCloudHistoryAccess, normalizePlan, normalizeRole } from "@/lib/account";
 import { NextResponse } from "next/server";
 import { readAccountSession } from "@/lib/accountSession";
-import { deleteAnalysisHistory, saveAnalysisRecord, supabaseDelete, supabaseSelect } from "@/lib/supabaseServer";
+import { adminSessionFromRequest } from "@/lib/adminAccess";
+import { assertPersistedScan } from "@/lib/scanCompletion";
+import { deleteAnalysisHistory, saveAnalysisRecord, supabaseSelect } from "@/lib/supabaseServer";
 
 
 function readDashboardScore(...sources: Record<string, unknown>[]) {
@@ -39,6 +41,14 @@ function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
 
   const row = item as Record<string, unknown>;
   const analysisJson = recordOf(row.analysis_json);
+  const normalizedScanId =
+    String(
+      row.scan_id ??
+      row.scanId ??
+      analysisJson.scan_id ??
+      analysisJson.scanId ??
+      ""
+    ).trim() || null;
 
   const mode = row.mode || row.type || row.analysisType || row.reportType || "";
   const isSellerCompare =
@@ -63,6 +73,8 @@ function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
     return {
       ...row,
       productScore: row.productScore ?? productScore ?? undefined,
+      scan_id: normalizedScanId,
+      scanId: normalizedScanId,
       product_score: row.product_score ?? productScore ?? undefined,
       score: row.score ?? productScore ?? undefined,
       result: normalizedResult,
@@ -85,6 +97,8 @@ function normalizeAnalysisForDashboard(item: Record<string, unknown>) {
   return {
     ...row,
     id: row.id,
+    scan_id: normalizedScanId,
+    scanId: normalizedScanId,
     code: cmrCode,
     displayCode: cmrCode,
     refCode: cmrCode,
@@ -225,11 +239,12 @@ function retainByPlan(rows: Record<string, unknown>[], plan: string) {
 
 async function getAuthenticatedHistoryAccount(request: Request) {
   const session = readAccountSession(request);
-  const email = String(session?.email ?? "").toLowerCase().trim();
-  let plan = normalizePlan(session?.plan || "free_buyer");
-  let role = normalizeRole(session?.role || (plan.includes("seller") ? "seller" : "buyer"));
+  const admin = session ? null : adminSessionFromRequest(request);
+  const email = String(session?.email ?? admin?.email ?? "").toLowerCase().trim();
+  let plan = normalizePlan(session?.plan || (admin ? "admin" : "free_buyer"));
+  let role = normalizeRole(session?.role || (admin ? "admin" : plan.includes("seller") ? "seller" : "buyer"));
 
-  if (email) {
+  if (email && !admin) {
     const rows = await supabaseSelect(
       "profiles",
       `select=plan,role&email=eq.${encodeURIComponent(email)}&limit=1`
@@ -273,21 +288,40 @@ export async function GET(request: Request) {
     return NextResponse.json(normalizeAnalysesForDashboard({ error: "Account email is required." }), { status: 400 });
   }
 
-  await supabaseDelete(
-    "analyses",
-    [
-      `profile_email=eq.${encodeURIComponent(email)}`,
-      `created_at=lt.${encodeURIComponent(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())}`
-    ].join("&")
-  ).catch(() => false);
-  await supabaseDelete(
-    "usage_events",
-    [
-      `profile_email=eq.${encodeURIComponent(email)}`,
-      "event_type=eq.analysis",
-      `created_at=lt.${encodeURIComponent(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())}`
-    ].join("&")
-  ).catch(() => false);
+  // Exact-result retrieval is separate from the plan-limited history list.
+  // A free account may refresh its own completed scan without receiving a
+  // history entitlement. GET must never prune the result or quota ledger.
+  const scanId = String(url.searchParams.get("scanId") || "").trim();
+  const historyId = String(url.searchParams.get("historyId") || "").trim();
+  if (scanId || historyId) {
+    if (![scanId, historyId].filter(Boolean).every((id) => /^[a-zA-Z0-9_-]{1,160}$/.test(id))) {
+      return NextResponse.json({ error: "Invalid result identity." }, { status: 400 });
+    }
+    const identityFilter = historyId ? `id=eq.${encodeURIComponent(historyId)}`
+      : `or=(analysis_json->>scanId.eq.${encodeURIComponent(scanId)},analysis_json->>scan_id.eq.${encodeURIComponent(scanId)},analysis_json->meta->>scanId.eq.${encodeURIComponent(scanId)},analysis_json->result->>scanId.eq.${encodeURIComponent(scanId)})`;
+    const projection = "id,profile_email,mode,product_name,platform,product_score,recommendation,summary,analysis_json,created_at";
+    let rows = await supabaseSelect("analyses", `select=${projection}&profile_email=eq.${encodeURIComponent(email)}&${identityFilter}&limit=2`);
+    // Older schema variants stored identity on the row instead of the JSON.
+    // Probe only exact owner + exact ID, never a latest/history substitution.
+    if (!rows.length && scanId && !historyId) {
+      for (const column of ["scan_id", "scanId"]) {
+        const legacyRows = await supabaseSelect("analyses", `select=${projection},${column}&profile_email=eq.${encodeURIComponent(email)}&${column}=eq.${encodeURIComponent(scanId)}&limit=2`);
+        if (legacyRows.length) { rows = legacyRows; break; }
+      }
+    }
+    const matching = rows.filter((row) => {
+      if (String(row.profile_email || "").toLowerCase().trim() !== email) return false;
+      if (historyId && String(row.id) !== historyId) return false;
+      const sellerMode = String(row.mode || "").toLowerCase().includes("seller");
+      if (role === "buyer" && sellerMode || role === "seller" && !sellerMode) return false;
+      if (!scanId) return String(row.id) === historyId;
+      try { assertPersistedScan(row, email, scanId); return true; } catch { return false; }
+    });
+    if (matching.length > 1) {
+      return NextResponse.json({ error: "More than one persisted result has this scan identity. No result was substituted.", analyses: [] }, { status: 409 });
+    }
+    return NextResponse.json(normalizeAnalysesForDashboard({ analyses: matching }));
+  }
 
   const rows = await supabaseSelect(
     "analyses",
@@ -309,20 +343,6 @@ export async function GET(request: Request) {
   });
 
   const limitedRows = retainByPlan(filteredRows, plan);
-  const retainedIds = new Set(limitedRows.map((row) => String(row.id ?? "")).filter(Boolean));
-  const rowsToDrop = filteredRows.filter((row) => {
-    const id = String(row.id ?? "").trim();
-    return id && !retainedIds.has(id);
-  });
-
-  if (rowsToDrop.length) {
-    await Promise.all(
-      rowsToDrop.map((row) => {
-        const id = String(row.id ?? "").trim();
-        return id ? deleteAnalysisHistory({ email, id }) : Promise.resolve(null);
-      })
-    );
-  }
 
   return NextResponse.json(normalizeAnalysesForDashboard({ analyses: limitedRows }));
 }

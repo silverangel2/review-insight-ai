@@ -1,3 +1,6 @@
+import { guardedOpenAiFetch, isOpenAiFeatureEnabled } from "./openAiGuard";
+import { extractOpenAiUsage, ScanCostTelemetry } from "@/lib/scanCostTelemetry";
+
 export const OPENAI_WEB_SEARCH_TOOL = "web_search";
 export const OPENAI_WEB_SEARCH_PREVIEW_TOOL = "web_search_preview";
 
@@ -37,8 +40,10 @@ export type OpenAiWebSearchResult<T = unknown> = {
 
 export type OpenAiWebSearchContext = {
   maxCalls: number;
+  stage?: "identity" | "review";
   diagnostics: OpenAiWebSearchDiagnostics;
   requests: Map<string, Promise<OpenAiWebSearchResult>>;
+  costTelemetry?: ScanCostTelemetry;
 };
 
 type OpenAiWebSearchInput = {
@@ -65,7 +70,9 @@ type OpenAiPlainResponseInput = {
   maxCalls?: number;
 };
 
-const DEFAULT_MAX_OPENAI_WEB_SEARCH_CALLS = 1;
+// A scan may use a bounded query ladder. Callers that need a smaller budget
+// still pass an explicit maxCalls value (for example admin diagnostics).
+export const DEFAULT_MAX_OPENAI_WEB_SEARCH_CALLS = 5;
 const HARD_MAX_OPENAI_WEB_SEARCH_CALLS = 5;
 
 function createDiagnostics(): OpenAiWebSearchDiagnostics {
@@ -137,11 +144,13 @@ function outputTextFromResponse(data: unknown) {
     .join("\n");
 }
 
-export function createOpenAiWebSearchContext(options: { maxCalls?: number } = {}): OpenAiWebSearchContext {
+export function createOpenAiWebSearchContext(options: { maxCalls?: number; costTelemetry?: ScanCostTelemetry; stage?: "identity" | "review" } = {}): OpenAiWebSearchContext {
   return {
     maxCalls: clampMaxCalls(options.maxCalls ?? DEFAULT_MAX_OPENAI_WEB_SEARCH_CALLS),
+    stage: options.stage || "review",
     diagnostics: createDiagnostics(),
     requests: new Map(),
+    costTelemetry: options.costTelemetry,
   };
 }
 
@@ -154,6 +163,7 @@ export function getOpenAiWebSearchDiagnostics(
 }
 
 export function isOpenAiWebSearchEnabled() {
+  if (!isOpenAiFeatureEnabled("review_evidence")) return false;
   const value = enabledFlagValue();
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
@@ -195,6 +205,7 @@ async function postOpenAiResponse<T>({
   context,
   model,
   usedWebSearch,
+  costTelemetry,
 }: {
   apiKey: string;
   body: Record<string, unknown>;
@@ -202,9 +213,15 @@ async function postOpenAiResponse<T>({
   context: OpenAiWebSearchContext;
   model: string;
   usedWebSearch: boolean;
+  costTelemetry?: ScanCostTelemetry;
 }): Promise<OpenAiWebSearchResult<T>> {
+  // Zero-OpenAI rule: every OpenAI response call here is part of review evidence and needs its flag.
+  if (!isOpenAiFeatureEnabled("review_evidence")) return skippedResult<T>(context, model, "disabled", "OpenAI disabled (zero-OpenAI rule).");
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    if (context.stage === "identity") costTelemetry?.recordIdentityOpenAiCall();
+    else costTelemetry?.recordOpenAiCall();
+    costTelemetry?.recordRetrievalRequest("paid");
+    const response = await guardedOpenAiFetch("review_evidence", "https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -215,6 +232,8 @@ async function postOpenAiResponse<T>({
     });
 
     if (!response.ok) {
+      if (context.stage === "identity") costTelemetry?.recordIdentityOpenAiUsage();
+      else costTelemetry?.recordOpenAiUsage();
       const text = await response.text().catch(() => "");
       if (usedWebSearch) context.diagnostics.failed += 1;
       return {
@@ -230,6 +249,11 @@ async function postOpenAiResponse<T>({
     }
 
     const data = (await response.json()) as T;
+    if (context.stage === "identity") {
+      costTelemetry?.recordIdentityOpenAiUsage(extractOpenAiUsage(data));
+    } else {
+      costTelemetry?.recordOpenAiUsage(extractOpenAiUsage(data));
+    }
     return {
       ok: true,
       status: response.status,
@@ -241,6 +265,8 @@ async function postOpenAiResponse<T>({
       diagnostics: getOpenAiWebSearchDiagnostics(context),
     };
   } catch (error: unknown) {
+    if (context.stage === "identity") costTelemetry?.recordIdentityOpenAiUsage();
+    else costTelemetry?.recordOpenAiUsage();
     if (usedWebSearch) context.diagnostics.failed += 1;
     return {
       ok: false,
@@ -353,6 +379,7 @@ export async function callOpenAiWebSearchResponse<T = unknown>(
     context,
     model,
     usedWebSearch: useWebSearch,
+    costTelemetry: context.costTelemetry,
   });
 
   context.requests.set(requestKey, request);
@@ -390,5 +417,6 @@ export async function callOpenAiResponseWithoutWebSearch<T = unknown>(
     context,
     model,
     usedWebSearch: false,
+    costTelemetry: context.costTelemetry,
   });
 }

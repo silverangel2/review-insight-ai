@@ -21,9 +21,9 @@ import {
 import type { ReviewPlatform, SubscriptionPlan } from "@/lib/types";
 
 const toneClasses: Record<SellerProductScanTone, string> = {
-  positive: "border-teal/25 bg-teal/10 text-teal",
-  mixed: "border-amber/25 bg-amber/10 text-amber",
-  negative: "border-coral/25 bg-coral/10 text-coral",
+  positive: "border-teal/25 bg-teal/10 text-[#086461]",
+  mixed: "border-amber/25 bg-amber/10 text-[#8a5a12]",
+  negative: "border-coral/25 bg-coral/10 text-coralink",
   improvement: "border-ocean/25 bg-ocean/10 text-ocean dark:text-cyan-300"
 };
 
@@ -255,7 +255,7 @@ export function SellerProductHealthTracker() {
                   >
                     <div className="flex items-start gap-3">
                       <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-ink text-xs font-black text-white">
-                        {product.imageUrl ? <img src={product.imageUrl} alt="" className="h-full w-full object-cover" /> : product.name.slice(0, 2).toUpperCase()}
+                        {product.imageUrl ? <img src={product.imageUrl} alt="" className="h-full w-full object-cover" /> : product.name.slice(0, 5).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-black text-ink dark:text-white">{product.name}</p>
@@ -310,11 +310,11 @@ export function SellerProductHealthTracker() {
                   <div className="mt-4 grid gap-3">
                     <div className="rounded-2xl border border-teal/20 bg-teal/10 p-4">
                       <p className="text-sm font-black text-ink dark:text-white">Positive Review Trend</p>
-                      <p className={`mt-2 text-3xl font-black ${positiveTrend >= 0 ? "text-teal" : "text-coral"}`}>{positiveTrend >= 0 ? "+" : ""}{positiveTrend}%</p>
+                      <p className={`mt-2 text-3xl font-black ${positiveTrend >= 0 ? "text-teal" : "text-coralink"}`}>{positiveTrend >= 0 ? "+" : ""}{positiveTrend}%</p>
                     </div>
                     <div className="rounded-2xl border border-coral/20 bg-coral/10 p-4">
                       <p className="text-sm font-black text-ink dark:text-white">Negative Review Trend</p>
-                      <p className={`mt-2 text-3xl font-black ${negativeTrend <= 0 ? "text-teal" : "text-coral"}`}>{negativeTrend > 0 ? "+" : ""}{negativeTrend}%</p>
+                      <p className={`mt-2 text-3xl font-black ${negativeTrend <= 0 ? "text-teal" : "text-coralink"}`}>{negativeTrend > 0 ? "+" : ""}{negativeTrend}%</p>
                     </div>
                   </div>
                 </article>
@@ -401,7 +401,7 @@ export function SellerProductHealthTracker() {
                           </div>
                           <div className="rounded-xl bg-mist p-2 dark:bg-white/[0.04]">
                             <p className="text-[10px] font-black uppercase text-slate-500">Risk</p>
-                            <p className="font-black text-coral">{formatPercent(scan.complaintSeverityScore)}</p>
+                            <p className="font-black text-coralink">{formatPercent(scan.complaintSeverityScore)}</p>
                           </div>
                         </div>
                       </div>

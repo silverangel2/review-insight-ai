@@ -1,6 +1,11 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { AccountDashboard } from "@/components/AccountDashboard";
 import { ClearScanDataButton } from "@/components/ClearScanDataButton";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata = privatePage("/account", "Your account");
 
 export default function AccountPage() {
   return (
@@ -9,7 +14,7 @@ export default function AccountPage() {
         <AccountDashboard />
       </Suspense>
       <section className="mt-6 rounded-[2rem] border border-coral/20 bg-white p-6 shadow-soft dark:border-coral/30 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-        <p className="text-xs font-black uppercase tracking-[0.22em] text-coral">Privacy control</p>
+        <p className="text-xs font-black uppercase tracking-[0.22em] text-coralink">Privacy control</p>
         <h2 className="mt-2 text-2xl font-black text-ink dark:text-white">Clear saved scan history</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
           This removes saved scan results from this browser. It does not delete your account.
@@ -17,6 +22,15 @@ export default function AccountPage() {
         <div className="mt-5">
           <ClearScanDataButton />
         </div>
+      </section>
+      <section className="mt-6 rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-slate-900">
+        <h2 className="text-2xl font-black text-ink dark:text-white">Email preferences</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+          Choose product updates and the one note after your first scan. Account and billing messages stay available.
+        </p>
+        <Link href="/email-preferences" className="mt-5 inline-flex rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
+          Open email preferences
+        </Link>
       </section>
 
     </main>

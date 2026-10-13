@@ -1,0 +1,34 @@
+{
+  "selection": "Remaining opaque capture filenames; bodies not inspected before sealing. Reserved after the generic capacity boundary repair.",
+  "holdout": [
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_39df6fed-38fe-4bc1-9c4b-9a42afd30cd1.json",
+      "sha256": "77325466f7b6b787fa9806f0f83cd075179dc631f6bffeb58a39a50af1cf78c6"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_7d5234b6-1639-4b31-a5a7-4860617d9dc4.json",
+      "sha256": "5a6223d4ada3ca39e5ff39b3c618b3284a021ef9bb707d4d076cac03604d9fdf"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_87d40885-76ef-4b9b-8861-bc3fdfd0a886.json",
+      "sha256": "26fc4e0676ab5ae5ee49272e33677cadfaeadb29b976dda66216d7ecd8d1633f"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_b8cf9fc3-989f-4798-88e5-7b099e709bd5.json",
+      "sha256": "57cae5bf9bbf46890e7c8b7e08ce85a8ab3ad8c5175801a73a5b56a9d6d6cef7"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_d2817b90-25af-4b35-adfc-96e3cfa46606.json",
+      "sha256": "f60aa58d71827baaaea28cb255387f774923e8113b323cd5fbdaf00a7a625465"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_e64e9b30-5931-41d3-a9e1-dbb2585c95af.json",
+      "sha256": "bce06924f0f385b550e613593790ac936a4c82e428e7e134185b7ff0e8e09304"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_f5aa0a1f-50be-472e-bf8d-b80f6477ff8c.json",
+      "sha256": "640ef20ebf3d79c3d1e2b7778eb020e0f9658757eb76ff0ad3c34f0cfdcae9bb"
+    }
+  ],
+  "structuralSha256": "bc8915f7b6741828ec6a7fd248f68ac0af30027337aa365f9df6453e8a248d88"
+}

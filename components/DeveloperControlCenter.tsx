@@ -174,7 +174,7 @@ export function DeveloperControlCenter({ serverDeveloperMode = false }: { server
           <button onClick={activateDeveloperMode} className="rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
             Activate Developer Mode
           </button>
-          <button onClick={() => void endAdminSession()} className="rounded-xl border border-line px-5 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coral dark:border-white/10 dark:text-white">
+          <button onClick={() => void endAdminSession()} className="rounded-xl border border-line px-5 py-3 text-sm font-black text-ink transition hover:border-coral hover:text-coralink dark:border-white/10 dark:text-white">
             End Admin Session
           </button>
         </div>

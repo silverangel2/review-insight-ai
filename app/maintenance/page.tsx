@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata = privatePage("/maintenance", "Updating");
 export default function MaintenancePage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-mist px-6 py-16 dark:bg-gradient-to-r from-sky-600 to-teal-500">

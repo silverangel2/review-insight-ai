@@ -112,7 +112,7 @@ const uiSourcePhrases = [
   "Seller",
   "Shopper Free",
   "Shopper Premium",
-  "Seller Premium",
+  "Seller Starter",
   "Seller Pro",
   "Owner access",
   "Admin",
@@ -264,7 +264,7 @@ const phraseTranslations: Partial<Record<ReviewIntelLocale, UiTranslationMap>> =
     Seller: "Vendeur",
     "Shopper Free": "Acheteur gratuit",
     "Shopper Premium": "Acheteur Premium",
-    "Seller Premium": "Vendeur Premium",
+    "Seller Starter": "Vendeur Premium",
     "Seller Pro": "Vendeur Pro",
     "Owner access": "Accès propriétaire",
     Product: "Produit",
@@ -408,7 +408,7 @@ const phraseTranslations: Partial<Record<ReviewIntelLocale, UiTranslationMap>> =
     Seller: "Vendedor",
     "Shopper Free": "Comprador gratis",
     "Shopper Premium": "Comprador Premium",
-    "Seller Premium": "Vendedor Premium",
+    "Seller Starter": "Vendedor Premium",
     "Seller Pro": "Vendedor Pro",
     Product: "Producto",
     Support: "Soporte",
@@ -509,7 +509,7 @@ const phraseTranslations: Partial<Record<ReviewIntelLocale, UiTranslationMap>> =
     Seller: "卖家",
     "Shopper Free": "免费购物者",
     "Shopper Premium": "高级购物者",
-    "Seller Premium": "高级卖家",
+    "Seller Starter": "高级卖家",
     "Seller Pro": "专业卖家",
     Product: "产品",
     Support: "支持",
@@ -592,7 +592,7 @@ const phraseTranslations: Partial<Record<ReviewIntelLocale, UiTranslationMap>> =
     Seller: "Verkäufer",
     "Shopper Free": "Shopper Kostenlos",
     "Shopper Premium": "Shopper Premium",
-    "Seller Premium": "Verkäufer Premium",
+    "Seller Starter": "Verkäufer Premium",
     "Seller Pro": "Verkäufer Pro",
     Product: "Produkt",
     Support: "Support",
@@ -670,7 +670,7 @@ const phraseTranslations: Partial<Record<ReviewIntelLocale, UiTranslationMap>> =
     Seller: "विक्रेता",
     "Shopper Free": "शॉपर फ्री",
     "Shopper Premium": "शॉपर प्रीमियम",
-    "Seller Premium": "विक्रेता प्रीमियम",
+    "Seller Starter": "विक्रेता प्रीमियम",
     "Seller Pro": "विक्रेता प्रो",
     Product: "उत्पाद",
     Support: "सहायता",
@@ -904,7 +904,7 @@ const extraPhraseTranslations = {
       "Les exemples publics ont été retirés de l’expérience client. Collez des avis ou téléversez un fichier CSV/TXT pour générer un nouveau résultat.",
     "Your latest scan": "Votre dernière analyse",
     "Run another scan": "Lancer une autre analyse",
-    "Seller Premium intelligence": "Intelligence Vendeur Premium",
+    "Seller Starter intelligence": "Intelligence Vendeur Premium",
     "Rating breakdown": "Répartition des notes",
     "No rating metadata detected in the pasted sample.": "Aucune donnée de note détectée dans l’échantillon collé.",
     Excellent: "Excellent",
@@ -917,7 +917,7 @@ const extraPhraseTranslations = {
     "Monitor closely": "Surveiller de près",
     Maintain: "Maintenir",
     "Seller Pro magic moment": "Moment clé Vendeur Pro",
-    "Seller Premium insight": "Info Vendeur Premium",
+    "Seller Starter insight": "Info Vendeur Premium",
     "Turn review pain into product revenue moves.": "Transformez les irritants d’avis en actions de revenus produit.",
     "Most expensive complaint": "Plainte la plus coûteuse",
     "Fix first": "Corriger d’abord",
@@ -1023,7 +1023,7 @@ const extraPhraseTranslations = {
     "Delete scan": "Supprimer l’analyse",
     "Close preview": "Fermer l’aperçu",
     "Seller dashboard": "Tableau de bord vendeur",
-    "This dashboard is for Seller Premium and Seller Pro accounts only.":
+    "This dashboard is for Seller Starter and Seller Pro accounts only.":
       "Ce tableau de bord est réservé aux comptes Vendeur Premium et Vendeur Pro.",
     "Seller dashboard is not available on shopper accounts.": "Le tableau de bord vendeur n’est pas disponible pour les comptes acheteur.",
     "Shopper accounts are for buying decisions. Seller dashboards are for product review intelligence, complaint tracking, and listing improvement.":
@@ -1087,7 +1087,7 @@ const extraPhraseTranslations = {
     "Daily product improvement journal": "Journal quotidien d’amélioration produit",
     "Track scan history, product score movement, buyer concerns, and notes in one clean calendar view.":
       "Suivez l’historique, l’évolution du score produit, les préoccupations acheteurs et les notes dans un calendrier clair.",
-    "The saved scan calendar is reserved for Seller Pro. Seller Premium keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
+    "The saved scan calendar is reserved for Seller Pro. Seller Starter keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
       "Le calendrier des analyses enregistrées est réservé à Vendeur Pro. Vendeur Premium conserve le suivi produit, tandis que Vendeur Pro ajoute l’historique, les notes datées et le journal d’amélioration.",
     "Start your seller data": "Démarrer vos données vendeur",
     "Run a seller analysis to populate this dashboard with saved product health, complaint, and improvement data.":
@@ -1095,7 +1095,7 @@ const extraPhraseTranslations = {
     "Run Seller Analysis": "Lancer l’analyse vendeur",
     "Latest saved seller scans": "Dernières analyses vendeur enregistrées",
     "Seller Pro unlocks the improvement calendar.": "Vendeur Pro débloque le calendrier d’amélioration.",
-    "Seller Premium gets the seller intelligence dashboard. Seller Pro adds the saved improvement calendar, notes, scan momentum, and deeper tracking tools.":
+    "Seller Starter gets the seller intelligence dashboard. Seller Pro adds the saved improvement calendar, notes, scan momentum, and deeper tracking tools.":
       "Vendeur Premium donne accès au tableau d’intelligence vendeur. Vendeur Pro ajoute le calendrier d’amélioration, les notes, la dynamique d’analyse et des outils de suivi plus poussés.",
     "Tracked products": "Produits suivis",
     "This product manager is available for seller accounts.": "Ce gestionnaire de produits est disponible pour les comptes vendeur.",
@@ -1258,7 +1258,7 @@ const extraPhraseTranslations = {
     "No scan loaded": "Ningún análisis cargado",
     "Your latest scan": "Tu último análisis",
     "Run another scan": "Ejecutar otro análisis",
-    "Seller Premium intelligence": "Inteligencia Vendedor Premium",
+    "Seller Starter intelligence": "Inteligencia Vendedor Premium",
     "Rating breakdown": "Desglose de calificaciones",
     Excellent: "Excelente",
     Strong: "Fuerte",
@@ -1270,7 +1270,7 @@ const extraPhraseTranslations = {
     "Monitor closely": "Vigilar de cerca",
     Maintain: "Mantener",
     "Seller Pro magic moment": "Momento clave Vendedor Pro",
-    "Seller Premium insight": "Información Vendedor Premium",
+    "Seller Starter insight": "Información Vendedor Premium",
     "Turn review pain into product revenue moves.": "Convierte problemas de reseñas en acciones de ingresos.",
     "Most expensive complaint": "Queja más costosa",
     "Fix first": "Corregir primero",
@@ -1383,7 +1383,7 @@ const extraPhraseTranslations = {
     "Seller Pro feature": "Función Vendedor Pro",
     "Improvement calendar": "Calendario de mejora",
     "Daily product improvement journal": "Diario diario de mejora del producto",
-    "The saved scan calendar is reserved for Seller Pro. Seller Premium keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
+    "The saved scan calendar is reserved for Seller Pro. Seller Starter keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
       "El calendario de análisis guardados está reservado para Vendedor Pro. Vendedor Premium mantiene el seguimiento de productos; Vendedor Pro añade historial, notas fechadas y diario de mejoras.",
     "Start your seller data": "Inicia tus datos de vendedor",
     "Run Seller Analysis": "Ejecutar análisis de vendedor",
@@ -1561,7 +1561,7 @@ const extraPhraseTranslations = {
     "Report center": "报告中心",
     "Seller Pro feature": "卖家专业功能",
     "Daily product improvement journal": "每日产品改进日志",
-    "The saved scan calendar is reserved for Seller Pro. Seller Premium keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
+    "The saved scan calendar is reserved for Seller Pro. Seller Starter keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
       "保存的分析日历仅限卖家专业版。卖家高级版保留产品跟踪，卖家专业版增加分析历史、日期备注和改进日志。",
     "Tracked products": "已跟踪产品",
     "Product manager": "产品管理",
@@ -1723,7 +1723,7 @@ const extraPhraseTranslations = {
     "Report center": "Berichtszentrum",
     "Seller Pro feature": "Verkäufer-Pro-Funktion",
     "Daily product improvement journal": "Tägliches Produktverbesserungsjournal",
-    "The saved scan calendar is reserved for Seller Pro. Seller Premium keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
+    "The saved scan calendar is reserved for Seller Pro. Seller Starter keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
       "Der gespeicherte Analysekalender ist Verkäufer Pro vorbehalten. Verkäufer Premium behält Produkttracking; Verkäufer Pro ergänzt Verlauf, datierte Notizen und Verbesserungsjournal.",
     "Tracked products": "Verfolgte Produkte",
     "Product manager": "Produktmanager",
@@ -1885,7 +1885,7 @@ const extraPhraseTranslations = {
     "Report center": "रिपोर्ट केंद्र",
     "Seller Pro feature": "विक्रेता प्रो सुविधा",
     "Daily product improvement journal": "दैनिक उत्पाद सुधार जर्नल",
-    "The saved scan calendar is reserved for Seller Pro. Seller Premium keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
+    "The saved scan calendar is reserved for Seller Pro. Seller Starter keeps product tracking, while Seller Pro adds scan history, dated notes, and improvement journaling.":
       "सेव किया गया स्कैन कैलेंडर विक्रेता प्रो के लिए आरक्षित है। विक्रेता प्रीमियम उत्पाद ट्रैकिंग रखता है, जबकि विक्रेता प्रो स्कैन इतिहास, तारीख वाली नोट्स और सुधार जर्नल जोड़ता है।",
     "Tracked products": "ट्रैक किए उत्पाद",
     "Product manager": "उत्पाद प्रबंधक",
@@ -3364,7 +3364,7 @@ const coreRouteAuditPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "For small ecommerce sellers diagnosing reviews.": "Pour petits vendeurs e-commerce qui diagnostiquent les avis.",
     "Seller trust snapshot": "Instantané de confiance vendeur",
     "View Shopper Premium": "Voir Acheteur Premium",
-    "Upgrade Seller Premium": "Passer à Vendeur Premium",
+    "Upgrade Seller Starter": "Passer à Vendeur Premium",
     "For sellers comparing competitors and finding market gaps.": "Pour les vendeurs qui comparent les concurrents et trouvent des écarts de marché.",
     "Product improvement calendar tracker": "Calendrier de suivi des améliorations produit",
     "Advanced seller recommendations": "Recommandations vendeur avancées",
@@ -3474,7 +3474,7 @@ const coreRouteAuditPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "For small ecommerce sellers diagnosing reviews.": "Para pequeños vendedores ecommerce que diagnostican reseñas.",
     "Seller trust snapshot": "Instantánea de confianza del vendedor",
     "View Shopper Premium": "Ver Comprador Premium",
-    "Upgrade Seller Premium": "Mejorar a Vendedor Premium",
+    "Upgrade Seller Starter": "Mejorar a Vendedor Premium",
     "For sellers comparing competitors and finding market gaps.": "Para vendedores que comparan competidores y encuentran brechas de mercado.",
     "Product improvement calendar tracker": "Calendario de mejoras del producto",
     "Advanced seller recommendations": "Recomendaciones avanzadas para vendedores",
@@ -3590,7 +3590,7 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "For small ecommerce sellers diagnosing reviews.": "Für kleine E-Commerce-Verkäufer, die Bewertungen auswerten.",
     "Seller trust snapshot": "Vertrauensmomentaufnahme für Verkäufer",
     "View Shopper Premium": "Käufer-Premium ansehen",
-    "Upgrade Seller Premium": "Verkäufer-Premium aktivieren",
+    "Upgrade Seller Starter": "Verkäufer-Premium aktivieren",
     "For sellers comparing competitors and finding market gaps.": "Für Verkäufer, die Wettbewerber vergleichen und Marktlücken finden.",
     "Product improvement calendar tracker": "Kalender zur Produktverbesserung",
     "Advanced seller recommendations": "Erweiterte Verkäuferempfehlungen",
@@ -3700,7 +3700,7 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "For small ecommerce sellers diagnosing reviews.": "适合诊断评价的小型电商卖家。",
     "Seller trust snapshot": "卖家信任快照",
     "View Shopper Premium": "查看购物者 Premium",
-    "Upgrade Seller Premium": "升级卖家 Premium",
+    "Upgrade Seller Starter": "升级卖家 Premium",
     "For sellers comparing competitors and finding market gaps.": "适合比较竞争对手并寻找市场空白的卖家。",
     "Product improvement calendar tracker": "产品改进日历追踪",
     "Advanced seller recommendations": "高级卖家建议",
@@ -3810,7 +3810,7 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "For small ecommerce sellers diagnosing reviews.": "समीक्षाएँ समझने वाले छोटे ecommerce विक्रेताओं के लिए।",
     "Seller trust snapshot": "विक्रेता भरोसा स्नैपशॉट",
     "View Shopper Premium": "शॉपर Premium देखें",
-    "Upgrade Seller Premium": "विक्रेता Premium अपग्रेड करें",
+    "Upgrade Seller Starter": "विक्रेता Premium अपग्रेड करें",
     "For sellers comparing competitors and finding market gaps.": "प्रतिस्पर्धियों की तुलना और बाजार अंतर खोजने वाले विक्रेताओं के लिए।",
     "Product improvement calendar tracker": "उत्पाद सुधार कैलेंडर ट्रैकर",
     "Advanced seller recommendations": "उन्नत विक्रेता सुझाव",
@@ -6390,13 +6390,13 @@ const workflowPhraseTranslationEntries: WorkflowPhraseEntry[] = [
     }
   ],
   [
-    "Seller Premium includes seller analysis, reports, and improvement planning.",
+    "Seller Starter includes seller analysis, reports, and improvement planning.",
     {
-      fr: "Seller Premium inclut l'analyse vendeur, les rapports et la planification des améliorations.",
-      es: "Seller Premium incluye análisis del vendedor, informes y planificación de mejoras.",
-      zh: "Seller Premium 包含卖家分析、报告和改进计划。",
-      de: "Seller Premium umfasst Seller-Analyse, Berichte und Verbesserungsplanung.",
-      hi: "Seller Premium में विक्रेता विश्लेषण, रिपोर्ट और सुधार योजना शामिल हैं।"
+      fr: "Seller Starter inclut l'analyse vendeur, les rapports et la planification des améliorations.",
+      es: "Seller Starter incluye análisis del vendedor, informes y planificación de mejoras.",
+      zh: "Seller Starter 包含卖家分析、报告和改进计划。",
+      de: "Seller Starter umfasst Seller-Analyse, Berichte und Verbesserungsplanung.",
+      hi: "Seller Starter में विक्रेता विश्लेषण, रिपोर्ट और सुधार योजना शामिल हैं।"
     }
   ],
   [
