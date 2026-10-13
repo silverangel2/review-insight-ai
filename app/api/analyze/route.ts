@@ -5,6 +5,7 @@ import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCa
 import { aliasScanProgress, runWithScanProgress } from "@/lib/scanProgress";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
+import { raceWithBudget, scanBudgets, withScanDeadline } from "@/lib/scanDeadline";
 import { randomUUID } from "crypto";
 import { normalizePlan, normalizeRole } from "@/lib/account";
 import { adminSessionFromRequest } from "@/lib/adminAccess";
@@ -38,7 +39,7 @@ import {
 } from "@/lib/scanBudget";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+export const maxDuration = 120; // platform ceiling; the scan itself is capped at scanBudgets().totalMs (80s)
 
 type Verdict = "BUY" | "REVIEW FIRST" | "AVOID" | "DO NOT BUY YET";
 type JsonRecord = Record<string, unknown>;
@@ -1769,7 +1770,11 @@ async function researchAndVerdict(
   // before the approved evidence paths had reached a terminal state. The
   // collector has bounded provider/retry work, and the platform maxDuration is
   // the final hard ceiling for an unrecoverable request.
-  const reviewEvidence = await collectAndAnalyzeReviewEvidence({
+  // Hard time budget: live collection gets scanBudgets().collectionMs. Every fetch inside is
+  // bounded per request and aborted at the deadline; if the collector still has not returned
+  // shortly after, the scan continues with what we have (v2 handles low n / provisional).
+  const budgets = scanBudgets();
+  const { value: reviewEvidence } = await raceWithBudget(budgets.collectionMs + 5_000, () => withScanDeadline(budgets.collectionMs, () => collectAndAnalyzeReviewEvidence({
       productName: productForReviewEvidence || vision.category || "unknown product",
       brand: vision.brand,
       model: undefined,
@@ -1787,9 +1792,12 @@ async function researchAndVerdict(
       outputLanguage,
       forceRefresh: false,
       costTelemetry,
-    }).catch((error) => {
+    }), budgets.perRequestMs).catch((error) => {
       console.error("[ReviewIntel reviewEvidence error]", error);
       return fallbackReviewEvidence("Automatic public review evidence recovery failed during the scan.");
+    }), () => {
+      console.warn("[ReviewIntel] review collection hit the scan time budget; scoring with what was collected");
+      return fallbackReviewEvidence("Review collection reached the scan time limit.");
     });
 
   const rawRecord = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as JsonRecord) : {};
@@ -2897,7 +2905,9 @@ function buildReviewEvidenceShopperResult(input: {
 }
 
 
-async function analyzePost(request: Request, serverScanId: string) {
+type ScanOpRef = { operationKey: string; created: boolean; settled: boolean };
+
+async function analyzePost(request: Request, serverScanId: string, opRef: ScanOpRef = { operationKey: "", created: false, settled: false }) {
   const costTelemetry = new ScanCostTelemetry();
   let operationKey = "";
   let operationCreated = false;
@@ -3165,6 +3175,7 @@ async function analyzePost(request: Request, serverScanId: string) {
       scanId,
     });
     operationCreated = "created" in operation && operation.created === true;
+    opRef.operationKey = operationKey; opRef.created = operationCreated;
     if (operation.status === "BLOCKED") {
       return NextResponse.json({ error: operation.errorCode || "Scan operation unavailable.", code: operation.errorCode, scanId }, { status: 503 });
     }
@@ -3327,7 +3338,24 @@ async function analyzePost(request: Request, serverScanId: string) {
 
 async function handlePOST(request: Request): Promise<Response> {
   const scanId = createAnalyzeScanId();
-  return runWithScanProgress(scanId, () => withDevScanCapture(scanId, () => analyzePost(request, scanId)));
+  const opRef: ScanOpRef = { operationKey: "", created: false, settled: false };
+  // Total backstop: a scan never runs past scanBudgets().totalMs. The operation is closed as
+  // FAILED so it can never stay RUNNING, and the shopper gets a clear retry message.
+  const { value, timedOut } = await raceWithBudget(
+    scanBudgets().totalMs,
+    () => runWithScanProgress(scanId, () => withDevScanCapture(scanId, () => analyzePost(request, scanId, opRef))),
+    async () => {
+      if (opRef.operationKey && opRef.created) {
+        await finishDurableScanOperation({ operationKey: opRef.operationKey, status: "FAILED", errorCode: "SCAN_TIME_BUDGET" }).catch(() => null);
+      }
+      return NextResponse.json({
+        error: "This scan took too long and was stopped. Please try again in a minute.",
+        code: "SCAN_TIME_BUDGET", scanId, scanState: "FAILED", resultSource: "analyze",
+      }, { status: 504 });
+    },
+  );
+  if (timedOut) console.warn("[ReviewIntel] scan hit the total time budget", scanId);
+  return value;
 }
 
 export async function POST(request: Request): Promise<Response> {

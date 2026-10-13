@@ -192,7 +192,7 @@ function analyzerFormCopy(locale: string) {
         linkPlaceholder: "Optional: paste product link",
         clearerScreenshot: "We need a clearer screenshot or product link to analyze this properly.",
         analyzeError: "We could not analyze this screenshot.",
-        intro: "Thinking about buying something? Upload a screenshot and get an instant AI buying verdict.",
+        intro: "Add a screenshot of the product page (and its link) and we check what real buyers wrote about that exact product.",
         previewAlt: "Product screenshot preview",
         scanLimitMessage: "You have used all 3 free scans for today. Your scans reset tomorrow."
       };

@@ -15,7 +15,7 @@ import { withSeo } from "@/lib/pageSeo";
 
 export const metadata = withSeo("/", {
   title: { absolute: "ReviewIntel | Should you buy it? We read the real reviews for you" },
-  description: "Paste a product link and get a plain Buy, Wait or Skip answer built from real written buyer reviews, with quotes and an honest confidence level. Free to start.",
+  description: "Paste a product link, add a screenshot, and get a plain Buy, Wait or Skip answer built from real written buyer reviews, with quotes and an honest confidence level. Free to start.",
 });
 
 
@@ -64,7 +64,7 @@ export default async function LandingPage() {
               Should you buy it? <span className="text-teal" style={{ fontSize: "inherit", fontWeight: "inherit" }}>We read the reviews</span> so you don&apos;t have to.
             </h1>
             <p className="mt-4 max-w-xl text-lg leading-8 text-slate-600">
-              Paste a product link. We read what real buyers wrote about that exact product and give you a straight answer, with their own words to back it up.
+              Paste a product link, then add a screenshot of the product page. We read what real buyers wrote about that exact product and give you a straight answer, with their own words to back it up.
             </p>
             <HeroVerdictCycle />
             <div className="mt-5 max-w-xl"><HomePasteLink /></div>

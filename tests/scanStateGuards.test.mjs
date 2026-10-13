@@ -75,8 +75,12 @@ test("review evidence has no premature metadata-only race", () => {
   const analyzerRoute = source("app/api/analyze/route.ts");
 
   assert.match(analyzerRoute, /export const runtime = "nodejs"/);
-  assert.match(analyzerRoute, /export const maxDuration = 180/);
+  // 2026-10-13: live scans hit the 180s platform limit. Collection now runs under a hard
+  // deadline (every fetch bounded and aborted at the deadline); the only outer race fires
+  // after that deadline has passed, never before the approved evidence paths could finish.
+  assert.match(analyzerRoute, /export const maxDuration = 120/);
   assert.doesNotMatch(analyzerRoute, /Promise\.race\(\[/);
+  assert.match(analyzerRoute, /raceWithBudget\(budgets\.collectionMs \+ 5_000, \(\) => withScanDeadline\(budgets\.collectionMs/);
   assert.doesNotMatch(analyzerRoute, /reviewEvidenceTimeoutMs/);
   assert.match(analyzerRoute, /collectAndAnalyzeReviewEvidence\(\{/);
   assert.match(analyzerRoute, /reviewEvidenceRecoveryFailed/);
@@ -441,8 +445,8 @@ test("review evidence does not finalize from an outer timeout while collection i
   const analyzerRoute = source("app/api/analyze/route.ts");
 
   assert.match(analyzerRoute, /export const runtime = "nodejs"/);
-  assert.match(analyzerRoute, /export const maxDuration = 180/);
-  assert.match(analyzerRoute, /const reviewEvidence = await collectAndAnalyzeReviewEvidence\(/);
+  assert.match(analyzerRoute, /export const maxDuration = 120/);
+  assert.match(analyzerRoute, /withScanDeadline\(budgets\.collectionMs, \(\) => collectAndAnalyzeReviewEvidence\(\{/);
   assert.doesNotMatch(analyzerRoute, /const reviewEvidence = await Promise\.race\(/);
   assert.doesNotMatch(analyzerRoute, /Automatic public review evidence recovery reached the .* search limit/);
 });
