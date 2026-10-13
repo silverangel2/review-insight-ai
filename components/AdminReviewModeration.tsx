@@ -74,7 +74,7 @@ export function AdminReviewModeration() {
         </button>
       </div>
       {message ? <p className="mt-4 rounded-xl border border-teal/30 bg-teal/10 px-4 py-3 text-sm text-teal">{message}</p> : null}
-      {error ? <p className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
       <div className="mt-5 grid gap-4">
         {reviews.length ? reviews.map((review) => (
           <article key={review.id} className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
@@ -120,7 +120,7 @@ export function AdminReviewModeration() {
                 <button type="button" onClick={() => void patchReview(review.id, { featured: !review.featured })} className="rounded-xl border border-ocean/30 bg-ocean/10 px-4 py-2 text-xs font-black text-ocean dark:text-cyan-300">
                   {review.featured ? "Unfeature" : "Feature"}
                 </button>
-                <button type="button" onClick={() => void removeReview(review.id)} className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-2 text-xs font-black text-coral">
+                <button type="button" onClick={() => void removeReview(review.id)} className="rounded-xl border border-coral/30 bg-coral/10 px-4 py-2 text-xs font-black text-coralink">
                   Delete
                 </button>
               </div>

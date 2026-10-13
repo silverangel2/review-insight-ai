@@ -1,4 +1,8 @@
 import { CompareForm } from "@/components/CompareForm";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata: Metadata = withSeo("/compare", { title: "Compare two products by their real reviews", description: "Put two products side by side and see which one real buyers were happier with, what they complained about, and how many reviews back each answer." }, { noindex: true });
 
 export default function ComparePage() {
   return (
@@ -10,6 +14,7 @@ export default function ComparePage() {
           Compare two products with ReviewIntel. Use product screenshots, links, or available product feedback to compare buying risk, strengths, complaints, value, and shopper confidence.
         </p>
       </div>
+      <p className="mb-6 text-sm text-slate-600">Already scanned both? <a href="/compare/side-by-side" className="font-semibold text-teal underline underline-offset-2">Compare two saved scans side by side</a>.</p>
       <CompareForm />
     </main>
   );

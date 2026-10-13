@@ -6,6 +6,11 @@ const RESULT_STORAGE_KEY = RESULT_STORAGE_PREFIX;
 const RESULT_PREVIEW_STORAGE_KEY = "reviewintel:last-preview";
 const ACTIVE_SCAN_ID_STORAGE_KEY = "reviewintel:active-scan-id";
 
+export function reviewIntelDevDiagnostic(event: string, details: Record<string, unknown> = {}) {
+  if (process.env.NODE_ENV === "production" || typeof window === "undefined") return;
+  console.info(`[ReviewIntel local] ${event}`, details);
+}
+
 type StoredResultEnvelope = {
   version: 1 | 2;
   savedAt: string;
@@ -117,6 +122,22 @@ export function saveLatestResult(result: AnalyzeResponse, account: ClientAccount
 
   if (canUseSessionStorage()) keys.forEach((key) => window.sessionStorage.setItem(key, serialized));
   if (canUseLocalStorage()) keys.forEach((key) => window.localStorage.setItem(key, serialized));
+
+  const sessionVerified = canUseSessionStorage()
+    ? keys.every((key) => window.sessionStorage.getItem(key) === serialized)
+    : true;
+  const localVerified = canUseLocalStorage()
+    ? keys.every((key) => window.localStorage.getItem(key) === serialized)
+    : true;
+  const success = sessionVerified && localVerified;
+  reviewIntelDevDiagnostic("RESULT_STORAGE_WRITE", {
+    keys,
+    scanId: envelope.scanId,
+    sessionVerified,
+    localVerified,
+    success,
+  });
+  return success;
 }
 
 export function setActiveScanId(scanId: string) {
@@ -157,13 +178,22 @@ export function readLatestResult(
     .filter((item): item is StoredResultEnvelope => Boolean(item))
     .filter((item) => envelopeMatchesAccount(item, account))
     .filter((item) => {
-      if (!requestedScanId || options.allowAnyScan) return true;
+      // A requested scan ID is authoritative. `allowAnyScan` is only valid
+      // for an explicitly selected history view with no scan ID in the URL.
+      if (!requestedScanId) return true;
       const resultScanId = item.scanId || scanIdFromResult(item.result);
       return resultScanId === requestedScanId;
     })
     .sort((left, right) => new Date(right.savedAt).getTime() - new Date(left.savedAt).getTime());
 
-  return candidates[0]?.result ?? null;
+  const result = candidates[0]?.result ?? null;
+  reviewIntelDevDiagnostic("RESULTS_STORAGE_READ", {
+    keys,
+    requestedScanId: requestedScanId || null,
+    resultFound: Boolean(result),
+    resultScanId: result ? scanIdFromResult(result) : null,
+  });
+  return result;
 }
 
 export function clearLatestResult() {

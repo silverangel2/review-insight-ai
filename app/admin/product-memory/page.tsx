@@ -1,3 +1,5 @@
+import { supabaseSelect } from "@/lib/supabaseServer";
+
 export const dynamic = "force-dynamic";
 
 type ProductMemoryRow = {
@@ -16,20 +18,11 @@ type ProductMemoryRow = {
   updated_at?: string | null;
 };
 
+// Admin-only (app/admin/layout.tsx checks the admin session). Reads the table directly on the
+// server; calling /api/admin/product-memory over HTTP without the admin cookie always came back empty.
 async function getProducts(): Promise<ProductMemoryRow[]> {
-  const baseUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
-
   try {
-    const response = await fetch(`${baseUrl}/api/admin/product-memory`, {
-      cache: "no-store",
-    });
-
-    const data = await response.json();
-    return Array.isArray(data.products) ? data.products : [];
+    return await supabaseSelect<ProductMemoryRow>("reviewintel_product_memory", "select=*&order=updated_at.desc&limit=100");
   } catch {
     return [];
   }

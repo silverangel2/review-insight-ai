@@ -150,7 +150,7 @@ function researchArgs(overrides = {}) {
 test("WEB_SEARCH_ENABLED: web research executes and stops when sufficient", async () => {
   const { web, research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       assert.equal(web.isOpenAiWebSearchEnabled(), true);
       const calls = mockFetch(async () => openAiJsonResponse(reviewJson(25)));
@@ -230,7 +230,7 @@ test("disabled web search is recorded in diagnostics as skippedDisabled", async 
 test("STAGNATION: two consecutive empty passes stop the loop", async () => {
   const { research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       mockFetch(async () => openAiJsonResponse(reviewJson(0)));
       const out = await research.runAdaptiveReviewResearch(researchArgs());
@@ -244,7 +244,7 @@ test("STAGNATION: two consecutive empty passes stop the loop", async () => {
 test("MAX_5_CALLS: slow-but-improving research never exceeds 5 calls", async () => {
   const { research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       // Each pass adds exactly 1 new distinct signal: improving, never sufficient.
       let n = 0;
@@ -266,7 +266,7 @@ test("MAX_5_CALLS: slow-but-improving research never exceeds 5 calls", async () 
 test("ADAPTIVE_RESEARCH: improving then sufficient stops early", async () => {
   const { research } = loadModules();
   await withEnv(
-    { REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", OPENAI_API_KEY: "test-key" },
+    { REVIEWINTEL_DISABLE_OPENAI: undefined, REVIEWINTEL_OPENAI_WEB_SEARCH_ENABLED: "true", REVIEWINTEL_OPENAI_REVIEW_EVIDENCE: "1", OPENAI_API_KEY: "test-key" },
     async () => {
       let n = 0;
       mockFetch(async () => {
@@ -292,8 +292,9 @@ test("FIRECRAWL_FALLBACK_ONLY: adaptive research never calls Firecrawl", () => {
   assert.doesNotMatch(researchSrc, /runFirecrawlFallback/);
   assert.doesNotMatch(researchSrc, /firecrawlFallback\(/);
   const evidenceSrc = source("lib/reviewEvidence.ts");
-  // Firecrawl may only appear in the dedicated fallback path, not the loop.
-  assert.match(evidenceSrc, /runFirecrawlFallback/);
+  // Shopper acquisition is native-only. Firecrawl stays out of this module;
+  // scan telemetry also refuses Firecrawl calls.
+  assert.doesNotMatch(evidenceSrc, /runFirecrawlFallback/);
   const loopCall = evidenceSrc.match(
     /runAdaptiveReviewResearch\(\{[\s\S]*?\}\);/
   );
@@ -301,23 +302,15 @@ test("FIRECRAWL_FALLBACK_ONLY: adaptive research never calls Firecrawl", () => {
   assert.doesNotMatch(loopCall[0], /firecrawl/i);
 });
 
-test("INSUFFICIENT_UI: not_enough state shows truthful unavailable copy", () => {
+test("INSUFFICIENT_UI: thin evidence shows real quotes, low confidence, and a next step", () => {
   const ui = source("components/ResultsClient.tsx");
-  assert.match(ui, /noStrengthsUnavailable/);
-  assert.match(ui, /noComplaintsUnavailable/);
-  assert.match(
-    ui,
-    /reviewEvidenceState === "not_enough" \? copy\.noStrengthsUnavailable : copy\.noStrengths/
-  );
-  assert.match(
-    ui,
-    /reviewEvidenceState === "not_enough" \? copy\.noComplaintsUnavailable : copy\.noComplaints/
-  );
-  // The misleading copy must not be used for the not_enough state.
-  assert.doesNotMatch(
-    ui,
-    /reviewEvidenceState === "not_enough" \? copy\.noStrengths[^U]/
-  );
+  assert.doesNotMatch(ui, /noStrengthsUnavailable/);
+  assert.doesNotMatch(ui, /noComplaintsUnavailable/);
+  assert.match(ui, /realReviewQuotes\(result\)/);
+  assert.match(ui, /Low · \$\{shopper\.acceptedWrittenReviewCount\} real reviews/);
+  assert.match(ui, /Scan the Amazon listing link or add a review screenshot/);
+  assert.doesNotMatch(ui, /answer: "NOT ENOUGH EVIDENCE"/);
+  assert.doesNotMatch(ui, /return "Not scored"|: "Not scored"|\? "Not scored"/);
 });
 
 test("disabled web research is surfaced in insufficient-evidence notes", () => {

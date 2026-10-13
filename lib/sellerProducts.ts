@@ -146,6 +146,12 @@ export function writeSellerProducts(products: SellerProduct[]) {
   const scope = currentSellerProductScope();
   if (!scope.isSeller) return;
   window.localStorage.setItem(productsKey(), JSON.stringify(products));
+  window.dispatchEvent(new Event("reviewintel:seller-workspace-changed"));
+}
+
+/** Storage key for this account's products (used by the database sync). */
+export function sellerProductsStorageKey() {
+  return productsKey();
 }
 
 export function activeSellerProductId() {

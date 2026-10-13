@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/DashboardShell";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata = privatePage("/dashboard/notifications", "Notifications");
 
 export default function DashboardNotificationsPage() {
   return (

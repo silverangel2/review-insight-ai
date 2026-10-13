@@ -1,0 +1,13 @@
+{
+  "selection": "Previously unopened captured fixtures reserved after architecture freeze",
+  "fixtures": [
+    {
+      "path": "tests/fixtures/reviewintel-captured/kenmore.json",
+      "sha256": "c81bd5f6928802aca39ebbaea57c61232243647109324b9738a2963d8a669525"
+    },
+    {
+      "path": "tests/fixtures/reviewintel-captured/philips.json",
+      "sha256": "c6dab30484592fd5e214f682f49eb358e78a3ceca674e79e1960bb9032df384c"
+    }
+  ]
+}

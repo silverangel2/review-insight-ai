@@ -1,0 +1,18 @@
+{
+  "policy": "Sealed before implementation; captured bodies are never synthesized; holdout changes require a generic defect classification and full benchmark rerun.",
+  "holdout": [
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_07e18aeb-e6fb-4022-9e6c-22666095c178.json",
+      "sha256": "6a3fdc2cb034a1ac690d917f6176bb8592bb0841e6578583b2b8cce9eae80757"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_3095f01c-f0e5-451d-869b-adb9266852fa.json",
+      "sha256": "88abcd9986d22d893858b5bf233b8f67b7f3ece64fe4e666539424d73d54d8af"
+    },
+    {
+      "path": "/private/tmp/reviewintel-replay-captures/scan_bc8a3ffc-4038-4a6f-b331-63e0ef5ba8ab.json",
+      "sha256": "5591c0c0b4c6485b9277030a3278ae0572afe3256bfaf1b4907ac79cb095543e"
+    }
+  ],
+  "structuralSha256": "bc8915f7b6741828ec6a7fd248f68ac0af30027337aa365f9df6453e8a248d88"
+}

@@ -1,0 +1,24 @@
+{
+  "id": "ninja",
+  "provenance": {
+    "artifact": "rollout-2026-10-06T08-50-50-01a1110d-5a19-71a2-95ee-100ee5fc8417.jsonl",
+    "line": 378,
+    "limitations": "Captured NOT_ENOUGH run reports seven collected comments, but their bodies are absent. Candidate URL/title pairs UNKNOWN."
+  },
+  "product": {
+    "productName": "Ninja Foodi 6 Qt 8-in-1 Digital Air Fryer Oven with Max Crisp Technology, Model AS101CDG",
+    "brand": "Ninja",
+    "model": "AS101CDG",
+    "store": "Amazon.ca",
+    "price": 329.99,
+    "rating": 4.4,
+    "reviewCount": 235
+  },
+  "candidates": [],
+  "rawRecords": "UNKNOWN",
+  "pages": "UNKNOWN",
+  "reportedCounts": {
+    "collectorReviewsCollected": 7,
+    "groundedCommentsAnalyzed": 7
+  }
+}

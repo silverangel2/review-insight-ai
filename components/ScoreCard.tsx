@@ -13,7 +13,7 @@ export function ScoreCard({
     info: "text-ocean",
     good: "text-teal",
     warn: "text-amber",
-    bad: "text-coral"
+    bad: "text-coralink"
   }[tone];
 
   return (

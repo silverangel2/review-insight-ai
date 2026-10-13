@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { Badge } from "@/components/Badge";
+import type { Metadata } from "next";
+import { withSeo, privatePage } from "@/lib/pageSeo";
+
+export const metadata: Metadata = withSeo("/about", { title: "About ReviewIntel", description: "Why ReviewIntel exists: a plain Buy, Wait or Skip answer built only from real written buyer reviews, with the quotes to prove it." });
 
 export default function AboutPage() {
   return (

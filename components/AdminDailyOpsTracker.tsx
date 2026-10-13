@@ -96,7 +96,7 @@ export function AdminDailyOpsTracker() {
         <button
           type="button"
           onClick={zeroAll}
-          className="rounded-2xl border border-coral/30 px-5 py-3 text-sm font-black text-coral transition hover:bg-coral/10"
+          className="rounded-2xl border border-coral/30 px-5 py-3 text-sm font-black text-coralink transition hover:bg-coral/10"
         >
           Zero local tracker
         </button>
@@ -125,7 +125,7 @@ export function AdminDailyOpsTracker() {
         </div>
         <div className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs font-black uppercase text-slate-500">AI cost</p>
-          <p className="mt-2 text-3xl font-black text-coral">{money(totals.aiCost)}</p>
+          <p className="mt-2 text-3xl font-black text-coralink">{money(totals.aiCost)}</p>
         </div>
       </div>
 

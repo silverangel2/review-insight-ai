@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { sendReviewIntelEmail } from "@/lib/emailDelivery";
-import { escapeHtml, escapeHtmlAttribute } from "@/lib/emailHtml";
+import { escapeHtml } from "@/lib/emailHtml";
+import { emailActionLinks, emailLinkSecret, publicEmailSiteUrl, unsubscribeHeaders } from "@/lib/emailLinks";
+import { renderBrandedEmail } from "@/lib/emailTemplate";
 import { rateLimitRequest } from "@/lib/security";
 import { supabaseInsert } from "@/lib/supabaseServer";
 import { SUPPORT_EMAIL } from "@/lib/trustContent";
@@ -63,11 +65,8 @@ export async function POST(request: Request): Promise<Response> {
       ? String((row as Record<string, unknown>).id)
       : "";
 
-  const safeName = escapeHtml(name || "there");
   const safeTopic = escapeHtml(topic);
   const safePage = escapeHtml(page || "website");
-  const safeSupportEmail = escapeHtml(SUPPORT_EMAIL);
-  const supportMailto = escapeHtmlAttribute(`mailto:${SUPPORT_EMAIL}`);
 
   try {
     await sendReviewIntelEmail({
@@ -110,89 +109,32 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     if (email) {
+      const links = emailActionLinks(email, publicEmailSiteUrl(), emailLinkSecret());
+      const confirmation = renderBrandedEmail({
+        preheader: "We saved your message. You do not need to send it again.",
+        eyebrow: "Support",
+        title: "We received your message",
+        greetingName: name,
+        paragraphs: [
+          "We saved your message. You do not need to send it again.",
+          `Topic: ${topic}`,
+          `Page: ${page || "website"}`,
+          "If this is about a scan, account access, billing, or advertising, we will reply with the next step.",
+        ],
+        cta: { label: "Email ReviewIntel support", href: `mailto:${SUPPORT_EMAIL}` },
+        reason: "You are receiving this because you contacted ReviewIntel.",
+        preferencesUrl: links.preferencesUrl,
+        unsubscribeUrl: links.unsubscribeUrl,
+        postalAddress: process.env.REVIEWINTEL_POSTAL_ADDRESS || "",
+      });
       await sendReviewIntelEmail({
         emailType: "contact_auto_reply",
         to: email,
         replyTo: SUPPORT_EMAIL,
         subject: "We received your ReviewIntel message",
-        html: `
-          <div style="margin:0;padding:0;background:#eef6f8;font-family:Arial,Helvetica,sans-serif;color:#101828;">
-            <div style="max-width:680px;margin:0 auto;padding:34px 18px;">
-              <div style="background:#07111f;border-radius:30px;overflow:hidden;box-shadow:0 24px 70px rgba(7,17,31,0.25);">
-                <div style="background:linear-gradient(135deg,#07111f 0%,#0f766e 55%,#22d3ee 120%);padding:30px 28px;color:#ffffff;">
-                  <div style="display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.20);border-radius:999px;padding:10px 14px;">
-                    <span style="display:inline-block;width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,#22d3ee,#fbbf24);box-shadow:0 0 24px rgba(34,211,238,0.55);"></span>
-                    <span style="font-size:15px;font-weight:900;letter-spacing:0.02em;">ReviewIntel</span>
-                  </div>
-
-                  <p style="margin:22px 0 0;font-size:12px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;color:#a7f3d0;">
-                    Support Confirmation
-                  </p>
-
-                  <h1 style="margin:12px 0 0;font-size:34px;line-height:1.08;font-weight:900;">
-                    We received your message.
-                  </h1>
-
-                  <p style="margin:16px 0 0;font-size:16px;line-height:1.7;color:#e6fffb;">
-                    Thanks for contacting ReviewIntel. Your request is saved in our support inbox and our team will review it.
-                  </p>
-                </div>
-
-                <div style="background:#ffffff;padding:28px;border-radius:28px 28px 0 0;">
-                  <p style="margin:0 0 14px;font-size:16px;line-height:1.7;color:#101828;">
-                    Hi ${safeName},
-                  </p>
-
-                  <p style="margin:0 0 16px;font-size:16px;line-height:1.7;color:#344054;">
-                    We got your message. You do not need to send it again. If your request is about a product scan, account access, billing, or advertising, we’ll reply with the next steps.
-                  </p>
-
-                  <div style="background:#f8fafc;border:1px solid #e6eaf2;border-radius:22px;padding:20px;margin:22px 0;">
-                    <div style="font-size:12px;font-weight:900;letter-spacing:0.14em;text-transform:uppercase;color:#0f766e;margin-bottom:10px;">
-                      Request Summary
-                    </div>
-                    <table style="width:100%;border-collapse:collapse;">
-                      <tr>
-                        <td style="padding:7px 0;font-size:14px;color:#667085;font-weight:700;">Topic</td>
-                        <td style="padding:7px 0;font-size:14px;color:#101828;font-weight:900;text-align:right;">${safeTopic}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:7px 0;font-size:14px;color:#667085;font-weight:700;">Page</td>
-                        <td style="padding:7px 0;font-size:14px;color:#101828;font-weight:900;text-align:right;">${safePage}</td>
-                      </tr>
-                    </table>
-                  </div>
-
-                  <a href="${supportMailto}" style="display:inline-block;background:#07111f;color:#ffffff;text-decoration:none;font-weight:900;border-radius:16px;padding:14px 20px;">
-                    Email ReviewIntel Support
-                  </a>
-
-                  <p style="margin:22px 0 0;font-size:13px;line-height:1.7;color:#667085;">
-                    This is an automatic confirmation from ReviewIntel. A support reply will come from our team when available.
-                  </p>
-                </div>
-              </div>
-
-              <p style="text-align:center;margin:22px 0 0;font-size:12px;line-height:1.7;color:#667085;">
-                ReviewIntel · AI product review intelligence<br/>
-                ${safeSupportEmail}
-              </p>
-            </div>
-          </div>
-        `,
-        text: [
-          "We received your ReviewIntel message",
-          "",
-          `Hi ${name || "there"},`,
-          "",
-          "Thanks for contacting ReviewIntel. Your request is saved in our support inbox.",
-          "You do not need to send it again. Our team will review it and reply when available.",
-          "",
-          `Topic: ${topic}`,
-          `Page: ${page || "website"}`,
-          "",
-          `Support: ${SUPPORT_EMAIL}`,
-        ].join("\n"),
+        html: confirmation.html,
+        text: confirmation.text,
+        headers: unsubscribeHeaders(links.oneClickUrl),
         metadata: {
           source: "contact_form_auto_reply",
           contactMessageId,

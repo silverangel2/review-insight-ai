@@ -25,7 +25,7 @@ function list(value: unknown): string[] {
   return [];
 }
 
-function text(value: unknown, fallback = "Not enough evidence yet.") {
+function text(value: unknown, fallback = "Low confidence from the real reviews found so far. Scan the Amazon link or add more reviews for a fuller read.") {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
@@ -132,9 +132,9 @@ function SellerProductProofCard({ label, product }: { label: string; product: un
         <SellerProofPill label="Review count" value={proof.reviewCount} />
         <SellerProofPill label="Sources checked" value={proof.sourcesChecked.length} />
         <SellerProofPill label="Comments analyzed" value={proof.commentsAnalyzed} />
-        <SellerProofPill label="Evidence strength" value={proof.evidenceStrength || "Not enough"} />
+        <SellerProofPill label="Evidence strength" value={proof.evidenceStrength || "Low"} />
         <SellerProofPill label="Exact listing" value={proof.exactListingConfidence || "Not confirmed"} />
-        <SellerProofPill label="AI-like risk" value={proof.aiLikeRisk !== null ? `${proof.aiLikeRisk}%` : "Not scored"} />
+        <SellerProofPill label="AI-like risk" value={proof.aiLikeRisk !== null ? `${proof.aiLikeRisk}%` : `Low · ${Number(proof.commentsAnalyzed) || 0} real reviews · scan the Amazon link for more`} />
         <SellerProofPill label="Memory" value={proof.stableKey ? "Saved/merged" : "New/unknown"} />
         <SellerProofPill label="Stable key" value={proof.stableKey ? "Matched" : "Not matched"} />
       </div>

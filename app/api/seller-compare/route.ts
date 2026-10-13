@@ -1,3 +1,4 @@
+import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { NextResponse } from "next/server";
 import { isAdminRole, normalizePlan, normalizeRole } from "@/lib/account";
 import { readAccountSession } from "@/lib/accountSession";
@@ -5,6 +6,13 @@ import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import { normalizeLocale } from "@/lib/i18n";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
+import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
+import { freeSellerCompare, lowConfidenceSellerCompare } from "@/lib/sellerCompareFree";
+
+/** Legacy OpenAI comparison is kept but OFF unless REVIEWINTEL_SELLER_COMPARE_OPENAI=on. */
+function sellerCompareOpenAiEnabled() {
+  return isOpenAiFeatureEnabled("seller_compare");
+}
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +43,7 @@ function readText(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function readNumber(value: unknown, fallback = 70) {
+function readNumber(value: unknown, fallback: number | null = null) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
@@ -47,11 +55,11 @@ function normalize(raw: Record<string, unknown>) {
   const oldActionPlan = textArray(raw.sellerActionPlan);
 
   return {
-    competitivePosition: readText(raw.competitivePosition, "Close but needs fixes"),
-    confidence: readNumber(raw.confidence, 70),
-    executiveSummary: readText(raw.executiveSummary, "AI comparison completed."),
-    marketMove: readText(raw.marketMove, readText(raw.fixFirst, "Close the strongest competitor advantage first.")),
-    fixFirst: readText(raw.fixFirst, "Fix the most repeated buyer objection first."),
+    competitivePosition: readText(raw.competitivePosition, "Low confidence · too few real reviews to compare yet"),
+    confidence: readNumber(raw.confidence),
+    executiveSummary: readText(raw.executiveSummary, "One or both products have too few real written reviews to rank them honestly. Scan each Amazon link or upload a review CSV, then compare again."),
+    marketMove: readText(raw.marketMove, readText(raw.fixFirst, "Collect and verify written review evidence before making a competitive claim.")),
+    fixFirst: readText(raw.fixFirst, "Collect and verify written review evidence before choosing a priority fix."),
     outgrowStrategy: textArray(raw.outgrowStrategy).length ? textArray(raw.outgrowStrategy, 4) : oldActionPlan.slice(0, 4),
     competitorAdvantages: textArray(raw.competitorAdvantages, 4),
     yourAdvantages: textArray(raw.yourAdvantages, 4),
@@ -64,6 +72,10 @@ function normalize(raw: Record<string, unknown>) {
     ninetyDayPlan: textArray(raw.ninetyDayPlan, 4),
     comparabilityWarning: readText(raw.comparabilityWarning),
   };
+}
+
+function hasWrittenReviewEvidence(value: unknown) {
+  return hasSufficientReviewEvidenceRecord(value);
 }
 
 
@@ -120,7 +132,7 @@ async function callOpenAI(prompt: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing.");
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await guardedOpenAiFetch("seller_compare", "https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -210,7 +222,7 @@ const sellerCompareSchema = {
   ],
 };
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request): Promise<Response> {
   try {
     const limit = await rateLimitRequest(request, {
       key: "seller_compare_api",
@@ -260,6 +272,15 @@ export async function POST(request: Request) {
       attachRealReviewEvidence(yourProduct),
       attachRealReviewEvidence(competitorProduct),
     ]);
+
+    if (!hasWrittenReviewEvidence(yourProductWithReviewEvidence) || !hasWrittenReviewEvidence(competitorProductWithReviewEvidence)) {
+      // Low confidence with the real counts and a next step, never "not scored".
+      return NextResponse.json(normalize(lowConfidenceSellerCompare(yourProductWithReviewEvidence as Record<string, unknown>, competitorProductWithReviewEvidence as Record<string, unknown>)));
+    }
+
+    if (!sellerCompareOpenAiEnabled()) {
+      return NextResponse.json(freeSellerCompare(asRecord(yourProductWithReviewEvidence), asRecord(competitorProductWithReviewEvidence), { yours: yourLabel, competitor: competitorLabel }));
+    }
 
     const prompt = `
 You are ReviewIntel Seller Pro Compare.
@@ -327,4 +348,10 @@ Return JSON only:
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
+  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
+  return response;
 }

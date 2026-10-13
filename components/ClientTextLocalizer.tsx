@@ -27,6 +27,15 @@ function hasMixedTextNodes(element: Element) {
   return textNodes.length > 1 || (textNodes.length === 1 && element.childNodes.length > 1);
 }
 
+// Original-text memory lives in a WeakMap, not data-* attributes: mutating attributes on
+// server-rendered elements before React hydrates them caused hydration mismatches.
+const sourceMemory = new WeakMap<Element, Record<string, string | undefined>>();
+function store(element: Element) {
+  let record = sourceMemory.get(element);
+  if (!record) { record = {}; sourceMemory.set(element, record); }
+  return record;
+}
+
 function shouldSkipElement(element: Element) {
   const tag = element.tagName.toLowerCase();
   if (["script", "style", "code", "pre", "textarea", "input"].includes(tag)) return true;
@@ -36,11 +45,11 @@ function shouldSkipElement(element: Element) {
 }
 
 function sourceTextFor(element: HTMLElement, locale: string, translations: Record<string, string>) {
-  const stored = element.dataset.riSourceText;
+  const stored = store(element).riSourceText;
   if (stored) {
     const resolvedStored = resolveUiTextTranslationSource(stored);
     if (resolvedStored) {
-      element.dataset.riSourceText = resolvedStored;
+      store(element).riSourceText = resolvedStored;
       return resolvedStored;
     }
 
@@ -52,13 +61,13 @@ function sourceTextFor(element: HTMLElement, locale: string, translations: Recor
 
   const resolvedText = resolveUiTextTranslationSource(text);
   if (resolvedText) {
-    element.dataset.riSourceText = resolvedText;
+    store(element).riSourceText = resolvedText;
     return resolvedText;
   }
 
   if (locale === "en" || !getUiTextTranslation(locale, text, translations)) return "";
 
-  element.dataset.riSourceText = text;
+  store(element).riSourceText = text;
   return text;
 }
 
@@ -96,20 +105,20 @@ function translateDirectTextNodes(element: HTMLElement, locale: string, translat
     if (node.nodeType !== Node.TEXT_NODE) continue;
 
     const dataKey = `riTextNodeSource${textNodeIndex}`;
-    const source = sourceValueFor(node.textContent || "", element.dataset[dataKey], locale, translations);
+    const source = sourceValueFor(node.textContent || "", store(element)[dataKey], locale, translations);
     textNodeIndex += 1;
 
     if (!source) {
-      delete element.dataset[dataKey];
+      delete store(element)[dataKey];
       continue;
     }
 
-    element.dataset[dataKey] = source;
+    store(element)[dataKey] = source;
     const translated = getUiTextTranslation(locale, source, translations);
     const current = node.textContent?.replace(/\s+/g, " ").trim() ?? "";
     if (translated && current !== translated) replaceTextNodeText(node, translated);
     if (!translated && locale === "en" && current !== source) replaceTextNodeText(node, source);
-    if (!translated && locale !== "en") delete element.dataset[dataKey];
+    if (!translated && locale !== "en") delete store(element)[dataKey];
   }
 }
 
@@ -129,51 +138,51 @@ function applyTranslations() {
     const source = sourceTextFor(element, locale, translations);
     const translated = getUiTextTranslation(locale, source, translations);
     if (translated && element.textContent?.replace(/\s+/g, " ").trim() !== translated) replaceElementText(element, translated);
-    if (!translated && locale === "en" && source && element.dataset.riSourceText && element.textContent?.replace(/\s+/g, " ").trim() !== source) {
+    if (!translated && locale === "en" && source && store(element).riSourceText && element.textContent?.replace(/\s+/g, " ").trim() !== source) {
       replaceElementText(element, source);
     }
-    if (!translated && locale !== "en" && source) delete element.dataset.riSourceText;
+    if (!translated && locale !== "en" && source) delete store(element).riSourceText;
   }
 
   for (const element of Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(PLACEHOLDER_SELECTOR))) {
     if (element.closest("[data-ri-no-translate]")) continue;
-    const source = sourceValueFor(element.getAttribute("placeholder") || "", element.dataset.riPlaceholderSource, locale, translations);
+    const source = sourceValueFor(element.getAttribute("placeholder") || "", store(element).riPlaceholderSource, locale, translations);
     if (!source) continue;
-    element.dataset.riPlaceholderSource = source;
+    store(element).riPlaceholderSource = source;
     const nextPlaceholder = getUiTextTranslation(locale, source, translations) || source;
     if (element.getAttribute("placeholder") !== nextPlaceholder && (locale === "en" || nextPlaceholder !== source)) {
       element.setAttribute("placeholder", nextPlaceholder);
     }
-    if (locale !== "en" && nextPlaceholder === source) delete element.dataset.riPlaceholderSource;
+    if (locale !== "en" && nextPlaceholder === source) delete store(element).riPlaceholderSource;
   }
 
   for (const element of Array.from(document.querySelectorAll<HTMLImageElement>(ALT_SELECTOR))) {
     if (element.closest("[data-ri-no-translate]")) continue;
-    const source = sourceValueFor(element.getAttribute("alt") || "", element.dataset.riAltSource, locale, translations);
+    const source = sourceValueFor(element.getAttribute("alt") || "", store(element).riAltSource, locale, translations);
     if (!source) continue;
-    element.dataset.riAltSource = source;
+    store(element).riAltSource = source;
     const nextAlt = getUiTextTranslation(locale, source, translations) || source;
     if (element.getAttribute("alt") !== nextAlt && (locale === "en" || nextAlt !== source)) {
       element.setAttribute("alt", nextAlt);
     }
-    if (locale !== "en" && nextAlt === source) delete element.dataset.riAltSource;
+    if (locale !== "en" && nextAlt === source) delete store(element).riAltSource;
   }
 
   for (const element of Array.from(document.querySelectorAll<HTMLElement>("[aria-label],[title]"))) {
     if (element.closest("[data-ri-no-translate]")) continue;
-    const ariaSource = sourceValueFor(element.getAttribute("aria-label") || "", element.dataset.riAriaSource, locale, translations);
+    const ariaSource = sourceValueFor(element.getAttribute("aria-label") || "", store(element).riAriaSource, locale, translations);
     if (ariaSource) {
-      element.dataset.riAriaSource = ariaSource;
+      store(element).riAriaSource = ariaSource;
       const nextAria = getUiTextTranslation(locale, ariaSource, translations) || ariaSource;
       if (element.getAttribute("aria-label") !== nextAria && (locale === "en" || nextAria !== ariaSource)) element.setAttribute("aria-label", nextAria);
-      if (locale !== "en" && nextAria === ariaSource) delete element.dataset.riAriaSource;
+      if (locale !== "en" && nextAria === ariaSource) delete store(element).riAriaSource;
     }
-    const titleSource = sourceValueFor(element.getAttribute("title") || "", element.dataset.riTitleSource, locale, translations);
+    const titleSource = sourceValueFor(element.getAttribute("title") || "", store(element).riTitleSource, locale, translations);
     if (titleSource) {
-      element.dataset.riTitleSource = titleSource;
+      store(element).riTitleSource = titleSource;
       const nextTitle = getUiTextTranslation(locale, titleSource, translations) || titleSource;
       if (element.getAttribute("title") !== nextTitle && (locale === "en" || nextTitle !== titleSource)) element.setAttribute("title", nextTitle);
-      if (locale !== "en" && nextTitle === titleSource) delete element.dataset.riTitleSource;
+      if (locale !== "en" && nextTitle === titleSource) delete store(element).riTitleSource;
     }
   }
 }
