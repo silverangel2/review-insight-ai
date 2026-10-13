@@ -10,8 +10,6 @@ import {
   normalizeAffiliatePartnerPlacement,
 } from "@/lib/adConfig";
 import { readAdSettings } from "@/lib/adSettingsStore";
-import { buildBetterPicks } from "@/lib/betterPicks";
-import { supabaseSelect } from "@/lib/supabaseServer";
 import { localeLabel, normalizeLocale } from "@/lib/i18n";
 import {
   callOpenAiWebSearchResponse,
@@ -20,18 +18,6 @@ import {
   getOpenAiWebSearchDiagnostics,
   OPENAI_WEB_SEARCH_TOOL,
 } from "@/lib/openAiWebSearch";
-
-function recommendationsOpenAiEnabled(env: Record<string, string | undefined> = process.env) {
-  return ["on", "1", "true"].includes(String(env.REVIEWINTEL_RECOMMENDATIONS_OPENAI || "").toLowerCase());
-}
-
-/** Recent stored buyer scans (product-level fields only; no account data is returned to the client). */
-async function loadStoredReviewedRows(): Promise<Record<string, unknown>[]> {
-  try {
-    const rows = await supabaseSelect("analyses", "select=product_name,analysis_json&mode=eq.buyer&order=created_at.desc&limit=150");
-    return Array.isArray(rows) ? rows as Record<string, unknown>[] : [];
-  } catch { return []; }
-}
 
 function safeJsonParse(text: string) {
   try {
@@ -257,7 +243,7 @@ function normalizeRecommendationUrls(
         price: null,
         badge: normalized.length === 0 ? "Primary Pick" : normalized.length === 1 ? "Better Value" : "Stronger Quality",
         whyBetter: "Search-based Amazon recommendation link generated because a unique verified product URL was not available.",
-        aiLikeRisk: "Low · 0 real reviews checked · scan this product to check",
+        aiLikeRisk: "Not scored",
       }),
     );
   }
@@ -323,7 +309,6 @@ export async function POST(req: NextRequest) {
       getString(result.brand) ||
       getString(productIdentity.brand) ||
       getString(productIdentitySnake.brand) ||
-      getString(asRecord(result.product).brand) ||
       getString(bodyRecord.brand);
 
     const verdict =
@@ -333,34 +318,6 @@ export async function POST(req: NextRequest) {
 
     if (!productName) {
       return NextResponse.json({ ok: false, error: "Missing product name." }, { status: 400 });
-    }
-
-    // Default: free picks, ZERO OpenAI. The legacy OpenAI web-search path below is kept
-    // intact but only runs when REVIEWINTEL_RECOMMENDATIONS_OPENAI=on.
-    if (!recommendationsOpenAiEnabled()) {
-      const evidence = asRecord(result.reviewEvidence);
-      const accepted = asRecord(evidence.evidenceAdjudication).acceptedRecords;
-      const listingUrl = getString(result.exactListingUrl) || getString(asRecord(evidence.listingEvidence).exactListingUrl) || getString(bodyRecord.listingUrl);
-      const productRecord = asRecord(result.product);
-      const storedRows = await loadStoredReviewedRows();
-      const picks = buildBetterPicks({
-        title: getString(productRecord.title) || getString(productRecord.name) || productName,
-        brand,
-        verdict,
-        buyScore: getNumber(result.buyScore) ?? getNumber(result.score),
-        acceptedReviews: Array.isArray(accepted) ? accepted.length : getNumber(result.commentsAnalyzed),
-        listingUrl,
-        marketplace: /amazon\.com\b/i.test(listingUrl) ? "amazon.com" : "amazon.ca",
-        category: getString(result.category) || getString(productRecord.category) || null,
-      }, storedRows);
-      return NextResponse.json({
-        ok: true, shopperOnly: true, scanId, resultSource: "recommendations", locale, outputLanguage,
-        source: "free", openAiCalls: 0,
-        affiliateReady: Boolean(getAmazonAssociateTag()),
-        affiliateProviders: { amazonReady: Boolean(getAmazonAssociateTag()) },
-        disclosure: getAffiliateDisclosure(),
-        recommendations: picks,
-      });
     }
 
     const prompt = `

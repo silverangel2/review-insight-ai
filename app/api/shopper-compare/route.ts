@@ -1,5 +1,3 @@
-import { freeShopperCompare, lowConfidenceShopperCompare, realReviewCount } from "@/lib/shopperCompareFree";
-import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { NextResponse } from "next/server";
 import { isAdminRole, normalizePlan, normalizeRole } from "@/lib/account";
 import { readAccountSession } from "@/lib/accountSession";
@@ -7,7 +5,6 @@ import { normalizeLocale } from "@/lib/i18n";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
-import { hasSufficientReviewEvidenceRecord } from "@/lib/reviewEvidenceScoring";
 
 export const dynamic = "force-dynamic";
 
@@ -63,25 +60,18 @@ function normalizeWinner(value: unknown) {
 
 function normalize(rawValue: unknown) {
   const raw = recordOf(rawValue);
-  const winnerValue = String(raw.winner || "").trim().toUpperCase();
-  const hasWinner = ["A", "B", "TIE", "INCOMPARABLE"].includes(winnerValue);
-  const winner = hasWinner ? normalizeWinner(winnerValue) : "INCOMPARABLE";
+  const winner = normalizeWinner(raw.winner);
   const directSubstitutes = winner === "INCOMPARABLE" ? false : raw.directSubstitutes !== false;
-  const hasConfidence = typeof raw.confidence === "number" && Number.isFinite(raw.confidence);
 
   return {
     winner,
     directSubstitutes,
-    confidence: hasConfidence ? Math.max(0, Math.min(100, Math.round(raw.confidence as number))) : null,
-    verdictHeadline: text(raw.verdictHeadline, "Low confidence · too few real reviews to compare yet"),
-    summary: text(raw.summary, "One or both products have too few real written reviews to pick a winner honestly."),
-    reasons: list(raw.reasons, ["Too few real written reviews on at least one side."]).slice(0, 4),
-    nextSteps: list(raw.nextSteps, ["Scan the Amazon link for each product to pull in more real reviews.", "Or add a review screenshot."]).slice(0, 3),
+    confidence: typeof raw.confidence === "number" ? Math.max(0, Math.min(100, Math.round(raw.confidence))) : 70,
+    verdictHeadline: text(raw.verdictHeadline, winner === "INCOMPARABLE" ? "Not directly comparable" : "Comparison complete"),
+    summary: text(raw.summary, "ReviewIntel compared both products using the available AI scan results."),
+    reasons: list(raw.reasons, ["Compare score, complaints, value, review trust, and evidence quality."]).slice(0, 4),
+    nextSteps: list(raw.nextSteps, ["Check exact use case, return policy, warranty, and recent reviews before buying."]).slice(0, 3),
   };
-}
-
-function hasWrittenReviewEvidence(value: unknown) {
-  return hasSufficientReviewEvidenceRecord(value);
 }
 
 
@@ -138,7 +128,7 @@ async function callOpenAI(prompt: string) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing.");
 
-  const response = await guardedOpenAiFetch("shopper_compare", "https://api.openai.com/v1/responses", {
+  const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -203,7 +193,7 @@ const shopperCompareSchema = {
   ],
 };
 
-async function handlePOST(request: Request): Promise<Response> {
+export async function POST(request: Request) {
   try {
     const limit = await rateLimitRequest(request, {
       key: "shopper_compare_api",
@@ -252,15 +242,6 @@ async function handlePOST(request: Request): Promise<Response> {
       attachRealReviewEvidence(productA),
       attachRealReviewEvidence(productB),
     ]);
-
-    if (!hasWrittenReviewEvidence(productAWithReviewEvidence) || !hasWrittenReviewEvidence(productBWithReviewEvidence)) {
-      // Low confidence with the real counts and a next step, never "not scored".
-      return NextResponse.json(normalize(lowConfidenceShopperCompare(realReviewCount(productAWithReviewEvidence), realReviewCount(productBWithReviewEvidence))));
-    }
-
-    if (!isOpenAiFeatureEnabled("shopper_compare")) {
-      return NextResponse.json(normalize(freeShopperCompare(productAWithReviewEvidence, productBWithReviewEvidence)));
-    }
 
     const prompt = `
 You are ReviewIntel Shopper Premium Compare.
@@ -315,11 +296,4 @@ Return JSON only:
       { status: 500 }
     );
   }
-}
-
-export async function POST(request: Request): Promise<Response> {
-  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
-  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
-  if (run.openAiCalls > 0) console.warn("[openai-guard] OpenAI calls in run", run);
-  return response;
 }

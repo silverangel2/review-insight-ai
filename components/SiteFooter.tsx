@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getLocale } from "next-intl/server";
 import { getUiTextTranslation, normalizeLocale } from "@/lib/i18n";
-import { BILLING_EMAIL, footerLinkGroups, SUPPORT_EMAIL, INDEPENDENCE_STATEMENT, AMAZON_ASSOCIATES_DISCLOSURE } from "@/lib/trustContent";
+import { BILLING_EMAIL, footerLinkGroups, SUPPORT_EMAIL } from "@/lib/trustContent";
 
 export async function SiteFooter() {
   const locale = normalizeLocale(await getLocale());
@@ -59,7 +59,7 @@ export async function SiteFooter() {
       </div>
       <div className="mx-auto mt-8 flex max-w-7xl flex-col gap-2 border-t border-line pt-5 text-xs font-bold uppercase tracking-wide text-slate-500 dark:border-white/10 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
         <span>ReviewIntel 2026</span>
-        <span className="normal-case">{INDEPENDENCE_STATEMENT} {AMAZON_ASSOCIATES_DISCLOSURE}</span>
+        <span>{tr("AI guidance for review decisions. Always verify critical product claims.")}</span>
       </div>
     </footer>
   );

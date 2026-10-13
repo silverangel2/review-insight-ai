@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { withSeo } from "@/lib/pageSeo";
 import { AdminAccessForm } from "@/components/AdminAccessForm";
 
-export const metadata: Metadata = withSeo("/admin-access", {
+export const metadata: Metadata = {
   title: "Secure Access",
   robots: {
     index: false,
     follow: false
   }
-}, { noindex: true });
+};
 
 export default function AdminAccessPage() {
   return (

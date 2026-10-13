@@ -1,8 +1,6 @@
-import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
-import { freeFollowUpAnswer } from "@/lib/freeFollowUp";
 import { NextRequest, NextResponse } from "next/server";
 
-async function handlePOST(req: NextRequest): Promise<Response> {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const action = String(body.action || "").trim();
@@ -18,11 +16,6 @@ async function handlePOST(req: NextRequest): Promise<Response> {
 
     if (!allowed.includes(action)) {
       return NextResponse.json({ ok: false, error: "Unknown follow-up action." }, { status: 400 });
-    }
-
-    // Zero OpenAI by default: answer from the result's own real-review data.
-    if (!isOpenAiFeatureEnabled("followup")) {
-      return NextResponse.json({ ok: true, action, answer: freeFollowUpAnswer(action, product), source: "free", openAiCalls: 0 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -46,7 +39,7 @@ Do not invent facts.
 If evidence is weak, say that clearly.
 `;
 
-    const response = await guardedOpenAiFetch("followup", "https://api.openai.com/v1/responses", {
+    const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -86,10 +79,4 @@ If evidence is weak, say that clearly.
       { status: 500 }
     );
   }
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(req));
-  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
-  return response;
 }

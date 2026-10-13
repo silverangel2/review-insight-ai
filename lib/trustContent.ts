@@ -1,8 +1,6 @@
 export const SUPPORT_EMAIL = "support@getreviewintel.com";
 export const BILLING_EMAIL = "support@getreviewintel.com";
 export const PRIVACY_EMAIL = "support@getreviewintel.com";
-export const INDEPENDENCE_STATEMENT = "We're independent and not affiliated with or endorsed by any brand; results are based on public buyer reviews.";
-export const AMAZON_ASSOCIATES_DISCLOSURE = "As an Amazon Associate, ReviewIntel earns from qualifying purchases.";
 
 export type TrustPageContent = {
   slug: string;
@@ -11,8 +9,6 @@ export type TrustPageContent = {
   summary: string;
   updated: string;
   tone: "trust" | "support" | "billing" | "warning";
-  /** Draft legal text: shows a "have a lawyer review" banner. */
-  draft?: boolean;
   sections: Array<{
     title: string;
     body: string | string[];
@@ -33,8 +29,6 @@ export const footerLinkGroups = [
       { label: "Pricing", href: "/pricing" },
       { label: "Advertise", href: "/advertise" },
       { label: "User Reviews", href: "/reviews" },
-      { label: "Buying guides", href: "/guides" },
-      { label: "Compare side by side", href: "/compare/side-by-side" },
       { label: "Seller dashboard", href: "/dashboard/seller" },
       { label: "Shopper Premium", href: "/pricing" }
     ]
@@ -45,9 +39,6 @@ export const footerLinkGroups = [
       { label: "Terms of Service", href: "/terms" },
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Disclaimer", href: "/disclaimer" },
-      { label: "Affiliate disclosure", href: "/affiliate-disclosure" },
-      { label: "Ad policy", href: "/ad-policy" },
-      { label: "Advertiser terms", href: "/advertiser-terms" },
       { label: "Refunds", href: "/refunds" },
       { label: "Cookies", href: "/cookies" },
       { label: "Acceptable Use", href: "/acceptable-use" }
@@ -61,8 +52,7 @@ export const footerLinkGroups = [
       { label: "Manage Subscription", href: "/manage-subscription" },
       { label: "Billing Support", href: "/billing-support" },
       { label: "Account Support", href: "/account-support" },
-      { label: "Delete Account", href: "/delete-account" },
-      { label: "Email preferences", href: "/email-preferences" }
+      { label: "Delete Account", href: "/delete-account" }
     ]
   },
   {
@@ -78,7 +68,6 @@ export const footerLinkGroups = [
 
 export const trustPages: Record<string, TrustPageContent> = {
   disclaimer: {
-    draft: true,
     slug: "disclaimer",
     title: "Disclaimer",
     eyebrow: "Product guidance, not guaranteed truth",
@@ -111,7 +100,6 @@ export const trustPages: Record<string, TrustPageContent> = {
     cta: { label: "Contact customer service", href: "/contact" }
   },
   terms: {
-    draft: true,
     slug: "terms",
     title: "Terms of Service",
     eyebrow: "Rules for using ReviewIntel",
@@ -261,13 +249,12 @@ export const trustPages: Record<string, TrustPageContent> = {
     cta: { label: "Read Acceptable Use", href: "/acceptable-use" }
   },
   privacy: {
-    draft: true,
     slug: "privacy",
     title: "Privacy Policy",
     eyebrow: "How ReviewIntel handles data",
     summary:
       "This Privacy Policy explains what ReviewIntel collects, how review and TikTok data are used, how cookies and analytics work, and how users can access, correct, or delete data.",
-    updated: "October 12, 2026",
+    updated: "July 30, 2026",
     tone: "trust",
     sections: [
       {
@@ -284,8 +271,7 @@ export const trustPages: Record<string, TrustPageContent> = {
         items: [
           "Account data: email address, display name, role, plan, login status, language, country, company or store name, address fields you provide, and subscription status.",
           "Review-analysis data: product names, brands, stores, URLs, pasted review text, uploaded screenshots, uploaded TXT or CSV files, extracted review evidence, analysis outputs, Buy Scores, verdicts, recommendation results, seller reports, and saved history.",
-          "Operational data: usage counts, quotas, page paths, support messages, admin notes, security events, error logs, connected integration status, selected media, captions, and public media URLs used for social posts.",
-          "Site analytics: our own first-party, privacy-safe counts of page visits, sign-ins, signups, scans, upgrade views, checkouts and affiliate clicks, stored in our own database. We use no third-party trackers for this, never store raw IP addresses (only a salted one-way hash to count unique visitors), keep only the referring site's address without query strings, and record nothing at all when your browser sends Do Not Track or Global Privacy Control."
+          "Operational data: usage counts, quotas, page paths, support messages, admin notes, security events, error logs, connected integration status, selected media, captions, and public media URLs used for social posts."
         ]
       },
       {
@@ -690,38 +676,6 @@ export const trustPages: Record<string, TrustPageContent> = {
       }
     ]
   }
-};
-
-trustPages["affiliate-disclosure"] = {
-  draft: true, slug: "affiliate-disclosure", title: "Affiliate disclosure", eyebrow: "Trust", tone: "trust", updated: "October 11, 2026",
-  summary: "How ReviewIntel earns money from links, and why that never changes a verdict.",
-  sections: [
-    { title: "Amazon Associates", body: ["As an Amazon Associate, ReviewIntel earns from qualifying purchases.", "Some links to Amazon on ReviewIntel are affiliate links. If you buy through them, we may earn a commission at no extra cost to you."] },
-    { title: "Other affiliate and sponsored placements", body: "Placements marked \"Affiliate\" or \"Sponsored\" are paid or commission-based. They are always labelled and kept separate from the review analysis." },
-    { title: "Independence", body: ["We're independent and not affiliated with or endorsed by any brand; results are based on public buyer reviews.", "Verdicts, scores and quotes come only from real written buyer reviews. Commissions, sponsors and advertisers cannot buy, change or remove a verdict."] },
-  ],
-};
-trustPages["ad-policy"] = {
-  draft: true, slug: "ad-policy", title: "Ad content policy", eyebrow: "Advertising", tone: "warning", updated: "October 11, 2026",
-  summary: "What we accept in sponsored placements on ReviewIntel.",
-  sections: [
-    { title: "Every ad is labelled", body: "All paid placements show a clear \"Sponsored\" or \"Affiliate\" label. Ads never appear inside a verdict and cannot influence one." },
-    { title: "Not allowed", body: "We do not accept:", items: ["Claims about competitors or other brands, or comparative \"better than\" claims", "Fake reviews, fake ratings, or text styled as buyer reviews", "Health, medical, financial or legal claims that are not substantiated", "Adult, gambling, weapons, tobacco/vaping, or illegal products and services", "Misleading pricing, countdowns, or impersonation of ReviewIntel or a marketplace", "Creative you do not own or have the rights to use"] },
-    { title: "Creative specs", body: "Images: JPG, PNG or WebP, up to 8 MB, ideally 1200×628 (or 3:2 / 16:9). Video: MP4 or WebM, muted, up to 60 MB and 15 seconds. Headline up to 60 characters, description up to 140." },
-    { title: "Review and removal", body: "Every campaign is reviewed before it goes live. We may pause or remove any ad that breaks this policy." },
-  ],
-};
-trustPages["advertiser-terms"] = {
-  draft: true, slug: "advertiser-terms", title: "Advertiser terms", eyebrow: "Advertising", tone: "billing", updated: "October 11, 2026",
-  summary: "The basic terms for buying a sponsored placement on ReviewIntel.",
-  sections: [
-    { title: "Approval first", body: "Submitting an inquiry does not guarantee a placement. We review your brand, landing page and creative against the Ad content policy before sending a payment link." },
-    { title: "Scheduling and payment", body: "Campaigns run on the dates and placements we confirm by email. A campaign starts only after payment is received. Impressions are capped per day and shared fairly between active campaigns." },
-    { title: "Reporting", body: "You get a private read-only report link with impressions, clicks, click-through rate and campaign dates. Numbers come from ReviewIntel's own counters and may differ from your analytics." },
-    { title: "No influence on verdicts", body: "We're independent and not affiliated with or endorsed by any brand; results are based on public buyer reviews. Advertising cannot change, buy or remove any verdict, score or review quote." },
-    { title: "Refunds and cancellation", body: "If we cannot run an approved, paid campaign, we refund the unused portion. Campaigns removed for policy violations are not refunded." },
-    { title: "Your responsibility", body: "You confirm you own or have rights to your creative and that your claims are truthful and lawful." },
-  ],
 };
 
 export function getTrustPage(slug: string) {

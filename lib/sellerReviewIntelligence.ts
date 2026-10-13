@@ -567,7 +567,7 @@ function scoreAuthenticity(
 ): SellerDeepIntel["authenticity"] {
   const textReviews = reviews.filter((r) => r.text.length >= 20);
   if (textReviews.length < 5) {
-    return { score: null, label: `Low confidence · ${textReviews.length} real text review${textReviews.length === 1 ? "" : "s"}`, reasons: [`Trust signals need at least 5 written reviews; ${textReviews.length} found so far. Upload a fuller review export or scan the Amazon link to add more.`] };
+    return { score: null, label: "Not scored", reasons: ["Fewer than 5 text reviews — not enough to assess trust signals."] };
   }
 
   let score = 100;

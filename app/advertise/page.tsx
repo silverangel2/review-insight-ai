@@ -1,88 +1,96 @@
-import type { Metadata } from "next";
-import { withSeo } from "@/lib/pageSeo";
 import Link from "next/link";
+import { Badge } from "@/components/Badge";
 import { adPackages } from "@/lib/adConfig";
-import { loadAdvertiseStats } from "@/lib/advertiseStats";
-import { AdvertiseInquiry } from "@/components/advertising/AdvertiseInquiry";
-import { FeaturedDeals } from "@/components/advertising/FeaturedDeals";
 
-export const metadata: Metadata = withSeo("/advertise", { title: "Advertise with ReviewIntel", description: "Reach shoppers right when they're deciding, with clearly labelled, honest placements." });
+const adPlans = Object.values(adPackages);
 
-const PREVIEW = [
-  { slug: "results_below_verdict", name: "Results page", where: "Just below the verdict, when a shopper has decided what to do next." },
-  { slug: "analyze_below_card", name: "Scan page", where: "Next to the link box, while shoppers start a scan." },
-  { slug: "homepage_mid", name: "Homepage", where: "On the homepage, below the example and how-it-works section." },
-] as const;
-
-export default async function AdvertisePage() {
-  const stats = await loadAdvertiseStats();
-  const shown = ([["Product scans run", stats.scans], ["Page views, last 30 days", stats.pageViews30d], ["Ad impressions, last 30 days", stats.adImpressions30d]] as const).filter(([, v]) => typeof v === "number" && v > 0) as Array<readonly [string, number]>;
+export default function AdvertisePage() {
   return (
-    <main>
-      <section className="bg-[linear-gradient(135deg,#e6f7f1_0%,#fff6ec_55%,#ffeee6_100%)] px-5 pb-12 pt-10 sm:px-6 sm:pt-14">
-        <div className="mx-auto max-w-6xl">
-          <p className="inline-flex rounded-full bg-peach px-3 py-1 text-sm font-semibold text-coralink ring-1 ring-coral/30">Advertise with ReviewIntel</p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-[1.1] tracking-tight text-slate-900 sm:text-5xl">Reach shoppers right when they&apos;re deciding.</h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">Clean, clearly labelled placements next to honest, review-based answers. Ads never change a verdict, and that&apos;s exactly why shoppers trust the page they see your ad on.</p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <a href="#inquiry" className="ri-lift rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white">Start an inquiry</a>
-            <a href="#placements" className="rounded-full border border-coral/60 bg-white px-6 py-3 text-sm font-semibold text-coralink hover:bg-peach">See placements</a>
-          </div>
-          {shown.length ? (
-            <dl className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-3" data-testid="advertise-stats">
-              {shown.map(([k, v]) => <div key={k} className="rounded-2xl bg-white/80 p-4 ring-1 ring-slate-900/5"><dt className="text-xs text-slate-500">{k}</dt><dd className="mt-1 text-2xl font-semibold text-slate-900">{v.toLocaleString()}</dd></div>)}
-            </dl>
-          ) : null}
-        </div>
-      </section>
+    <main className="mx-auto max-w-7xl px-6 py-14">
+      <Badge tone="warn">Partner with ReviewIntel</Badge>
+      <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-ink">
+        Run clean sponsored campaigns inside ReviewIntel.
+      </h1>
+      <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
+        Advertisers submit an application first. ReviewIntel reviews the brand, placement, and creative before payment is requested.
+        After approval, ReviewIntel sends the payment step and activates the campaign only after payment and creative review.
+      </p>
 
-      <section id="placements" className="bg-[linear-gradient(180deg,#f1edff_0%,#ffffff_100%)] px-5 py-12 sm:px-6">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="text-2xl font-semibold text-slate-900">Where your ad appears</h2>
-          <p className="mt-1 text-sm text-slate-600">This is the real ad card, shown here with placeholder content.</p>
-          <div className="mt-6 grid gap-5 lg:grid-cols-3">
-            {PREVIEW.map((p, n) => (
-              <article key={p.slug} className="rounded-[1.5rem] bg-white p-4 ring-1 ring-slate-900/5">
-                <p className="font-semibold text-slate-900">{p.name}</p>
-                <p className="mt-1 text-sm text-slate-600">{p.where}</p>
-                <div className="mt-3"><FeaturedDeals slides={[{ ad: { id: `preview-${n}`, sponsorName: "Your brand", headline: "Your headline here", description: "One short line about your offer.", destinationUrl: "#inquiry", placement: p.slug, active: true, status: "approved" }, kind: "direct", partner: "Your brand", headline: "Your headline here", description: "One short line about your offer.", cta: "Learn more" }]} /></div>
-              </article>
-            ))}
-          </div>
-          <p className="mt-4 text-sm text-slate-600">No ads on paid seller pages or Premium accounts. Every ad is labelled &ldquo;Sponsored&rdquo;.</p>
-        </div>
-      </section>
+      <div className="mt-7 flex flex-wrap gap-3">
+        <Link
+          href="/advertise/apply"
+          className="rounded-xl bg-ocean px-6 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink"
+        >
+          Apply for ads
+        </Link>
+        <a
+          href="#ad-packages"
+          className="rounded-xl border border-line bg-white px-6 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean"
+        >
+          View ad packages
+        </a>
+      </div>
 
-      <section className="bg-butter px-5 py-12 sm:px-6">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="text-2xl font-semibold text-slate-900">Packages</h2>
-          <div className="mt-5 grid gap-5 md:grid-cols-2">
-            {Object.values(adPackages).map(plan => (
-              <article key={plan.id} className="rounded-[1.5rem] bg-white p-6 ring-1 ring-slate-900/5">
-                <p className="text-sm font-semibold text-teal">{plan.id === "featured_monthly" ? "Featured" : "Sponsored"}</p>
-                <h3 className="mt-1 text-xl font-semibold text-slate-900">{plan.name}</h3>
-                <p className="mt-2 text-3xl font-semibold text-slate-900">{plan.price}</p>
-                <ul className="mt-4 space-y-2 text-sm text-slate-700">
-                  <li>Up to {plan.dailyImpressionCap.toLocaleString()} impressions a day</li>
-                  <li>{plan.durationDays}-day campaign on dates you agree with us</li>
-                  <li>Image or short muted video</li>
-                  <li>Private report: impressions, clicks, CTR</li>
-                </ul>
-              </article>
-            ))}
-          </div>
-          <ol className="mt-8 grid gap-3 sm:grid-cols-4">
-            {["Send an inquiry", "We review and approve", "Pay securely by link", "Your ad starts on the start date"].map((s, i) => (
-              <li key={s} className="rounded-2xl bg-white p-4 ring-1 ring-slate-900/5"><p className="text-xs font-semibold text-teal">Step {i + 1}</p><p className="mt-1 text-sm font-semibold text-slate-900">{s}</p></li>
-            ))}
-          </ol>
-        </div>
-      </section>
+      <div id="ad-packages" className="mt-10 grid gap-5 md:grid-cols-2">
+        {adPlans.map((plan) => (
+          <article key={plan.id} className="rounded-2xl border border-line bg-white p-6 shadow-soft">
+            <Badge tone={plan.id === "featured_monthly" ? "good" : "info"}>
+              {plan.id === "featured_monthly" ? "Featured" : "Sponsored"}
+            </Badge>
+            <h2 className="mt-5 text-2xl font-black text-ink">{plan.name}</h2>
+            <p className="mt-4 text-4xl font-black text-ocean">{plan.price}</p>
+            <p className="mt-4 text-sm leading-6 text-slate-600">{plan.description}</p>
+            <ul className="mt-6 space-y-3 text-sm text-slate-700">
+              <li className="rounded-xl border border-line px-3 py-2">
+                {plan.dailyImpressionCap.toLocaleString()} daily impression cap
+              </li>
+              <li className="rounded-xl border border-line px-3 py-2">
+                {plan.durationDays}-day campaign window
+              </li>
+              <li className="rounded-xl border border-line px-3 py-2">
+                Image or short muted video creative
+              </li>
+              <li className="rounded-xl border border-line px-3 py-2">
+                Manual payment verification and creative approval
+              </li>
+            </ul>
+            <a
+              href="/advertise/apply"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex w-full justify-center rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean"
+            >
+              Apply for {plan.name}
+            </a>
+          </article>
+        ))}
+      </div>
 
-      <section id="inquiry" className="px-5 py-12 sm:px-6">
-        <div className="mx-auto max-w-6xl">
-          <AdvertiseInquiry />
-          <p className="mt-6 text-sm text-slate-600">Already approved and have creative ready? <Link href="/advertise/apply" className="font-semibold text-teal underline">Upload your campaign</Link>. Read the <Link href="/ad-policy" className="underline">ad content policy</Link> and <Link href="/advertiser-terms" className="underline">advertiser terms</Link>.</p>
+      <section className="mt-8 rounded-2xl border border-line bg-white p-6 shadow-soft">
+        <h2 className="text-2xl font-black text-ink">How campaign approval works</h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-4">
+          {[
+            "Apply for a package",
+            "Upload banner or video",
+            "ReviewIntel verifies payment",
+            "Approved ads rotate automatically"
+          ].map((item, index) => (
+            <div key={item} className="rounded-2xl border border-line bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Step {index + 1}</p>
+              <p className="mt-2 text-sm font-black text-ink">{item}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/advertise/apply" className="rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean">
+            Upload campaign
+          </Link>
+          <Link href="/contact" className="rounded-xl border border-line px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean">
+            Contact before paying
+          </Link>
+          <Link href="/refunds" className="rounded-xl border border-line px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean">
+            Refund policy
+          </Link>
         </div>
       </section>
     </main>

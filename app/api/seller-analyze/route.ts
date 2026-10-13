@@ -1,5 +1,3 @@
-import { freeSellerAnalysis } from "@/lib/sellerAnalyzeFree";
-import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 
 import { NextResponse } from "next/server";
 import { isAdminRole, isSellerPlan, normalizePlan, normalizeRole } from "@/lib/account";
@@ -13,7 +11,6 @@ import {
 } from "@/lib/supabaseServer";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
-import { queueFirstScanUpgrade } from "@/lib/lifecycleEmail";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import type { ReviewEvidenceResult } from "@/lib/reviewEvidence";
 import { stabilizeAnalysisResultWithMemory } from "@/lib/productStability";
@@ -252,7 +249,7 @@ async function openAIResponse(prompt: string) {
     throw new Error("OPENAI_API_KEY is missing.");
   }
 
-  const response = await guardedOpenAiFetch("seller_analyze", "https://api.openai.com/v1/responses", {
+  const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       authorization: `Bearer ${apiKey}`,
@@ -405,7 +402,7 @@ function sellerProductNameFromRows(rows: unknown[]) {
   return "seller product";
 }
 
-async function handlePOST(request: Request): Promise<Response> {
+export async function POST(request: Request) {
   try {
     const limit = await rateLimitRequest(request, {
       key: "seller_analyze_api",
@@ -433,7 +430,7 @@ async function handlePOST(request: Request): Promise<Response> {
 
     if (!sellerAccess.allowed) {
       return NextResponse.json(
-        { error: "Seller analysis requires an active Seller Starter or Seller Pro subscription.", code: "SELLER_PLAN_REQUIRED" },
+        { error: "Seller analysis requires an active Seller Premium or Seller Pro subscription.", code: "SELLER_PLAN_REQUIRED" },
         { status: 402 }
       );
     }
@@ -565,12 +562,11 @@ ${deepIntel.evidenceBrief}
             }).catch(() => null),
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 25_000)),
           ]);
+
     let raw: unknown = null;
     let usedDeterministicFallback = false;
 
-    const llmPromise = !isOpenAiFeatureEnabled("seller_analyze")
-      ? Promise.resolve().then(() => { usedDeterministicFallback = true; })
-      : openAIResponse(prompt).then(
+    const llmPromise = openAIResponse(prompt).then(
       (value) => {
         raw = value;
       },
@@ -604,8 +600,8 @@ ${deepIntel.evidenceBrief}
           ? reviewEvidence.reviewAuthenticity
           : {
               score: null,
-              label: `Low confidence · ${reviewEvidence?.commentsAnalyzed ?? 0} real reviews · scan the Amazon link or upload a review CSV`,
-              suspiciousReviewRisk: "Not scored", // internal enum only; UI shows the label above
+              label: "Review scan not verified",
+              suspiciousReviewRisk: "Not scored",
               reasons: reviewEvidence?.reviewAuthenticity?.reasons ?? [],
               suspiciousComments: [],
             },
@@ -626,7 +622,7 @@ ${deepIntel.evidenceBrief}
         account: { email, plan, role }
       }) as { id?: string; created_at?: string } | null;
 
-      const usage = await consumePersistentQuota(
+      await consumePersistentQuota(
         { email, plan },
         {
           analysis_id: analysisRecord?.id ?? null,
@@ -635,14 +631,6 @@ ${deepIntel.evidenceBrief}
           review_count: rows.length
         }
       );
-      if (usage?.ok) {
-        queueFirstScanUpgrade({
-          email,
-          role,
-          plan,
-          productName: file.name.replace(/\.csv$/i, ""),
-        });
-      }
 
       return NextResponse.json({
         ...result,
@@ -664,11 +652,4 @@ ${deepIntel.evidenceBrief}
     return NextResponse.json({ error: error instanceof Error ? error.message : "Seller CSV analysis failed." },
       { status: 500 });
   }
-}
-
-export async function POST(request: Request): Promise<Response> {
-  const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
-  try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
-  if (run.openAiCalls > 0) console.warn("[openai-guard] OpenAI calls in run", run);
-  return response;
 }

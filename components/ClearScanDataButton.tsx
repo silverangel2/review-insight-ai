@@ -58,8 +58,8 @@ export function ClearScanDataButton({
       onClick={clearScans}
       className={
         tone === "danger"
-          ? "rounded-xl bg-coralink px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-ink"
-          : "rounded-xl border border-line px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-slate-600 transition hover:border-coral hover:text-coralink dark:border-white/10 dark:text-slate-300"
+          ? "rounded-xl bg-coral px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-white transition hover:bg-ink"
+          : "rounded-xl border border-line px-4 py-2.5 text-xs font-black uppercase tracking-[0.12em] text-slate-600 transition hover:border-coral hover:text-coral dark:border-white/10 dark:text-slate-300"
       }
     >
       {cleared ? "Cleared" : label}

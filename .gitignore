@@ -12,4 +12,3 @@ tsconfig.tsbuildinfo
 # Local AI patch backups
 *.backup-*
 *.bak
-.reviewintel-captures/
