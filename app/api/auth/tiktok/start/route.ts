@@ -43,7 +43,7 @@ export async function GET() {
       return new NextResponse(
         html(
           "error",
-          "TikTok cannot connect because TIKTOK_CLIENT_KEY is missing. Add the TikTok app Client Key in Vercel, then redeploy.",
+          "TikTok cannot connect because TIKTOK_CLIENT_KEY is missing. Add the TikTok app Client Key in the deployment settings, then redeploy.",
           health
         ),
         { status: 409, headers: { "Content-Type": "text/html" } }

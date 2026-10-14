@@ -12,6 +12,7 @@ const search = jiti("./lib/exactProductSearch.ts");
 const verifier = jiti("./lib/productSearchVerifier.ts");
 const layered = jiti("./lib/layeredReviewCollection.ts");
 const shopper = jiti("./lib/shopperAnswer.ts");
+const buying = jiti("./lib/buyingScore.ts");
 const { buildNativeReviewSearchQueries } = jiti("./lib/nativeReviewRetrieval.ts");
 
 const reviews = readFileSync(new URL("./fixtures/layered-reviews/reviews.html", import.meta.url), "utf8");
@@ -156,6 +157,93 @@ test("cross-store matching requires the link's model or id and never a different
   assert.equal(answer.unreadable, true);
   assert.equal(answer.score, null);
   assert.doesNotMatch(`${answer.why} ${answer.label}`, /Unknown Product Battery|Not scored|Review evidence not enough/i);
+});
+
+test("bare and slugged Amazon links keep the ASIN and fetch the listing page", async () => {
+  const asin = "B00FLYWNYQ";
+  const bare = [
+    `https://www.amazon.com/dp/${asin}`,
+    `https://www.amazon.ca/dp/${asin}`,
+    `https://www.amazon.co.uk/dp/${asin}`,
+    `https://www.amazon.com/gp/product/${asin}`,
+    `https://www.amazon.ca/gp/product/${asin}`,
+    `https://www.amazon.co.uk/gp/product/${asin}`,
+  ];
+  const slugged = [
+    `https://www.amazon.com/Flybar-Foam-Pogo-Stick/dp/${asin}`,
+    `https://www.amazon.ca/Flybar-Foam-Pogo-Stick/dp/${asin}`,
+    `https://www.amazon.co.uk/Flybar-Foam-Pogo-Stick/gp/product/${asin}`,
+  ];
+  for (const url of bare) {
+    const identity = links.identityFromProductLink(url);
+    assert.equal(identity.productId, asin, url);
+    assert.equal(links.collectionProductName(url), asin, url);
+    assert.equal(links.isPlaceholderProductName(links.collectionProductName(url)), false, url);
+  }
+  for (const url of slugged) {
+    const identity = links.identityFromProductLink(url);
+    assert.equal(identity.productId, asin, url);
+    assert.match(links.collectionProductName(url), /Flybar/, url);
+    assert.doesNotMatch(links.collectionProductName(url), /Amazon product|unknown product/i, url);
+  }
+
+  const html = `<html><span id="productTitle">Flybar Foam Pogo Stick</span></html>`;
+  const original = globalThis.fetch;
+  const fetched = [];
+  globalThis.fetch = async (url) => {
+    fetched.push(String(url));
+    return new Response(html, { status: 200 });
+  };
+  try {
+    for (const url of [bare[0], bare[1], bare[2], slugged[0], slugged[2]]) {
+      fetched.length = 0;
+      const result = await search.findExactProductCandidates({
+        productName: links.collectionProductName(url),
+        listingUrl: url,
+        store: "Amazon",
+      });
+      assert.ok(fetched.some((item) => item.includes(`/dp/${asin}`)), `${url} ${fetched.join(" ")}`);
+      assert.match(String(result.candidates[0]?.title || ""), /Flybar Foam Pogo Stick/, url);
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("a blocked identified listing does not ask for the link again", () => {
+  const empty = buying.buyingScoreFromReviews({ marketplace: { rating: null, count: null }, reviews: [] });
+  assert.equal(buying.wordingWhenListingAlreadySupplied(empty, false).label, "Add the exact product link");
+  const blockedCard = buying.wordingWhenListingAlreadySupplied(empty, true);
+  assert.notEqual(blockedCard.label, "Add the exact product link");
+  assert.doesNotMatch(`${blockedCard.notes.join(" ")} ${blockedCard.primaryAction}`, /exact product link|NOT_ENOUGH|OpenAI|vercel|evidenceState/i);
+  const line = buying.shopperBottomLineForBuyingScore(blockedCard, "REVIEW FIRST");
+  assert.doesNotMatch(line, /exact product link|REVIEW FIRST|NOT_ENOUGH|OpenAI|vercel/i);
+
+  const rated = buying.wordingWhenListingAlreadySupplied(
+    buying.buyingScoreFromReviews({ marketplace: { rating: 4.2, count: 80 }, reviews: [] }),
+    true,
+  );
+  assert.equal(rated.mode, "provisional_marketplace");
+  assert.equal(rated.audit.Rbar, 4.2);
+  assert.equal(rated.audit.N, 80);
+  assert.doesNotMatch(rated.notes.join(" "), /exact product link/i);
+
+  const result = {
+    pageUnreadable: true,
+    verdict: "REVIEW FIRST",
+    bottomLine: line,
+    product: { name: "Flybar Foam Pogo Stick", title: "Flybar Foam Pogo Stick", url: "https://www.amazon.com/dp/B00FLYWNYQ" },
+    url: "https://www.amazon.com/dp/B00FLYWNYQ",
+    reviewEvidence: { commentsAnalyzed: 0, evidenceState: "NOT_ENOUGH", sourceNotes: ["OpenAI review analysis failed: 500"] },
+    buyingScoreV2: blockedCard,
+  };
+  assert.equal(shopper.isUnreadableAmazonPage(result), true);
+  const answer = shopper.deriveShopperAnswer(result);
+  assert.equal(answer.unreadable, true);
+  assert.equal(answer.score, null);
+  assert.doesNotMatch(`${answer.why} ${answer.label} ${answer.trustLine}`, /exact product link|NOT_ENOUGH|OpenAI|vercel|evidenceState/i);
+  assert.equal(shopper.shopperSafeText("OpenAI review analysis failed: 500"), "Written reviews were not available for a verdict.");
+  assert.equal(shopper.shopperSafeText("evidenceState NOT_ENOUGH"), "Written reviews were not available for a verdict.");
 });
 
 test("shopper payloads no longer use the banned evidence labels", () => {

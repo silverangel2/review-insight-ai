@@ -30,7 +30,7 @@ PR #15 merged as `646d8f6` and was rolled back. Production is PR #14 (`687b041`)
 - A candidate on another listing is accepted only when its title contains the model or id tokens from the link, or it is the same store product id. Otherwise the shopper gets the couldn't-read result and the scan does not charge a credit.
 - Shopper-facing authenticity text no longer uses "Not scored" or "Review evidence not enough".
 
-Amazon from Vercel's own addresses is still expected to block the product page, the reviews endpoint, and the sibling domains, because they share one egress network. Trying those tiers does not change the IP. Reading Amazon reviews from this deployment needs a residential or ISP proxy (or a fetch API that only changes the IP and does not solve CAPTCHAs). See Open risks.
+Amazon from this deployment's own addresses is still expected to block the product page, the reviews endpoint, and the sibling domains, because they share one egress network. Trying those tiers does not change the IP. Reading Amazon reviews from this deployment needs a residential or ISP proxy (or a fetch API that only changes the IP and does not solve CAPTCHAs). The Owner has refused paid proxies. See Open risks.
 
 ## What's done
 
@@ -81,12 +81,12 @@ Per scan, `result.layeredCollection` and one log line `[ReviewIntel PIPELINE] la
 
 ### Chromium
 
-Implemented in `lib/layeredChromium.ts` as a dynamic import of `playwright-core` and `@sparticuz/chromium`. It is off unless `REVIEWINTEL_LAYERED_CHROMIUM=on`. The packages are not installed. `@sparticuz/chromium` is about 50MB compressed, and `/api/analyze` already traces tesseract into the same function, so adding the binary is likely to blow the Vercel unzipped function limit. A cold start can also eat the rest of the 50s budget. When the flag is on and the packages are missing, the tier records `unavailable` and the scan continues. Tests inject `chromiumFetch` instead of launching a browser.
+Implemented in `lib/layeredChromium.ts` as a dynamic import of `playwright-core` and `@sparticuz/chromium`. It is off unless `REVIEWINTEL_LAYERED_CHROMIUM=on`. The packages are not installed. `@sparticuz/chromium` is about 50MB compressed, and `/api/analyze` already traces tesseract into the same function, so adding the binary is likely to blow the serverless unzipped function limit. A cold start can also eat the rest of the 50s budget. When the flag is on and the packages are missing, the tier records `unavailable` and the scan continues. Tests inject `chromiumFetch` instead of launching a browser.
 
 ## What's left
 
 - Live-prove the ladder against a current stripped Amazon response (see below). The fixtures simulate that shell; they are not a copy of Amazon's HTML.
-- If the ajax fragment and the sibling storefronts are also stripped, the remaining step is the Chromium tier. Measure the function size before installing `@sparticuz/chromium` and `playwright-core`, then set the flag only if the unzipped function stays within the Vercel limit and a launch-plus-navigation still fits in the leftover budget.
+- If the ajax fragment and the sibling storefronts are also stripped, the remaining step is the Chromium tier. Measure the function size before installing `@sparticuz/chromium` and `playwright-core`, then set the flag only if the unzipped function stays within the serverless size limit and a launch-plus-navigation still fits in the leftover budget.
 - Confirm Target's public storefront key still works. If Target rotates it, read the key from the product HTML instead of the constant.
 - Confirm Walmart.ca review paths. The plan uses `/reviews/product/{id}` and `/en/ip/{id}`. If Canada uses a different public path, add that form in `walmartCollector.plan`.
 - Home Depot reviews that are not in the HTML and not accompanied by a passkey still need a public endpoint discovered from the page. Do not invent a passkey.
@@ -129,10 +129,19 @@ Do not run this from the agent against production shopper traffic. A human or a 
 5. Confirm `openAiCalls` stays 0 on these scans.
 6. After deploy (not part of this change), compare the share of scans with `strippedPage: true` and `tier: null` week over week. That is the fallback rate.
 
+## Preview of this branch
+
+A preview of `a7af8f0` found two more bugs, fixed here. A bare Amazon link such as `https://www.amazon.com/dp/B00FLYWNYQ` (and the same path on amazon.ca) was stored with an empty ASIN and the name "Amazon product", so collection stopped with "Product name was not clear enough to search reviews" and fetched nothing. The ASIN is read again from `/dp/`, `/gp/product/`, and a slug in front of those paths, the listing page fetch runs, and the shopper name comes from that page.
+
+When collection was blocked on a product the link had already identified, the shopper saw REVIEW FIRST and "Add the exact product link". That wording is gone when the link was already supplied. A marketplace rating and count stay on the result when the page actually had them. If nothing on the page was readable, the scan does not use a credit. Shoppers do not see `evidenceState`, `NOT_ENOUGH`, review-analysis failure notes, or the name of the host.
+
+The same preview showed that Walmart, Best Buy, Target, and Home Depot all challenge requests from this deployment or disallow the review URL in robots.txt. The Owner refuses paid proxies, so those stores are not given a different IP in this change. Shopper-facing pages, API messages, result notes, and emails do not name the host.
+
 ## Open risks
 
-- Amazon can still answer every public URL from a Vercel address with a challenge. The ladder now tries the reviews endpoint and the sibling domains, then stops. It will not solve a CAPTCHA. Those URLs leave from the same network, so a block on `/dp` usually means a block on `/product-reviews`, the ajax fragment, and `.ca` / `.co.uk` as well. Chromium is off and is not a way around that.
-- Link-only Amazon scans from this deployment are unlikely to read real review text without a paid egress change. Rough options, checked as public list prices in 2026, not a quote: residential proxies such as Bright Data, Oxylabs, or IPRoyal are commonly about $3–$8 per GB with monthly minimums from about $50 to a few hundred dollars; a scan that succeeds is a few megabytes, so the per-scan cost is cents and the minimum is the real cost. Datacenter proxies are cheaper (often under $1/GB) and Amazon already blocks that class of address, which is the current failure. Fetch APIs such as ScraperAPI or ScrapingBee start around $49/month and must be configured not to solve CAPTCHAs; using them only as a different IP is allowed, solving a challenge is not. Amazon's official product APIs do not return the written review text this scanner needs.
+- Amazon can still answer every public URL from this deployment's address with a challenge. The ladder now tries the reviews endpoint and the sibling domains, then stops. It will not solve a CAPTCHA. Those URLs leave from the same network, so a block on `/dp` usually means a block on `/product-reviews`, the ajax fragment, and `.ca` / `.co.uk` as well. Chromium is off and is not a way around that.
+- The preview also found that Walmart, Best Buy, Target, and Home Depot challenge requests from this deployment or block the review URL in robots.txt. The Owner refuses paid proxies, so this branch does not add one.
+- Link-only scans from this deployment are unlikely to read real review text without a paid egress change, and that option is refused. For the record, public 2026 list prices were about $3–$8 per GB for residential proxies, with monthly minimums from about $50 to a few hundred dollars. Datacenter proxies are the class of address these stores already block. Fetch APIs that only change the IP start around $49/month and must not solve CAPTCHAs. Store product APIs do not return the written review text this scanner needs.
 - Sibling Amazon domains sometimes list a different variant under the same ASIN. Title verification is unchanged and must keep rejecting those.
 - Walmart.com and Walmart.ca item ids are not a reliable pair. A sibling hit still has to match the product title.
 - The Target storefront key is public but can be rotated.

@@ -2314,7 +2314,7 @@ export async function checkTikTokConnector() {
       oauthHealth.clientKeyConfigured && oauthHealth.clientSecretConfigured ? "passed" : "failed",
       oauthHealth.clientKeyConfigured && oauthHealth.clientSecretConfigured
         ? `TikTok app credentials are configured. Redirect URI: ${oauthHealth.redirectUri}.`
-        : "Missing TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET in Vercel."
+        : "Missing TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET in the deployment settings."
     ),
     connectorCheck(
       "TikTok OAuth scopes",

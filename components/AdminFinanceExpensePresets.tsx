@@ -11,13 +11,13 @@ type ExpensePreset = {
 
 const expensePresets: ExpensePreset[] = [
   {
-    label: "Vercel Hosting",
+    label: "Website hosting",
     category: "Hosting",
-    description: "Vercel hosting / deployment expense",
+    description: "Website hosting / deployment expense",
     taxNote: "Website hosting / cloud infrastructure expense for ReviewIntel.",
   },
   {
-    label: "Vercel Domain",
+    label: "Domain renewal",
     category: "Domain",
     description: "Domain renewal / domain registration",
     taxNote: "Business domain expense for ReviewIntel website.",
@@ -148,7 +148,7 @@ export default function AdminFinanceExpensePresets() {
             Quick expense logger
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Use this for common ReviewIntel expenses you might forget, like Vercel domain renewal, hosting, Supabase, Resend, OpenAI API, Stripe fees, and marketing. Amounts are not guessed — enter the real charge from your bill.
+            Use this for common ReviewIntel expenses you might forget, like domain renewal, hosting, database, email, AI usage, payment fees, and marketing. Amounts are not guessed — enter the real charge from your bill.
           </p>
         </div>
       </div>

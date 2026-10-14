@@ -1,4 +1,5 @@
 import { captureStage } from "./devScanCapture";
+import { collectionProductName, isPlaceholderProductName } from "./linkIdentity";
 
 function toOptionalNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -2161,6 +2162,10 @@ export async function collectAndAnalyzeReviewEvidence(
   const openAiWebSearchContext = createOpenAiWebSearchContext({ maxCalls: 2, stage: "identity" });
   openAiWebSearchContext.costTelemetry = input.costTelemetry;
 
+  if (isPlaceholderProductName(input.productName)) {
+    const fromLink = collectionProductName(input.listingUrl);
+    if (fromLink) input = { ...input, productName: fromLink };
+  }
   const stableIdentity = stableProductSearchTerms(input);
   const product = [
     ...stableIdentity.brands, ...stableIdentity.models, stableIdentity.family,
@@ -3333,9 +3338,8 @@ Scoring rules:
     });
 
     if (!response.ok) {
-      return recoveryEvidenceFromLocalRetrieval(
-        `OpenAI review analysis failed: ${response.status || "network"} ${(response.error || "").slice(0, 180)}`
-      );
+      console.error("[ReviewIntel] review analysis request failed", response.status || "network", (response.error || "").slice(0, 180));
+      return recoveryEvidenceFromLocalRetrieval("Written reviews were not available for a verdict.");
     }
 
     const data = response.data;
@@ -3349,7 +3353,8 @@ Scoring rules:
       "";
 
     if (!outputText.trim()) {
-      return recoveryEvidenceFromLocalRetrieval("OpenAI review analysis returned no review evidence.");
+      console.error("[ReviewIntel] review analysis returned no review evidence");
+      return recoveryEvidenceFromLocalRetrieval("Written reviews were not available for a verdict.");
     }
 
     const parsed = safeParseReviewEvidenceJson(outputText);

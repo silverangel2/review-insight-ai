@@ -42,6 +42,21 @@ export function placeholderFreeText(value: unknown): string {
   return isPlaceholderProductName(text) ? "" : text;
 }
 
+/**
+ * Name used to start collection. A slug title wins. A bare /dp or /gp/product
+ * link still contributes its product id, so the listing page is fetched and
+ * the shopper name comes from that page. Never "Amazon product" or "unknown product".
+ */
+export function collectionProductName(url: unknown, ...fallbacks: unknown[]): string {
+  for (const value of fallbacks) {
+    const text = placeholderFreeText(value);
+    if (text) return text;
+  }
+  const identity = identityFromProductLink(url);
+  if (!identity) return "";
+  return placeholderFreeText(identity.displayName) || identity.productId;
+}
+
 function displayFromSlug(slug: string | null): string {
   if (!slug || slug === "-" || /^site$/i.test(slug)) return "";
   const words = decodeURIComponent(slug).replace(/\.(?:p|html)$/i, "").split(/[-_]+/).filter(Boolean);
@@ -68,8 +83,10 @@ function amazonSlug(pathname: string): string | null {
   const markers = new Set(["dp", "product", "d", "product-reviews"]);
   for (let index = 0; index < parts.length; index += 1) {
     if (!markers.has(parts[index].toLowerCase())) continue;
-    const previous = parts[index - 1];
-    if (!previous || /^(?:gp|aw)$/i.test(previous) || /^[A-Z0-9]{10}$/i.test(previous)) return null;
+    let cursor = index - 1;
+    while (cursor >= 0 && /^(?:gp|aw)$/i.test(parts[cursor])) cursor -= 1;
+    const previous = parts[cursor];
+    if (!previous || /^[A-Z0-9]{10}$/i.test(previous)) return null;
     return previous;
   }
   return null;

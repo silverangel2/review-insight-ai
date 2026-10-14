@@ -25,6 +25,16 @@ export type ShopperAnswer = {
   nextSteps: Array<{ id: "screenshots" | "amazon_listing" | "compare" | "retry"; label: string; detail: string; href?: string }>;
 };
 
+/** Drop hosting, provider, and internal evidence labels from text a shopper can read. */
+export function shopperSafeText(value: unknown): string {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (/openai|evidenceState|\bNOT_ENOUGH\b|\bvercel\b|review analysis failed/i.test(text)) {
+    return "Written reviews were not available for a verdict.";
+  }
+  return text;
+}
+
 export const UNREADABLE_AMAZON_MESSAGE = "We couldn't read this Amazon page right now.";
 export const UNREADABLE_LISTING_MESSAGE = "We couldn't read this product page right now.";
 export const NEUTRAL_AMAZON_PRODUCT_LABEL = "Amazon product";
@@ -257,6 +267,7 @@ function v2ConfidenceLevel(result: Rec): ShopperAnswer["confidenceWords"] | null
  */
 export function isUnreadableAmazonPage(input: unknown): boolean {
   const result = obj(input);
+  if (result.pageUnreadable === true && writtenReviewCount(result, acceptedRecords(result)) === 0 && !marketplaceSignalsKnown(result)) return true;
   if (result.identityUnconfirmed === true && writtenReviewCount(result, acceptedRecords(result)) === 0) return true;
   if (writtenReviewCount(result, acceptedRecords(result)) > 0) return false;
   const buying = obj(result.buyingScoreV2);

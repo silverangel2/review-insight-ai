@@ -1,7 +1,7 @@
 import { ocrReviewScreenshot } from "@/lib/reviewScreenshotOcr";
 import { authoritativeDisplayName, isAmazonNavOrHeaderText, productFactsFromOcr } from "@/lib/screenshotProductFacts";
 import { amazonStoreLabel, isAnalyzableProductUrl } from "@/lib/listingAuthority";
-import { candidateMatchesLinkIdentity, identityFromProductLink, placeholderFreeText } from "@/lib/linkIdentity";
+import { candidateMatchesLinkIdentity, collectionProductName, identityFromProductLink, isPlaceholderProductName, placeholderFreeText } from "@/lib/linkIdentity";
 import { attachScanAccess } from "@/lib/scanAccess";
 import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
@@ -24,11 +24,11 @@ import {
   ANON_SCAN_LIMIT,
 } from "@/lib/anonymousScans";
 import { claimFreeScan, releaseFreeScan, type FreeScanIdentityKind } from "@/lib/freeScanQuota";
-import { isUnreadableAmazonPage } from "@/lib/shopperAnswer";
+import { isUnreadableAmazonPage, shopperSafeText } from "@/lib/shopperAnswer";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
-import { buyingConfidenceFromV2, buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore, shopperBottomLineForBuyingScore } from "@/lib/buyingScore";
+import { buyingConfidenceFromV2, buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore, shopperBottomLineForBuyingScore, wordingWhenListingAlreadySupplied } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
@@ -1799,7 +1799,7 @@ async function researchAndVerdict(
   // shortly after, the scan continues with what we have (v2 handles low n / provisional).
   const budgets = scanBudgets();
   const { value: reviewEvidence } = await raceWithBudget(budgets.collectionMs + 5_000, () => withScanDeadline(budgets.collectionMs, () => collectAndAnalyzeReviewEvidence({
-      productName: placeholderFreeText(productForReviewEvidence) || placeholderFreeText(identityFromProductLink(productLink)?.displayName) || placeholderFreeText(suppliedAsin ? "" : vision.category),
+      productName: collectionProductName(productLink, productForReviewEvidence, suppliedAsin ? "" : vision.category),
       brand: suppliedAsin ? "" : vision.brand,
       model: identityFromProductLink(productLink)?.modelTokens.join(" ") || undefined,
       color: [...vision.visibleFeatures, vision.name].join(" ").match(/\b(white|black|gray|grey|silver|blue|red|gold)\b/i)?.[1],
@@ -2217,9 +2217,12 @@ function buildReviewEvidenceShopperResult(input: {
   const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
   const price = String(vision.price || listingEvidence?.price || "").trim();
   const exactListingUrl = exactListingAccepted ? rawExactListingUrl : "";
-  const asin = exactListingAccepted
-    ? String(listingEvidence?.asin || rawListingAsin || "").trim() || null
-    : null;
+  const suppliedAsinOnResult = suppliedLink?.storeId === "amazon" ? suppliedLink.productId : null;
+  const asin = mismatchedListing
+    ? suppliedAsinOnResult
+    : exactListingAccepted
+      ? String(listingEvidence?.asin || rawListingAsin || suppliedAsinOnResult || "").trim() || null
+      : suppliedAsinOnResult;
   const stableProductKey = createProductKey([
     exactListingUrl,
     store,
@@ -2640,7 +2643,7 @@ function buildReviewEvidenceShopperResult(input: {
       commentsAnalyzed > 0
         ? `ReviewIntel analyzed ${commentsAnalyzed} exact-product review-intelligence signals.`
         : "ReviewIntel did not access usable review-intelligence signals for this scan.",
-    ],
+    ].map((note) => shopperSafeText(note)).filter(Boolean),
   };
   // Expose ReviewIntel's deterministic evidence-confidence audit only when
   // canonical written-review evidence is eligible. This is an audit score of
@@ -2672,11 +2675,13 @@ function buildReviewEvidenceShopperResult(input: {
         overallImpact: deterministic.bottomLine,
         buyAssessment: deterministic.customerVerdict,
         evidenceState: deterministic.evidenceState,
+        sourceNotes: Array.isArray(evidence.sourceNotes) ? evidence.sourceNotes.map((note) => shopperSafeText(note)).filter(Boolean) : [],
       }
     : {
         ...evidence,
         commentsAnalyzed,
         evidenceState: deterministic.evidenceState,
+        sourceNotes: Array.isArray(evidence.sourceNotes) ? evidence.sourceNotes.map((note) => shopperSafeText(note)).filter(Boolean) : [],
         reviewSnippets: [],
         repeatedPraises: [],
         repeatedComplaints: [],
@@ -2716,9 +2721,16 @@ function buildReviewEvidenceShopperResult(input: {
   scoreAudit = deterministic.deterministicScoringInputs;
   // v2 replaces the old customer-facing score and verdict. Zero analyzed reviews
   // never keep a review-evidence Buy or a 0-10 score.
+  const listingWasSupplied = Boolean(identityFromProductLink(input.suppliedListingUrl));
+  let pageUnreadable = false;
   {
     const faced = customerFacingDecision({ analyzedReviews: commentsAnalyzed, buyingScore: buyingScoreV2 });
-    buyingScoreV2 = faced.buyingScore;
+    buyingScoreV2 = wordingWhenListingAlreadySupplied(faced.buyingScore, listingWasSupplied);
+    buyingScoreV2 = {
+      ...buyingScoreV2,
+      notes: buyingScoreV2.notes.map((note) => shopperSafeText(note)).filter(Boolean),
+      primaryAction: buyingScoreV2.primaryAction ? shopperSafeText(buyingScoreV2.primaryAction) : buyingScoreV2.primaryAction,
+    };
     verdict = faced.verdict;
     buyScore = faced.buyScore;
     decisionStatus = faced.buyingScore.mode === "buying_score" || faced.buyingScore.mode === "written_only"
@@ -2726,7 +2738,9 @@ function buildReviewEvidenceShopperResult(input: {
       : faced.buyingScore.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
     finalDecisionSource = faced.finalDecisionSource;
     displayedVerdictConfidence = buyingConfidenceFromV2(faced.buyingScore.confidence);
-    bottomLine = shopperBottomLineForBuyingScore(faced.buyingScore, faced.verdict);
+    bottomLine = shopperSafeText(shopperBottomLineForBuyingScore(buyingScoreV2, faced.verdict));
+    const marketplaceKnown = (v2Rating !== null && v2Rating > 0) || (v2Count !== null && v2Count > 0);
+    pageUnreadable = listingWasSupplied && commentsAnalyzed === 0 && buyingScoreV2.audit.n === 0 && !marketplaceKnown && buyingScoreV2.mode === "no_score";
   }
 
   console.log("[ReviewIntel PIPELINE] exact-product-gate", JSON.stringify({
@@ -2780,6 +2794,7 @@ function buildReviewEvidenceShopperResult(input: {
     buyingScoreV2,
     scanId: input.scanId || null,
     identityUnconfirmed: mismatchedListing,
+    pageUnreadable,
     detectedProductKey: cleanDetectedProductKey(input.detectedProductKey || stableProductKey),
     exactListingAccepted,
     canonicalEvidenceEligible,
@@ -2920,6 +2935,7 @@ function buildReviewEvidenceShopperResult(input: {
     reviewCoverageRatio,
     collectorHasWrittenReviews,
     exactListingUrl: exactListingUrl || null,
+    url: exactListingUrl || input.suppliedListingUrl || null,
 
     topStrengths: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.strengths.map((item) => item.claim) : [],
     topComplaints: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.complaints.map((item) => item.claim) : [],

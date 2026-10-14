@@ -1051,7 +1051,7 @@ export default function AdminSocialAutoPost() {
 
             <p className="mt-2 text-xs font-bold leading-5 text-slate-500 dark:text-slate-300">
               {settings.full_auto_enabled
-                ? `Saved ON means Vercel cron publishes around ${settings.daily_time || "09:00"} when emergency pause is off.`
+                ? `Saved ON means the daily job publishes around ${settings.daily_time || "09:00"} when emergency pause is off.`
                 : "Saved OFF means only manual test posts can run."}
               {" "}Changes apply after Save all social settings.
             </p>

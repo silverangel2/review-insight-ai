@@ -63,7 +63,7 @@ export function buildAffiliateDiagnostics() {
       {
         label: "Amazon Associates Canada registration",
         done: Boolean(tag),
-        note: tag ? "Amazon Associate tag is connected." : "Register later, then add AMAZON_ASSOCIATE_TAG in Vercel.",
+        note: tag ? "Amazon Associate tag is connected." : "Register later, then add AMAZON_ASSOCIATE_TAG in the deployment settings.",
       },
       {
         label: "Walmart diagnostic only",
