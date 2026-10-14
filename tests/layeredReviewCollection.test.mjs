@@ -132,6 +132,7 @@ test("a reviews page is accepted and a captcha stops the ladder", async () => {
   assert.equal(stopped.hasReviews, false);
   assert.equal(stopped.chromium, "skipped-blocked");
   assert.equal(chromiumCalled, false);
+  assert.ok(captchaCalls.filter((url) => url === amazon).length >= 2, "one challenge still tries the other product-page profile");
   assert.ok(stopped.tierAttempts.some((entry) => entry.stop === "blocked-challenge"));
   assert.ok(stopped.tierAttempts.some((entry) => entry.tier === "reviews-endpoint"));
   assert.ok(stopped.tierAttempts.some((entry) => entry.tier === "sibling-domain"));
@@ -150,11 +151,15 @@ test("cookie jar is reused and Accept-Language follows the domain", async () => 
     },
   });
   assert.equal(seen[0]["accept-language"].startsWith("en-CA"), true);
-  assert.match(seen[0]["accept-encoding"], /gzip/);
-  assert.match(seen[0]["accept-encoding"], /br/);
+  assert.equal(seen[0]["accept-encoding"], undefined);
+  assert.equal(seen[0]["sec-ch-ua"], undefined);
+  assert.equal(seen[0]["sec-ch-ua-mobile"], undefined);
+  assert.equal(seen[0]["sec-ch-ua-platform"], undefined);
+  assert.equal(seen[0]["sec-fetch-dest"], undefined);
+  assert.equal(seen[0]["sec-fetch-mode"], undefined);
+  assert.equal(seen[0]["sec-fetch-site"], undefined);
+  assert.equal(seen[0]["sec-fetch-user"], undefined);
   assert.match(seen[0]["user-agent"], /Chrome\/140/);
-  assert.ok(seen[0]["sec-ch-ua"]);
-  assert.ok(seen[0]["sec-fetch-dest"]);
   assert.equal(seen[0]["x-ri-profile"], "chrome-win");
   assert.equal(seen[1].cookie.includes("session-id=abc123"), true);
   assert.equal(result.hasReviews, true);
@@ -233,10 +238,13 @@ test("gzip and brotli bodies are decoded, and profiles do not share a cache entr
     },
   });
   const gzipHeaders = profiles.headersForAttempt({ url: amazon, tier: "primary-profile", profileId: "chrome-win", jar: new profiles.ScanCookieJar() });
+  assert.equal(gzipHeaders["accept-encoding"], undefined);
+  assert.equal(gzipHeaders["sec-ch-ua"], undefined);
+  assert.equal(gzipHeaders["sec-fetch-dest"], undefined);
+  gzipHeaders["accept-encoding"] = "gzip";
   const gzipResult = await fetcher.get(amazon, { headers: gzipHeaders });
   assert.match(gzipResult.text, /productTitle/);
   const brHeaders = profiles.headersForAttempt({ url: "https://www.amazon.ca/dp/B0TESTLIST", tier: "primary-profile", profileId: "chrome-mac", jar: new profiles.ScanCookieJar() });
-  delete brHeaders["accept-encoding"];
   brHeaders["accept-encoding"] = "br";
   const brResult = await fetcher.get("https://www.amazon.ca/dp/B0TESTLIST", { headers: brHeaders });
   assert.match(brResult.text, /productTitle/);
@@ -315,6 +323,56 @@ async function withFetch(fake, action) {
   globalThis.fetch = fake;
   try { return await action(); } finally { globalThis.fetch = original; }
 }
+
+test("the first Amazon request headers equal the pre-layered fetch", async () => {
+  // 687b041 fetchText sent this object. The first listing page uses index 1
+  // (attemptedSearches + attemptedPageUrls.size after the URL is reserved).
+  const expected = {
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,text/plain,*/*;q=0.8",
+    "accept-language": "en-CA,en-US;q=0.9,en;q=0.8,fr-CA;q=0.6",
+    "upgrade-insecure-requests": "1",
+  };
+  const productHeaders = [];
+  await withFetch(async (url, init) => {
+    const parsed = new URL(String(url));
+    if (parsed.pathname === "/robots.txt") return new Response("", { status: 404 });
+    if (/amazon\./.test(parsed.hostname) && parsed.pathname.startsWith("/dp/")) productHeaders.push(init && init.headers);
+    return new Response(full, { status: 200 });
+  }, () => runNativeReviewRetrieval({
+    productTitle: "UnrelatedMaker Q7 Portable Station",
+    brand: "UnrelatedMaker",
+    listingUrl: amazon,
+    maxPages: 1,
+    maxQueries: 1,
+    politeDelayMs: 0,
+  }));
+  assert.equal(productHeaders.length >= 1, true);
+  assert.deepEqual(productHeaders[0], expected);
+  const later = [];
+  await withFetch(async (url, init) => {
+    const parsed = new URL(String(url));
+    if (parsed.pathname === "/robots.txt") return new Response("", { status: 404 });
+    if (parsed.hostname === "www.amazon.com" && parsed.pathname === "/dp/B0TESTLIST") later.push(init && init.headers);
+    if (parsed.pathname.includes("/hz/reviews-render/ajax/")) return new Response(reviews, { status: 200 });
+    if (parsed.hostname.includes("amazon.")) return new Response(stripped, { status: 200 });
+    return new Response("", { status: 404 });
+  }, () => runNativeReviewRetrieval({
+    productTitle: "UnrelatedMaker Q7 Portable Station",
+    brand: "UnrelatedMaker",
+    listingUrl: amazon,
+    maxPages: 4,
+    maxQueries: 1,
+    politeDelayMs: 0,
+  }));
+  assert.deepEqual(later[0], expected);
+  assert.ok(later.length > 1, "a page with no reviews still falls back to the ladder");
+  const fallback = later[1] instanceof Headers ? Object.fromEntries(later[1].entries()) : later[1];
+  assert.equal(fallback["sec-ch-ua"], undefined);
+  assert.equal(fallback["sec-fetch-dest"], undefined);
+  assert.equal(fallback["accept-encoding"], undefined);
+  assert.notEqual(fallback["user-agent"], expected["user-agent"]);
+});
 
 test("link-only Amazon retrieval uses a later tier when /dp and the reviews page are stripped", async () => {
   const urls = [];

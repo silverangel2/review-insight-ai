@@ -64,6 +64,11 @@ function requestInitForFetch(url: string, init: RequestInit): { cacheKey: string
   const headers = new Headers(init.headers || {});
   const profile = headers.get("x-ri-profile");
   const continueHost = headers.get("x-ri-continue-host") === "1";
+  // The pre-layered product fetch is a plain header object with no internal
+  // markers. Leave that object untouched so the request matches it byte for byte.
+  if (!profile && !headers.has("x-ri-continue-host")) {
+    return { cacheKey: url, init, continueHost: false };
+  }
   headers.delete("x-ri-profile");
   headers.delete("x-ri-continue-host");
   return { cacheKey: profile ? `${profile} ${url}` : url, init: { ...init, headers }, continueHost };

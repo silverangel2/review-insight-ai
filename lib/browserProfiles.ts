@@ -111,38 +111,21 @@ export function headersForAttempt(input: {
   const jsonApi = /\/ugc\/v2\/|\/api\/reviews\/|r2d2\.target\.com|api\.bazaarvoice\.com|redsky\.target\.com/i.test(input.url);
   const ajax = /\/ajax\/reviews\//i.test(input.url);
   const dataRequest = jsonApi || ajax;
-  let site = cookie ? "same-origin" : "none";
-  if (dataRequest && input.referer) {
-    try {
-      const refHost = new URL(input.referer).hostname;
-      site = registrableHost(host) === registrableHost(refHost)
-        ? (host.toLowerCase() === refHost.toLowerCase() ? "same-origin" : "same-site")
-        : "cross-site";
-    } catch { site = "cross-site"; }
-  }
+  // Client hints, fetch metadata, and an explicit accept-encoding made Amazon
+  // serve a bot-check page. The runtime still decompresses when it negotiates
+  // encoding itself. Do not put those headers back on the ladder.
   const headers: Record<string, string> = {
     "user-agent": profile.userAgent,
     accept: jsonApi
       ? "application/json,text/plain,*/*;q=0.8"
       : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
     "accept-language": acceptLanguageForHost(host),
-    "accept-encoding": "gzip, deflate, br",
-    "sec-ch-ua": profile.secChUa,
-    "sec-ch-ua-mobile": profile.secChUaMobile,
-    "sec-ch-ua-platform": profile.secChUaPlatform,
-    "sec-fetch-dest": dataRequest ? "empty" : "document",
-    "sec-fetch-mode": dataRequest ? "cors" : "navigate",
-    "sec-fetch-site": site,
     "cache-control": "max-age=0",
     // Stripped by the polite fetcher before the request leaves. It only splits the cache by profile.
     "x-ri-profile": profile.id,
   };
-  if (!dataRequest) {
-    headers["upgrade-insecure-requests"] = "1";
-    headers["sec-fetch-user"] = "?1";
-  }
+  if (!dataRequest) headers["upgrade-insecure-requests"] = "1";
   if (cookie) headers.cookie = cookie;
   if (dataRequest && input.referer) headers.referer = input.referer;
-  if (input.tier === "mobile-url") headers["sec-ch-ua-mobile"] = profile.secChUaMobile;
   return headers;
 }

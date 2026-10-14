@@ -219,6 +219,9 @@ let layeredScan: LayeredScanSummary = emptyLayeredScan();
 // Review endpoints that already returned a challenge or block. A later query
 // variant, pagination URL, or sibling listing must not fetch that path again.
 let blockedReviewPaths = new Set<string>();
+// URLs whose plain fetch already returned written reviews. A later ladder
+// sibling must reuse that page instead of requesting it again.
+let plainReviewPages = new Map<string, PageFetchResult>();
 function maxPagesForRender(input: { maxPages?: number }) { return typeof input.maxPages === "number" ? Math.max(1, input.maxPages) : 3; }
 
 function reviewPathKey(url: string): string | null {
@@ -278,13 +281,38 @@ async function fetchTextOnce(url: string, index: number, timeoutMs = 9000, costT
   }
 }
 
+function plainPageHasWrittenReviews(url: string, page: PageFetchResult): boolean {
+  if (!page.ok || !page.text) return false;
+  if (page.status === 401 || page.status === 403 || page.status === 429 || page.status === 503) return false;
+  const finalUrl = page.finalUrl || url;
+  if (isBlockedOrSignInReviewPage({ requestedUrl: url, finalUrl, html: page.text })) return false;
+  return extractWrittenReviewsFromHtml(page.text, finalUrl).length > 0;
+}
+
 async function fetchText(url: string, index: number, timeoutMs = 9000, costTelemetry?: ScanCostTelemetry): Promise<PageFetchResult> {
   if (!collectorForUrl(url)) return fetchTextOnce(url, index, timeoutMs, costTelemetry);
+  // First attempt is the pre-layered request: old user agent and BROWSER_HEADERS only.
+  // The ladder runs only when that response has no written reviews.
+  const plain = await fetchTextOnce(url, index, timeoutMs, costTelemetry);
+  if (plainPageHasWrittenReviews(url, plain)) {
+    plainReviewPages.set(url, plain);
+    return plain;
+  }
   const layered = await runLayeredStoreFetch({
     url,
     jar: scanCookieJar,
     remainingMs: () => scanCollectionRemainingMs() ?? Number.POSITIVE_INFINITY,
     fetchPage: async (attempt, headers) => {
+      const known = plainReviewPages.get(attempt.url);
+      if (known) {
+        return {
+          status: known.status ?? 200,
+          ok: true,
+          text: known.text,
+          finalUrl: known.finalUrl || attempt.url,
+          setCookies: known.setCookies,
+        };
+      }
       const pathKey = reviewPathKey(attempt.url);
       if (pathKey && blockedReviewPaths.has(pathKey) && isReviewEndpointUrl(attempt.url)) {
         return { status: 403, ok: false, text: "", finalUrl: attempt.url, error: "challenge or sign-in page" };
@@ -656,6 +684,7 @@ export async function runNativeReviewRetrieval(
   scanCookieJar = new ScanCookieJar();
   layeredScan = emptyLayeredScan();
   blockedReviewPaths = new Set();
+  plainReviewPages = new Map();
   activePoliteFetcher = createPoliteFetcher({ minHostIntervalMs: typeof input.politeDelayMs === "number" ? Math.min(input.politeDelayMs, 2000) : 400 });
   const politeStats = activePoliteFetcher.stats;
   // Free local headless render fallback (verified pages with client-side reviews only).
