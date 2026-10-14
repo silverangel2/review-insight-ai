@@ -1,8 +1,10 @@
 /**
  * Results-page gate. A Buying Score v2 result is shown. The only v2 case that
- * is flagged is a firm BUY with zero written reviews. Legacy results keep the
- * old impossible-BUY checks.
+ * is flagged is a firm BUY with zero written reviews, except a clear provisional
+ * marketplace Buy. Legacy results keep the old impossible-BUY checks.
  */
+
+import { isClearProvisionalBuy } from "@/lib/buyingScore";
 
 type Rec = Record<string, unknown>;
 
@@ -48,7 +50,8 @@ export function isImpossibleCachedShopperResult(value: unknown): boolean {
   if (!source) return false;
   const verdict = governedVerdict(source);
   if (isBuyingScoreV2Result(source)) {
-    return verdict === "BUY" && buyingScoreWrittenCount(source) === 0;
+    if (verdict !== "BUY" || buyingScoreWrittenCount(source) !== 0) return false;
+    return !isClearProvisionalBuy(record(source.buyingScoreV2));
   }
   if (verdict !== "BUY") return false;
   const productScore = clampScore(source.productScore, 0);

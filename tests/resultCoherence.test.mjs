@@ -83,11 +83,11 @@ test("requested RingConn capture reaches a coherent current route result", { ski
   const unsupported = structuredClone(report.input);
   unsupported.reviewEvidence.evidenceAdjudication = corpusFor(Array.from({length: 6}, (_, i) => `这是一段真实用户评论，使用体验需要进一步分析 ${i}`));
   const unknown = buildReviewEvidenceShopperResult(unsupported);
-  // v2: no accepted written reviews survive, so the rating-only result is a
-  // clearly labelled Provisional Marketplace Score (Leaning verdict, Low).
+  // v2: no accepted written reviews survive. 4.1 from 1,048 is below the
+  // supported-buy gate, so the provisional call stays Wait with Medium confidence.
   assert.equal(unknown.buyingScoreV2.mode, "provisional_marketplace");
   assert.equal(unknown.buyingScoreV2.audit.n, 0);
-  assert.equal(unknown.buyingScoreV2.confidence, "Low");
+  assert.equal(unknown.buyingScoreV2.confidence, "Medium");
   assert.equal(unknown.buyScore, unknown.buyingScoreV2.score);
   assert.equal(unknown.confidence, null);
   assert.equal(unknown.valueForMoney, "Unknown");

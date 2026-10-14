@@ -18,6 +18,19 @@ export const ADJUSTMENT_MAX = 10;
 export const EVIDENCE_HALF_WEIGHT = 10; // w = n / (n + 10)
 export const BUY_THRESHOLD = 75;
 export const WAIT_THRESHOLD = 50;
+// Provisional marketplace bands (no written reviews). The Bayesian score stays
+// the number. The shown verdict does not.
+// Clear Buy: R >= 4.5 and N >= 5,000. Floor R* = (5000*4.5 + 500*4) / 5500 = 4.455,
+// B = 86.4, more than 10 points above 75. The prior is under 10% of the weight.
+// Written text was not read, so confidence is Medium, never High.
+// Supported Buy: R >= 4.3 and N >= 1,000. Floor R* = (1000*4.3 + 2000) / 1500 = 4.2,
+// B = 80. The prior is still about a third of the weight, so this is Buy or
+// Leaning Buy, not a cautious Wait. Below either gate, a Bayesian Buy is shown
+// as Wait: 4.2 from 20,000 is still about B 80, and 4.0 from 1,000 is exactly 75.
+export const PROVISIONAL_CLEAR_BUY_RATING = 4.5;
+export const PROVISIONAL_CLEAR_BUY_COUNT = 5000;
+export const PROVISIONAL_SUPPORTED_BUY_RATING = 4.3;
+export const PROVISIONAL_SUPPORTED_BUY_COUNT = 1000;
 export const CAP_RECALL = 30;
 export const CAP_REPEATED_SAFETY = 54;
 export const CAP_SINGLE_SAFETY = 74;
@@ -88,7 +101,7 @@ export type BuyingScoreResult = {
   mode: OutputMode;
   score: number | null; // rounded 0-100
   rawScore: number | null;
-  verdict: Verdict | null; // null for provisional and no_score
+  verdict: Verdict | null; // null for supported/cautious provisional and no_score; Buy only in the clear provisional band
   leaning: Verdict | null; // only for provisional
   label: string; // "Buying Score" | "Provisional Marketplace Score" | ...
   provisionalLabel: string | null;
@@ -179,6 +192,102 @@ export function discrepancyFlag(s: Pick<BuyingScoreSignals, "n" | "rating" | "vi
 function formatStars(r: number) {
   return `${Number.isInteger(r) ? r.toFixed(1) : String(round1(r))}★`;
 }
+
+export type ProvisionalBand = "clear_buy" | "supported_buy" | "cautious";
+
+export function provisionalMarketplaceBand(rating: number, count: number): ProvisionalBand {
+  if (rating >= PROVISIONAL_CLEAR_BUY_RATING && count >= PROVISIONAL_CLEAR_BUY_COUNT) return "clear_buy";
+  if (rating >= PROVISIONAL_SUPPORTED_BUY_RATING && count >= PROVISIONAL_SUPPORTED_BUY_COUNT) return "supported_buy";
+  return "cautious";
+}
+
+/** Shopper-facing store name. Unknown hosts stay the generic word. */
+export function marketplaceStoreLabel(store?: string | null): string {
+  const text = String(store || "").toLowerCase();
+  if (text.includes("amazon")) return "Amazon";
+  if (text.includes("walmart")) return "Walmart";
+  if (text.includes("best buy") || text.includes("bestbuy")) return "Best Buy";
+  if (text.includes("target")) return "Target";
+  if (text.includes("home depot") || text.includes("homedepot")) return "Home Depot";
+  return "marketplace";
+}
+
+/** One sentence. It names the public rating and count, never how many reviews were read. */
+export function marketplaceRatingSentence(rating: number, count: number, store?: string | null): string {
+  return `Based on ${count.toLocaleString("en-US")} ${marketplaceStoreLabel(store)} ratings averaging ${formatStars(rating)}`;
+}
+
+export type ProvisionalShopperFacing = {
+  firmBuy: boolean;
+  answer: "BUY" | "LEANING BUY" | "LEANING WAIT" | "LEANING SKIP";
+  leaning: Verdict;
+  confidence: Confidence;
+  line: string;
+  verdict: Verdict | null;
+};
+
+type ProvisionalCard = {
+  mode?: string;
+  score?: number | null;
+  verdict?: string | null;
+  audit?: { n?: number; Rbar?: number | null; N?: number | null; capsApplied?: string[] };
+};
+
+function asProvisionalCard(value: unknown): ProvisionalCard | null {
+  if (!value || typeof value !== "object") return null;
+  return value as ProvisionalCard;
+}
+
+/**
+ * Recompute the shopper verdict from the rating and count. Saved scans that
+ * stored Low confidence still render from these bands.
+ */
+export function provisionalShopperFacing(value: unknown, store?: string | null): ProvisionalShopperFacing | null {
+  const card = asProvisionalCard(value);
+  if (!card || card.mode !== "provisional_marketplace") return null;
+  const rating = typeof card.audit?.Rbar === "number" ? card.audit.Rbar : null;
+  const count = typeof card.audit?.N === "number" ? card.audit.N : null;
+  if (rating === null || count === null || count <= 0) return null;
+  const tooNew = count < 50 || (card.audit?.capsApplied || []).includes("too_new");
+  const band = tooNew ? "cautious" : provisionalMarketplaceBand(rating, count);
+  const score = typeof card.score === "number"
+    ? Math.round(card.score)
+    : Math.round(bayesianBaseline(rating, count).B);
+  const bayes = verdictFromScore(score);
+  let verdict: Verdict | null = null;
+  let leaning: Verdict;
+  let confidence: Confidence;
+  let firmBuy = false;
+  if (band === "clear_buy" && bayes === "Buy") {
+    verdict = "Buy";
+    leaning = "Buy";
+    confidence = "Medium";
+    firmBuy = true;
+  } else if (band === "supported_buy" && bayes === "Buy") {
+    leaning = "Buy";
+    confidence = "Medium";
+  } else {
+    leaning = bayes === "Buy" ? "Wait" : bayes;
+    confidence = count >= PROVISIONAL_SUPPORTED_BUY_COUNT ? "Medium" : "Low";
+  }
+  const answer = firmBuy ? "BUY" : (`LEANING ${leaning.toUpperCase()}` as ProvisionalShopperFacing["answer"]);
+  return { firmBuy, answer, leaning, confidence, line: marketplaceRatingSentence(rating, count, store), verdict };
+}
+
+/** A cached firm BUY with zero written reviews is legitimate only in the clear band. */
+export function isClearProvisionalBuy(value: unknown): boolean {
+  const card = asProvisionalCard(value);
+  return Boolean(
+    card
+    && card.mode === "provisional_marketplace"
+    && card.verdict === "Buy"
+    && typeof card.audit?.Rbar === "number"
+    && typeof card.audit?.N === "number"
+    && card.audit.Rbar >= PROVISIONAL_CLEAR_BUY_RATING
+    && card.audit.N >= PROVISIONAL_CLEAR_BUY_COUNT,
+  );
+}
+
 export function evidenceLine(writtenCount: number, rating: number | null, count: number | null) {
   void writtenCount;
   if (rating === null) return count ? `${count.toLocaleString("en-US")} ratings (no average shown)` : "No marketplace rating found";
@@ -234,14 +343,22 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
         if (raw > CAP_TOO_NEW) { raw = CAP_TOO_NEW; capsApplied.push("too_new"); }
       }
       const score = Math.round(raw);
+      const sentence = marketplaceRatingSentence(rating!, count!);
+      const facing = provisionalShopperFacing({
+        mode: "provisional_marketplace",
+        score,
+        audit: { Rbar: rating, N: count, capsApplied },
+      });
+      const confidence = facing?.confidence || "Low";
       return {
-        version: BUYING_SCORE_VERSION, mode: "provisional_marketplace", score, rawScore: round1(raw), verdict: null,
-        leaning: verdictFromScore(score), label: "Provisional Marketplace Score",
+        version: BUYING_SCORE_VERSION, mode: "provisional_marketplace", score, rawScore: round1(raw),
+        verdict: facing?.verdict || null,
+        leaning: facing?.leaning || verdictFromScore(score), label: "Provisional Marketplace Score",
         provisionalLabel: "Provisional · based on marketplace rating only",
-        confidence: "Low", confidenceReason: `Low · ${line}`, evidenceLine: line, warnings: provWarnings,
-        notes: ["Based on the marketplace rating only. We couldn't read any written reviews yet. Paste the exact product link for a full Buying Score."],
+        confidence, confidenceReason: `${confidence} confidence`, evidenceLine: sentence, warnings: provWarnings,
+        notes: [],
         primaryAction: "Paste the exact product link for a full Buying Score", recallStatement: recallText,
-        audit: audit(score, "Low"),
+        audit: audit(score, confidence),
       };
     }
     return {
@@ -680,7 +797,7 @@ export function wordingWhenListingAlreadySupplied<T extends { mode: string; audi
   if (card.mode === "provisional_marketplace") {
     return {
       ...card,
-      notes: ["Based on the marketplace rating only. Written reviews on this page could not be read."],
+      notes: [],
       primaryAction: "Add a screenshot of the reviews if you can see them",
     };
   }
@@ -699,10 +816,16 @@ export function wordingWhenListingAlreadySupplied<T extends { mode: string; audi
 export function shopperBottomLineForBuyingScore(
   card: ReturnType<typeof buyingScoreFromReviews>,
   verdict: "BUY" | "REVIEW FIRST" | "AVOID",
+  store?: string | null,
 ): string {
   const evidence = String(card.evidenceLine || "").trim();
   const tail = evidence ? ` ${evidence}.` : "";
   if (card.mode === "provisional_marketplace") {
+    const rating = card.audit?.Rbar;
+    const count = card.audit?.N;
+    if (typeof rating === "number" && typeof count === "number" && count > 0) {
+      return marketplaceRatingSentence(rating, count, store);
+    }
     const leaning = card.leaning === "Buy" || card.leaning === "Skip" || card.leaning === "Wait" ? card.leaning : "Wait";
     return `Provisional Marketplace Score. Leaning ${leaning}.${tail}`;
   }
@@ -730,6 +853,10 @@ export function customerFacingDecision(input: {
         reviews: [],
       });
   const firm = (card.mode === "buying_score" || card.mode === "written_only") && card.audit.n > 0;
+  // Only the clear provisional band is a firm shopper BUY. It is never AVOID.
+  if (card.mode === "provisional_marketplace" && card.verdict === "Buy") {
+    return { verdict: "BUY", buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
+  }
   if (!firm) {
     return { verdict: "REVIEW FIRST", buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
   }

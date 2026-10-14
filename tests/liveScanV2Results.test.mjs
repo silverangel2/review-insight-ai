@@ -91,20 +91,20 @@ test("v2 BUY with written reviews stays visible; a firm BUY with n=0 is flagged 
   assert.equal(visibility.resultsPageHidesScan(legacy), true);
 });
 
-test("zero written reviews stay a leaning, never a firm BUY or AVOID", () => {
+test("a strong marketplace rating with no written reviews is a clear BUY", () => {
   const card = buying.buyingScoreFromReviews({
     marketplace: { rating: 4.7, count: 270111, matchesExactModel: true },
     reviews: [],
   });
   const faced = buying.customerFacingDecision({ analyzedReviews: 0, buyingScore: card });
-  assert.equal(faced.verdict, "REVIEW FIRST");
-  assert.notEqual(faced.verdict, "BUY");
+  assert.equal(faced.verdict, "BUY");
   assert.notEqual(faced.verdict, "AVOID");
   assert.equal(faced.buyingScore.mode, "provisional_marketplace");
-  assert.equal(faced.buyingScore.leaning, "Buy");
+  assert.equal(faced.buyingScore.verdict, "Buy");
+  assert.equal(faced.buyingScore.confidence, "Medium");
   const line = buying.shopperBottomLineForBuyingScore(faced.buyingScore, faced.verdict);
-  assert.match(line, /Leaning Buy/);
-  assert.doesNotMatch(line, /does not justify|couldn.?t verify/i);
+  assert.match(line, /Based on 270,111 marketplace ratings averaging 4\.7★/);
+  assert.doesNotMatch(line, /mixed signals|reviews read|does not justify|couldn.?t verify/i);
   assert.equal(buying.buyingConfidenceFromV2("High"), 80);
   assert.equal(buying.buyingConfidenceFromV2("Medium"), 65);
   assert.equal(buying.buyingConfidenceFromV2("Low"), 45);
@@ -116,7 +116,7 @@ test("analyze route aligns confidence and bottom line with the v2 decision", () 
   const block = route.slice(start, end);
   assert.match(block, /buyingConfidenceFromV2\(faced\.buyingScore\.confidence\)/);
   assert.match(block, /buyingScoreV2 = wordingWhenListingAlreadySupplied\(faced\.buyingScore, listingWasSupplied\)/);
-  assert.match(block, /shopperBottomLineForBuyingScore\(buyingScoreV2, faced\.verdict\)/);
+  assert.match(block, /shopperBottomLineForBuyingScore\(buyingScoreV2, faced\.verdict, store\)/);
   assert.match(route, /catch \{ \/\* a missing release function must not fail the scan \*\/ \}/);
 });
 
@@ -157,7 +157,7 @@ test("a 200 Amazon page yields #productTitle and the main rating block on every 
   }
 });
 
-test("varied v2 results are never hidden and n=0 is never BUY or AVOID", () => {
+test("varied v2 results are never hidden, and n=0 is BUY only in the clear band", () => {
   const categories = ["kettle", "novel", "stroller", "drill", "shampoo"];
   const domains = ["com", "ca", "co.uk"];
   const ratings = [2.5, 3.4, 4.1, 4.9];
@@ -182,7 +182,9 @@ test("varied v2 results are never hidden and n=0 is never BUY or AVOID", () => {
           });
           const faced = buying.customerFacingDecision({ analyzedReviews: n, buyingScore: card });
           if (n === 0 || card.audit.n === 0) {
-            assert.notEqual(faced.verdict, "BUY", `${category} ${rating} ${count}`);
+            const gate = buying.provisionalShopperFacing(card);
+            if (gate?.firmBuy) assert.equal(faced.verdict, "BUY", `${category} ${rating} ${count}`);
+            else assert.notEqual(faced.verdict, "BUY", `${category} ${rating} ${count}`);
             assert.notEqual(faced.verdict, "AVOID", `${category} ${rating} ${count}`);
           }
           const level = levels[seen % levels.length];
@@ -198,13 +200,23 @@ test("varied v2 results are never hidden and n=0 is never BUY or AVOID", () => {
             buyingScoreV2: { ...faced.buyingScore, confidence: level },
           };
           assert.equal(visibility.resultsPageHidesScan(result), false, `${category} n=${n} ${domain}`);
-          if (!(result.verdict === "BUY" && result.buyingScoreV2.audit.n === 0)) {
+          if (result.verdict === "BUY" && result.buyingScoreV2.audit.n === 0) {
+            assert.equal(visibility.isImpossibleCachedShopperResult(result), !buying.isClearProvisionalBuy(result.buyingScoreV2));
+          } else {
             assert.equal(visibility.isImpossibleCachedShopperResult(result), false);
           }
           const answer = shopper.deriveShopperAnswer(result);
           if (result.buyingScoreV2.audit.n === 0) {
-            assert.notEqual(answer.label, "Buy");
-            assert.notEqual(answer.label, "Skip");
+            const gate = buying.provisionalShopperFacing(faced.buyingScore, "Amazon");
+            if (!gate) assert.notEqual(answer.label, "Buy");
+            else if (gate.firmBuy) assert.equal(answer.label, "Buy");
+            else if (gate.leaning === "Buy") assert.equal(answer.label, "Leaning Buy");
+            else if (gate.leaning === "Skip") assert.equal(answer.label, "Skip");
+            else assert.equal(answer.label, "Wait");
+            if (gate) {
+              assert.equal(answer.confidenceWords, gate.confidence);
+              assert.doesNotMatch(`${answer.why} ${answer.trustLine}`, /mixed signals|reviews read|could not access enough|Low confidence/i);
+            }
           } else {
             const expected = card.verdict === "Buy" ? "Buy" : card.verdict === "Skip" ? "Skip" : "Wait";
             assert.equal(answer.label, expected, `${category} n=${n} ${card.verdict}`);
@@ -430,4 +442,59 @@ test("a missing release function does not throw or log", async () => {
     if (previous.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     else process.env.SUPABASE_SERVICE_ROLE_KEY = previous.key;
   }
+});
+
+test("a strong rating with no written reviews renders BUY, Medium, and one rating sentence", () => {
+  const ts = require("typescript");
+  const { readFileSync } = require("node:fs");
+  const { resolve } = require("node:path");
+  const filename = resolve("components/ResultsClient.tsx");
+  const source = readFileSync(filename, "utf8").replace('import "./results-stagger.css";', "") + "\nexport { ShopperProductDetail };\n";
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
+  const uiJiti = require("jiti")(process.cwd(), {
+    alias: { "@": process.cwd() },
+    extensions: [".js", ".json", ".ts", ".tsx", ".mjs"],
+    cache: false,
+    requireCache: false,
+    transform: ({ source: fileSource }) => ({
+      code: ts.transpileModule(fileSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText,
+    }),
+  });
+  const { ShopperProductDetail } = uiJiti.evalModule(compiled, { filename, ext: ".js" });
+  const { ShopperAnswerCard } = uiJiti("./components/ShopperAnswerCard.tsx");
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const card = buying.buyingScoreFromReviews({
+    marketplace: { rating: 4.6, count: 46944, matchesExactModel: true },
+    reviews: [],
+  });
+  const faced = buying.customerFacingDecision({ analyzedReviews: 0, buyingScore: card });
+  const result = {
+    analysisVersion: "review-evidence-v2",
+    finalDecisionSource: "buyingScoreV2",
+    verdict: faced.verdict,
+    stableVerdict: faced.verdict,
+    buyScore: faced.buyScore,
+    productScore: faced.buyScore,
+    buyingConfidence: 65,
+    confidence: "Low",
+    bottomLine: "ReviewIntel could not access enough public review evidence for this product.",
+    product: { name: "AirPods Pro 2", store: "Amazon", rating: "4.6", reviewCount: "46944" },
+    reviewEvidence: { commentsAnalyzed: 0, listingEvidence: { rating: 4.6, reviewCount: 46944, store: "Amazon", exactListingUrl: "https://www.amazon.com/dp/B0D1XD1ZV3" } },
+    buyingScoreV2: { ...card, confidence: "Low", verdict: null, leaning: "Buy" },
+    researchQuality: { evidenceLevel: "limited", notes: [] },
+    meta: { audience: "buyer", locale: "en" },
+    topStrengths: [],
+    topComplaints: [],
+  };
+  const html = renderToStaticMarkup(React.createElement(ShopperProductDetail, { result, preview: "" }));
+  assert.match(html, /Based on 46,944 Amazon ratings averaging 4\.6★/);
+  assert.match(html, />BUY</);
+  assert.match(html, /Medium/);
+  assert.doesNotMatch(html, /mixed signals|No clear strengths|No repeated praise|could not access enough|Low confidence|LEANING BUY/i);
+  const answerHtml = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result, productName: "AirPods Pro 2" }));
+  assert.match(answerHtml, /Based on 46,944 Amazon ratings averaging 4\.6★/);
+  assert.match(answerHtml, />Buy</);
+  assert.match(answerHtml, /Medium/);
+  assert.doesNotMatch(answerHtml, /mixed signals|No repeated praise|could not access enough|Low confidence|reviews read/i);
 });
