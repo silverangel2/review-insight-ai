@@ -206,6 +206,9 @@ test("zero analyzed reviews never keep a review-evidence Buy score", () => {
   const faced = buying.customerFacingDecision({ analyzedReviews: 0, buyingScore: written });
   assert.equal(faced.finalDecisionSource, "buyingScoreV2");
   assert.notEqual(faced.finalDecisionSource, "reviewEvidence");
+  assert.equal(faced.verdict, "REVIEW FIRST");
+  assert.notEqual(faced.verdict, "BUY");
+  assert.notEqual(faced.verdict, "AVOID");
   assert.equal(faced.buyingScore.mode, "provisional_marketplace");
   assert.equal(faced.buyingScore.verdict, null);
   assert.ok(faced.buyingScore.leaning);

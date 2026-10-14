@@ -39,8 +39,15 @@ export function neutralProductLabel(value: unknown) {
   return text;
 }
 
-/** Shown when written evidence is thin. The next step, with no retrieved-review count. */
+/** Shown when written evidence is thin and the shopper has not already given a listing link. */
 export const THIN_EVIDENCE_NEXT_STEP = "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
+
+/** A release that did not succeed must not promise a free retry. */
+export function unreadableRetryPhrase(input: unknown): string {
+  return String(obj(obj(input).quota).code || "") === "released"
+    ? "Retrying is free."
+    : "Please try again in a moment.";
+}
 
 type Rec = Record<string, unknown>;
 const obj = (value: unknown): Rec => (value && typeof value === "object" && !Array.isArray(value) ? value as Rec : {});
@@ -89,11 +96,30 @@ export function realReviewQuotes(input: unknown, limit = 4): string[] {
   return quotes;
 }
 
+function buyingScoreCard(result: Rec): Rec | null {
+  const card = obj(result.buyingScoreV2);
+  if (String(result.finalDecisionSource || "") === "buyingScoreV2") return card;
+  if (card.version === "buying-score-v2" || card.mode) return card;
+  return null;
+}
+
 function listingUrls(result: Rec): string[] {
   const evidence = obj(result.reviewEvidence);
   const listing = obj(evidence.listingEvidence);
   const product = obj(result.product);
-  const values = [listing.exactListingUrl, result.exactListingUrl, result.sourceUrl, result.url, result.productUrl, product.url, product.link];
+  const identity = obj(result.productIdentity);
+  const verified = obj(result.verifiedProductMetadata);
+  const values = [
+    listing.exactListingUrl,
+    identity.exactListingUrl,
+    verified.canonicalListingUrl,
+    result.exactListingUrl,
+    result.sourceUrl,
+    result.url,
+    result.productUrl,
+    product.url,
+    product.link,
+  ];
   const urls: string[] = [];
   for (const value of values) {
     const text = String(value || "").trim();
@@ -254,7 +280,13 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const sources = Array.from(new Set(records.map(record => hostOf(record.sourceUrl)).filter((host): host is string => Boolean(host))));
   const verdict = verdictOf(result);
   const state = evidenceStateOf(result);
-  const thin = state === "NOT_ENOUGH" || reviewCount === 0 || /NOT[_ ]ENOUGH|NOT SCORED/.test(verdict);
+  const card = buyingScoreCard(result);
+  const writtenOnCard = card ? num(obj(card.audit).n) : null;
+  const cardCount = writtenOnCard === null ? null : Math.max(0, Math.floor(writtenOnCard));
+  // Legacy NOT_ENOUGH and a legacy accepted-count of 0 must not override a v2 decision.
+  const thin = card
+    ? cardCount === 0 || String(card.mode || "") === "no_score"
+    : state === "NOT_ENOUGH" || reviewCount === 0 || /NOT[_ ]ENOUGH|NOT SCORED/.test(verdict);
 
   const toPoints = (kind: "strength" | "complaint"): ShopperPoint[] => claimsOf(result, kind)
     .sort((a, b) => b.supportCount - a.supportCount)
@@ -266,21 +298,38 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     });
   const claimedLoves = toPoints("strength");
   const claimedComplaints = toPoints("complaint");
+  // Quotes can fill the quotes section. They are not claims, so they never enter the one-line summary.
   const loves = claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records);
   const complaints = claimedComplaints;
 
   let kind: ShopperAnswerKind = thin ? "not_enough" : verdict === "BUY" ? "buy" : verdict === "AVOID" ? "skip" : "wait";
   if (!thin && !["BUY", "AVOID", "DO NOT BUY YET"].includes(verdict)) kind = "wait";
+  if (card && !thin) {
+    const cardVerdict = String(card.verdict || "").toLowerCase();
+    kind = cardVerdict === "buy" ? "buy" : cardVerdict === "skip" ? "skip" : "wait";
+  }
+  if (card && thin) kind = "not_enough";
   const label = { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
 
-  const topLove = loves[0]?.claim, topComplaint = complaints[0]?.claim;
+  const topLove = claimedLoves[0]?.claim;
+  const topComplaint = claimedComplaints[0]?.claim;
+  const hasListing = listingUrls(result).length > 0;
+  const neutralSummary = kind === "buy"
+    ? "Buyers are mostly positive about this product."
+    : kind === "skip"
+      ? "Buyers report enough problems to skip this."
+      : "Buyer feedback is mixed or still limited.";
   const why = kind === "not_enough"
-    ? "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
-    : kind === "buy"
-      ? `Buyers consistently report ${topLove ? lower(topLove) : "good results"}${topComplaint ? `, and complaints like ${lower(topComplaint)} are rare` : ""}.`
-      : kind === "skip"
-        ? `Too many buyers report ${topComplaint ? lower(topComplaint) : "serious problems"}${topLove ? `, which outweighs ${lower(topLove)}` : ""}.`
-        : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but ${lower(topComplaint)} comes up` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
+    ? (hasListing
+      ? "Low confidence. Add a review screenshot to read more real reviews."
+      : THIN_EVIDENCE_NEXT_STEP)
+    : !topLove && !topComplaint
+      ? neutralSummary
+      : kind === "buy"
+        ? `Buyers consistently report ${topLove ? lower(topLove) : "good results"}${topComplaint ? `, and complaints like ${lower(topComplaint)} are rare` : ""}.`
+        : kind === "skip"
+          ? `Too many buyers report ${topComplaint ? lower(topComplaint) : "serious problems"}${topLove ? `, which outweighs ${lower(topLove)}` : ""}.`
+          : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but ${lower(topComplaint)} comes up` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
 
   const sourceText = sources.length ? sources.join(", ") : "the product listing";
   const trustLine = kind === "not_enough"
@@ -289,7 +338,8 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
 
   const storedScore = num(result.buyScore) ?? num(result.score) ?? num(result.productScore);
   const provisionalScore = obj(result.buyingScoreV2).mode === "provisional_marketplace" ? num(obj(result.buyingScoreV2).score) : null;
-  const score = provisionalScore !== null ? provisionalScore : reviewCount > 0 ? storedScore : null;
+  const v2Score = card && String(card.mode || "") !== "no_score" ? num(card.score) : null;
+  const score = card ? v2Score : provisionalScore !== null ? provisionalScore : reviewCount > 0 ? storedScore : null;
   const storedConfidence = canonicalConfidencePercent(result);
   // Keep a real percent. Never replace a missing or thin-evidence value with 0.
   const confidencePercent = thin && (storedConfidence === null || storedConfidence <= 0) ? null : storedConfidence;
@@ -311,7 +361,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
       complaints: [],
       reviewCount: 0,
       sources: [],
-      trustLine: "Retrying is free. Add a screenshot of the product page and try the scan again.",
+      trustLine: `${unreadableRetryPhrase(result)} Add a screenshot of the product page and try the scan again.`,
       confidenceWords: "Unknown",
       confidenceFromV2: false,
       confidencePercent: null,
@@ -322,7 +372,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
         {
           id: "retry",
           label: "Try again",
-          detail: "We couldn't read this Amazon page right now. Retrying is free.",
+          detail: `${UNREADABLE_AMAZON_MESSAGE} ${unreadableRetryPhrase(result)}`,
           href: amazonUrl ? `/analyze?url=${encodeURIComponent(amazonUrl)}` : "/analyze",
         },
         {
@@ -333,13 +383,14 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
       ],
     };
   }
-  const nextSteps: ShopperAnswer["nextSteps"] = (kind === "not_enough" || reviewCount < 10) ? [
-    {
-      id: "amazon_listing",
+  const writtenForSteps = cardCount !== null ? cardCount : reviewCount;
+  const nextSteps: ShopperAnswer["nextSteps"] = (kind === "not_enough" || writtenForSteps < 10) ? [
+    ...(hasListing ? [] : [{
+      id: "amazon_listing" as const,
       label: "Scan the Amazon listing",
       detail: "Scan the Amazon listing link so we can read more real reviews of this exact product.",
       href: listingUrl ? `/analyze?url=${encodeURIComponent(listingUrl)}` : "/analyze",
-    },
+    }]),
     { id: "screenshots", label: "Add a review screenshot", detail: "Upload a screenshot of reviews you can see. We read the text and only keep real reviews of this exact product." },
     { id: "compare", label: "Compare with an alternative", detail: "Scan a similar product and compare what real buyers say." },
   ] : [];

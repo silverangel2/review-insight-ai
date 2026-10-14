@@ -18,7 +18,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export function isSupabaseConfigured() {
-  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+  return Boolean((process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL) && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 export function hasSupabaseServiceEnv() {
@@ -120,21 +120,28 @@ export async function supabaseDelete(table: string, query: string) {
   return true;
 }
 
-export async function supabaseRpc<T = SupabaseRow>(functionName: string, body: SupabaseRow) {
-  if (!isSupabaseConfigured()) return null;
+export async function supabaseRpc<T = SupabaseRow>(functionName: string, body: SupabaseRow, options?: { quiet?: boolean }) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
 
   const response = await fetch(
-    `${SUPABASE_URL!.replace(/\/$/, "")}/rest/v1/rpc/${encodeURIComponent(functionName)}`,
+    `${url.replace(/\/$/, "")}/rest/v1/rpc/${encodeURIComponent(functionName)}`,
     {
       method: "POST",
-      headers: headers("return=representation"),
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
       body: JSON.stringify(body),
       cache: "no-store",
     }
   ).catch(() => null);
 
   if (!response?.ok) {
-    console.error(`[Supabase] rpc ${functionName} failed`, response?.status || "network");
+    if (!options?.quiet) console.error(`[Supabase] rpc ${functionName} failed`, response?.status || "network");
     return null;
   }
 

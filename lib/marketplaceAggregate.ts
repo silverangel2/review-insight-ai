@@ -53,15 +53,26 @@ export function extractMarketplaceAggregateFromHtml(html: string): ExtractedMark
   let count: number | null = null;
   let source: ExtractedMarketplaceAggregate["source"] = null;
 
-  // Amazon product page: "4.5 out of 5 stars" near acrPopover / averageCustomerReviews, "2,143 ratings".
-  const amazonRating = text.match(/id=["']acrPopover["'][^>]*title=["']([\d.]+) out of 5 stars/i)
+  // Main rating block only. Attribute order varies, and the count node sometimes
+  // holds just the number while "ratings" sits on the aria-label.
+  const popover = text.match(/<[a-z0-9]+\b[^>]*\bid=["']acrPopover["'][^>]*>/i)?.[0] || "";
+  const countTag = text.match(/<([a-z0-9]+)\b[^>]*\bid=["']acrCustomerReviewText["'][^>]*>([\s\S]*?)<\/\1>/i);
+  const ratingText = (
+    popover.match(/title=["']([\d.]+)\s*out of 5 stars["']/i)
+    || text.match(/id=["']acrPopover["'][^>]*title=["']([\d.]+) out of 5 stars/i)
     || text.match(/averageCustomerReviews[\s\S]{0,800}?([\d.]+) out of 5 stars/i)
-    || text.match(/data-hook=["']rating-out-of-text["'][^>]*>\s*([\d.]+) out of 5/i);
-  const amazonCount = text.match(/id=["']acrCustomerReviewText["'][^>]*>\s*\(?([\d,]+)\)?\s*(?:global )?ratings?/i)
-    || text.match(/data-hook=["']total-review-count["'][^>]*>[\s\S]{0,80}?([\d,]+)\s*(?:global )?ratings?/i);
-  if (amazonRating || amazonCount) {
-    rating = okRating(num(amazonRating?.[1]));
-    count = okCount(num(amazonCount?.[1]));
+    || text.match(/data-hook=["']rating-out-of-text["'][^>]*>\s*([\d.]+) out of 5/i)
+  )?.[1] || null;
+  const countText = countTag
+    ? (countTag[0].match(/aria-label=["']([\d,]+)/i)?.[1]
+      || countTag[2].replace(/<[^>]+>/g, " ").match(/[\d,]+/)?.[0]
+      || null)
+    : (text.match(/id=["']acrCustomerReviewText["'][^>]*>\s*\(?([\d,]+)\)?\s*(?:global )?ratings?/i)?.[1]
+      || text.match(/data-hook=["']total-review-count["'][^>]*>[\s\S]{0,80}?([\d,]+)\s*(?:global )?ratings?/i)?.[1]
+      || null);
+  if (ratingText || countText) {
+    rating = okRating(num(ratingText));
+    count = okCount(num(countText));
     source = "amazon-html";
   }
   if (rating === null || count === null) {

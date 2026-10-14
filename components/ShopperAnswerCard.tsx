@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { deriveShopperAnswer, formatShopperConfidence, type ShopperPoint } from "@/lib/shopperAnswer";
+import { deriveShopperAnswer, formatShopperConfidence, unreadableRetryPhrase, type ShopperPoint } from "@/lib/shopperAnswer";
 import { CountUp } from "./motion/CountUp";
 import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 
@@ -84,7 +84,7 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
         </div>
         <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-800 sm:text-xl" data-testid={answer.unreadable ? "unreadable-amazon-page" : undefined}>{answer.why}</p>
         {answer.unreadable ? (
-          <p className="mt-4 text-sm leading-6 text-slate-600">Retrying is free. Add a screenshot of the product page if a retry still cannot read it.</p>
+          <p className="mt-4 text-sm leading-6 text-slate-600">{unreadableRetryPhrase(result)} Add a screenshot of the product page if a retry still cannot read it.</p>
         ) : (
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm">
           <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{formatShopperConfidence(answer)}</dd></div>

@@ -27,7 +27,7 @@ import { isUnreadableAmazonPage } from "@/lib/shopperAnswer";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
-import { buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore } from "@/lib/buyingScore";
+import { buyingConfidenceFromV2, buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore, shopperBottomLineForBuyingScore } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
@@ -2634,7 +2634,7 @@ function buildReviewEvidenceShopperResult(input: {
   // Expose ReviewIntel's deterministic evidence-confidence audit only when
   // canonical written-review evidence is eligible. This is an audit score of
   // extraction/decision quality, not a probabilistic prediction.
-  const displayedVerdictConfidence =
+  let displayedVerdictConfidence =
     canonicalEvidenceEligible &&
     Number.isFinite(verdictConfidence)
       ? verdictConfidence
@@ -2714,6 +2714,8 @@ function buildReviewEvidenceShopperResult(input: {
       ? "evidence_based"
       : faced.buyingScore.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
     finalDecisionSource = faced.finalDecisionSource;
+    displayedVerdictConfidence = buyingConfidenceFromV2(faced.buyingScore.confidence);
+    bottomLine = shopperBottomLineForBuyingScore(faced.buyingScore, faced.verdict);
   }
 
   console.log("[ReviewIntel PIPELINE] exact-product-gate", JSON.stringify({
@@ -3131,8 +3133,10 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     const recordCompletedScan = async (scanResult: JsonRecord) => {
       const unreadablePage = isUnreadableAmazonPage(scanResult);
       if (unreadablePage && quotaSubject) {
-        const released = await releaseFreeScan(quotaSubject);
-        if (released.code !== "unavailable") claimedQuota = released;
+        try {
+          const released = await releaseFreeScan(quotaSubject);
+          if (released.code !== "unavailable") claimedQuota = released;
+        } catch { /* a missing release function must not fail the scan */ }
       }
       const finalDecisionSource = String(scanResult.finalDecisionSource || "");
       const terminalScanResult = scanResult.scanState
@@ -3231,8 +3235,10 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
       // signed-out cache hit may not have an account row to assert.
       let completedResult = operation.result;
       if (isUnreadableAmazonPage(operation.result) && quotaSubject) {
-        const released = await releaseFreeScan(quotaSubject);
-        if (released.code !== "unavailable") completedResult = { ...operation.result, quota: released };
+        try {
+          const released = await releaseFreeScan(quotaSubject);
+          if (released.code !== "unavailable") completedResult = { ...operation.result, quota: released };
+        } catch { /* a missing release function must not fail the scan */ }
       }
       const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json&id=eq.${encodeURIComponent(String(operation.result.analysisId || ""))}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
       assertPersistedScan(rows[0], email, scanId);
