@@ -125,10 +125,16 @@ test("a reviews page is accepted and a captcha stops the ladder", async () => {
     chromiumFetch: async () => { chromiumCalled = true; return null; },
     fetchPage: async (attempt) => { captchaCalls.push(attempt.url); return page(captcha, 200, { finalUrl: "https://www.amazon.com/errors/validateCaptcha" }); },
   });
-  assert.equal(captchaCalls.length, 1);
+  assert.ok(captchaCalls.length > 1);
+  assert.ok(captchaCalls.some((url) => url.includes("/product-reviews/") || url.includes("reviews-render")));
+  assert.ok(captchaCalls.some((url) => /amazon\.(?:ca|co\.uk)/.test(url)));
   assert.equal(stopped.blocked, true);
   assert.equal(stopped.hasReviews, false);
+  assert.equal(stopped.chromium, "skipped-blocked");
   assert.equal(chromiumCalled, false);
+  assert.ok(stopped.tierAttempts.some((entry) => entry.stop === "blocked-challenge"));
+  assert.ok(stopped.tierAttempts.some((entry) => entry.tier === "reviews-endpoint"));
+  assert.ok(stopped.tierAttempts.some((entry) => entry.tier === "sibling-domain"));
 });
 
 test("cookie jar is reused and Accept-Language follows the domain", async () => {

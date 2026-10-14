@@ -1,8 +1,9 @@
 // Layered public-page collection for one product URL.
 // Order: primary browser profile, one alternate profile, alternate URL forms,
 // mobile page, public review endpoints, sibling storefronts, then optional
-// Chromium. A CAPTCHA or sign-in page stops the ladder. Nothing here solves
-// a challenge or submits a login.
+// Chromium. A CAPTCHA, sign-in page, or 401/403/429/503 stops that profile
+// on that host. Public review endpoints and sibling storefronts are still
+// tried. Nothing here solves a challenge or submits a login.
 
 import { headersForAttempt, ScanCookieJar, type FetchTier } from "./browserProfiles";
 import { maybeSparticuzChromium } from "./layeredChromium";
@@ -43,6 +44,13 @@ export type PageAssessment = {
   text: string;
 };
 
+export type TierAttemptLog = {
+  tier: string;
+  profileId: string | null;
+  url: string;
+  stop: string;
+};
+
 export type LayeredResult = {
   ok: boolean;
   text: string;
@@ -56,7 +64,8 @@ export type LayeredResult = {
   blocked: boolean;
   hasReviews: boolean;
   attempts: number;
-  chromium: "not-needed" | "skipped-budget" | "skipped-disabled" | "unavailable" | "used" | "blocked" | "empty";
+  tierAttempts: TierAttemptLog[];
+  chromium: "not-needed" | "skipped-budget" | "skipped-disabled" | "skipped-blocked" | "unavailable" | "used" | "blocked" | "empty";
 };
 
 export type LayeredScanSummary = {
@@ -67,10 +76,11 @@ export type LayeredScanSummary = {
   stores: string[];
   blocked: boolean;
   chromium: string;
+  tierAttempts: TierAttemptLog[];
 };
 
 export function emptyLayeredScan(): LayeredScanSummary {
-  return { tier: null, profileId: null, strippedPage: false, attempts: 0, stores: [], blocked: false, chromium: "not-used" };
+  return { tier: null, profileId: null, strippedPage: false, attempts: 0, stores: [], blocked: false, chromium: "not-used", tierAttempts: [] };
 }
 
 export function mergeLayeredScan(log: LayeredScanSummary, result: LayeredResult) {
@@ -83,6 +93,7 @@ export function mergeLayeredScan(log: LayeredScanSummary, result: LayeredResult)
     log.profileId = result.profileId;
   }
   if (result.chromium !== "not-needed") log.chromium = result.chromium;
+  if (result.tierAttempts?.length) log.tierAttempts.push(...result.tierAttempts);
 }
 
 export function pageHasProductTitle(html: string, titleMarkers: RegExp): boolean {
@@ -107,7 +118,7 @@ export function assessStorePage(collector: StoreCollector, input: {
     finalUrl: input.finalUrl,
     html: input.html,
   });
-  const httpDenied = input.status === 401 || input.status === 403 || input.status === 429;
+  const httpDenied = input.status === 401 || input.status === 403 || input.status === 429 || input.status === 503;
   const hasTitle = pageHasProductTitle(input.html, collector.titleMarkers);
   const hasReviews = collector.reviewMarkers.test(text) || collector.reviewMarkers.test(input.html);
   const bytes = input.html.length;
@@ -161,6 +172,7 @@ export async function runLayeredStoreFetch(input: {
     blocked: false,
     hasReviews: false,
     attempts: 0,
+    tierAttempts: [],
     chromium: "not-needed",
     ...partial,
   });
@@ -168,12 +180,19 @@ export async function runLayeredStoreFetch(input: {
 
   const queue = collector.plan(input.url, !laterResultsPage(input.url));
   const seen = new Set(queue.map((attempt) => `${attempt.profileId} ${attempt.url}`));
-  const deniedHosts = new Set<string>();
+  const blockedProductHosts = new Set<string>();
+  const tierAttempts: TierAttemptLog[] = [];
   let attempts = 0;
   let strippedPage = false;
   let sawHealthyPage = false;
+  let sawBlock = false;
+  let lastBlockedStatus: number | null = null;
   const bestPage: { current: Held | null } = { current: null };
   let lastError: string | undefined;
+  const productPageTier = (tier: FetchTier) => tier === "primary-profile" || tier === "alternate-profile" || tier === "alternate-url" || tier === "mobile-url";
+  const note = (attempt: StoreAttempt, stop: string) => {
+    tierAttempts.push({ tier: attempt.tier, profileId: attempt.profileId, url: attempt.url, stop });
+  };
 
   const consider = (held: Held) => {
     const current = bestPage.current;
@@ -184,9 +203,18 @@ export async function runLayeredStoreFetch(input: {
 
   for (let index = 0; index < queue.length; index += 1) {
     const attempt = queue[index];
-    if (attempts >= maxAttempts) break;
-    if (remainingOf(input.remainingMs) < LAYERED_ATTEMPT_MIN_REMAINING_MS) break;
-    if (deniedHosts.has(hostOf(attempt.url))) continue;
+    if (attempts >= maxAttempts) {
+      note(attempt, "stopped-attempt-cap");
+      break;
+    }
+    if (remainingOf(input.remainingMs) < LAYERED_ATTEMPT_MIN_REMAINING_MS) {
+      note(attempt, "stopped-budget");
+      break;
+    }
+    if (productPageTier(attempt.tier) && blockedProductHosts.has(hostOf(attempt.url))) {
+      note(attempt, "skipped-host-blocked");
+      continue;
+    }
     attempts += 1;
     const headers = headersForAttempt({
       url: attempt.url,
@@ -195,18 +223,25 @@ export async function runLayeredStoreFetch(input: {
       jar,
       referer: input.url,
     });
+    if (attempt.tier === "reviews-endpoint" || attempt.tier === "sibling-domain") headers["x-ri-continue-host"] = "1";
     let page: LayeredPage;
     try {
       page = await input.fetchPage(attempt, headers);
     } catch (error) {
       lastError = error instanceof Error ? error.message : "fetch failed";
+      note(attempt, /time budget|aborted/i.test(lastError) ? "stopped-budget" : "fetch-error");
       if (/time budget|aborted/i.test(lastError)) break;
       continue;
     }
     if (page.setCookies?.length) jar.addFromSetCookie(page.finalUrl || attempt.url, page.setCookies);
-    if (page.robotsBlocked) { lastError = page.error || "robots_disallowed"; continue; }
-    if (/retrieval ceiling|time budget/i.test(page.error || "")) { lastError = page.error; break; }
-    if (/host access stopped/i.test(page.error || "")) { deniedHosts.add(hostOf(attempt.url)); lastError = page.error; continue; }
+    if (page.robotsBlocked) { lastError = page.error || "robots_disallowed"; note(attempt, "robots"); continue; }
+    if (/retrieval ceiling|time budget/i.test(page.error || "")) { lastError = page.error; note(attempt, "stopped-budget"); break; }
+    if (/host access stopped/i.test(page.error || "")) {
+      blockedProductHosts.add(hostOf(attempt.url));
+      lastError = page.error;
+      note(attempt, "skipped-host-blocked");
+      continue;
+    }
 
     const assessment = assessStorePage(collector, {
       html: page.text,
@@ -215,24 +250,13 @@ export async function runLayeredStoreFetch(input: {
       status: page.status,
     });
     if (assessment.stripped) strippedPage = true;
-    if (assessment.challenge) {
-      return none({
-        ok: false,
-        text: page.text,
-        finalUrl: page.finalUrl || attempt.url,
-        status: page.status,
-        error: "challenge or sign-in page",
-        tier: attempt.tier,
-        profileId: attempt.profileId,
-        strippedPage,
-        blocked: true,
-        attempts,
-        chromium: "not-needed",
-      });
-    }
-    if (page.status === 401 || page.status === 403 || page.status === 429) {
-      deniedHosts.add(hostOf(attempt.url));
-      lastError = page.error || `HTTP ${page.status}`;
+    const httpBlocked = page.status === 401 || page.status === 403 || page.status === 429 || page.status === 503;
+    if (assessment.challenge || httpBlocked) {
+      sawBlock = true;
+      lastBlockedStatus = page.status;
+      blockedProductHosts.add(hostOf(attempt.url));
+      lastError = assessment.challenge ? "challenge or sign-in page" : (page.error || `HTTP ${page.status}`);
+      note(attempt, assessment.challenge ? "blocked-challenge" : `blocked-http-${page.status}`);
       continue;
     }
     if (!assessment.challenge && collector.extraFromHtml) {
@@ -255,6 +279,7 @@ export async function runLayeredStoreFetch(input: {
     };
     consider(held);
     if (assessment.hasReviews) {
+      note(attempt, "reviews");
       return {
         ok: true,
         text: held.text,
@@ -267,6 +292,7 @@ export async function runLayeredStoreFetch(input: {
         blocked: false,
         hasReviews: true,
         attempts,
+        tierAttempts,
         chromium: "not-needed",
       };
     }
@@ -274,13 +300,17 @@ export async function runLayeredStoreFetch(input: {
     // Leave its review pagination to the existing candidate list.
     if (page.status === 200 && !assessment.stripped) {
       sawHealthyPage = true;
+      note(attempt, assessment.hasTitle ? "healthy-page" : "non-stripped-page");
       break;
     }
+    note(attempt, assessment.stripped ? "stripped" : `http-${page.status ?? "none"}`);
   }
 
   let chromium: LayeredResult["chromium"] = "not-needed";
   const best = bestPage.current;
-  if (!best?.hasReviews && !sawHealthyPage) {
+  if (!best?.hasReviews && !sawHealthyPage && sawBlock && !strippedPage) {
+    chromium = "skipped-blocked";
+  } else if (!best?.hasReviews && !sawHealthyPage) {
     const remaining = remainingOf(input.remainingMs);
     if (remaining < LAYERED_CHROMIUM_MIN_REMAINING_MS) chromium = "skipped-budget";
     else if (input.chromiumFetch) {
@@ -303,6 +333,7 @@ export async function runLayeredStoreFetch(input: {
             strippedPage,
             blocked: true,
             attempts,
+            tierAttempts,
             chromium,
           });
         }
@@ -319,6 +350,7 @@ export async function runLayeredStoreFetch(input: {
             blocked: false,
             hasReviews: true,
             attempts,
+            tierAttempts,
             chromium: "used",
           };
         }
@@ -345,6 +377,7 @@ export async function runLayeredStoreFetch(input: {
             strippedPage,
             blocked: true,
             attempts,
+            tierAttempts,
             chromium: "blocked",
           });
         }
@@ -361,6 +394,7 @@ export async function runLayeredStoreFetch(input: {
             blocked: false,
             hasReviews: true,
             attempts,
+            tierAttempts,
             chromium: "used",
           };
         }
@@ -383,18 +417,21 @@ export async function runLayeredStoreFetch(input: {
       blocked: false,
       hasReviews: best.hasReviews,
       attempts,
+      tierAttempts,
       chromium,
     };
   }
   return none({
     text: best?.text || "",
     finalUrl: best?.finalUrl || input.url,
-    status: best?.status ?? null,
+    status: best?.status ?? lastBlockedStatus,
     error: lastError || best?.error,
     tier: best?.tier || null,
     profileId: best?.profileId || null,
     strippedPage,
+    blocked: sawBlock,
     attempts,
+    tierAttempts,
     chromium,
     store: collector.id,
   });

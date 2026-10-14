@@ -1,6 +1,7 @@
 import { ocrReviewScreenshot } from "@/lib/reviewScreenshotOcr";
 import { authoritativeDisplayName, isAmazonNavOrHeaderText, productFactsFromOcr } from "@/lib/screenshotProductFacts";
 import { amazonStoreLabel, isAnalyzableProductUrl } from "@/lib/listingAuthority";
+import { candidateMatchesLinkIdentity, identityFromProductLink, placeholderFreeText } from "@/lib/linkIdentity";
 import { attachScanAccess } from "@/lib/scanAccess";
 import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
@@ -496,16 +497,17 @@ function createStableProductKey(vision: VisionFacts, productLink: string) {
     linkHost = "";
   }
 
-  const store = vision.store || linkHost;
+  const link = identityFromProductLink(productLink);
+  const store = vision.store || link?.storeLabel || linkHost;
   const asin = asinFromMarketplaceUrl(productLink);
   const screenshotTitle = isAmazonNavOrHeaderText(vision.name) || isAmazonNavOrHeaderText(vision.normalizedSearchQuery)
     ? ""
     : (vision.normalizedSearchQuery || [vision.brand, vision.name, vision.category].filter(Boolean).join(" "));
   // A pasted listing URL/ASIN is the memory key. Screenshot chrome must not collide with it.
-  const title = asin || screenshotTitle;
-  const price = asin ? "" : normalizeProductPriceForKey(vision.price);
+  const title = asin || link?.productId || placeholderFreeText(screenshotTitle);
+  const price = asin || link?.productId ? "" : normalizeProductPriceForKey(vision.price);
 
-  return createProductKey([store, asin || vision.brand, title, price]);
+  return createProductKey([store, asin || link?.productId || vision.brand, placeholderFreeText(link?.displayName) || title, price]);
 }
 
 async function brainFetch(path: string) {
@@ -1294,7 +1296,7 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
         notIdealFor: notIdealFor.length ? notIdealFor : ["Shoppers who need a confident verdict from written review evidence."],
         bottomLine:
           normalizedLocaleCode(locale) === "en"
-            ? "Review evidence not enough. The screenshot identifies the product, but ReviewIntel could not retrieve enough reliable written review evidence to give a strong buying verdict. Check the live product page, low-star reviews, and return policy before buying."
+            ? "The screenshot identifies the product, but ReviewIntel could not retrieve enough reliable written review evidence to give a strong buying verdict. Check the live product page, low-star reviews, and return policy before buying."
             : bottomLine,
       },
       locale,
@@ -1387,7 +1389,7 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
       valueForMoney: valueForMoney === "Excellent" ? "Good" : valueForMoney === "Poor" ? "Fair" : valueForMoney,
       bottomLine:
         normalizedLocaleCode(locale) === "en"
-          ? "Review evidence not enough. The screenshot identifies the product, but the verdict is limited until ReviewIntel can verify written review evidence from the exact listing."
+          ? "The screenshot identifies the product, but the verdict is limited until ReviewIntel can verify written review evidence from the exact listing."
           : bottomLine,
     };
   }
@@ -1769,11 +1771,11 @@ async function researchAndVerdict(
       reviewAuthenticity: {
         score: null,
         label: "Review evidence not found",
-        suspiciousReviewRisk: "Not scored",
+        suspiciousReviewRisk: null,
         reasons: [
           PUBLIC_REVIEW_EVIDENCE_FAILURE,
           reason,
-          "Confidence is Low: 0 real written reviews were recovered yet. Scan the Amazon link or add a review screenshot to get a score.",
+          "Confidence is low until written reviews can be read. Scan the product link again or add a review screenshot.",
         ],
         suspiciousComments: [],
       },
@@ -1797,13 +1799,13 @@ async function researchAndVerdict(
   // shortly after, the scan continues with what we have (v2 handles low n / provisional).
   const budgets = scanBudgets();
   const { value: reviewEvidence } = await raceWithBudget(budgets.collectionMs + 5_000, () => withScanDeadline(budgets.collectionMs, () => collectAndAnalyzeReviewEvidence({
-      productName: productForReviewEvidence || (suppliedAsin ? "" : vision.category) || "unknown product",
+      productName: placeholderFreeText(productForReviewEvidence) || placeholderFreeText(identityFromProductLink(productLink)?.displayName) || placeholderFreeText(suppliedAsin ? "" : vision.category),
       brand: suppliedAsin ? "" : vision.brand,
-      model: undefined,
+      model: identityFromProductLink(productLink)?.modelTokens.join(" ") || undefined,
       color: [...vision.visibleFeatures, vision.name].join(" ").match(/\b(white|black|gray|grey|silver|blue|red|gold)\b/i)?.[1],
       categoryBreadcrumbs: [vision.category].filter(Boolean),
       marketingText: vision.visibleBadges,
-      store: amazonStoreLabel(productLink) || vision.store,
+      store: amazonStoreLabel(productLink) || identityFromProductLink(productLink)?.storeLabel || vision.store,
       price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
         ? vision.price
         : undefined,
@@ -1835,7 +1837,7 @@ async function researchAndVerdict(
             : {}),
           score: null,
           label: reviewEvidence.reviewAuthenticity?.label || "Review evidence not found",
-          suspiciousReviewRisk: "Not scored",
+          suspiciousReviewRisk: null,
           reasons: reviewEvidence.reviewAuthenticity?.reasons || [PUBLIC_REVIEW_EVIDENCE_FAILURE],
         };
 
@@ -2169,7 +2171,7 @@ function buildReviewEvidenceShopperResult(input: {
   const rawExactListingUrl = String(listingEvidence?.exactListingUrl || listingEvidence?.url || "").trim();
   const rawListingAsin = asinFromMarketplaceUrl(rawExactListingUrl);
   const rawListingIsAmazon = /amazon\.[a-z.]+/i.test(rawExactListingUrl);
-  const exactListingAccepted =
+  let exactListingAccepted =
     evidence.exactListingAccepted === true &&
     Boolean(rawExactListingUrl) &&
     (!rawListingIsAmazon || Boolean(rawListingAsin || listingEvidence?.asin));
@@ -2196,11 +2198,20 @@ function buildReviewEvidenceShopperResult(input: {
     asinFromMarketplaceUrl(input.suppliedListingUrl) ||
     ""
   ).trim();
-  const productName = authoritativeDisplayName({
-    listingTitle: fetchedListingTitle,
-    screenshotName: String(vision.name || vision.title || ""),
-    asin: listingAsin || null,
-  }) || String(vision.category || "Unknown product").trim();
+  const suppliedLink = identityFromProductLink(input.suppliedListingUrl);
+  const mismatchedListing = Boolean(
+    suppliedLink &&
+    exactListingAccepted &&
+    !candidateMatchesLinkIdentity(suppliedLink, { url: rawExactListingUrl, title: fetchedListingTitle })
+  );
+  if (mismatchedListing) exactListingAccepted = false;
+  const productName = mismatchedListing
+    ? (suppliedLink?.displayName || "")
+    : (authoritativeDisplayName({
+      listingTitle: fetchedListingTitle,
+      screenshotName: String(vision.name || vision.title || ""),
+      asin: listingAsin || null,
+    }) || placeholderFreeText(vision.category) || suppliedLink?.displayName || "");
 
   const brand = String((exactListingAccepted ? listingEvidence?.brand : "") || (isAmazonNavOrHeaderText(String(vision.brand || "")) ? "" : vision.brand) || "").trim();
   const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
@@ -2643,8 +2654,8 @@ function buildReviewEvidenceShopperResult(input: {
     ? input.reviewAuthenticity
     : {
         score: null,
-        label: "Review evidence not enough",
-        suspiciousReviewRisk: "Not scored",
+        label: "Written reviews were not available for a verdict",
+        suspiciousReviewRisk: null,
         reasons: [PUBLIC_REVIEW_EVIDENCE_FAILURE],
         suspiciousComments: [],
       };
@@ -2768,6 +2779,7 @@ function buildReviewEvidenceShopperResult(input: {
     analysisVersion: "review-evidence-v2",
     buyingScoreV2,
     scanId: input.scanId || null,
+    identityUnconfirmed: mismatchedListing,
     detectedProductKey: cleanDetectedProductKey(input.detectedProductKey || stableProductKey),
     exactListingAccepted,
     canonicalEvidenceEligible,
@@ -3254,10 +3266,10 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     const vision = imageDataUrl
       ? await extractScreenshotFacts(imageDataUrl, costTelemetry)
       : {
-          name: "",
+          name: identityFromProductLink(productLink)?.displayName || "",
           brand: "",
           category: "",
-          store: amazonStoreLabel(productLink),
+          store: amazonStoreLabel(productLink) || identityFromProductLink(productLink)?.storeLabel || "",
           price: "",
           rating: "",
           reviewCount: "",
@@ -3309,7 +3321,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
         reviewAuthenticity: {
           label: "Review evidence not found",
           score: null,
-          suspiciousReviewRisk: "Not scored",
+          suspiciousReviewRisk: null,
           reasons: [PUBLIC_REVIEW_EVIDENCE_FAILURE, fallbackCopy.unclear],
           suspiciousComments: [],
         },
@@ -3343,7 +3355,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
           reviewAuthenticity: {
             score: null,
             label: "Review evidence not found",
-            suspiciousReviewRisk: "Not scored",
+            suspiciousReviewRisk: null,
             reasons: [PUBLIC_REVIEW_EVIDENCE_FAILURE],
             suspiciousComments: [],
           },

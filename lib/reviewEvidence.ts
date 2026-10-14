@@ -170,7 +170,7 @@ export type ReviewEvidenceResult = {
   reviewAuthenticity: {
     score: number | null;
     label: string;
-    suspiciousReviewRisk: "Not scored" | "Low" | "Medium" | "High" | "Very high";
+    suspiciousReviewRisk: null | "Low" | "Medium" | "High" | "Very high";
     reasons: string[];
     suspiciousComments: Array<{
       source: string;
@@ -398,7 +398,7 @@ function emptyEvidence(reason = "No review evidence collected."): ReviewEvidence
     reviewAuthenticity: {
       score: null,
       label: "Review scan not verified",
-      suspiciousReviewRisk: "Not scored",
+      suspiciousReviewRisk: null,
       reasons: [reason],
       suspiciousComments: [],
     },
@@ -859,7 +859,7 @@ function recoverPartialReviewEvidenceFromText(text: string) {
     reviewAuthenticity: {
       score: null,
       label: "Review scan partially recovered",
-      suspiciousReviewRisk: "Not scored",
+      suspiciousReviewRisk: null,
       reasons: [
         "The model response was malformed, but ReviewIntel recovered available links/numbers instead of discarding the scan.",
       ],
@@ -1248,7 +1248,7 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
           ...result.reviewAuthenticity,
           score: null,
           label: "Review scan not verified",
-          suspiciousReviewRisk: "Not scored" as const,
+          suspiciousReviewRisk: null,
           reasons:
             Array.isArray(result.reviewAuthenticity.reasons) &&
             result.reviewAuthenticity.reasons.length > 0
@@ -2559,6 +2559,7 @@ export async function collectAndAnalyzeReviewEvidence(
     productName: input.productName,
     model: input.model,
     productKey: reviewSearchIdentity || cleanVisibleIdentity || product,
+    authoritativeListingUrl: input.listingUrl || null,
     price: input.price,
     rating: input.rating,
     reviewCount: input.reviewCount,
@@ -2974,7 +2975,7 @@ export async function collectAndAnalyzeReviewEvidence(
       reviewAuthenticity: {
         score: null,
         label: commentsAnalyzed > 0 ? "Review evidence collected" : "Review evidence not found",
-        suspiciousReviewRisk: "Not scored",
+        suspiciousReviewRisk: null,
         reasons:
           commentsAnalyzed > 0
             ? [
@@ -3279,7 +3280,7 @@ Required JSON shape:
   "reviewAuthenticity": {
     "score": null,
     "label": "Review scan not verified",
-    "suspiciousReviewRisk": "Not scored",
+    "suspiciousReviewRisk": null,
     "reasons": ["short reasons"],
     "suspiciousComments": [
       {
@@ -3780,7 +3781,7 @@ Scoring rules:
             : "Review scan not verified",
         suspiciousReviewRisk:
             !hasAnalyzedReviewText || score === null
-            ? "Not scored"
+            ? null
             : score >= 76
               ? "Very high"
               : score >= 51
@@ -3900,7 +3901,7 @@ Scoring rules:
           ...(finalEvidence.reviewAuthenticity || {}),
           score: null,
           label: "Review evidence not found",
-          suspiciousReviewRisk: "Not scored",
+          suspiciousReviewRisk: null,
           reasons: [
             "No written review bodies were collected or analyzed.",
             "Marketplace rating/review count from a screenshot or listing is metadata only, not review evidence.",

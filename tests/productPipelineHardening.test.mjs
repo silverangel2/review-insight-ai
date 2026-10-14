@@ -249,7 +249,9 @@ test("native retrieval rejects HTTP-200 Amazon sign-in redirects without browser
     assert.equal(result.reviewsCollected, 0);
     assert.equal(result.diagnostics.pagesBlocked, 1);
     assert.equal(result.playwrightAttempted, false);
-    assert.equal(urls.length, 1);
+    assert.ok(urls.length > 1);
+    assert.ok(urls.some((url) => url.includes("/product-reviews/") || url.includes("reviews-render")));
+    assert.ok(urls.some((url) => /amazon\.(?:com|co\.uk)/.test(url)));
   } finally { globalThis.fetch = originalFetch; }
 });
 
