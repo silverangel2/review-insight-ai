@@ -25,6 +25,7 @@ import {
 } from "@/lib/anonymousScans";
 import { claimFreeScan, releaseFreeScan, type FreeScanIdentityKind } from "@/lib/freeScanQuota";
 import { isUnreadableAmazonPage, shopperSafeText } from "@/lib/shopperAnswer";
+import { linkScanBlockedForLinkOnly } from "@/lib/linkScanBlocked";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
@@ -1673,7 +1674,8 @@ async function researchAndVerdict(
   locale = "en",
   scanId = "",
   detectedProductKey = "",
-  costTelemetry?: ScanCostTelemetry
+  costTelemetry?: ScanCostTelemetry,
+  linkOnly = false,
 ) {
   // The shopper verdict is now owned by reviewEvidence-v2 only. Keeping the old
   // broad web verdict here made scans slower and could leak stale screenshot-only
@@ -1865,6 +1867,7 @@ async function researchAndVerdict(
     scanId,
     detectedProductKey: cleanDetectedProductKey(detectedProductKey),
     suppliedListingUrl: productLink,
+    linkOnly,
   });
 }
 
@@ -2154,6 +2157,7 @@ function buildReviewEvidenceShopperResult(input: {
   scanId?: string;
   detectedProductKey?: string;
   suppliedListingUrl?: string | null;
+  linkOnly?: boolean;
 }) {
   const vision = input.vision || {};
   const evidence = input.reviewEvidence || {};
@@ -2959,6 +2963,14 @@ function buildReviewEvidenceShopperResult(input: {
 
     screenshotOnly: false,
     screenshotOnlyWarning: false,
+    linkOnlyScan: Boolean(input.linkOnly),
+    linkScanBlocked: linkScanBlockedForLinkOnly({
+      linkOnly: Boolean(input.linkOnly),
+      listingUrl: String(input.suppliedListingUrl || exactListingUrl || ""),
+      writtenCount: buyingScoreV2.audit.n,
+      diagnostics: asRecord(evidence.retrievalDiagnostics),
+      mode: buyingScoreV2.mode,
+    }),
 
     bottomLine,
     summary: bottomLine,
@@ -3389,7 +3401,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     void memory;
 
     captureStage("identity", { productName: vision.name || asinFromMarketplaceUrl(productLink) || null, brand: vision.brand, model: null, store: vision.store, visibleFeatures: vision.visibleFeatures, price: vision.price, rating: vision.rating, reviewCount: vision.reviewCount });
-    const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale, scanId, productKey, costTelemetry);
+    const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale, scanId, productKey, costTelemetry, Boolean(productLink) && !imageDataUrl);
 
     // Shopper v2: do not re-score, normalize, or apply old product memory after the review-evidence result is built.
     const result = attachLanguageMeta(

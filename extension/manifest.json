@@ -1,19 +1,59 @@
 {
   "manifest_version": 3,
-  "name": "ReviewIntel: Check reviews",
+  "name": "ReviewIntel",
   "short_name": "ReviewIntel",
-  "version": "0.1.0",
-  "description": "Adds a small 'Check reviews' button on Amazon product pages that opens the product in ReviewIntel.",
+  "version": "0.2.0",
+  "description": "Reads the reviews already visible on the product page you opened, and only after you click Analyze.",
   "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": {
+    "default_title": "Analyze with ReviewIntel",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png" }
+  },
+  "permissions": ["activeTab"],
+  "host_permissions": [
+    "https://*.amazon.com/*",
+    "https://*.amazon.ca/*",
+    "https://*.amazon.co.uk/*",
+    "https://*.amazon.de/*",
+    "https://*.amazon.fr/*",
+    "https://*.amazon.es/*",
+    "https://*.amazon.it/*",
+    "https://*.amazon.com.au/*",
+    "https://*.amazon.in/*",
+    "https://*.amazon.com.mx/*",
+    "https://*.amazon.co.jp/*",
+    "https://*.walmart.com/*",
+    "https://*.walmart.ca/*",
+    "https://*.bestbuy.com/*",
+    "https://*.bestbuy.ca/*",
+    "https://*.target.com/*",
+    "https://*.homedepot.com/*",
+    "https://*.homedepot.ca/*"
+  ],
   "content_scripts": [
     {
       "matches": [
-        "https://www.amazon.com/*", "https://www.amazon.ca/*", "https://www.amazon.co.uk/*",
-        "https://www.amazon.de/*", "https://www.amazon.fr/*", "https://www.amazon.es/*",
-        "https://www.amazon.it/*", "https://www.amazon.com.au/*", "https://www.amazon.in/*",
-        "https://www.amazon.com.mx/*", "https://www.amazon.co.jp/*"
+        "https://*.amazon.com/*",
+        "https://*.amazon.ca/*",
+        "https://*.amazon.co.uk/*",
+        "https://*.amazon.de/*",
+        "https://*.amazon.fr/*",
+        "https://*.amazon.es/*",
+        "https://*.amazon.it/*",
+        "https://*.amazon.com.au/*",
+        "https://*.amazon.in/*",
+        "https://*.amazon.com.mx/*",
+        "https://*.amazon.co.jp/*",
+        "https://*.walmart.com/*",
+        "https://*.walmart.ca/*",
+        "https://*.bestbuy.com/*",
+        "https://*.bestbuy.ca/*",
+        "https://*.target.com/*",
+        "https://*.homedepot.com/*",
+        "https://*.homedepot.ca/*"
       ],
-      "js": ["content.js"],
+      "js": ["config.js", "extractors.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }
