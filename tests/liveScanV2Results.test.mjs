@@ -231,6 +231,8 @@ test("a v2 Buy is not rewritten by a legacy NOT_ENOUGH state", async () => {
   assert.equal(answer.confidenceWords, "Medium");
   assert.equal(shopper.formatShopperConfidence(answer), "Medium");
   assert.equal(answer.score, 96);
+  assert.equal(answer.why, "Buyers are mostly positive about this product.");
+  assert.ok(answer.loves.some((point) => point.quote && point.quote.length > 20 && !answer.why.includes(point.quote.slice(0, 24))));
   assert.doesNotMatch(`${answer.label} ${answer.why} ${answer.nextSteps.map((step) => `${step.label} ${step.detail}`).join(" ")}`, /Scan the Amazon listing link/);
   assert.equal(answer.nextSteps.some((step) => step.id === "amazon_listing"), false);
 
@@ -266,6 +268,78 @@ test("a v2 Buy is not rewritten by a legacy NOT_ENOUGH state", async () => {
   assert.match(html, /data-testid="answer-confidence">Medium</);
   assert.doesNotMatch(html, /Scan the Amazon listing link/);
   assert.doesNotMatch(html, /Low confidence/);
+});
+
+test("a quote-only result keeps raw review text out of the summary", () => {
+  const quotes = [
+    "Got for my soon to be great niece's arrival!",
+    "There comes a point in life when one's skin has apparently resigned from its previous occupation.",
+    "I pack this in a work bag and it still works every morning.",
+    "The hinge loosened after a month of ordinary use.",
+    "Five stars from our household and I would buy another.",
+    "Smells odd at first, then fades, and the color is not what the photo shows.",
+  ];
+  const verdicts = [
+    { word: "Buy", top: "BUY", why: "Buyers are mostly positive about this product." },
+    { word: "Wait", top: "REVIEW FIRST", why: "Buyer feedback is mixed or still limited." },
+    { word: "Skip", top: "AVOID", why: "Buyers report enough problems to skip this." },
+  ];
+  let seen = 0;
+  quotes.forEach((quote, index) => {
+    const verdict = verdicts[index % verdicts.length];
+    const records = quotes.slice(index, index + 3).map((body, recordIndex) => ({
+      id: `r${recordIndex}`,
+      body,
+      sourceUrl: `https://www.amazon.${["com", "ca", "co.uk"][recordIndex % 3]}/dp/B0GENERIC1`,
+    }));
+    const result = {
+      analysisVersion: "review-evidence-v2",
+      finalDecisionSource: "buyingScoreV2",
+      verdict: verdict.top,
+      evidenceState: "NOT_ENOUGH",
+      strengthProvenance: [],
+      complaintProvenance: [],
+      buyingScoreV2: {
+        version: "buying-score-v2",
+        mode: "buying_score",
+        score: 64,
+        verdict: verdict.word,
+        confidence: "Medium",
+        audit: { n: records.length },
+      },
+      reviewEvidence: { evidenceAdjudication: { acceptedRecords: records, acceptedRecordCount: records.length } },
+    };
+    const answer = shopper.deriveShopperAnswer(result);
+    assert.equal(answer.label, verdict.word, quote);
+    assert.equal(answer.why, verdict.why, quote);
+    for (const record of records) {
+      assert.equal(answer.why.includes(record.body.slice(0, 24)), false, record.body);
+      assert.ok(answer.loves.some((point) => point.quote && record.body.startsWith(point.quote.replace(/…$/, ""))), record.body);
+    }
+    seen += 1;
+  });
+
+  const claimed = shopper.deriveShopperAnswer({
+    finalDecisionSource: "buyingScoreV2",
+    verdict: "BUY",
+    buyingScoreV2: { version: "buying-score-v2", mode: "buying_score", score: 80, verdict: "Buy", confidence: "High", audit: { n: 4 } },
+    strengthProvenance: [{ claim: "Stays cool in a bag", supportCount: 3, sourceIds: ["r1"], sourceHashes: [] }],
+    complaintProvenance: [{ claim: "The lid leaks", supportCount: 2, sourceIds: ["r2"], sourceHashes: [] }],
+    reviewEvidence: {
+      evidenceAdjudication: {
+        acceptedRecordCount: 2,
+        acceptedRecords: [
+          { id: "r1", body: "Got for my soon to be great niece's arrival and it stays cool in a bag.", sourceUrl: "https://www.amazon.com/dp/B0GENERIC1" },
+          { id: "r2", body: "The lid leaks if you tip it over on the counter.", sourceUrl: "https://www.amazon.ca/dp/B0GENERIC1" },
+        ],
+      },
+    },
+  });
+  assert.match(claimed.why, /stays cool in a bag/i);
+  assert.match(claimed.why, /the lid leaks/i);
+  assert.doesNotMatch(claimed.why, /niece|counter/i);
+  assert.ok(claimed.loves.some((point) => /niece/.test(point.quote || "")));
+  assert.ok(seen >= quotes.length);
 });
 
 test("a variant page keeps its title when the canonical ASIN is the parent", async () => {

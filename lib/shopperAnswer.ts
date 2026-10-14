@@ -298,6 +298,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     });
   const claimedLoves = toPoints("strength");
   const claimedComplaints = toPoints("complaint");
+  // Quotes can fill the quotes section. They are not claims, so they never enter the one-line summary.
   const loves = claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records);
   const complaints = claimedComplaints;
 
@@ -310,17 +311,25 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   if (card && thin) kind = "not_enough";
   const label = { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
 
-  const topLove = loves[0]?.claim, topComplaint = complaints[0]?.claim;
+  const topLove = claimedLoves[0]?.claim;
+  const topComplaint = claimedComplaints[0]?.claim;
   const hasListing = listingUrls(result).length > 0;
+  const neutralSummary = kind === "buy"
+    ? "Buyers are mostly positive about this product."
+    : kind === "skip"
+      ? "Buyers report enough problems to skip this."
+      : "Buyer feedback is mixed or still limited.";
   const why = kind === "not_enough"
     ? (hasListing
       ? "Low confidence. Add a review screenshot to read more real reviews."
       : THIN_EVIDENCE_NEXT_STEP)
-    : kind === "buy"
-      ? `Buyers consistently report ${topLove ? lower(topLove) : "good results"}${topComplaint ? `, and complaints like ${lower(topComplaint)} are rare` : ""}.`
-      : kind === "skip"
-        ? `Too many buyers report ${topComplaint ? lower(topComplaint) : "serious problems"}${topLove ? `, which outweighs ${lower(topLove)}` : ""}.`
-        : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but ${lower(topComplaint)} comes up` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
+    : !topLove && !topComplaint
+      ? neutralSummary
+      : kind === "buy"
+        ? `Buyers consistently report ${topLove ? lower(topLove) : "good results"}${topComplaint ? `, and complaints like ${lower(topComplaint)} are rare` : ""}.`
+        : kind === "skip"
+          ? `Too many buyers report ${topComplaint ? lower(topComplaint) : "serious problems"}${topLove ? `, which outweighs ${lower(topLove)}` : ""}.`
+          : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but ${lower(topComplaint)} comes up` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
 
   const sourceText = sources.length ? sources.join(", ") : "the product listing";
   const trustLine = kind === "not_enough"
