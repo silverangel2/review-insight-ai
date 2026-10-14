@@ -139,6 +139,10 @@ When collection was blocked on a product the link had already identified, the sh
 
 The same preview showed that Walmart, Best Buy, Target, and Home Depot all challenge requests from this deployment or disallow the review URL in robots.txt. The Owner refuses paid proxies, so those stores are not given a different IP in this change. Shopper-facing pages, API messages, result notes, and emails do not name the host.
 
+## Preview of the plain-first fetch
+
+The preview deployment for this branch is Ready. `vercel curl` is not authenticated in this environment (the CLI started a device login and did not return a response), so the link-only scan of `https://www.amazon.com/dp/B0D1XD1ZV3` was not run. Signed-out quota was not reached. Reviews read: not measured.
+
 ## Open risks
 
 - Before the layered headers, Amazon link scans from this deployment read 7–12 reviews (5 of 8). After `646d8f6` the same AirPods link (`B0D1XD1ZV3`) went from 10 reviews to 0, with `native-page dp status 200 rawReviews 0` and then `layered-collection blocked:true`. The first request is the older one again. That is not the same as a live proof until a preview scan reads reviews.
