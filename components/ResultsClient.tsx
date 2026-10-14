@@ -23,8 +23,8 @@ import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
-import { isUnreadableAmazonPage, neutralProductLabel, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE } from "@/lib/shopperAnswer";
-import { isBuyingScoreV2Result, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
+import { isUnreadableAmazonPage, neutralProductLabel, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE, unreadableRetryPhrase } from "@/lib/shopperAnswer";
+import { isBuyingScoreV2Result, buyingScoreWrittenCount, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
 
 
 function signedOutProof(scanId: string, cookieGrant: boolean) {
@@ -1163,6 +1163,18 @@ function ShopperCompareDetail({ result }: { result: AnalyzeResponse }) {
 }
 
 
+function unreadableShopperLine(result: unknown) {
+  return `${UNREADABLE_AMAZON_MESSAGE} ${unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.`;
+}
+
+function firmV2Verdict(score: { mode?: string; verdict?: string | null; audit?: { n?: number } } | null): "BUY" | "AVOID" | "REVIEW FIRST" | null {
+  if (!score || score.mode === "no_score" || score.mode === "provisional_marketplace") return null;
+  if (typeof score.audit?.n !== "number" || score.audit.n <= 0) return null;
+  if (score.verdict === "Buy") return "BUY";
+  if (score.verdict === "Skip") return "AVOID";
+  return "REVIEW FIRST";
+}
+
 function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; preview: string }) {
   const locale = localeFromResult(result);
   const copy = resultCopy[locale];
@@ -1258,10 +1270,12 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const acceptedSourceCount = Number((result as Record<string, unknown>).sourceDiversity ??
     ((result as Record<string, unknown>).deterministicScoringInputs as Record<string, unknown> | undefined)?.independentSourceCount);
   const sourcesLine = pageUnreadable
-    ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
-    : shopper.acceptedWrittenReviewCount > 0
+    ? unreadableShopperLine(result)
+    : (buyingScoreWrittenCount(result) ?? 0) > 0 || shopper.acceptedWrittenReviewCount > 0
     ? `${Number.isFinite(acceptedSourceCount) && acceptedSourceCount === 1 ? "Single-source evidence; other sources did not corroborate these reviews. " : ""}Verified review evidence.`
-    : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
+    : listingEvidenceForDisplay?.exactListingUrl || (result as Record<string, unknown>).exactListingUrl
+      ? "Low confidence. Add a review screenshot to read more real reviews."
+      : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
   const supportingSourcesLine = shopper.discoverySourceCount > 0
     ? `Additional web sources were checked for product matching and supporting context (${shopper.discoverySourceCount} discovery/retrieval source${shopper.discoverySourceCount === 1 ? "" : "s"}).`
     : copy.sourcesLimited;
@@ -1280,21 +1294,30 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       ? `LEANING ${buyingScoreV2.leaning.toUpperCase()}`
       : buyingScoreV2.verdict ? buyingScoreV2.verdict.toUpperCase() : "ADD LINK"
     : null;
+  const firmVerdict = firmV2Verdict(buyingScoreV2);
+  const shownVerdict = firmVerdict
+    ? { ...shopperVerdictStyle[firmVerdict], ...copy.verdicts[firmVerdict], answer: v2Answer || displayShopperVerdict(firmVerdict) }
+    : verdict;
+  const scannedListing = Boolean(listingEvidenceForDisplay?.exactListingUrl || (result as Record<string, unknown>).exactListingUrl);
   const verdictMessage = pageUnreadable
-    ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
-    : verdict.message;
+    ? unreadableShopperLine(result)
+    : firmVerdict
+      ? copy.verdicts[firmVerdict].message
+      : scannedListing && /Scan the Amazon listing link/i.test(verdict.message)
+        ? "Low confidence. Add a review screenshot to read more real reviews."
+        : verdict.message;
   return (
     <>
       {/* Mobile-only compact shopper result */}
       <div className="ri-results-mobile space-y-3">
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
-        <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${verdict.soft}`}>
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
+        <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${shownVerdict.soft}`}>
           <div className="mx-auto grid size-16 place-items-center rounded-full border-[4px] border-emerald-400 bg-white text-3xl font-black text-emerald-700 shadow-sm">
-            {shopper.verdict === "BUY" ? "✓" : shopper.verdict === "AVOID" ? "!" : "?"}
+            {(firmVerdict || shopper.verdict) === "BUY" ? "✓" : (firmVerdict || shopper.verdict) === "AVOID" ? "!" : "?"}
           </div>
 
-          <p className={`mt-2 text-[34px] font-black leading-none tracking-[-0.08em] ${verdict.tone}`}>
-            {v2Answer ?? verdict.answer}
+          <p className={`mt-2 text-[34px] font-black leading-none tracking-[-0.08em] ${shownVerdict.tone}`}>
+            {v2Answer ?? shownVerdict.answer}
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
@@ -1413,7 +1436,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
       {/* Desktop report layout unchanged */}
       <div className="ri-results-desktop space-y-4 sm:space-y-6">
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
         <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.75rem] sm:p-4">
           <div className="relative grid h-[260px] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02] sm:h-[360px] sm:rounded-2xl lg:h-[520px]">
@@ -1455,21 +1478,21 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             ) : null}
           </div>
 
-          <section className={`rounded-2xl border p-4 sm:rounded-[1.5rem] sm:p-6 ${verdict.soft}`}>
+          <section className={`rounded-2xl border p-4 sm:rounded-[1.5rem] sm:p-6 ${shownVerdict.soft}`}>
             <div className="grid gap-4 sm:gap-6 md:grid-cols-[1fr_150px] md:items-center">
               <div className="flex items-start gap-4 sm:items-center sm:gap-6">
-                <span className={`grid size-14 shrink-0 place-items-center rounded-full border-[3px] bg-white text-2xl font-black sm:size-20 sm:border-4 sm:text-4xl ${verdict.ring} ${verdict.tone}`}>
-                  {shopper.verdict === "BUY" ? "✓" : shopper.verdict === "AVOID" ? "!" : "?"}
+                <span className={`grid size-14 shrink-0 place-items-center rounded-full border-[3px] bg-white text-2xl font-black sm:size-20 sm:border-4 sm:text-4xl ${shownVerdict.ring} ${shownVerdict.tone}`}>
+                  {(firmVerdict || shopper.verdict) === "BUY" ? "✓" : (firmVerdict || shopper.verdict) === "AVOID" ? "!" : "?"}
                 </span>
                 <div className="min-w-0">
-                  <p className={`break-words text-3xl font-black tracking-tight sm:text-5xl ${verdict.tone}`}>{v2Answer ?? verdict.answer}</p>
-                  <p className="mt-2 text-base font-black text-ink sm:mt-3 sm:text-lg">{verdict.title}</p>
+                  <p className={`break-words text-3xl font-black tracking-tight sm:text-5xl ${shownVerdict.tone}`}>{v2Answer ?? shownVerdict.answer}</p>
+                  <p className="mt-2 text-base font-black text-ink sm:mt-3 sm:text-lg">{shownVerdict.title}</p>
                   <p className="mt-1 text-xs font-bold leading-5 text-slate-600 sm:text-sm sm:leading-6">{verdictMessage}</p>
                 </div>
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{pageUnreadable ? "Try again" : v2Confidence || (verdictConfidence !== null ? `${verdictConfidence}%` : "Low")}</p>
+                  <p className={`text-2xl font-black sm:text-3xl ${shownVerdict.tone}`}>{pageUnreadable ? "Try again" : v2Confidence || (verdictConfidence !== null ? `${verdictConfidence}%` : "Low")}</p>
                   <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
@@ -1718,9 +1741,11 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-200">
             {isUnreadableAmazonPage(result)
-              ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
-              : zeroReviewEvidence
-              ? "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
+              ? unreadableShopperLine(result)
+              : zeroReviewEvidence && !isBuyingScoreV2Result(result)
+              ? exactListingUrl
+                ? "Low confidence. Add a review screenshot to read more real reviews."
+                : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
               : "Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available."}
           </p>
         </div>
@@ -1775,11 +1800,13 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
 
       {isUnreadableAmazonPage(result) ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-          {`${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`}
+          {unreadableShopperLine(result)}
         </div>
-      ) : zeroReviewEvidence ? (
+      ) : zeroReviewEvidence && !isBuyingScoreV2Result(result) ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-          {"Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."}
+          {exactListingUrl
+            ? "Low confidence. Add a review screenshot to read more real reviews."
+            : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."}
         </div>
       ) : null}
 

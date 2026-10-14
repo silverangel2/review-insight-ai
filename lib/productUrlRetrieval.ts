@@ -351,6 +351,18 @@ function amazonAsinInUrl(value: string | null | undefined): string | null {
   return String(value || "").match(/\/(?:dp|gp\/product|gp\/aw\/d|product-reviews)\/([A-Z0-9]{10})(?:[/?#]|$)/i)?.[1]?.toUpperCase() || null;
 }
 
+/** The ASIN of the page that was actually rendered, not the parent canonical. */
+function amazonCurrentAsin(html: string): string | null {
+  const fromJson = html.match(/["']currentAsin["']\s*:\s*["']([A-Z0-9]{10})["']/i)?.[1];
+  if (fromJson) return fromJson.toUpperCase();
+  for (const tag of html.match(/<input\b[^>]*>/gi) || []) {
+    if (!/\bname=["']ASIN["']/i.test(tag)) continue;
+    const value = tag.match(/\bvalue=["']([A-Z0-9]{10})["']/i)?.[1];
+    if (value) return value.toUpperCase();
+  }
+  return null;
+}
+
 export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
   const title =
     elementTextById(html, "productTitle") ||
@@ -468,7 +480,17 @@ export async function enrichRetrievedProductCandidate(candidate: RetrievedProduc
       // A product URL that already shows #productTitle or the main rating block was read.
       // Script text that mentions a captcha must not throw that read away.
       if (!readable && isBlockedOrSignInReviewPage({ requestedUrl: url, finalUrl: response.url, html })) break;
-      if (requestedAsin && parsed.canonicalUrl && amazonAsinInUrl(parsed.canonicalUrl) && amazonAsinInUrl(parsed.canonicalUrl) !== requestedAsin) {
+      // A variant page often canonicalizes to the parent ASIN. Keep it when this
+      // page's own ASIN matches the request. Discard only when both differ.
+      const canonicalAsin = amazonAsinInUrl(parsed.canonicalUrl);
+      const currentAsin = amazonCurrentAsin(html);
+      if (
+        requestedAsin &&
+        canonicalAsin &&
+        canonicalAsin !== requestedAsin &&
+        currentAsin &&
+        currentAsin !== requestedAsin
+      ) {
         break;
       }
       evidence = parsed;

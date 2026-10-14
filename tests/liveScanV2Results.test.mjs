@@ -204,7 +204,14 @@ test("varied v2 results are never hidden and n=0 is never BUY or AVOID", () => {
           if (result.buyingScoreV2.audit.n === 0) {
             assert.notEqual(answer.label, "Buy");
             assert.notEqual(answer.label, "Skip");
+          } else {
+            const expected = card.verdict === "Buy" ? "Buy" : card.verdict === "Skip" ? "Skip" : "Wait";
+            assert.equal(answer.label, expected, `${category} n=${n} ${card.verdict}`);
+            assert.equal(answer.confidenceWords, level);
+            assert.equal(shopper.formatShopperConfidence(answer), level);
           }
+          const answerText = `${answer.label} ${answer.why} ${answer.nextSteps.map((step) => `${step.label} ${step.detail}`).join(" ")}`;
+          assert.doesNotMatch(answerText, /Scan the Amazon listing link/);
           seen += 1;
         }
       }
@@ -213,9 +220,111 @@ test("varied v2 results are never hidden and n=0 is never BUY or AVOID", () => {
   assert.ok(seen > 100);
 });
 
+test("a v2 Buy is not rewritten by a legacy NOT_ENOUGH state", async () => {
+  const cerave = JSON.parse(readFileSync(new URL("./fixtures/live-scans/cerave.json", import.meta.url), "utf8"));
+  assert.equal(cerave.evidenceState, "NOT_ENOUGH");
+  assert.equal(cerave.buyingScoreV2.verdict, "Buy");
+  assert.equal(cerave.buyingScoreV2.audit.n >= 1, true);
+  const answer = shopper.deriveShopperAnswer(cerave);
+  assert.equal(answer.label, "Buy");
+  assert.equal(answer.kind, "buy");
+  assert.equal(answer.confidenceWords, "Medium");
+  assert.equal(shopper.formatShopperConfidence(answer), "Medium");
+  assert.equal(answer.score, 96);
+  assert.doesNotMatch(`${answer.label} ${answer.why} ${answer.nextSteps.map((step) => `${step.label} ${step.detail}`).join(" ")}`, /Scan the Amazon listing link/);
+  assert.equal(answer.nextSteps.some((step) => step.id === "amazon_listing"), false);
+
+  const wait = {
+    ...cerave,
+    evidenceState: "NOT_ENOUGH",
+    verdict: "REVIEW FIRST",
+    reviewEvidence: { commentsAnalyzed: 0, evidenceAdjudication: { acceptedRecords: [], acceptedRecordCount: 0 } },
+    buyingScoreV2: { ...cerave.buyingScoreV2, verdict: "Wait", score: 61, confidence: "Low", audit: { ...cerave.buyingScoreV2.audit, n: 4 } },
+  };
+  const waiting = shopper.deriveShopperAnswer(wait);
+  assert.equal(waiting.label, "Wait");
+  assert.equal(waiting.kind, "wait");
+  assert.doesNotMatch(waiting.why, /Scan the Amazon listing link/);
+
+  const ts = require("typescript");
+  const uiJiti = require("jiti")(process.cwd(), {
+    alias: { "@": process.cwd() },
+    extensions: [".js", ".json", ".ts", ".tsx", ".mjs"],
+    cache: false,
+    requireCache: false,
+    transform: ({ source }) => ({
+      code: ts.transpileModule(source, {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+      }).outputText,
+    }),
+  });
+  const { ShopperAnswerCard } = uiJiti("./components/ShopperAnswerCard.tsx");
+  const React = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const html = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result: cerave, productName: cerave.productName }));
+  assert.match(html, />Buy</);
+  assert.match(html, /data-testid="answer-confidence">Medium</);
+  assert.doesNotMatch(html, /Scan the Amazon listing link/);
+  assert.doesNotMatch(html, /Low confidence/);
+});
+
+test("a variant page keeps its title when the canonical ASIN is the parent", async () => {
+  const variantHtml = readFileSync(new URL("./fixtures/amazon-variant-page.html", import.meta.url), "utf8");
+  const saved = globalThis.fetch;
+  globalThis.fetch = async () => {
+    const response = new Response(variantHtml, { status: 200 });
+    Object.defineProperty(response, "url", { value: "https://www.amazon.com/Travel-Size-Glass-Kettle/dp/B0VARIANT1/ref=twister" });
+    return response;
+  };
+  try {
+    const enriched = await retrieval.enrichRetrievedProductCandidate({
+      url: "https://www.amazon.com/dp/B0VARIANT1",
+      title: "https://www.amazon.com/dp/B0VARIANT1",
+      domain: "www.amazon.com",
+      source: "manual-pattern",
+      query: "variant",
+      notes: [],
+    });
+    assert.equal(enriched.title, "Travel Size Glass Kettle");
+    assert.equal(enriched.rating, 4.4);
+    assert.equal(enriched.reviewCount, 8888);
+    assert.match(enriched.url, /B0VARIANT1/);
+    assert.equal(enriched.enrichmentSucceeded, true);
+
+    const wrong = variantHtml
+      .replaceAll("B0VARIANT1", "B0OTHER111")
+      .replaceAll("Travel Size Glass Kettle", "Other Kettle");
+    globalThis.fetch = async () => {
+      const response = new Response(wrong, { status: 200 });
+      Object.defineProperty(response, "url", { value: "https://www.amazon.com/dp/B0VARIANT1" });
+      return response;
+    };
+    const rejected = await retrieval.enrichRetrievedProductCandidate({
+      url: "https://www.amazon.com/dp/B0VARIANT1",
+      title: "https://www.amazon.com/dp/B0VARIANT1",
+      domain: "www.amazon.com",
+      source: "manual-pattern",
+      query: "variant",
+      notes: [],
+    });
+    assert.equal(rejected.enrichmentSucceeded, false);
+    assert.notEqual(rejected.title, "Other Kettle");
+  } finally {
+    globalThis.fetch = saved;
+  }
+});
+
 test("a missing release function does not throw or log", async () => {
-  const previousMode = process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE;
+  const previous = {
+    mode: process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE,
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseUrl: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  };
   delete process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+  process.env.SUPABASE_URL = "http://127.0.0.1:54321";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-for-missing-release";
   const savedFetch = globalThis.fetch;
   const errors = [];
   const savedError = console.error;
@@ -237,7 +346,13 @@ test("a missing release function does not throw or log", async () => {
   } finally {
     console.error = savedError;
     globalThis.fetch = savedFetch;
-    if (previousMode === undefined) delete process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE;
-    else process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE = previousMode;
+    if (previous.mode === undefined) delete process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE;
+    else process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE = previous.mode;
+    if (previous.url === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = previous.url;
+    if (previous.supabaseUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previous.supabaseUrl;
+    if (previous.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previous.key;
   }
 });

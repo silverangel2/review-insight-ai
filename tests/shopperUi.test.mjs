@@ -128,7 +128,8 @@ test("RingConn card shows the canonical 55% confidence (raw 81, capped at 55 for
   assert.doesNotMatch(thin, /Low · \d+ real reviews|real reviews analyzed|Based on \d+/);
   assert.equal(thinAnswer.confidencePercent, null);
   assert.ok(thinAnswer.reviewCount > 0);
-  assert.ok(thin.includes("Scan the Amazon listing"));
+  assert.ok(thin.includes("Add a review screenshot"));
+  assert.doesNotMatch(thin, /Scan the Amazon listing/);
   assert.doesNotMatch(thin, /not enough evidence|not scored|no reviews analyzed|NOT ENOUGH EVIDENCE/i);
   assert.ok(thinAnswer.loves.some(point => point.quote), "thin results still quote a real review");
 });
