@@ -1,4 +1,5 @@
 import { captureStage } from "./devScanCapture";
+import { collectionProductName, isPlaceholderProductName } from "./linkIdentity";
 
 function toOptionalNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -170,7 +171,7 @@ export type ReviewEvidenceResult = {
   reviewAuthenticity: {
     score: number | null;
     label: string;
-    suspiciousReviewRisk: "Not scored" | "Low" | "Medium" | "High" | "Very high";
+    suspiciousReviewRisk: null | "Low" | "Medium" | "High" | "Very high";
     reasons: string[];
     suspiciousComments: Array<{
       source: string;
@@ -398,7 +399,7 @@ function emptyEvidence(reason = "No review evidence collected."): ReviewEvidence
     reviewAuthenticity: {
       score: null,
       label: "Review scan not verified",
-      suspiciousReviewRisk: "Not scored",
+      suspiciousReviewRisk: null,
       reasons: [reason],
       suspiciousComments: [],
     },
@@ -859,7 +860,7 @@ function recoverPartialReviewEvidenceFromText(text: string) {
     reviewAuthenticity: {
       score: null,
       label: "Review scan partially recovered",
-      suspiciousReviewRisk: "Not scored",
+      suspiciousReviewRisk: null,
       reasons: [
         "The model response was malformed, but ReviewIntel recovered available links/numbers instead of discarding the scan.",
       ],
@@ -1248,7 +1249,7 @@ function cleanFinalReviewEvidence(result: ReviewEvidenceResult): ReviewEvidenceR
           ...result.reviewAuthenticity,
           score: null,
           label: "Review scan not verified",
-          suspiciousReviewRisk: "Not scored" as const,
+          suspiciousReviewRisk: null,
           reasons:
             Array.isArray(result.reviewAuthenticity.reasons) &&
             result.reviewAuthenticity.reasons.length > 0
@@ -2161,6 +2162,10 @@ export async function collectAndAnalyzeReviewEvidence(
   const openAiWebSearchContext = createOpenAiWebSearchContext({ maxCalls: 2, stage: "identity" });
   openAiWebSearchContext.costTelemetry = input.costTelemetry;
 
+  if (isPlaceholderProductName(input.productName)) {
+    const fromLink = collectionProductName(input.listingUrl);
+    if (fromLink) input = { ...input, productName: fromLink };
+  }
   const stableIdentity = stableProductSearchTerms(input);
   const product = [
     ...stableIdentity.brands, ...stableIdentity.models, stableIdentity.family,
@@ -2559,6 +2564,7 @@ export async function collectAndAnalyzeReviewEvidence(
     productName: input.productName,
     model: input.model,
     productKey: reviewSearchIdentity || cleanVisibleIdentity || product,
+    authoritativeListingUrl: input.listingUrl || null,
     price: input.price,
     rating: input.rating,
     reviewCount: input.reviewCount,
@@ -2974,7 +2980,7 @@ export async function collectAndAnalyzeReviewEvidence(
       reviewAuthenticity: {
         score: null,
         label: commentsAnalyzed > 0 ? "Review evidence collected" : "Review evidence not found",
-        suspiciousReviewRisk: "Not scored",
+        suspiciousReviewRisk: null,
         reasons:
           commentsAnalyzed > 0
             ? [
@@ -3279,7 +3285,7 @@ Required JSON shape:
   "reviewAuthenticity": {
     "score": null,
     "label": "Review scan not verified",
-    "suspiciousReviewRisk": "Not scored",
+    "suspiciousReviewRisk": null,
     "reasons": ["short reasons"],
     "suspiciousComments": [
       {
@@ -3332,9 +3338,8 @@ Scoring rules:
     });
 
     if (!response.ok) {
-      return recoveryEvidenceFromLocalRetrieval(
-        `OpenAI review analysis failed: ${response.status || "network"} ${(response.error || "").slice(0, 180)}`
-      );
+      console.error("[ReviewIntel] review analysis request failed", response.status || "network", (response.error || "").slice(0, 180));
+      return recoveryEvidenceFromLocalRetrieval("Written reviews were not available for a verdict.");
     }
 
     const data = response.data;
@@ -3348,7 +3353,8 @@ Scoring rules:
       "";
 
     if (!outputText.trim()) {
-      return recoveryEvidenceFromLocalRetrieval("OpenAI review analysis returned no review evidence.");
+      console.error("[ReviewIntel] review analysis returned no review evidence");
+      return recoveryEvidenceFromLocalRetrieval("Written reviews were not available for a verdict.");
     }
 
     const parsed = safeParseReviewEvidenceJson(outputText);
@@ -3780,7 +3786,7 @@ Scoring rules:
             : "Review scan not verified",
         suspiciousReviewRisk:
             !hasAnalyzedReviewText || score === null
-            ? "Not scored"
+            ? null
             : score >= 76
               ? "Very high"
               : score >= 51
@@ -3900,7 +3906,7 @@ Scoring rules:
           ...(finalEvidence.reviewAuthenticity || {}),
           score: null,
           label: "Review evidence not found",
-          suspiciousReviewRisk: "Not scored",
+          suspiciousReviewRisk: null,
           reasons: [
             "No written review bodies were collected or analyzed.",
             "Marketplace rating/review count from a screenshot or listing is metadata only, not review evidence.",

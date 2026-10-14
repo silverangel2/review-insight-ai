@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       hasAdminSeoDatabase() ? "passed" : "warning",
       hasAdminSeoDatabase()
         ? "Editable SEO settings are stored in Supabase and will persist after deployment."
-        : "Editable SEO settings are using local JSON fallback. Add Supabase service env vars in Vercel for deployment-ready saving."
+        : "Editable SEO settings are using local JSON fallback. Add the database service env vars in the deployment settings for deployment-ready saving."
     ),
     check(
       "Editable SEO settings",

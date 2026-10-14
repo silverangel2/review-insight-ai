@@ -111,7 +111,7 @@ export function getTikTokAuthUrl(state: string) {
   const config = getTikTokOAuthConfig();
 
   if (!config.clientKey) {
-    throw new Error("Missing TIKTOK_CLIENT_KEY. Add it in Vercel before connecting TikTok.");
+    throw new Error("Missing TIKTOK_CLIENT_KEY. Add it in the deployment settings before connecting TikTok.");
   }
 
   if (!config.redirectUri) {

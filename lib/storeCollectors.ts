@@ -76,10 +76,10 @@ export function targetTcin(value: string): string | null {
     const url = new URL(value);
     const host = url.hostname.replace(/^www\./, "");
     if (host !== "target.com" && !host.endsWith(".target.com")) return null;
-    const fromPath = url.pathname.match(/\/A-(\d{6,9})(?:[/?#]|$)/i)?.[1];
+    const fromPath = url.pathname.match(/\/A-(\d{6,12})(?:[/?#]|$)/i)?.[1];
     if (fromPath) return fromPath;
     const query = url.searchParams.get("reviewedId") || url.searchParams.get("tcin");
-    if (query && /^\d{6,9}$/.test(query)) return query;
+    if (query && /^\d{6,12}$/.test(query)) return query;
   } catch { /* not a URL */ }
   return null;
 }

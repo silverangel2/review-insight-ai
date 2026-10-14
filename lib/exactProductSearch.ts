@@ -1,4 +1,5 @@
 import { retrieveProductUrls, isProductUrl, normalizeProductUrl } from "./productUrlRetrieval";
+import { identityFromProductLink, isPlaceholderProductName } from "./linkIdentity";
 import { isDriftSearchQuery, preferredAmazonHost, withoutDriftQueries } from "./listingAuthority";
 import {
   prepareCandidateForVerification,
@@ -652,6 +653,37 @@ export async function findExactProductCandidates(
   input: ExactProductSearchInput
 ): Promise<ExactProductCandidateSearchResult> {
   const startedAt = Date.now();
+
+  const supplied = identityFromProductLink(input.listingUrl);
+  if (supplied && supplied.storeId !== "amazon") {
+    const domain = hostForUrl(supplied.url);
+    const title = supplied.displayName || null;
+    return {
+      candidates: [{
+        url: supplied.url,
+        title,
+        store: supplied.storeLabel,
+        domain,
+        price: null,
+        rating: null,
+        reviewCount: null,
+        source: "supplied-listing-identity",
+        notes: ["Product name and id were taken from the shopper link."],
+        model: supplied.modelTokens[0] || null,
+      }],
+      queries: ["supplied listing identity"],
+      sourcesChecked: [supplied.url],
+      sourceLinks: [{ label: title || supplied.productId, url: supplied.url, ...(domain ? { domain } : {}) }],
+      notes: ["Used the shopper's store link before any marketplace search."],
+      elapsedMs: Date.now() - startedAt,
+      timedOut: false,
+      attemptCount: 0,
+    };
+  }
+
+  if (isPlaceholderProductName(input.productName) && !canonicalAmazonListingUrl(input.listingUrl)) {
+    return emptyCandidateSearchResult("Product name was a placeholder, so no marketplace search was sent.", startedAt);
+  }
 
   const directListing = canonicalAmazonListingUrl(input.listingUrl);
   if (directListing) {

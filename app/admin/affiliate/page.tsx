@@ -115,7 +115,7 @@ export default async function AffiliateAdminPage() {
                 </a>
                 {!tagConnected ? (
                   <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 dark:bg-amber-400/10 dark:text-amber-100">
-                    This opens Amazon, but commission tracking will not work until AMAZON_ASSOCIATE_TAG is added in Vercel.
+                    This opens Amazon, but commission tracking will not work until AMAZON_ASSOCIATE_TAG is added in the deployment settings.
                   </p>
                 ) : null}
               </div>

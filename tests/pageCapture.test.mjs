@@ -9,6 +9,7 @@ const jiti = require("jiti")(new URL("../review-evidence-scoring-test.js", impor
 const extractors = require("../extension/extractors.js");
 const pageCapture = jiti("./lib/pageCapture.ts");
 const blocked = jiti("./lib/linkScanBlocked.ts");
+const shopper = jiti("./lib/shopperAnswer.ts");
 const stores = jiti("./lib/storeCollectors.ts");
 const sessions = jiti("./lib/accountSession.ts");
 const { POST } = jiti("./app/api/page-capture/route.ts");
@@ -86,6 +87,16 @@ test("extension reads only after a click and asks for the minimum permissions", 
   assert.match(read("extension/popup.html"), /Analyze with ReviewIntel/);
   assert.equal(content.includes("fromDocument"), true);
   assert.match(read("extension/popup.html") + read("components/ExtensionPrompt.tsx") + read("app/tools/analyze-page/page.tsx"), /Analyze/);
+  const promptLines = [
+    "Get real reviews read: add the free extension",
+    "Open the product page yourself, then let ReviewIntel read the reviews already on your screen.",
+    "Add it free",
+  ];
+  for (const line of promptLines) {
+    assert.equal(shopper.shopperSafeText(line), line);
+    assert.equal(/openai|evidenceState|\bNOT_ENOUGH\b|\bvercel\b|review analysis failed|not enough evidence|not scored|no reviews analyzed/i.test(line), false);
+  }
+  assert.match(read("components/ExtensionPrompt.tsx"), /shopperSafeText/);
   assert.equal(BRANDS.test(read("components/ExtensionPrompt.tsx") + read("app/tools/analyze-page/page.tsx") + read("extension/popup.html") + manifest.description), false);
 });
 

@@ -25,7 +25,18 @@ export type ShopperAnswer = {
   nextSteps: Array<{ id: "screenshots" | "amazon_listing" | "compare" | "retry"; label: string; detail: string; href?: string }>;
 };
 
+/** Drop hosting, provider, and internal evidence labels from text a shopper can read. */
+export function shopperSafeText(value: unknown): string {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (/openai|evidenceState|\bNOT_ENOUGH\b|\bvercel\b|review analysis failed/i.test(text)) {
+    return "Written reviews were not available for a verdict.";
+  }
+  return text;
+}
+
 export const UNREADABLE_AMAZON_MESSAGE = "We couldn't read this Amazon page right now.";
+export const UNREADABLE_LISTING_MESSAGE = "We couldn't read this product page right now.";
 export const NEUTRAL_AMAZON_PRODUCT_LABEL = "Amazon product";
 
 export function isAsinPlaceholder(value: unknown) {
@@ -256,12 +267,16 @@ function v2ConfidenceLevel(result: Rec): ShopperAnswer["confidenceWords"] | null
  */
 export function isUnreadableAmazonPage(input: unknown): boolean {
   const result = obj(input);
+  if (result.pageUnreadable === true && writtenReviewCount(result, acceptedRecords(result)) === 0 && !marketplaceSignalsKnown(result)) return true;
+  if (result.identityUnconfirmed === true && writtenReviewCount(result, acceptedRecords(result)) === 0) return true;
   if (writtenReviewCount(result, acceptedRecords(result)) > 0) return false;
   const buying = obj(result.buyingScoreV2);
   if (buying.mode === "provisional_marketplace" || buying.mode === "buying_score" || buying.mode === "written_only") return false;
   if (marketplaceSignalsKnown(result)) return false;
   const title = productTitleOf(result);
-  return listingUrls(result).some(isAmazonListing) || isAsinPlaceholder(title) || title === NEUTRAL_AMAZON_PRODUCT_LABEL;
+  const urls = listingUrls(result);
+  const retailerLink = urls.some((url) => /(?:^|\.)(?:walmart|bestbuy|target|homedepot)\./i.test(hostOf(url) || ""));
+  return urls.some(isAmazonListing) || isAsinPlaceholder(title) || title === NEUTRAL_AMAZON_PRODUCT_LABEL || retailerLink;
 }
 
 /** Shopper-facing confidence. v2's High/Medium/Low wins over a remapped percent. A missing number stays missing. */
@@ -353,10 +368,12 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const amazonUrl = urls.find(isAmazonListing) || null;
   const listingUrl = amazonUrl || urls[0] || null;
   if (isUnreadableAmazonPage(result)) {
+    const amazonPage = urls.some(isAmazonListing) || isAsinPlaceholder(productTitleOf(result)) || productTitleOf(result) === NEUTRAL_AMAZON_PRODUCT_LABEL;
+    const whyMessage = amazonPage ? UNREADABLE_AMAZON_MESSAGE : UNREADABLE_LISTING_MESSAGE;
     return {
       kind: "not_enough",
       label: "Try again",
-      why: UNREADABLE_AMAZON_MESSAGE,
+      why: whyMessage,
       loves: [],
       complaints: [],
       reviewCount: 0,
@@ -372,8 +389,8 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
         {
           id: "retry",
           label: "Try again",
-          detail: `${UNREADABLE_AMAZON_MESSAGE} ${unreadableRetryPhrase(result)}`,
-          href: amazonUrl ? `/analyze?url=${encodeURIComponent(amazonUrl)}` : "/analyze",
+          detail: `${whyMessage} ${unreadableRetryPhrase(result)}`,
+          href: listingUrl ? `/analyze?url=${encodeURIComponent(listingUrl)}` : "/analyze",
         },
         {
           id: "screenshots",

@@ -396,7 +396,7 @@ const resultFallbackTextTranslations: Record<ReviewIntelLocale, Record<string, s
   },
 };
 
-const BLOCKED_SHOPPER_COPY = /not enough evidence|not scored|no reviews analyzed|could not access enough|couldn.?t verify enough exact-product review evidence|not enough (?:written |public |readable )?review evidence|review evidence was not accessible|review evidence not found|review text was not analyzed/i;
+const BLOCKED_SHOPPER_COPY = /not enough evidence|not scored|no reviews analyzed|could not access enough|couldn.?t verify enough exact-product review evidence|not enough (?:written |public |readable )?review evidence|review evidence was not accessible|review evidence not found|review text was not analyzed|openai|evidenceState|\bNOT_ENOUGH\b|\bvercel\b|review analysis failed/i;
 
 function sanitizeShopperCopy(value: string): string {
   const trimmed = value.trim();
@@ -1191,9 +1191,10 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     answer: displayShopperVerdict(shopper.verdict)
   };
   const pageUnreadable = isUnreadableAmazonPage(result);
-  const productName = pageUnreadable
+  const identifiedName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
+  const productName = pageUnreadable && /^(?:amazon product|analyzed product)$/i.test(identifiedName)
     ? "Amazon product"
-    : shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
+    : identifiedName;
   const rawResultForVerdict = result as Record<string, unknown>;
   const reviewEvidenceState = reviewEvidenceDecisionState(rawResultForVerdict);
 
@@ -1290,7 +1291,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     ? (result as Record<string, unknown>).buyingScoreV2 as Parameters<typeof BuyingScoreV2Card>[0]["score"]
     : null;
   const v2Answer = pageUnreadable
-    ? null
+    ? "Try again"
     : buyingScoreV2
     ? buyingScoreV2.mode === "provisional_marketplace" && buyingScoreV2.leaning
       ? `LEANING ${buyingScoreV2.leaning.toUpperCase()}`

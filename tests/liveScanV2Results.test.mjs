@@ -115,7 +115,8 @@ test("analyze route aligns confidence and bottom line with the v2 decision", () 
   const end = route.indexOf("[ReviewIntel PIPELINE] exact-product-gate");
   const block = route.slice(start, end);
   assert.match(block, /buyingConfidenceFromV2\(faced\.buyingScore\.confidence\)/);
-  assert.match(block, /shopperBottomLineForBuyingScore\(faced\.buyingScore, faced\.verdict\)/);
+  assert.match(block, /buyingScoreV2 = wordingWhenListingAlreadySupplied\(faced\.buyingScore, listingWasSupplied\)/);
+  assert.match(block, /shopperBottomLineForBuyingScore\(buyingScoreV2, faced\.verdict\)/);
   assert.match(route, /catch \{ \/\* a missing release function must not fail the scan \*\/ \}/);
 });
 

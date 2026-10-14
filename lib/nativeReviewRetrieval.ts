@@ -16,6 +16,7 @@ import type { CollectedReview } from "@/lib/reviewCollector";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 import { buildAmazonReviewPageUrls, discoverPublicReviewFollowups, reviewPaginationKey, buildRetailerReviewPageUrls, buildLocaleListingVariants, retailerStableProductId } from "./reviewRetrievalPolicy";
 import { amazonStoreLabel, isDriftSearchQuery } from "./listingAuthority";
+import { isPlaceholderProductName } from "./linkIdentity";
 import { buildDirectReviewCandidateUrls } from "./exactProductSearch";
 
 type SourceLink = { label: string; url: string; domain?: string };
@@ -215,7 +216,29 @@ async function politeDelay(ms: number) {
 let activePoliteFetcher: ReturnType<typeof createPoliteFetcher> | null = null;
 let scanCookieJar = new ScanCookieJar();
 let layeredScan: LayeredScanSummary = emptyLayeredScan();
+// Review endpoints that already returned a challenge or block. A later query
+// variant, pagination URL, or sibling listing must not fetch that path again.
+let blockedReviewPaths = new Set<string>();
 function maxPagesForRender(input: { maxPages?: number }) { return typeof input.maxPages === "number" ? Math.max(1, input.maxPages) : 3; }
+
+function reviewPathKey(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname.replace(/\/$/, "")}`;
+  } catch {
+    return null;
+  }
+}
+
+function isReviewEndpointUrl(url: string): boolean {
+  return /\/product-reviews\/|\/reviews\/|reviews-render|\/review(?:\/|$|\?)|\/ratings\//i.test(url);
+}
+
+function rememberBlockedReviewPath(url: string) {
+  if (!isReviewEndpointUrl(url)) return;
+  const key = reviewPathKey(url);
+  if (key) blockedReviewPaths.add(key);
+}
 
 async function fetchTextOnce(url: string, index: number, timeoutMs = 9000, costTelemetry?: ScanCostTelemetry, headers?: Record<string, string>): Promise<PageFetchResult> {
   const controller = new AbortController();
@@ -262,6 +285,10 @@ async function fetchText(url: string, index: number, timeoutMs = 9000, costTelem
     jar: scanCookieJar,
     remainingMs: () => scanCollectionRemainingMs() ?? Number.POSITIVE_INFINITY,
     fetchPage: async (attempt, headers) => {
+      const pathKey = reviewPathKey(attempt.url);
+      if (pathKey && blockedReviewPaths.has(pathKey) && isReviewEndpointUrl(attempt.url)) {
+        return { status: 403, ok: false, text: "", finalUrl: attempt.url, error: "challenge or sign-in page" };
+      }
       const page = await fetchTextOnce(attempt.url, index, timeoutMs, costTelemetry, headers);
       return {
         status: page.status ?? null,
@@ -275,6 +302,9 @@ async function fetchText(url: string, index: number, timeoutMs = 9000, costTelem
     },
   });
   mergeLayeredScan(layeredScan, layered);
+  for (const attempt of layered.tierAttempts) {
+    if (/^blocked-/.test(attempt.stop)) rememberBlockedReviewPath(attempt.url);
+  }
   return {
     url,
     ok: layered.ok && !layered.blocked,
@@ -373,7 +403,7 @@ function normalizedIdentity(input: NativeReviewRetrievalInput) {
 
 export function buildNativeReviewSearchQueries(input: NativeReviewRetrievalInput): string[] {
   const identity = normalizedIdentity(input);
-  const exact = identity.exactTitle || identity.title;
+  const exact = isPlaceholderProductName(input.productTitle) ? "" : (identity.exactTitle || identity.title);
   const quoted = exact ? `"${exact.replace(/"/g, "")}"` : "";
   const brandModel = [identity.brand, identity.model].filter(Boolean).join(" ").trim();
   const store = amazonStoreLabel(input.listingUrl) || identity.store;
@@ -625,6 +655,7 @@ export async function runNativeReviewRetrieval(
   const startedAt = Date.now();
   scanCookieJar = new ScanCookieJar();
   layeredScan = emptyLayeredScan();
+  blockedReviewPaths = new Set();
   activePoliteFetcher = createPoliteFetcher({ minHostIntervalMs: typeof input.politeDelayMs === "number" ? Math.min(input.politeDelayMs, 2000) : 400 });
   const politeStats = activePoliteFetcher.stats;
   // Free local headless render fallback (verified pages with client-side reviews only).
@@ -681,7 +712,7 @@ export async function runNativeReviewRetrieval(
     const restrictionKey = `${pagination.origin}${pagination.pathname.replace(/\/$/, "")}`;
     const paginationKey = reviewPaginationKey(link.url);
     const isPagination = ["pageNumber", "page", "cursor", "offset"].some(key => pagination.searchParams.has(key));
-    if (restrictedReviewPaths.has(restrictionKey) || (isPagination && exhaustedPagination.has(paginationKey))) return;
+    if (restrictedReviewPaths.has(restrictionKey) || blockedReviewPaths.has(restrictionKey) || (isPagination && exhaustedPagination.has(paginationKey))) return;
     if (!withinDuration() || dedupeReviews(reviews, maxSnippets).length >= maxSnippets || attemptedPageUrls.size >= maxPages || attemptedPageUrls.has(link.url)) return;
     attemptedPageUrls.add(link.url);
     sourcesChecked.push(link.url);
@@ -693,6 +724,7 @@ export async function runNativeReviewRetrieval(
     if (restricted) {
       restrictedProductPages += 1;
       restrictedReviewPaths.add(restrictionKey);
+      rememberBlockedReviewPath(link.url);
     }
     // Development captures keep the fetched body so extraction defects are provable offline.
     captureStage("page", { sourceUrl: link.url, finalUrl: page.finalUrl, httpStatus: page.status ?? null, blockedOrChallenged: blocked, records: [], html: typeof page.text === "string" ? page.text.slice(0, 8_000_000) : null });
