@@ -16,6 +16,13 @@ const num = (v: unknown) => {
 const okRating = (v: number | null) => (v !== null && v >= 1 && v <= 5 ? Math.round(v * 100) / 100 : null);
 const okCount = (v: number | null) => (v !== null && v > 0 ? Math.floor(v) : null);
 
+/** Page aggregate wins. A supplied count is only used when the main rating block has none. */
+export function marketplaceCountForCollection(pageCount: number | null | undefined, suppliedCount: number | null | undefined) {
+  if (typeof pageCount === "number" && Number.isFinite(pageCount) && pageCount > 0) return Math.floor(pageCount);
+  if (typeof suppliedCount === "number" && Number.isFinite(suppliedCount) && suppliedCount > 0) return Math.floor(suppliedCount);
+  return null;
+}
+
 function fromJsonLd(html: string) {
   const blocks = html.match(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi) || [];
   for (const block of blocks) {

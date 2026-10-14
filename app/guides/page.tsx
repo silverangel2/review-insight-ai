@@ -64,7 +64,7 @@ export default async function GuidesPage() {
               <li key={g.slug}>
                 <Link href={`/guides/${g.slug}`} className="ri-lift block rounded-[1.5rem] bg-white p-5 ring-1 ring-slate-900/5">
                   <p className="text-lg font-semibold text-slate-900">{g.name}</p>
-                  <p className="mt-1 text-sm text-slate-600">{g.products.length} product{g.products.length === 1 ? "" : "s"} · {g.totalReviews} real reviews</p>
+                  <p className="mt-1 text-sm text-slate-600">{g.products.length} product{g.products.length === 1 ? "" : "s"}</p>
                   {g.thin ? <p className="mt-2 inline-flex rounded-full bg-butter px-2.5 py-0.5 text-xs font-semibold text-[#7a4a06]">Not enough data yet</p> : null}
                 </Link>
               </li>

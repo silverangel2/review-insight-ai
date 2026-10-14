@@ -11,6 +11,7 @@ import { saveLatestPreview, saveLatestResult, clearLatestResult, setActiveScanId
 import { incrementStoredScanTally } from "@/lib/clientAccount";
 import { ReviewIntelScanOverlay, type ScanStage } from "@/components/ReviewIntelScanOverlay";
 import { LimitReachedCard } from "@/components/upsell/LimitReachedCard";
+import { isAnalyzableProductUrl } from "@/lib/listingAuthority";
 
 // Anonymous-visitor free scans: 3 per day, per device. The localStorage
 // counter is UX-only — the server enforces the real limit by IP hash
@@ -77,7 +78,7 @@ function postScanRequest(
   headers: Record<string, string>,
   onUploadProgress?: (percent: number) => void,
   onUploaded?: () => void
-): Promise<{ status: number; data: ScanApiPayload | null }> {
+): Promise<{ status: number; data: ScanApiPayload | null; scanAccessToken?: string | null }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/analyze");
@@ -99,7 +100,8 @@ function postScanRequest(
       } catch {
         data = null;
       }
-      resolve({ status: xhr.status, data });
+      const scanAccessToken = xhr.getResponseHeader("x-reviewintel-scan-token");
+      resolve({ status: xhr.status, data, scanAccessToken });
     };
 
     xhr.onerror = () => reject(new Error("Network error while uploading your scan. Please try again."));
@@ -188,11 +190,11 @@ function analyzerFormCopy(locale: string) {
         analyze: "⚡ Analyze Product",
         clearUpload: "Clear upload",
         uploadTitle: "Upload product screenshot",
-        uploadHint: "Screenshot the product page, price, rating, or reviews.",
-        linkPlaceholder: "Optional: paste product link",
+        uploadHint: "A screenshot is optional and encouraged. It helps when the product page is hard to read.",
+        linkPlaceholder: "Paste the product link",
         clearerScreenshot: "We need a clearer screenshot or product link to analyze this properly.",
         analyzeError: "We could not analyze this screenshot.",
-        intro: "Add a screenshot of the product page (and its link) and we check what real buyers wrote about that exact product.",
+        intro: "Paste a product link, or add a product-page screenshot. A screenshot is optional and helps when the store page is hard to read.",
         previewAlt: "Product screenshot preview",
         scanLimitMessage: "You have used all 3 free scans for today. Your scans reset tomorrow."
       };
@@ -212,7 +214,7 @@ export default function AnalyzerForm() {
   const [error, setError] = useState("");
   const [anonScansUsed, setAnonScansUsed] = useState(0);
 
-  const canAnalyze = Boolean(image) && !isLoading;
+  const canAnalyze = (Boolean(image) || isAnalyzableProductUrl(productLink)) && !isLoading;
   const scanLimitMessage = analyzerFormCopy(readStoredLocale()).scanLimitMessage;
   // Read the browser-stored account only after hydration so server and first client render match.
   const [hydrated, setHydrated] = useState(false);
@@ -300,7 +302,7 @@ export default function AnalyzerForm() {
   }
 
   async function analyzeProduct() {
-    if (!image) return;
+    if (!image && !isAnalyzableProductUrl(productLink)) return;
 
     const currentAccount = getClientAccount();
     if (currentAccount?.email && currentAccount.email !== "guest" && !isAccountProfileComplete(currentAccount)) {
@@ -312,6 +314,7 @@ export default function AnalyzerForm() {
     }
 
     const scanId = createClientScanId();
+    try { window.sessionStorage.setItem("reviewintel_scan_session", scanId); } catch { /* private mode */ }
 
     try {
       clearLatestResult();
@@ -334,12 +337,12 @@ export default function AnalyzerForm() {
       await refreshServerQuota();
 
       const formData = new FormData();
-      formData.append("image", image);
+      if (image) formData.append("image", image);
       formData.append("productLink", productLink);
       formData.append("locale", readStoredLocale());
       formData.append("scanId", scanId);
 
-      const { status, data } = await postScanRequest(
+      const { status, data, scanAccessToken } = await postScanRequest(
         formData,
         accountHeaders(),
         (percent) => setUploadPercent(percent),
@@ -395,6 +398,13 @@ export default function AnalyzerForm() {
           setAnonScansUsed(next);
         }
         saveLatestPreview(previewDataUrl || preview);
+        try {
+          window.sessionStorage.setItem(`reviewintel_scan_token_${scanId}`, scanAccessToken || scanId);
+          const ownedKey = "reviewintel_owned_scan_ids";
+          const prior = JSON.parse(window.localStorage.getItem(ownedKey) || "[]");
+          const nextOwned = Array.isArray(prior) ? [...prior.filter((id) => id !== scanId), scanId].slice(-20) : [scanId];
+          window.localStorage.setItem(ownedKey, JSON.stringify(nextOwned));
+        } catch { /* ownership cookie from the response still covers this browser */ }
         window.sessionStorage.removeItem("reviewintel_latest_result");
         window.localStorage.removeItem("reviewintel_latest_result_last");
         window.localStorage.removeItem("reviewintel_latest_result_fallback");

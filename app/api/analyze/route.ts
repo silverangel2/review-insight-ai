@@ -1,5 +1,7 @@
 import { ocrReviewScreenshot } from "@/lib/reviewScreenshotOcr";
-import { productFactsFromOcr } from "@/lib/screenshotProductFacts";
+import { authoritativeDisplayName, isAmazonNavOrHeaderText, productFactsFromOcr } from "@/lib/screenshotProductFacts";
+import { amazonStoreLabel, isAnalyzableProductUrl } from "@/lib/listingAuthority";
+import { attachScanAccess } from "@/lib/scanAccess";
 import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
 import { aliasScanProgress, runWithScanProgress } from "@/lib/scanProgress";
@@ -20,11 +22,12 @@ import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import {
   ANON_SCAN_LIMIT,
 } from "@/lib/anonymousScans";
-import { claimFreeScan } from "@/lib/freeScanQuota";
+import { claimFreeScan, releaseFreeScan, type FreeScanIdentityKind } from "@/lib/freeScanQuota";
+import { isUnreadableAmazonPage } from "@/lib/shopperAnswer";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
-import { buyingScoreFromReviews, buyingScoreLogFields } from "@/lib/buyingScore";
+import { buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
@@ -494,10 +497,15 @@ function createStableProductKey(vision: VisionFacts, productLink: string) {
   }
 
   const store = vision.store || linkHost;
-  const title = vision.normalizedSearchQuery || [vision.brand, vision.name, vision.category].filter(Boolean).join(" ");
-  const price = normalizeProductPriceForKey(vision.price);
+  const asin = asinFromMarketplaceUrl(productLink);
+  const screenshotTitle = isAmazonNavOrHeaderText(vision.name) || isAmazonNavOrHeaderText(vision.normalizedSearchQuery)
+    ? ""
+    : (vision.normalizedSearchQuery || [vision.brand, vision.name, vision.category].filter(Boolean).join(" "));
+  // A pasted listing URL/ASIN is the memory key. Screenshot chrome must not collide with it.
+  const title = asin || screenshotTitle;
+  const price = asin ? "" : normalizeProductPriceForKey(vision.price);
 
-  return createProductKey([store, vision.brand, title, price]);
+  return createProductKey([store, asin || vision.brand, title, price]);
 }
 
 async function brainFetch(path: string) {
@@ -1670,13 +1678,20 @@ async function researchAndVerdict(
   // research state into the final UI.
   const raw: JsonRecord = {};
 
-  const productForReviewEvidence = uniqueIdentityText(
-    uniqueTextArray([
-      vision.brand,
-      vision.name || vision.normalizedSearchQuery,
-    ].filter(Boolean), 18),
-    28
-  );
+  const suppliedAsin = asinFromMarketplaceUrl(productLink);
+  const screenshotName = isAmazonNavOrHeaderText(vision.name) || isAmazonNavOrHeaderText(vision.normalizedSearchQuery)
+    ? ""
+    : (vision.name || vision.normalizedSearchQuery);
+  // The product link/ASIN is the identity. Screenshot text may add ratings, not a rival name.
+  const productForReviewEvidence = suppliedAsin
+    ? ""
+    : uniqueIdentityText(
+        uniqueTextArray([
+          vision.brand,
+          screenshotName,
+        ].filter(Boolean), 18),
+        28
+      );
 
   console.log("[ReviewIntel DEBUG vision]", {
     name: vision.name,
@@ -1782,13 +1797,13 @@ async function researchAndVerdict(
   // shortly after, the scan continues with what we have (v2 handles low n / provisional).
   const budgets = scanBudgets();
   const { value: reviewEvidence } = await raceWithBudget(budgets.collectionMs + 5_000, () => withScanDeadline(budgets.collectionMs, () => collectAndAnalyzeReviewEvidence({
-      productName: productForReviewEvidence || vision.category || "unknown product",
-      brand: vision.brand,
+      productName: productForReviewEvidence || (suppliedAsin ? "" : vision.category) || "unknown product",
+      brand: suppliedAsin ? "" : vision.brand,
       model: undefined,
       color: [...vision.visibleFeatures, vision.name].join(" ").match(/\b(white|black|gray|grey|silver|blue|red|gold)\b/i)?.[1],
       categoryBreadcrumbs: [vision.category].filter(Boolean),
       marketingText: vision.visibleBadges,
-      store: vision.store,
+      store: amazonStoreLabel(productLink) || vision.store,
       price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
         ? vision.price
         : undefined,
@@ -1841,12 +1856,13 @@ async function researchAndVerdict(
   });
 
   return buildReviewEvidenceShopperResult({
-    vision: vision as Record<string, unknown>,
+    vision: (suppliedAsin ? { ...vision, name: screenshotName, normalizedSearchQuery: screenshotName, brand: "" } : vision) as Record<string, unknown>,
     reviewEvidence: reviewEvidence as unknown as Record<string, unknown>,
     reviewAuthenticity,
     rawRecord,
     scanId,
     detectedProductKey: cleanDetectedProductKey(detectedProductKey),
+    suppliedListingUrl: productLink,
   });
 }
 
@@ -2135,6 +2151,7 @@ function buildReviewEvidenceShopperResult(input: {
   rawRecord?: Record<string, unknown>;
   scanId?: string;
   detectedProductKey?: string;
+  suppliedListingUrl?: string | null;
 }) {
   const vision = input.vision || {};
   const evidence = input.reviewEvidence || {};
@@ -2170,19 +2187,22 @@ function buildReviewEvidenceShopperResult(input: {
       ? exactListingRejectedReason || "Written review collection was not tied to an accepted exact product source."
       : null);
 
-  const productName = String(
-    (exactListingAccepted
-      ? listingEvidence?.exactListingTitle ||
-        listingEvidence?.title ||
-        listingEvidence?.name
-      : "") ||
-      vision.name ||
-      vision.title ||
-      vision.category ||
-      "Unknown product"
+  const fetchedListingTitle = exactListingAccepted
+    ? String(listingEvidence?.exactListingTitle || listingEvidence?.title || listingEvidence?.name || "")
+    : "";
+  const listingAsin = String(
+    listingEvidence?.asin ||
+    asinFromMarketplaceUrl(rawExactListingUrl) ||
+    asinFromMarketplaceUrl(input.suppliedListingUrl) ||
+    ""
   ).trim();
+  const productName = authoritativeDisplayName({
+    listingTitle: fetchedListingTitle,
+    screenshotName: String(vision.name || vision.title || ""),
+    asin: listingAsin || null,
+  }) || String(vision.category || "Unknown product").trim();
 
-  const brand = String(vision.brand || listingEvidence?.brand || "").trim();
+  const brand = String((exactListingAccepted ? listingEvidence?.brand : "") || (isAmazonNavOrHeaderText(String(vision.brand || "")) ? "" : vision.brand) || "").trim();
   const store = String(vision.store || listingEvidence?.store || listingEvidence?.domain || "").trim();
   const price = String(vision.price || listingEvidence?.price || "").trim();
   const exactListingUrl = exactListingAccepted ? rawExactListingUrl : "";
@@ -2237,19 +2257,22 @@ function buildReviewEvidenceShopperResult(input: {
   // Inputs: real marketplace aggregate for the exact listing + the accepted,
   // exact-model written reviews (deduplicated across ALL stores inside).
   const collectorAggregate = asRecord(asRecord(evidence.reviewCollector).marketplaceAggregate);
+  const marketplaceAggregate = marketplaceAggregateForScore({
+    exactListingAccepted,
+    pageRating: collectorAggregate.rating ?? listingEvidence?.rating ?? evidence.rating,
+    pageCount: collectorAggregate.count ?? listingEvidence?.reviewCount ?? evidence.reviewCount,
+    screenshotRating: vision.rating,
+    screenshotCount: vision.reviewCount,
+  });
   const v2RequestedModel = (() => {
     const explicit = String(asRecord(vision).model || asRecord(listingEvidence).model || "").trim();
     if (explicit) return explicit;
     const token = String(productName || "").match(/\b(?=[A-Za-z0-9-]*\d)(?=[A-Za-z0-9-]*[A-Za-z])[A-Za-z0-9-]{4,}\b/);
     return token ? token[0] : null;
   })();
-  const v2Rating = exactListingAccepted
-    ? (typeof collectorAggregate.rating === "number" ? collectorAggregate.rating : listingRatingForMetadataScore)
-    : (typeof asRecord(vision).rating === "number" ? asRecord(vision).rating as number : null);
-  const v2Count = exactListingAccepted
-    ? (typeof collectorAggregate.count === "number" && collectorAggregate.count > 0 ? collectorAggregate.count : marketplaceReviewCount || null)
-    : (Number(asRecord(vision).reviewCount) > 0 ? Number(asRecord(vision).reviewCount) : null);
-  const buyingScoreV2 = buyingScoreFromReviews({
+  const v2Rating = marketplaceAggregate.rating;
+  const v2Count = marketplaceAggregate.count;
+  let buyingScoreV2 = buyingScoreFromReviews({
     marketplace: {
       rating: v2Rating,
       count: v2Count,
@@ -2680,15 +2703,17 @@ function buildReviewEvidenceShopperResult(input: {
   valueForMoney = deterministic.valueForMoney;
   bottomLine = deterministic.bottomLine;
   scoreAudit = deterministic.deterministicScoringInputs;
-  // v2 replaces the old customer-facing score and verdict.
+  // v2 replaces the old customer-facing score and verdict. Zero analyzed reviews
+  // never keep a review-evidence Buy or a 0-10 score.
   {
-    const v2Verdict = buyingScoreV2.verdict || buyingScoreV2.leaning;
-    verdict = v2Verdict === "Buy" ? "BUY" : v2Verdict === "Skip" ? "AVOID" : "REVIEW FIRST";
-    buyScore = buyingScoreV2.score;
-    decisionStatus = buyingScoreV2.mode === "buying_score" || buyingScoreV2.mode === "written_only"
+    const faced = customerFacingDecision({ analyzedReviews: commentsAnalyzed, buyingScore: buyingScoreV2 });
+    buyingScoreV2 = faced.buyingScore;
+    verdict = faced.verdict;
+    buyScore = faced.buyScore;
+    decisionStatus = faced.buyingScore.mode === "buying_score" || faced.buyingScore.mode === "written_only"
       ? "evidence_based"
-      : buyingScoreV2.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
-    finalDecisionSource = "buyingScoreV2";
+      : faced.buyingScore.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
+    finalDecisionSource = faced.finalDecisionSource;
   }
 
   console.log("[ReviewIntel PIPELINE] exact-product-gate", JSON.stringify({
@@ -2965,6 +2990,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     const role = resolvedAccount.role;
     const plan = resolvedAccount.plan;
     let claimedQuota: Awaited<ReturnType<typeof claimFreeScan>> | null = null;
+    let quotaSubject: { kind: FreeScanIdentityKind; identity: string; scanId: string } | null = null;
 
     const contentType = request.headers.get("content-type") || "";
     const canReadFormData =
@@ -2988,15 +3014,16 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
 
     if (securityResponse) return securityResponse;
 
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Please upload a product screenshot.", scanId, resultSource: "analyze" }, { status: 400 });
+    const imageFile = file instanceof File ? file : null;
+    if (!imageFile && !isAnalyzableProductUrl(productLink)) {
+      return NextResponse.json({ error: "Paste a product link or upload a product screenshot.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
-    if (!file.type.startsWith("image/")) {
+    if (imageFile && !imageFile.type.startsWith("image/")) {
       return NextResponse.json({ error: "Please upload an image file.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
-    if (file.size > 8 * 1024 * 1024) {
+    if (imageFile && imageFile.size > 8 * 1024 * 1024) {
       return NextResponse.json({ error: "Image is too large. Please upload a screenshot under 8MB.", scanId, resultSource: "analyze" }, { status: 400 });
     }
 
@@ -3053,17 +3080,20 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
           { status: 429 }
         );
       }
+
+      quotaSubject = { kind: "authenticated", identity: email, scanId };
     }
 
     if (role === "guest") {
-      const anonymousIdentity =
+      const anonymousIdentity = (
         request.headers.get("x-forwarded-for") ||
         request.headers.get("x-real-ip") ||
         request.headers.get("cf-connecting-ip") ||
-        "unknown";
+        "unknown"
+      ).split(",")[0]?.trim() || "unknown";
       const quotaClaim = await claimFreeScan({
         kind: "anonymous",
-        identity: anonymousIdentity.split(",")[0]?.trim() || "unknown",
+        identity: anonymousIdentity,
         scanId,
       });
       claimedQuota = quotaClaim;
@@ -3094,9 +3124,16 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
           { status: 403 }
         );
       }
+
+      quotaSubject = { kind: "anonymous", identity: anonymousIdentity, scanId };
     }
 
     const recordCompletedScan = async (scanResult: JsonRecord) => {
+      const unreadablePage = isUnreadableAmazonPage(scanResult);
+      if (unreadablePage && quotaSubject) {
+        const released = await releaseFreeScan(quotaSubject);
+        if (released.code !== "unavailable") claimedQuota = released;
+      }
       const finalDecisionSource = String(scanResult.finalDecisionSource || "");
       const terminalScanResult = scanResult.scanState
         ? scanResult
@@ -3139,7 +3176,9 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
           const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json,created_at&id=eq.${encodeURIComponent(id)}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
           return rows[0];
         },
-        consume: (id) => consumePersistentQuota(
+        consume: (id) => unreadablePage
+          ? Promise.resolve({ ok: true, quota: claimedQuota })
+          : consumePersistentQuota(
           {
             email,
             plan: accountPlan
@@ -3168,8 +3207,8 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
       };
     };
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const imageDataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+    const buffer = imageFile ? Buffer.from(await imageFile.arrayBuffer()) : Buffer.alloc(0);
+    const imageDataUrl = imageFile ? `data:${imageFile.type};base64,${buffer.toString("base64")}` : "";
 
     operationKey = scanOperationKey(
       `${email || "unknown"}:${normalizedPlanForAnalyze || "unknown"}`,
@@ -3188,9 +3227,16 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     }
     if (operation.status === "COMPLETED" && operation.result) {
       if (operation.result.scanId !== scanId) throw new Error("RESULT_PERSISTENCE_IDENTITY_MISMATCH");
+      // Release before the persistence check. A replay re-claims this scan id, and a
+      // signed-out cache hit may not have an account row to assert.
+      let completedResult = operation.result;
+      if (isUnreadableAmazonPage(operation.result) && quotaSubject) {
+        const released = await releaseFreeScan(quotaSubject);
+        if (released.code !== "unavailable") completedResult = { ...operation.result, quota: released };
+      }
       const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json&id=eq.${encodeURIComponent(String(operation.result.analysisId || ""))}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
       assertPersistedScan(rows[0], email, scanId);
-      return NextResponse.json(operation.result);
+      return NextResponse.json(completedResult);
     }
     if (operation.status === "FAILED") {
       return NextResponse.json({ error: "This scan operation already failed. Start a new explicit scan to retry.", code: "SCAN_ALREADY_FAILED", scanId: operation.scanId }, { status: 409 });
@@ -3199,7 +3245,25 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
       return NextResponse.json({ status: "RUNNING", scanId: operation.scanId }, { status: 202 });
     }
 
-    const vision = await extractScreenshotFacts(imageDataUrl, costTelemetry);
+    const vision = imageDataUrl
+      ? await extractScreenshotFacts(imageDataUrl, costTelemetry)
+      : {
+          name: "",
+          brand: "",
+          category: "",
+          store: amazonStoreLabel(productLink),
+          price: "",
+          rating: "",
+          reviewCount: "",
+          priceBelongsToProduct: false,
+          ratingBelongsToProduct: false,
+          reviewCountBelongsToProduct: false,
+          visibleFeatures: [],
+          visibleBadges: [],
+          identityWarnings: [],
+          normalizedSearchQuery: "",
+          imageConfidence: 80,
+        };
     detectedProductKey = createStableProductKey(vision, productLink);
 
     const hasVisibleProductIdentity =
@@ -3290,7 +3354,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     const memory = await getProductMemory(productKey);
     void memory;
 
-    captureStage("identity", { productName: vision.name, brand: vision.brand, model: null, store: vision.store, visibleFeatures: vision.visibleFeatures, price: vision.price, rating: vision.rating, reviewCount: vision.reviewCount });
+    captureStage("identity", { productName: vision.name || asinFromMarketplaceUrl(productLink) || null, brand: vision.brand, model: null, store: vision.store, visibleFeatures: vision.visibleFeatures, price: vision.price, rating: vision.rating, reviewCount: vision.reviewCount });
     const freshResult = await researchAndVerdict(vision, productLink, outputLanguage, locale, scanId, productKey, costTelemetry);
 
     // Shopper v2: do not re-score, normalize, or apply old product memory after the review-evidence result is built.
@@ -3369,5 +3433,5 @@ export async function POST(request: Request): Promise<Response> {
   const { value: response, ...run } = await runZeroOpenAi(() => handlePOST(request));
   try { response.headers.set("x-reviewintel-openai-calls", String(run.openAiCalls)); } catch { /* immutable headers */ }
   if (run.openAiCalls > 0) console.warn("[openai-guard] OpenAI calls in run", run);
-  return response;
+  return attachScanAccess(request, response);
 }

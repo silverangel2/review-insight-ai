@@ -45,7 +45,8 @@ test("loves/complaints quote REAL accepted review bodies linked by evidence id, 
     assert.ok(point.sourceHost);
   }
   assert.ok(answer.loves.length <= 3 && answer.complaints.length <= 3);
-  assert.match(answer.trustLine, new RegExp(`Based on ${answer.reviewCount} real buyer reviews? from `));
+  assert.match(answer.trustLine, /Based on real buyer reviews from /);
+  assert.doesNotMatch(answer.trustLine, /\d+ real review/);
 });
 
 test("unknown stays Unknown; confidence in words; empty result is low confidence with the real count", () => {
@@ -56,7 +57,8 @@ test("unknown stays Unknown; confidence in words; empty result is low confidence
   assert.equal(empty.kind, "not_enough"); assert.equal(empty.label, "Low confidence");
   assert.equal(empty.reviewCount, 0); assert.equal(empty.score, null);
   assert.equal(empty.confidenceWords, "Low"); assert.equal(empty.confidencePercent, null);
-  assert.match(empty.why, /0 real reviews analyzed/);
+  assert.match(empty.why, /Low confidence/);
+  assert.doesNotMatch(empty.why, /0 real reviews|real reviews analyzed/);
   assert.match(empty.why, /Scan the Amazon listing link or add a review screenshot/);
   assert.doesNotMatch(`${empty.label} ${empty.why} ${empty.trustLine}`, /not enough evidence|not scored|no reviews analyzed/i);
   assert.ok(shortQuote("a ".repeat(200)).length <= 152);
@@ -99,8 +101,8 @@ test("progress bar fraction comes from the real stage, indeterminate without dat
   assert.equal(progressFraction("done", 0, null), 1);
   const React = require("react"); const { renderToStaticMarkup } = require("react-dom/server");
   const html = renderToStaticMarkup(React.createElement(ReviewIntelScanOverlay, { stage: "analyzing", uploadProgress: 100, initialProgress: { stage: "reading", productIdentified: true, productName: "Acme ZX100", sourcesChecked: 3, sourceHosts: ["amazon.ca"], reviewsFound: 12, reviewsAccepted: null, snippets: [{ text: "Works great.", host: "amazon.ca" }] } }));
-  assert.ok(html.includes("Acme ZX100") && html.includes(">12<") && html.includes("Works great."));
-  assert.ok(html.includes('aria-label="not yet known"'), "accepted count unknown is shown as indeterminate, not 0");
+  assert.ok(html.includes("Acme ZX100") && html.includes("Works great."));
+  assert.ok(!html.includes(">12<") && !html.includes("Reviews found") && !html.includes("Real reviews kept"), "retrieved review counts stay off the progress overlay");
 });
 
 test("RingConn card shows the canonical 55% confidence (raw 81, capped at 55 for 7 reviews)", async () => {
@@ -122,7 +124,8 @@ test("RingConn card shows the canonical 55% confidence (raw 81, capped at 55 for
   const thinResult = { ...result, evidenceState: "NOT_ENOUGH", verdict: "REVIEW EVIDENCE NOT ENOUGH", verdictConfidence: null, buyerConfidence: null, buyingConfidence: null, confidence: null };
   const thin = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result: thinResult, productName: "x" }));
   const thinAnswer = deriveShopperAnswer(thinResult);
-  assert.match(thin, new RegExp(`data-testid="answer-confidence">Low · ${thinAnswer.reviewCount} real reviews`));
+  assert.match(thin, /data-testid="answer-confidence">Low</);
+  assert.doesNotMatch(thin, /Low · \d+ real reviews|real reviews analyzed|Based on \d+/);
   assert.equal(thinAnswer.confidencePercent, null);
   assert.ok(thinAnswer.reviewCount > 0);
   assert.ok(thin.includes("Scan the Amazon listing"));

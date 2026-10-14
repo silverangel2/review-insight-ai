@@ -7,7 +7,7 @@ export type FreeScanIdentityKind = "anonymous" | "authenticated";
 
 export type FreeScanClaim = {
   allowed: boolean;
-  code: "claimed" | "idempotent" | "limit_reached" | "unavailable";
+  code: "claimed" | "idempotent" | "released" | "limit_reached" | "unavailable";
   used: number;
   remaining: number;
   resetAt: string | null;
@@ -96,6 +96,24 @@ export class InMemoryFreeScanClaims {
     };
   }
 
+  /** Drop one scan's claim. A second call, or an unknown scan, leaves the count unchanged. */
+  release(input: ClaimInput): FreeScanClaim {
+    const now = input.now || new Date();
+    const day = utcDay(now);
+    const identityKey = hashFreeScanIdentity(input.kind, input.identity) || input.identity;
+    const index = this.claims.findIndex((claim) => claim.identityKey === identityKey && claim.scanId === input.scanId);
+    const removed = index >= 0;
+    if (removed) this.claims.splice(index, 1);
+    const sameDay = this.claims.filter((claim) => claim.identityKey === identityKey && claim.day === day);
+    return {
+      allowed: true,
+      code: removed ? "released" : "idempotent",
+      used: sameDay.length,
+      remaining: Math.max(0, FREE_SCAN_LIMIT - sameDay.length),
+      resetAt: resetAtForDay(day),
+    };
+  }
+
   clear() {
     this.claims = [];
   }
@@ -117,13 +135,21 @@ export function resetLocalFreeScanClaimsForTests() {
   localDevelopmentClaims.clear();
 }
 
+function localQuotaTestMode() {
+  return process.env.NODE_ENV !== "production" && process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE === "true";
+}
+
 export async function claimFreeScan(input: ClaimInput): Promise<FreeScanClaim> {
-  const localTestMode =
-    process.env.NODE_ENV !== "production" && process.env.REVIEWINTEL_LOCAL_QUOTA_TEST_MODE === "true";
+  const localTestMode = localQuotaTestMode();
   const identityKey =
     hashFreeScanIdentity(input.kind, input.identity) ||
     (localTestMode ? `local:${input.kind}:${input.identity.trim().toLowerCase()}` : "");
   if (!identityKey || !input.scanId) return unavailableClaim();
+
+  // The test flag is an offline stand-in. It must not call Supabase.
+  if (localTestMode) {
+    return localDevelopmentClaims.claim(input);
+  }
 
   if (isSupabaseConfigured()) {
     const result = await supabaseRpc<FreeScanClaim>("claim_reviewintel_free_scan", {
@@ -143,9 +169,48 @@ export async function claimFreeScan(input: ClaimInput): Promise<FreeScanClaim> {
     };
   }
 
+  return unavailableClaim();
+}
+
+function nothingStoredRelease(now = new Date()): FreeScanClaim {
+  const day = utcDay(now);
+  return {
+    allowed: true,
+    code: "idempotent",
+    used: 0,
+    remaining: FREE_SCAN_LIMIT,
+    resetAt: resetAtForDay(day),
+  };
+}
+
+/** Give one scan's free claim back. Safe to call again for the same scan id. */
+export async function releaseFreeScan(input: ClaimInput): Promise<FreeScanClaim> {
+  const localTestMode = localQuotaTestMode();
+  const identityKey =
+    hashFreeScanIdentity(input.kind, input.identity) ||
+    (localTestMode ? `local:${input.kind}:${input.identity.trim().toLowerCase()}` : "");
+  if (!identityKey || !input.scanId) return nothingStoredRelease(input.now);
+
   if (localTestMode) {
-    return localDevelopmentClaims.claim(input);
+    return localDevelopmentClaims.release(input);
   }
 
-  return unavailableClaim();
+  if (isSupabaseConfigured()) {
+    const result = await supabaseRpc<FreeScanClaim>("release_reviewintel_free_scan", {
+      p_identity_kind: input.kind,
+      p_identity_key: identityKey,
+      p_scan_id: input.scanId,
+      p_released_at: (input.now || new Date()).toISOString(),
+    });
+    if (!result) return unavailableClaim();
+    return {
+      allowed: result.allowed !== false,
+      code: result.code === "released" ? "released" : result.code === "idempotent" ? "idempotent" : "unavailable",
+      used: Number(result.used || 0),
+      remaining: Number(result.remaining || 0),
+      resetAt: result.resetAt || null,
+    };
+  }
+
+  return nothingStoredRelease(input.now);
 }

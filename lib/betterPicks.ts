@@ -91,7 +91,7 @@ export function buildBetterPicks(scanned: ScannedProduct, storedRows: Rec[] = []
     .slice(0, options.maxReviewed ?? 2);
   for (const peer of peers) {
     const url = peer.listingUrl && isAmazonUrl(peer.listingUrl) ? peer.listingUrl : amazonSearchUrl(peer.title, scanned.marketplace);
-    picks.push({ ...attachAffiliateUrl({ title: peer.title, store, url, imageUrl: null, rating: null, reviewCount: null, price: null, badge: "Stronger in our scans", whyBetter: `ReviewIntel's verdict: Buy, from ${peer.acceptedReviews} real buyer reviews${peer.score !== null ? ` (score ${peer.score.toFixed(1)}/10)` : ""}.`, aiLikeRisk: null }), kind: "reviewed", label: "Better rated in ReviewIntel scans", evidence: { verdict: peer.verdict, acceptedReviews: peer.acceptedReviews, score: peer.score } });
+    picks.push({ ...attachAffiliateUrl({ title: peer.title, store, url, imageUrl: null, rating: null, reviewCount: null, price: null, badge: "Stronger in our scans", whyBetter: `ReviewIntel's verdict: Buy${peer.score !== null ? ` (score ${Math.round(peer.score)} / 100)` : ""}.`, aiLikeRisk: null }), kind: "reviewed", label: "Better rated in ReviewIntel scans", evidence: { verdict: peer.verdict, acceptedReviews: peer.acceptedReviews, score: peer.score } });
   }
 
   // 3: honest search links (never "better", never "reviewed").

@@ -18,12 +18,31 @@ import { canAccessSellerAnalytics } from "@/lib/account";
 import { getClientAccount, saveActiveMode } from "@/lib/clientAccount";
 import { getUiTextTranslation, normalizeLocale, readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
 import { clearLatestResult, readActiveScanId, readLatestPreview, readLatestResult, saveLatestResult, reviewIntelDevDiagnostic } from "@/lib/resultStorage";
+import { signedOutOwnsScan } from "@/lib/scanOwnership";
 import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
-import { realReviewQuotes, THIN_EVIDENCE_NEXT_STEP } from "@/lib/shopperAnswer";
+import { isUnreadableAmazonPage, neutralProductLabel, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE } from "@/lib/shopperAnswer";
 
+
+function signedOutProof(scanId: string, cookieGrant: boolean) {
+  let ownedScanIds: string[] | null = null;
+  let sessionScanId: string | null = null;
+  let scanToken: string | null = null;
+  try {
+    sessionScanId = window.sessionStorage.getItem("reviewintel_scan_session");
+    scanToken = window.sessionStorage.getItem(`reviewintel_scan_token_${scanId}`);
+    const parsed = JSON.parse(window.localStorage.getItem("reviewintel_owned_scan_ids") || "[]");
+    ownedScanIds = Array.isArray(parsed) ? parsed.map(String) : null;
+  } catch { /* storage blocked */ }
+  return { cookieGrant, sessionScanId, scanToken, ownedScanIds };
+}
+
+function envelopeAccountEmail(result: AnalyzeResponse | null) {
+  const record = result as (AnalyzeResponse & { accountEmail?: string }) | null;
+  return String(record?.accountEmail || "").trim();
+}
 
 function displayShopperVerdict(value: unknown) {
   const verdict = String(value || "").trim().toUpperCase();
@@ -513,8 +532,8 @@ function clampScore(value: unknown, fallback = 0) {
 
 function formatBuyScore(value: number | null) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-  const score = Math.round((value > 10 ? value / 10 : value) * 10) / 10;
-  return `${Math.max(1, Math.min(10, score))}/10`;
+  const score = Math.round(Math.max(0, Math.min(100, value)));
+  return `${score} / 100`;
 }
 
 function formatReviewCountDisplay(value: number | string | null | undefined) {
@@ -778,16 +797,18 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
   const productSource = source.product || {};
   const product = {
     ...productSource,
-    name:
+    name: neutralProductLabel(
       productSource.name ||
       String((source as Record<string, unknown>).productName || "") ||
       String((source as Record<string, unknown>).name || "") ||
-      String((source as Record<string, unknown>).title || ""),
-    title:
+      String((source as Record<string, unknown>).title || "")
+    ),
+    title: neutralProductLabel(
       productSource.title ||
       String((source as Record<string, unknown>).title || "") ||
       String((source as Record<string, unknown>).productName || "") ||
-      String((source as Record<string, unknown>).name || ""),
+      String((source as Record<string, unknown>).name || "")
+    ),
     brand: productSource.brand || String((source as Record<string, unknown>).brand || ""),
     store: productSource.store || String((source as Record<string, unknown>).store || ""),
     price: productSource.price || String((source as Record<string, unknown>).price || ""),
@@ -826,7 +847,7 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
       const claim = item as Record<string, unknown>;
       const count = Number(claim.supportCount);
       return typeof claim.claim === "string" && Number.isInteger(count) && count > 0
-        ? [`${claim.claim} (${count} written review${count === 1 ? "; one-off report" : "s"})`]
+        ? [count === 1 ? `${claim.claim} (one-off report)` : String(claim.claim)]
         : [];
     });
   };
@@ -1190,7 +1211,10 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     // Never expose obsolete middle-verdict values in shopper-facing UI.
     answer: displayShopperVerdict(shopper.verdict)
   };
-  const productName = shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
+  const pageUnreadable = isUnreadableAmazonPage(result);
+  const productName = pageUnreadable
+    ? "Amazon product"
+    : shortProductName(shopper.product.title || shopper.product.name || displayCodeForResult(result, "Analyzed product"), "Analyzed product");
   const rawResultForVerdict = result as Record<string, unknown>;
   const reviewEvidenceState = reviewEvidenceDecisionState(rawResultForVerdict);
 
@@ -1203,11 +1227,19 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     typeof verdictConfidenceRaw === "number" && Number.isFinite(verdictConfidenceRaw) && verdictConfidenceRaw > 0
       ? Math.round(verdictConfidenceRaw)
       : null;
-  const confidenceBadge = reviewEvidenceState === "not_enough"
-    ? `${verdictConfidence !== null ? `${verdictConfidence}% · ` : ""}Low · ${shopper.acceptedWrittenReviewCount} real reviews`
-    : verdictConfidence !== null
-      ? `${verdictConfidence}%`
-      : "Low";
+  const buyingScoreForConfidence = isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2)
+    ? (result as Record<string, unknown>).buyingScoreV2 as { confidence?: string }
+    : null;
+  const v2Confidence = buyingScoreForConfidence?.confidence === "High" || buyingScoreForConfidence?.confidence === "Medium" || buyingScoreForConfidence?.confidence === "Low"
+    ? buyingScoreForConfidence.confidence
+    : null;
+  const confidenceBadge = pageUnreadable
+    ? "Try again"
+    : v2Confidence
+      ? v2Confidence
+    : reviewEvidenceState === "not_enough" || verdictConfidence === null
+      ? "Low"
+      : `${verdictConfidence}%`;
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -1260,9 +1292,11 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const visibleValueForMoney = shopper.valueForMoney;
   const acceptedSourceCount = Number((result as Record<string, unknown>).sourceDiversity ??
     ((result as Record<string, unknown>).deterministicScoringInputs as Record<string, unknown> | undefined)?.independentSourceCount);
-  const sourcesLine = shopper.acceptedWrittenReviewCount > 0
-    ? `${shopper.acceptedWrittenReviewCount} exact-product written review${shopper.acceptedWrittenReviewCount === 1 ? "" : "s"} were analyzed${Number.isFinite(acceptedSourceCount) ? ` from ${acceptedSourceCount} source domain${acceptedSourceCount === 1 ? "" : "s"}` : " from verified review evidence"}.${acceptedSourceCount === 1 ? " Single-source evidence; other sources did not corroborate these reviews." : ""}`
-    : `Low confidence · ${shopper.acceptedWrittenReviewCount} real reviews analyzed. Scan the Amazon listing link or add a review screenshot to read more real reviews.`;
+  const sourcesLine = pageUnreadable
+    ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
+    : shopper.acceptedWrittenReviewCount > 0
+    ? `${Number.isFinite(acceptedSourceCount) && acceptedSourceCount === 1 ? "Single-source evidence; other sources did not corroborate these reviews. " : ""}Verified review evidence.`
+    : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
   const supportingSourcesLine = shopper.discoverySourceCount > 0
     ? `Additional web sources were checked for product matching and supporting context (${shopper.discoverySourceCount} discovery/retrieval source${shopper.discoverySourceCount === 1 ? "" : "s"}).`
     : copy.sourcesLimited;
@@ -1274,16 +1308,21 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const buyingScoreV2 = isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2)
     ? (result as Record<string, unknown>).buyingScoreV2 as Parameters<typeof BuyingScoreV2Card>[0]["score"]
     : null;
-  const v2Answer = buyingScoreV2
+  const v2Answer = pageUnreadable
+    ? null
+    : buyingScoreV2
     ? buyingScoreV2.mode === "provisional_marketplace" && buyingScoreV2.leaning
       ? `LEANING ${buyingScoreV2.leaning.toUpperCase()}`
       : buyingScoreV2.verdict ? buyingScoreV2.verdict.toUpperCase() : "ADD LINK"
     : null;
+  const verdictMessage = pageUnreadable
+    ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
+    : verdict.message;
   return (
     <>
       {/* Mobile-only compact shopper result */}
       <div className="ri-results-mobile space-y-3">
-        {buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
         <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${verdict.soft}`}>
           <div className="mx-auto grid size-16 place-items-center rounded-full border-[4px] border-emerald-400 bg-white text-3xl font-black text-emerald-700 shadow-sm">
             {shopper.verdict === "BUY" ? "✓" : shopper.verdict === "AVOID" ? "!" : "?"}
@@ -1294,7 +1333,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {buyingScoreV2 ? buyingScoreV2.confidence : confidenceBadge} {copy.buyerConfidence}
+            {v2Confidence || confidenceBadge} {copy.buyerConfidence}
           </div>
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
@@ -1302,7 +1341,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </h1>
 
           <p className="mx-auto mt-2 line-clamp-2 max-w-[300px] text-[12px] font-bold leading-4 text-slate-600 dark:text-slate-300">
-            {verdict.message}
+            {verdictMessage}
           </p>
 
           <div className="ri-mobile-metric-grid mt-4 grid grid-cols-2 gap-2 border-t border-black/10 pt-3 text-left">
@@ -1314,7 +1353,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             <MiniMetric
               label={copy.aiLikeReviews}
               value={shopper.fakeReviewPercent === null ? "—" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={shopper.fakeReviewPercent === null ? `${shopper.acceptedWrittenReviewCount} real reviews` : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? "Low" : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
             <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
           </div>
@@ -1409,7 +1448,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
       {/* Desktop report layout unchanged */}
       <div className="ri-results-desktop space-y-4 sm:space-y-6">
-        {buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
         <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.75rem] sm:p-4">
           <div className="relative grid h-[260px] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02] sm:h-[360px] sm:rounded-2xl lg:h-[520px]">
@@ -1460,13 +1499,13 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
                 <div className="min-w-0">
                   <p className={`break-words text-3xl font-black tracking-tight sm:text-5xl ${verdict.tone}`}>{v2Answer ?? verdict.answer}</p>
                   <p className="mt-2 text-base font-black text-ink sm:mt-3 sm:text-lg">{verdict.title}</p>
-                  <p className="mt-1 text-xs font-bold leading-5 text-slate-600 sm:text-sm sm:leading-6">{verdict.message}</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-slate-600 sm:text-sm sm:leading-6">{verdictMessage}</p>
                 </div>
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{verdictConfidence !== null ? `${verdictConfidence}%` : "Low"}</p>
-                  <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{reviewEvidenceState === "not_enough" ? `Low · ${shopper.acceptedWrittenReviewCount} real reviews` : copy.buyerConfidence}</p>
+                  <p className={`text-2xl font-black sm:text-3xl ${verdict.tone}`}>{pageUnreadable ? "Try again" : v2Confidence || (verdictConfidence !== null ? `${verdictConfidence}%` : "Low")}</p>
+                  <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
             </div>
@@ -1480,7 +1519,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               <MiniMetric
               label={copy.aiLikeReviews}
               value={shopper.fakeReviewPercent === null ? "—" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
-              helper={shopper.fakeReviewPercent === null ? `${shopper.acceptedWrittenReviewCount} real reviews` : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
+              helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? "Low" : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
               <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
             </div>
@@ -1634,12 +1673,6 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     false;
 
   const sourcesChecked = getToolProofArray(reviewEvidence, "sourcesChecked");
-  const evidenceAdjudication = reviewEvidence
-    ? getToolProofRecord(reviewEvidence, "evidenceAdjudication")
-    : null;
-  const acceptedEvidenceRecords = getToolProofArray(evidenceAdjudication, "acceptedRecords");
-  const acceptedWrittenReviewCount =
-    getToolProofNumber(evidenceAdjudication, "acceptedRecordCount") ?? acceptedEvidenceRecords.length;
   const commentsAnalyzed = getToolProofNumber(reviewEvidence, "commentsAnalyzed");
   const marketplaceReviewCount =
     getToolProofNumber(raw, "marketplaceReviewCount") ??
@@ -1697,8 +1730,6 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     getToolProofNumber(productIdentity, "reviewCount") ??
     getToolProofNumber(listingEvidence, "reviewCount");
   const totalMarketplaceReviews = marketplaceReviewCount ?? reviewCount;
-  const reviewsAnalyzedByReviewIntel = commentsAnalyzed ?? reviewsCollected ?? 0;
-
   const exactListingUrl = getToolProofString(listingEvidence, "exactListingUrl");
   const exactListingTitle = getToolProofString(listingEvidence, "exactListingTitle");
 
@@ -1721,8 +1752,10 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
             What ReviewIntel checked
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-200">
-            {zeroReviewEvidence
-              ? `Low confidence · ${acceptedWrittenReviewCount} real reviews analyzed. Scan the Amazon listing link or add a review screenshot to read more real reviews.`
+            {isUnreadableAmazonPage(result)
+              ? `${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`
+              : zeroReviewEvidence
+              ? "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
               : "Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available."}
           </p>
         </div>
@@ -1748,9 +1781,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Stable key" value={stableProductKey ? "Matched" : "New/unknown"} />
         <ToolProofPill label="Rating" value={rating !== null ? `${rating}/5` : null} />
         <ToolProofPill label="Total marketplace reviews" value={totalMarketplaceReviews} />
-        <ToolProofPill label="Reviews analyzed by ReviewIntel" value={reviewsAnalyzedByReviewIntel} />
         <ToolProofPill label="Discovery sources checked" value={sourcesChecked.length} />
-        <ToolProofPill label="Accepted written reviews" value={acceptedWrittenReviewCount} />
         <ToolProofPill label="Coverage ratio" value={formatCoverageRatio(reviewCoverageRatio)} />
         <ToolProofPill
           label="Evidence mode"
@@ -1771,15 +1802,19 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         <ToolProofPill label="Exact listing" value={exactListingAccepted ? exactConfidence || "Accepted" : "Rejected/not exact"} />
         <ToolProofPill label="Collector source" value={collectorSourceAccepted ? "Accepted" : "Rejected"} />
         <ToolProofPill label="Verdict" value={displayShopperVerdict(verdict)} />
-        <ToolProofPill label="Buy score" value={buyScore !== null ? `${buyScore}/10` : "—"} />
-        <ToolProofPill label="Verdict confidence" value={verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : `Low · ${acceptedWrittenReviewCount} real reviews`} />
+        <ToolProofPill label="Buy score" value={buyScore !== null ? `${Math.round(buyScore)} / 100` : "—"} />
+        <ToolProofPill label="Verdict confidence" value={isUnreadableAmazonPage(result) ? "Try again" : isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2) ? String(((result as Record<string, unknown>).buyingScoreV2 as { confidence?: string }).confidence || "Low") : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : "Low"} />
         <ToolProofPill label="AI-like risk" value={aiLikeScore !== null ? `${aiLikeScore}%` : "—"} />
         <ToolProofPill label="Memory" value={stableProductKey ? "Saved/merged" : "Not saved"} />
       </div>
 
-      {zeroReviewEvidence ? (
+      {isUnreadableAmazonPage(result) ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
-          {`Low confidence · ${acceptedWrittenReviewCount} real reviews analyzed. Scan the Amazon listing link or add a review screenshot to read more real reviews.`}
+          {`${UNREADABLE_AMAZON_MESSAGE} Retrying is free. Try again, or add a screenshot of the product page.`}
+        </div>
+      ) : zeroReviewEvidence ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900 dark:border-amber-300/20 dark:bg-amber-300/10 dark:text-amber-100">
+          {"Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."}
         </div>
       ) : null}
 
@@ -2044,7 +2079,7 @@ function reconcileResponse(result: AnalyzeResponse): AnalyzeResponse {
 }
 
 
-export function ResultsClient({ initialResult = null, initialScanId = null }: { initialResult?: AnalyzeResponse | null; initialScanId?: string | null } = {}) {
+export function ResultsClient({ initialResult = null, initialScanId = null, initialOwnerGrant = false }: { initialResult?: AnalyzeResponse | null; initialScanId?: string | null; initialOwnerGrant?: boolean } = {}) {
   // Server-rendered result (signed-in owner, exact scanId) paints in the first HTML; the client loader below still runs and confirms it.
   const [result, setResult] = useState<AnalyzeResponse | null>(initialResult);
   const [preview, setPreview] = useState("");
@@ -2114,10 +2149,14 @@ export function ResultsClient({ initialResult = null, initialScanId = null }: { 
         requestedScanId: requestedScanId || null,
         selectedHistoryId: selectedHistoryId || null,
       });
-      let parsed: AnalyzeResponse | null = requestedScanId || selectedHistoryId ? null : readLatestResult(
-        account,
-        activeScanId ? { scanId: activeScanId } : { allowAnyScan: Boolean(selectedHistoryId) }
-      );
+      let parsed: AnalyzeResponse | null = requestedScanId
+        ? readLatestResult(account, { scanId: requestedScanId })
+        : null;
+      if (parsed && requestedScanId && !account?.email) {
+        const owns = signedOutOwnsScan(requestedScanId, signedOutProof(requestedScanId, initialOwnerGrant));
+        const envelopeEmail = envelopeAccountEmail(parsed);
+        if (!owns || envelopeEmail) parsed = null;
+      }
 
       if (account?.email && (activeScanId || selectedHistoryId)) {
         const params = new URLSearchParams({
@@ -2704,10 +2743,13 @@ export function ResultsClient({ initialResult = null, initialScanId = null }: { 
   const resultRecord = result as unknown as Record<string, unknown>;
   const resultMeta = (resultRecord.meta && typeof resultRecord.meta === "object" ? resultRecord.meta : {}) as Record<string, unknown>;
   const resultScanId = String(resultRecord.scanId || resultMeta.scanId || "");
-  const productTitle =
+  const rawProductTitle =
     (result as AnalyzeResponse & { product?: ProductLike }).product?.title ||
     (result as AnalyzeResponse & { product?: ProductLike }).product?.name ||
-    displayCodeForResult(result, "Product detail verdict");
+    "";
+  const productTitle = isUnreadableAmazonPage(result)
+    ? "Amazon product"
+    : neutralProductLabel(rawProductTitle) || displayCodeForResult(result, "Product detail verdict");
   const resultHeading = isSellerAudience
     ? `${sellerPlanLabel} intelligence`
     : isCompareResult

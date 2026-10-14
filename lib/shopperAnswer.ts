@@ -14,14 +14,32 @@ export type ShopperAnswer = {
   sources: string[];
   trustLine: string;
   confidenceWords: "High" | "Medium" | "Low" | "Unknown";
+  /** True when confidenceWords is buyingScoreV2.confidence, which the card shows instead of a remapped percent. */
+  confidenceFromV2: boolean;
   /** The API's canonical displayedVerdictConfidence (0-100), null only when genuinely null. */
   confidencePercent: number | null;
   value: string;
   score: number | null;
-  nextSteps: Array<{ id: "screenshots" | "amazon_listing" | "compare"; label: string; detail: string; href?: string }>;
+  /** The Amazon page was blank or unreadable, so this answer must not talk about review counts. */
+  unreadable: boolean;
+  nextSteps: Array<{ id: "screenshots" | "amazon_listing" | "compare" | "retry"; label: string; detail: string; href?: string }>;
 };
 
-/** Shown when written evidence is thin. Names the real count elsewhere; this is the next step. */
+export const UNREADABLE_AMAZON_MESSAGE = "We couldn't read this Amazon page right now.";
+export const NEUTRAL_AMAZON_PRODUCT_LABEL = "Amazon product";
+
+export function isAsinPlaceholder(value: unknown) {
+  return /^Amazon [A-Z0-9]{10}$/i.test(String(value || "").replace(/\s+/g, " ").trim());
+}
+
+/** Shopper-facing name. A raw ASIN placeholder becomes a neutral label. */
+export function neutralProductLabel(value: unknown) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (isAsinPlaceholder(text)) return NEUTRAL_AMAZON_PRODUCT_LABEL;
+  return text;
+}
+
+/** Shown when written evidence is thin. The next step, with no retrieved-review count. */
 export const THIN_EVIDENCE_NEXT_STEP = "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
 
 type Rec = Record<string, unknown>;
@@ -171,15 +189,62 @@ function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>): ShopperPo
   return points;
 }
 
-/** Shopper-facing confidence. A missing number stays missing — it is never shown as 0. Thin evidence is labeled Low with the real count. */
-export function formatShopperConfidence(answer: Pick<ShopperAnswer, "kind" | "confidencePercent" | "confidenceWords" | "reviewCount">): string {
-  const countLabel = `${answer.reviewCount} real review${answer.reviewCount === 1 ? "" : "s"}`;
-  if (answer.kind === "not_enough") {
-    const percent = answer.confidencePercent !== null && answer.confidencePercent > 0 ? `${answer.confidencePercent}% · ` : "";
-    return `${percent}Low · ${countLabel}`;
-  }
-  if (answer.confidencePercent !== null) return `${answer.confidencePercent}% · ${answer.confidenceWords}`;
-  return "Unknown";
+function productTitleOf(result: Rec) {
+  const product = obj(result.product);
+  return String(product.title || product.name || result.productName || result.title || "").trim();
+}
+
+function positiveAmount(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  const text = String(value ?? "").replace(/,/g, "").trim();
+  if (!text) return null;
+  const match = text.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Stars or an Amazon rating count mean the listing was actually read. A guessed title does not. */
+function marketplaceSignalsKnown(result: Rec): boolean {
+  const product = obj(result.product);
+  const evidence = obj(result.reviewEvidence);
+  const listing = obj(evidence.listingEvidence);
+  const audit = obj(obj(result.buyingScoreV2).audit);
+  const rating = [product.rating, result.rating, result.marketplaceRating, listing.rating, audit.Rbar].some((value) => {
+    const n = positiveAmount(value);
+    return n !== null && n <= 5;
+  });
+  const count = [product.reviewCount, result.reviewCount, result.marketplaceReviewCount, listing.reviewCount, evidence.marketplaceReviewCount, audit.N]
+    .some((value) => positiveAmount(value) !== null);
+  return rating || count;
+}
+
+function v2ConfidenceLevel(result: Rec): ShopperAnswer["confidenceWords"] | null {
+  const word = String(obj(result.buyingScoreV2).confidence || "");
+  return word === "High" || word === "Medium" || word === "Low" ? word : null;
+}
+
+/**
+ * Blank Amazon page: a listing link was given, nothing written was read, and no marketplace
+ * rating or rating count came back. A title guessed from the URL is not a successful read.
+ */
+export function isUnreadableAmazonPage(input: unknown): boolean {
+  const result = obj(input);
+  if (writtenReviewCount(result, acceptedRecords(result)) > 0) return false;
+  const buying = obj(result.buyingScoreV2);
+  if (buying.mode === "provisional_marketplace" || buying.mode === "buying_score" || buying.mode === "written_only") return false;
+  if (marketplaceSignalsKnown(result)) return false;
+  const title = productTitleOf(result);
+  return listingUrls(result).some(isAmazonListing) || isAsinPlaceholder(title) || title === NEUTRAL_AMAZON_PRODUCT_LABEL;
+}
+
+/** Shopper-facing confidence. v2's High/Medium/Low wins over a remapped percent. A missing number stays missing. */
+export function formatShopperConfidence(answer: Pick<ShopperAnswer, "kind" | "confidencePercent" | "confidenceWords"> & { unreadable?: boolean; confidenceFromV2?: boolean }): string {
+  if (answer.unreadable) return "Try again";
+  if (answer.confidenceFromV2 && answer.confidenceWords !== "Unknown") return answer.confidenceWords;
+  if (answer.kind === "not_enough") return "Low";
+  if (answer.confidencePercent !== null && answer.confidencePercent > 0) return `${answer.confidencePercent}% · ${answer.confidenceWords}`;
+  return answer.confidenceWords === "Unknown" ? "Unknown" : answer.confidenceWords;
 }
 
 export function deriveShopperAnswer(input: unknown): ShopperAnswer {
@@ -209,9 +274,8 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const label = { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
 
   const topLove = loves[0]?.claim, topComplaint = complaints[0]?.claim;
-  const reviewWord = `${reviewCount} real review${reviewCount === 1 ? "" : "s"} analyzed`;
   const why = kind === "not_enough"
-    ? `Low confidence, from ${reviewWord}. Scan the Amazon listing link or add a review screenshot to read more real reviews.`
+    ? "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
     : kind === "buy"
       ? `Buyers consistently report ${topLove ? lower(topLove) : "good results"}${topComplaint ? `, and complaints like ${lower(topComplaint)} are rare` : ""}.`
       : kind === "skip"
@@ -220,21 +284,55 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
 
   const sourceText = sources.length ? sources.join(", ") : "the product listing";
   const trustLine = kind === "not_enough"
-    ? `Low confidence · ${reviewWord}${sources.length ? ` from ${sources.join(", ")}` : ""}.`
-    : `Based on ${reviewCount} real buyer review${reviewCount === 1 ? "" : "s"} from ${sourceText}.`;
+    ? "Low confidence."
+    : `Based on real buyer reviews from ${sourceText}.`;
 
   const storedScore = num(result.buyScore) ?? num(result.score) ?? num(result.productScore);
-  const score = reviewCount > 0 ? storedScore : null;
+  const provisionalScore = obj(result.buyingScoreV2).mode === "provisional_marketplace" ? num(obj(result.buyingScoreV2).score) : null;
+  const score = provisionalScore !== null ? provisionalScore : reviewCount > 0 ? storedScore : null;
   const storedConfidence = canonicalConfidencePercent(result);
   // Keep a real percent. Never replace a missing or thin-evidence value with 0.
   const confidencePercent = thin && (storedConfidence === null || storedConfidence <= 0) ? null : storedConfidence;
-  const confidenceWords: ShopperAnswer["confidenceWords"] = thin ? "Low" : confidenceInWords(confidencePercent);
+  const v2Level = v2ConfidenceLevel(result);
+  const confidenceWords: ShopperAnswer["confidenceWords"] = v2Level || (thin ? "Low" : confidenceInWords(confidencePercent));
+  const confidenceFromV2 = Boolean(v2Level);
   const valueRaw = String(result.valueForMoney || obj(result.deterministicResult).valueForMoney || "Unknown");
   const value = ["Good", "Fair", "Poor"].includes(valueRaw) ? valueRaw : "Unknown";
 
   const urls = listingUrls(result);
   const amazonUrl = urls.find(isAmazonListing) || null;
   const listingUrl = amazonUrl || urls[0] || null;
+  if (isUnreadableAmazonPage(result)) {
+    return {
+      kind: "not_enough",
+      label: "Try again",
+      why: UNREADABLE_AMAZON_MESSAGE,
+      loves: [],
+      complaints: [],
+      reviewCount: 0,
+      sources: [],
+      trustLine: "Retrying is free. Add a screenshot of the product page and try the scan again.",
+      confidenceWords: "Unknown",
+      confidenceFromV2: false,
+      confidencePercent: null,
+      value: "Unknown",
+      score: null,
+      unreadable: true,
+      nextSteps: [
+        {
+          id: "retry",
+          label: "Try again",
+          detail: "We couldn't read this Amazon page right now. Retrying is free.",
+          href: amazonUrl ? `/analyze?url=${encodeURIComponent(amazonUrl)}` : "/analyze",
+        },
+        {
+          id: "screenshots",
+          label: "Add a screenshot",
+          detail: "Add a screenshot of the product page so we can read the title, stars, and reviews.",
+        },
+      ],
+    };
+  }
   const nextSteps: ShopperAnswer["nextSteps"] = (kind === "not_enough" || reviewCount < 10) ? [
     {
       id: "amazon_listing",
@@ -246,5 +344,5 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     { id: "compare", label: "Compare with an alternative", detail: "Scan a similar product and compare what real buyers say." },
   ] : [];
 
-  return { kind, label, why, loves, complaints, reviewCount, sources, trustLine, confidenceWords, confidencePercent, value, score, nextSteps };
+  return { kind, label, why, loves, complaints, reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
 }

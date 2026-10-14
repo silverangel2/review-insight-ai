@@ -381,7 +381,7 @@ function deriveDeterministicEvidenceResultImpl(input: {
   // Model-generated risk estimates and summary-model names are telemetry,
   // not inputs to the deterministic evidence policy or its result identity.
   const sourceCount = new Set(records.map(record => record.independentSourceId)).size;
-  const coverageNote = `${n} accepted written reviews from ${sourceCount} source domain${sourceCount === 1 ? "" : "s"}; ${severeCount} review${severeCount === 1 ? "" : "s"} report product failures or material safety concerns. This accessible sample may not represent all customers.`;
+  const coverageNote = `${sourceCount <= 1 ? "Single-source evidence; other sources did not corroborate these reviews." : "Evidence was checked across more than one source."} This accessible sample may not represent all customers.`;
   const withoutHash = { scorerVersion: DETERMINISTIC_SCORER_VERSION, verdictPolicyVersion: VERDICT_POLICY_VERSION, acceptedReviewHashes, acceptedCorpusHash, marketplaceMetadataSnapshot, deterministicScoringInputs, buyScore: score, valueForMoney, customerVerdict: verdict, strengths, complaints };
   // Display metadata has zero decision weight and cannot change decision
   // identity. Retain the snapshot as telemetry beside the hashed evidence.
@@ -390,7 +390,7 @@ function deriveDeterministicEvidenceResultImpl(input: {
   return {
     ...withoutHash,
     evidenceState: sufficient ? "SUFFICIENT" : "NOT_ENOUGH",
-    bottomLine: (verdict === "BUY" ? "Accepted exact-product written evidence clearly favors purchase. " : verdict === "AVOID" ? "Recurring failures or predominantly negative written evidence supports avoidance. " : input.exactProductAccepted && n >= 5 ? "Accepted reviews were found, but mixed evidence or incomplete semantic coverage does not justify a clear recommendation. " : "ReviewIntel couldn't verify enough exact-product review evidence to recommend this purchase yet. ") + coverageNote + (score !== null && valueForMoney === "Unknown" ? ` Value remains Unknown: ${valuePraise} review${valuePraise === 1 ? "" : "s"} praise value and ${valueComplaints} criticize it; a product-level label needs recurring explicit value evidence.` : ""),
+    bottomLine: (verdict === "BUY" ? "Accepted exact-product written evidence clearly favors purchase. " : verdict === "AVOID" ? "Recurring failures or predominantly negative written evidence supports avoidance. " : input.exactProductAccepted && n >= 5 ? "Accepted reviews were found, but mixed evidence or incomplete semantic coverage does not justify a clear recommendation. " : "ReviewIntel couldn't verify enough exact-product review evidence to recommend this purchase yet. ") + coverageNote + (score !== null && valueForMoney === "Unknown" ? " Value remains Unknown until buyers discuss price often enough to judge it." : ""),
     finalResultHash: sha({ ...decisionIdentity, deterministicScoringInputs: evidenceScoringInputs }),
   };
 }

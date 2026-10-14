@@ -49,6 +49,7 @@ function greetingName(name?: string | null) {
 export function cleanProductLabel(value: unknown) {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   if (!text || /^https?:/i.test(text) || /product scan/i.test(text)) return "";
+  if (/^Amazon [A-Z0-9]{10}$/i.test(text)) return "Amazon product";
   return text.length > 90 ? `${text.slice(0, 87)}...` : text;
 }
 

@@ -11,6 +11,7 @@ import { extractProductEvidenceFromHtml, normalizeProductUrl, isProductUrl } fro
 import type { CollectedReview } from "@/lib/reviewCollector";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 import { buildAmazonReviewPageUrls, discoverPublicReviewFollowups, reviewPaginationKey, buildRetailerReviewPageUrls, buildLocaleListingVariants, retailerStableProductId } from "./reviewRetrievalPolicy";
+import { amazonStoreLabel, isDriftSearchQuery } from "./listingAuthority";
 import { buildDirectReviewCandidateUrls } from "./exactProductSearch";
 
 type SourceLink = { label: string; url: string; domain?: string };
@@ -331,7 +332,7 @@ export function buildNativeReviewSearchQueries(input: NativeReviewRetrievalInput
   const exact = identity.exactTitle || identity.title;
   const quoted = exact ? `"${exact.replace(/"/g, "")}"` : "";
   const brandModel = [identity.brand, identity.model].filter(Boolean).join(" ").trim();
-  const store = identity.store;
+  const store = amazonStoreLabel(input.listingUrl) || identity.store;
 
   return uniqueStrings(
     [
@@ -339,7 +340,7 @@ export function buildNativeReviewSearchQueries(input: NativeReviewRetrievalInput
       brandModel ? `${brandModel} reviews` : "",
       quoted || exact,
       `${quoted || exact} reviews`,
-      `${quoted || exact} Amazon.ca reviews`,
+      store ? `${quoted || exact} ${store} reviews` : "",
       `${quoted || exact} Walmart reviews`,
       `${quoted || exact} (site:bestbuy.com OR site:bestbuy.ca OR site:target.com) customer reviews`,
       `${quoted || exact} (site:homedepot.com OR site:lowes.com OR site:canadiantire.ca) customer reviews`,
@@ -355,7 +356,7 @@ export function buildNativeReviewSearchQueries(input: NativeReviewRetrievalInput
       brandModel ? `${brandModel} review reddit` : "",
       brandModel ? `${brandModel} hands-on review` : "",
       input.listingUrl ? `${brandModel || exact} ${input.listingUrl} reviews` : "",
-    ],
+    ].filter((query) => !isDriftSearchQuery(query)),
     16
   );
 }
@@ -514,19 +515,30 @@ function candidateLinksFromInput(input: NativeReviewRetrievalInput): SourceLink[
       url: listingUrl,
       domain: domainForUrl(listingUrl),
     });
-    // Real public sources (retailer review pages, verified locale siblings)
-    // precede synthetic pagination guesses so the page budget reaches them.
-    for (const url of [...buildRetailerReviewPageUrls(listingUrl), ...buildLocaleListingVariants(listingUrl)]) {
+    // Same Amazon domain as the shopper's link first (listing page, then its review URLs).
+    // A sibling marketplace comes after those entry points and before the long pagination tail.
+    for (const url of buildRetailerReviewPageUrls(listingUrl)) {
       links.push({ label: LOCALE_OR_ADAPTER_LABEL, url, domain: domainForUrl(url) });
     }
     const asin = listingUrl.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1];
-    const directUrls = asin ? [...buildDirectReviewCandidateUrls(listingUrl), ...buildAmazonReviewPageUrls(listingUrl, asin)] : buildDirectReviewCandidateUrls(listingUrl);
-    for (const url of directUrls) {
+    for (const url of buildDirectReviewCandidateUrls(listingUrl)) {
       links.push({
         label: "Direct marketplace review candidate",
         url,
         domain: domainForUrl(url),
       });
+    }
+    for (const url of buildLocaleListingVariants(listingUrl)) {
+      links.push({ label: LOCALE_OR_ADAPTER_LABEL, url, domain: domainForUrl(url) });
+    }
+    if (asin) {
+      for (const url of buildAmazonReviewPageUrls(listingUrl, asin)) {
+        links.push({
+          label: "Direct marketplace review candidate",
+          url,
+          domain: domainForUrl(url),
+        });
+      }
     }
   }
 
@@ -853,8 +865,8 @@ export async function runNativeReviewRetrieval(
   const normalFetchFailed = normalFetchAttempted && normalFetchSuccesses <= 0;
   const playwrightFailed = playwrightAttempted && playwrightSuccesses <= 0;
   const coverageNote = dedupedReviews.length
-    ? `Native retrieval collected ${dedupedReviews.length} written review texts from public pages without an external fallback scraper.`
-    : `Native retrieval checked ${uniqueSourcesChecked.length} search/page sources but did not extract usable written review texts.`;
+    ? "Native retrieval collected written review texts from public pages without an external fallback scraper."
+    : "Native retrieval checked public search and page sources but did not extract usable written review texts.";
 
   await renderer?.close();
   activePoliteFetcher = null;

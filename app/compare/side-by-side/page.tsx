@@ -21,12 +21,11 @@ function Column({ c }: { c: SideColumn }) {
       <h2 className="text-lg font-semibold leading-snug text-slate-900">{c.title}</h2>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <span className={`rounded-full px-4 py-1.5 text-base font-semibold ${CHIP[a.kind]}`}>{a.label}</span>
-        {a.score !== null ? <span className="text-sm text-slate-600">Score {a.score.toFixed(1)} / 10</span> : null}
+        {a.score !== null ? <span className="text-sm text-slate-600">Score {Math.round(a.score)} / 100</span> : null}
       </div>
       <p className="mt-3 text-sm leading-6 text-slate-700">{a.why}</p>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div><dt className="text-slate-500">How sure we are</dt><dd className="font-semibold text-slate-900">{formatShopperConfidence(a)}</dd></div>
-        <div><dt className="text-slate-500">Based on</dt><dd className="font-semibold text-slate-900">{a.reviewCount} real reviews</dd></div>
       </dl>
       {[["What buyers love", a.loves, "bg-mint"], ["What buyers complain about", a.complaints, "bg-peach"]].map(([title, points, tint]) => (
         <section key={title as string} className={`mt-4 rounded-2xl ${tint} p-4`}>

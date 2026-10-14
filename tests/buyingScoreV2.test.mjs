@@ -35,7 +35,8 @@ test("Example 1: 4.8 from 10,000, 2 of 8 report failures -> 70 Wait, Low", () =>
   assert.equal(r.audit.marketConf, "High");
   assert.equal(r.audit.evidenceConf, "Medium");
   assert.equal(r.confidence, "Low");
-  assert.ok(r.warnings.some((w) => w.tier === "repeated_reliability" && w.text.includes("Repeated reports of") && w.text.includes("2 of 8 reviews read")));
+  assert.ok(r.warnings.some((w) => w.tier === "repeated_reliability" && w.text.includes("Repeated reports of the product stopping after about a month")));
+  assert.doesNotMatch(allText(r), /reviews read/);
   assert.ok(r.warnings.some((w) => w.text === "The reviews we could read are noticeably worse than the 4.8★ overall rating."));
 });
 
@@ -60,7 +61,7 @@ test("Example 3: 4.4 from 20,000, 9 reviews, 1 minor -> 83 Buy, Medium", () => {
   assert.equal(r.score, 83);
   assert.equal(r.verdict, "Buy");
   assert.equal(r.confidence, "Medium");
-  assert.equal(r.evidenceLine, "9 written reviews read · 4.4★ from 20,000 ratings");
+  assert.equal(r.evidenceLine, "4.4★ from 20,000 ratings");
 });
 
 test("Example 4: 3.9 from 50,000, mixed, recurring noise -> 63 Wait, Medium", () => {
@@ -70,7 +71,7 @@ test("Example 4: 3.9 from 50,000, mixed, recurring noise -> 63 Wait, Medium", ()
   assert.equal(r.score, 63);
   assert.equal(r.verdict, "Wait");
   assert.equal(r.confidence, "Medium");
-  assert.ok(r.notes.includes("Buyers are split. The most common complaint is noise (2 of 8 reviews read)."));
+  assert.ok(r.notes.includes("Buyers are split. The most common complaint is noise."));
 });
 
 test("Example 5: single safety report -> cap 74 Wait, High, no recall text", () => {
@@ -102,7 +103,7 @@ test("Example 6: zero written reviews -> Provisional Marketplace Score 85, Leani
   assert.equal(r.verdict, null);
   assert.equal(r.leaning, "Buy");
   assert.equal(r.confidence, "Low");
-  assert.equal(r.provisionalLabel, "Provisional · based on marketplace rating only · 0 written reviews read");
+  assert.equal(r.provisionalLabel, "Provisional · based on marketplace rating only");
   assert.equal(r.primaryAction, "Paste the exact product link for a full Buying Score");
   assert.ok(r.notes[0].startsWith("Based on the marketplace rating only."));
 });
@@ -274,8 +275,8 @@ test("Owner fix 2: unclassifiable reviews count in the total but not in n_eff", 
   assert.equal(r.audit.nEff, 0);
   assert.equal(r.audit.w, 0);
   assert.equal(r.confidence, "Low");
-  assert.equal(r.evidenceLine, "3 written reviews read · 4.4★ from 20,000 ratings");
-  assert.equal(r.confidenceReason, "Low · 3 written reviews read, none detailed enough to analyze");
+  assert.equal(r.evidenceLine, "4.4★ from 20,000 ratings");
+  assert.equal(r.confidenceReason, "Low · 4.4★ from 20,000 ratings; written reviews were not detailed enough to analyze");
   assert.equal(r.score, Math.round(r.audit.B));
   // Mixed: 10 total, 9 classifiable -> EvidenceConf Medium, not High.
   const mixed = buyingScoreFromReviews({
@@ -308,7 +309,7 @@ test("Plain rule 1: count-only or stub reviews are not 'read' and add no confide
   const r = buyingScoreFromReviews({ marketplace: { rating: 4.5, count: 2143 }, reviews: stubs });
   assert.equal(r.audit.n, 0);
   assert.equal(r.mode, "provisional_marketplace");
-  assert.equal(r.evidenceLine, "0 written reviews read · 4.5★ from 2,143 ratings");
+  assert.equal(r.evidenceLine, "4.5★ from 2,143 ratings");
   assert.equal(r.confidence, "Low");
   const mixed = buyingScoreFromReviews({ marketplace: { rating: 4.4, count: 20000 }, reviews: [...stubs, { body: "Great and reliable.", rating: 5 }] });
   assert.equal(mixed.audit.n, 1);

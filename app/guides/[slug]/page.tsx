@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { GuideArticle } from "@/components/GuideArticle";
 import { getGuide, guides } from "@/lib/guides";
 import { loadCategoryGuides } from "@/lib/guideData";
-import { GUIDE_MIN_PRODUCTS, GUIDE_MIN_REVIEWS, PRODUCT_TYPES } from "@/lib/categoryGuides";
+import { GUIDE_MIN_PRODUCTS, PRODUCT_TYPES } from "@/lib/categoryGuides";
 import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 import { withSeo } from "@/lib/pageSeo";
 import { JsonLd } from "@/components/JsonLd";
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const g = await categoryGuideFor(slug);
   const name = g?.name || PRODUCT_TYPES.find(t => t.slug === slug)?.name || "Guide";
   const description = g && !g.thin
-    ? `What real buyers reported about ${name.toLowerCase()}: repeated praise and complaints from ${g.totalReviews} written reviews across ${g.products.length} scanned products.`
+    ? `What real buyers reported about ${name.toLowerCase()}: repeated praise and complaints across ${g.products.length} scanned products.`
     : `A ReviewIntel guide to ${name.toLowerCase()}, built only from real written buyer reviews.`;
   return withSeo(`/guides/${slug}`, { title: `${name}: what real buyers reported`, description }, { type: "article", noindex: !g || g.thin });
 }
@@ -46,7 +46,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         {
           "@context": "https://schema.org", "@type": "Article",
           headline: `${name}: what real buyers reported`,
-          description: `Repeated praise and complaints from ${g.totalReviews} real written buyer reviews across ${g.products.length} scanned products.`,
+          description: `Repeated praise and complaints across ${g.products.length} scanned products.`,
           url: `${seoBaseUrl()}/guides/${slug}`, mainEntityOfPage: `${seoBaseUrl()}/guides/${slug}`,
           author: { "@type": "Organization", name: "ReviewIntel", url: seoBaseUrl() },
           publisher: { "@type": "Organization", name: "ReviewIntel", url: seoBaseUrl() },
@@ -63,12 +63,12 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">{name}: what real buyers reported</h1>
       {!g || g.thin ? (
         <p className="mt-4 rounded-2xl bg-butter p-5 text-sm text-slate-700" data-testid="guide-thin">
-          Not enough data yet. A guide needs at least {GUIDE_MIN_PRODUCTS} scanned products and {GUIDE_MIN_REVIEWS} real reviews{g ? ` (so far: ${g.products.length} products, ${g.totalReviews} reviews)` : ""}. <Link href="/analyze" className="font-semibold text-teal underline">Scan a product</Link> to help.
+          Not enough data yet. A guide needs at least {GUIDE_MIN_PRODUCTS} scanned products{g ? ` (so far: ${g.products.length} products)` : ""}. <Link href="/analyze" className="font-semibold text-teal underline">Scan a product</Link> to help.
         </p>
       ) : null}
       {g ? (
         <>
-          <p className="mt-4 text-base text-slate-600">Based on {g.products.length} scanned products and {g.totalReviews} real written buyer reviews.</p>
+          <p className="mt-4 text-base text-slate-600">Based on {g.products.length} scanned products.</p>
           <div className="mt-6 grid gap-5 md:grid-cols-2">
             {([["Buyers reported liking", g.loves, "bg-mint"], ["Buyers reported problems with", g.complaints, "bg-peach"]] as const).map(([title, themes, tint]) => (
               <section key={title} className={`rounded-[1.5rem] ${tint} p-5`}>
@@ -91,7 +91,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             {g.products.map(p => (
               <li key={p.title} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
                 <span className="min-w-0 font-medium text-slate-900">{p.title}</span>
-                <span className="text-slate-600">{p.label}{p.score !== null ? ` · ${p.score.toFixed(1)}/10` : ""} · {p.reviewCount} reviews</span>
+                <span className="text-slate-600">{p.label}{p.score !== null ? ` · ${Math.round(p.score)} / 100` : ""}</span>
               </li>
             ))}
           </ul>

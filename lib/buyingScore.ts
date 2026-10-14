@@ -179,10 +179,10 @@ export function discrepancyFlag(s: Pick<BuyingScoreSignals, "n" | "rating" | "vi
 function formatStars(r: number) {
   return `${Number.isInteger(r) ? r.toFixed(1) : String(round1(r))}★`;
 }
-export function evidenceLine(n: number, rating: number | null, count: number | null) {
-  const read = `${n} written review${n === 1 ? "" : "s"} read`;
-  if (rating === null) return count ? `${read} · ${count.toLocaleString("en-US")} ratings (no average shown)` : `${read} · no marketplace rating found`;
-  return `${read} · ${formatStars(rating)} from ${count ? count.toLocaleString("en-US") : "an unknown number of"} rating${count === 1 ? "" : "s"}`;
+export function evidenceLine(writtenCount: number, rating: number | null, count: number | null) {
+  void writtenCount;
+  if (rating === null) return count ? `${count.toLocaleString("en-US")} ratings (no average shown)` : "No marketplace rating found";
+  return `${formatStars(rating)} from ${count ? count.toLocaleString("en-US") : "an unknown number of"} rating${count === 1 ? "" : "s"}`;
 }
 
 /** Recall wording rule (section 8, example 5). Says nothing unless a source was actually queried this scan. */
@@ -237,7 +237,7 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
       return {
         version: BUYING_SCORE_VERSION, mode: "provisional_marketplace", score, rawScore: round1(raw), verdict: null,
         leaning: verdictFromScore(score), label: "Provisional Marketplace Score",
-        provisionalLabel: "Provisional · based on marketplace rating only · 0 written reviews read",
+        provisionalLabel: "Provisional · based on marketplace rating only",
         confidence: "Low", confidenceReason: `Low · ${line}`, evidenceLine: line, warnings: provWarnings,
         notes: ["Based on the marketplace rating only. We couldn't read any written reviews yet. Paste the exact product link for a full Buying Score."],
         primaryAction: "Paste the exact product link for a full Buying Score", recallStatement: recallText,
@@ -262,12 +262,12 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   }
   const hazard = s.safHazard || "a safety hazard";
   if (s.safSameHazard >= 2) {
-    caps.push({ cap: CAP_REPEATED_SAFETY, key: "repeated_safety", warning: { tier: "repeated_safety", text: `Several customers independently report ${hazard} (${s.safSameHazard} of ${n} reviews read).`, quotes: quotes.safety.slice(0, 3) } });
+    caps.push({ cap: CAP_REPEATED_SAFETY, key: "repeated_safety", warning: { tier: "repeated_safety", text: `Several customers independently report ${hazard}.`, quotes: quotes.safety.slice(0, 3) } });
   } else if (s.saf >= 1) {
     caps.push({ cap: CAP_SINGLE_SAFETY, key: "single_safety", warning: { tier: "single_safety", text: `One customer reported ${hazard} (single unverified report).`, quotes: quotes.safety.slice(0, 1) } });
   }
   if (s.relSameTheme >= 2) {
-    caps.push({ cap: CAP_REPEATED_RELIABILITY, key: "repeated_reliability", warning: { tier: "repeated_reliability", text: `Repeated reports of ${s.relTheme || "the product failing"} (${s.relSameTheme} of ${n} reviews read).`, quotes: quotes.reliability.slice(0, 3) } });
+    caps.push({ cap: CAP_REPEATED_RELIABILITY, key: "repeated_reliability", warning: { tier: "repeated_reliability", text: `Repeated reports of ${s.relTheme || "the product failing"}.`, quotes: quotes.reliability.slice(0, 3) } });
   }
   if ((count ?? 0) < 50 && n < 10) {
     caps.push({ cap: CAP_TOO_NEW, key: "too_new", warning: { tier: "too_new", text: hasRating
@@ -282,7 +282,7 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
     warnings.push({ tier: "discrepancy", text: `The reviews we could read are noticeably worse than the ${formatStars(rating!)} overall rating.`, quotes: [] });
   }
   if (s.topThemeLabel && (s.topThemeCount || 0) >= 2 && !s.relSameTheme) {
-    notes.push(`${Math.abs(sBar) < 0.15 ? "Buyers are split. " : ""}The most common complaint is ${s.topThemeLabel} (${s.topThemeCount} of ${n} reviews read).`);
+    notes.push(`${Math.abs(sBar) < 0.15 ? "Buyers are split. " : ""}The most common complaint is ${s.topThemeLabel}.`);
   }
 
   const score = Math.round(S);
@@ -299,9 +299,9 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   return {
     version: BUYING_SCORE_VERSION, mode: hasRating ? "buying_score" : "written_only", score, rawScore: round1(S),
     verdict: verdictFromScore(score), leaning: null, label: "Buying Score", provisionalLabel: null,
-    confidence, confidenceReason: nEff === 0
-      ? `${confidence} · ${n} written review${n === 1 ? "" : "s"} read, none detailed enough to analyze`
-      : nEff < n ? `${confidence} · ${line} (${nEff} detailed enough to analyze)` : `${confidence} · ${line}`, evidenceLine: line, warnings, notes,
+    confidence, confidenceReason: nEff === 0 && n > 0
+      ? `${confidence} · ${line}; written reviews were not detailed enough to analyze`
+      : `${confidence} · ${line}`, evidenceLine: line, warnings, notes,
     primaryAction: n < 3 ? "Paste the exact product link to read more reviews" : null, recallStatement: recallText,
     audit: audit(score, confidence),
   };
@@ -634,6 +634,51 @@ export function buyingScoreFromReviews(input: BuyingScoreFromReviewsInput) {
   const { signals, dropped, duplicatesRemoved, stores } = signalsFromReviews(input);
   const result = computeBuyingScore(signals);
   return { ...result, quotes: signals.quotes!, droppedForModelMismatch: dropped.length, duplicatesRemoved, stores };
+}
+
+/**
+ * Page aggregate when the listing was read. Screenshot OCR stars and review
+ * count (including "4.7" / "200,809" strings) are the marketplace aggregate
+ * when that page did not yield a rating, and also when the listing was not accepted.
+ */
+export function marketplaceAggregateForScore(input: {
+  exactListingAccepted: boolean;
+  pageRating?: unknown;
+  pageCount?: unknown;
+  screenshotRating?: unknown;
+  screenshotCount?: unknown;
+}): { rating: number | null; count: number | null; source: "page" | "screenshot" | "none" } {
+  if (!input.exactListingAccepted) {
+    const rating = validRating(input.screenshotRating);
+    const count = validCount(input.screenshotCount);
+    return rating !== null ? { rating, count, source: "screenshot" } : { rating: null, count: null, source: "none" };
+  }
+  const pageRating = validRating(input.pageRating);
+  if (pageRating !== null) return { rating: pageRating, count: validCount(input.pageCount), source: "page" };
+  const screenshotRating = validRating(input.screenshotRating);
+  if (screenshotRating !== null) return { rating: screenshotRating, count: validCount(input.screenshotCount), source: "screenshot" };
+  return { rating: null, count: null, source: "none" };
+}
+
+/**
+ * Zero analyzed written reviews never keep a review-evidence Buy or a 0–10 score.
+ * The customer-facing result is the v2 card: Provisional Marketplace Score when a
+ * marketplace rating is known.
+ */
+export function customerFacingDecision(input: {
+  analyzedReviews: number;
+  buyingScore: ReturnType<typeof buyingScoreFromReviews>;
+}): { verdict: "BUY" | "REVIEW FIRST" | "AVOID"; buyScore: number | null; finalDecisionSource: "buyingScoreV2"; buyingScore: ReturnType<typeof buyingScoreFromReviews> } {
+  const analyzed = Math.max(0, Math.floor(input.analyzedReviews || 0));
+  const card = analyzed > 0 || input.buyingScore.audit.n === 0
+    ? input.buyingScore
+    : buyingScoreFromReviews({
+        marketplace: { rating: input.buyingScore.audit.Rbar, count: input.buyingScore.audit.N, matchesExactModel: true },
+        reviews: [],
+      });
+  const label = card.verdict || card.leaning;
+  const verdict = label === "Buy" ? "BUY" : label === "Skip" ? "AVOID" : "REVIEW FIRST";
+  return { verdict, buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
 }
 
 /** One structured log line per scan (section 10). */

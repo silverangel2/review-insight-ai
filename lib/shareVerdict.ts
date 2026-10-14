@@ -3,7 +3,7 @@
 // without a database read, and the summary cannot be forged or edited.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
-import { deriveShopperAnswer } from "./shopperAnswer";
+import { deriveShopperAnswer, neutralProductLabel } from "./shopperAnswer";
 
 export type SharedPoint = { claim: string; quote: string | null; sourceUrl: string | null };
 export type SharedVerdict = {
@@ -16,6 +16,7 @@ export type SharedVerdict = {
   score: number | null;
   confidencePercent: number | null;
   confidenceWords: string;
+  confidenceFromV2?: boolean;
   reviewCount: number;
   sources: string[];
   love: SharedPoint | null;
@@ -36,13 +37,13 @@ const b64u = (buf: Buffer) => buf.toString("base64url");
 export function sharedVerdictFromResult(result: Record<string, unknown>, scanId: string, now = new Date()): SharedVerdict {
   const a = deriveShopperAnswer(result as never);
   const product = result.product && typeof result.product === "object" ? result.product as Record<string, unknown> : {};
-  const title = String(product.title || product.name || result.productName || "This product").slice(0, 140);
+  const title = (neutralProductLabel(product.title || product.name || result.productName) || "This product").slice(0, 140);
   const point = (p: (typeof a.loves)[number] | undefined): SharedPoint | null =>
     p ? { claim: p.claim, quote: p.quote ? p.quote.slice(0, 220) : null, sourceUrl: p.sourceUrl } : null;
   const listing = typeof result.exactListingUrl === "string" ? result.exactListingUrl : null;
   return {
     v: 1, scanId, product: title, label: a.label, kind: a.kind, why: a.why.slice(0, 260), score: a.score,
-    confidencePercent: a.confidencePercent, confidenceWords: a.confidenceWords, reviewCount: a.reviewCount,
+    confidencePercent: a.confidencePercent, confidenceWords: a.confidenceWords, confidenceFromV2: a.confidenceFromV2, reviewCount: a.reviewCount,
     sources: a.sources.slice(0, 4), love: point(a.loves[0]), complaint: point(a.complaints[0]),
     listingUrl: listing, createdAt: now.toISOString(),
   };

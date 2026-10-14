@@ -307,7 +307,7 @@ test("INSUFFICIENT_UI: thin evidence shows real quotes, low confidence, and a ne
   assert.doesNotMatch(ui, /noStrengthsUnavailable/);
   assert.doesNotMatch(ui, /noComplaintsUnavailable/);
   assert.match(ui, /realReviewQuotes\(result\)/);
-  assert.match(ui, /Low · \$\{shopper\.acceptedWrittenReviewCount\} real reviews/);
+  assert.doesNotMatch(ui, /acceptedWrittenReviewCount\} real reviews|real reviews analyzed/);
   assert.match(ui, /Scan the Amazon listing link or add a review screenshot/);
   assert.doesNotMatch(ui, /answer: "NOT ENOUGH EVIDENCE"/);
   assert.doesNotMatch(ui, /return "Not scored"|: "Not scored"|\? "Not scored"/);
