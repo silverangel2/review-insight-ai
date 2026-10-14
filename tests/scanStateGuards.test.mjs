@@ -410,7 +410,11 @@ test("canonical scored evidence exposes deterministic verdict confidence instead
 
   assert.match(
     source,
-    /const displayedVerdictConfidence\s*=\s*canonicalEvidenceEligible\s*&&\s*Number\.isFinite\(verdictConfidence\)\s*\?\s*verdictConfidence\s*:\s*null;/s,
+    /let displayedVerdictConfidence\s*=\s*canonicalEvidenceEligible\s*&&\s*Number\.isFinite\(verdictConfidence\)\s*\?\s*verdictConfidence\s*:\s*null;/s,
+  );
+  assert.match(
+    source,
+    /displayedVerdictConfidence = buyingConfidenceFromV2\(faced\.buyingScore\.confidence\)/,
   );
 
   assert.doesNotMatch(

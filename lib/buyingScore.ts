@@ -665,19 +665,50 @@ export function marketplaceAggregateForScore(input: {
  * The customer-facing result is the v2 card: Provisional Marketplace Score when a
  * marketplace rating is known.
  */
+/** Map v2's High/Medium/Low onto the numeric confidence the results page already stores. */
+export function buyingConfidenceFromV2(level: Confidence): number {
+  if (level === "High") return 80;
+  if (level === "Medium") return 65;
+  return 45;
+}
+
+/** Shopper sentence for a v2 decision. A firm Buy never carries a "couldn't verify" line. */
+export function shopperBottomLineForBuyingScore(
+  card: ReturnType<typeof buyingScoreFromReviews>,
+  verdict: "BUY" | "REVIEW FIRST" | "AVOID",
+): string {
+  const evidence = String(card.evidenceLine || "").trim();
+  const tail = evidence ? ` ${evidence}.` : "";
+  if (card.mode === "provisional_marketplace") {
+    const leaning = card.leaning === "Buy" || card.leaning === "Skip" || card.leaning === "Wait" ? card.leaning : "Wait";
+    return `Provisional Marketplace Score. Leaning ${leaning}.${tail}`;
+  }
+  if (card.mode === "no_score" || card.score === null) {
+    return "Add the exact product link or a screenshot of the product page to score this.";
+  }
+  if (verdict === "BUY") return `Buying Score supports buying this.${tail}`;
+  if (verdict === "AVOID") return `Buying Score supports skipping this.${tail}`;
+  return `Review this before buying.${tail}`;
+}
+
 export function customerFacingDecision(input: {
   analyzedReviews: number;
   buyingScore: ReturnType<typeof buyingScoreFromReviews>;
 }): { verdict: "BUY" | "REVIEW FIRST" | "AVOID"; buyScore: number | null; finalDecisionSource: "buyingScoreV2"; buyingScore: ReturnType<typeof buyingScoreFromReviews> } {
   const analyzed = Math.max(0, Math.floor(input.analyzedReviews || 0));
+  // A card built from written reviews must not stay in force when none of those reviews are the customer-facing evidence.
   const card = analyzed > 0 || input.buyingScore.audit.n === 0
     ? input.buyingScore
     : buyingScoreFromReviews({
         marketplace: { rating: input.buyingScore.audit.Rbar, count: input.buyingScore.audit.N, matchesExactModel: true },
         reviews: [],
       });
-  const label = card.verdict || card.leaning;
-  const verdict = label === "Buy" ? "BUY" : label === "Skip" ? "AVOID" : "REVIEW FIRST";
+  const firm = (card.mode === "buying_score" || card.mode === "written_only") && card.audit.n > 0;
+  if (!firm) {
+    return { verdict: "REVIEW FIRST", buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
+  }
+  // Leaning is not a firm Buy or Skip. Only the v2 verdict word is.
+  const verdict = card.verdict === "Buy" ? "BUY" : card.verdict === "Skip" ? "AVOID" : "REVIEW FIRST";
   return { verdict, buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
 }
 

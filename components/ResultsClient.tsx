@@ -24,6 +24,7 @@ import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCor
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
 import { isUnreadableAmazonPage, neutralProductLabel, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE } from "@/lib/shopperAnswer";
+import { isBuyingScoreV2Result, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
 
 
 function signedOutProof(scanId: string, cookieGrant: boolean) {
@@ -733,42 +734,6 @@ function researchTone(level: string): "good" | "warn" | "bad" | "info" {
   if (level === "product_mismatch" || level === "screenshot_only") return "bad";
   if (level === "limited") return "warn";
   return "info";
-}
-
-function hasContradictoryNegativeLanguage(text: string) {
-  return /\b(hard to recommend|not recommended|not a clean buy|compare alternatives|weak satisfaction|heavy complaint|complaint pressure|risk signals|poor value|avoid|skip|unreliable|not enough strong buying evidence)\b/i.test(text);
-}
-
-function isImpossibleCachedShopperResult(value: unknown) {
-  const source = value as {
-    verdict?: string;
-    productScore?: number;
-    buyingConfidence?: number;
-    valueForMoney?: string;
-    bottomLine?: string;
-    topComplaints?: string[];
-    notIdealFor?: string[];
-  } | null;
-
-  if (!source || typeof source !== "object") return false;
-
-  const verdict = governedVerdictFromSource(source as Record<string, unknown>);
-  if (verdict !== "BUY") return false;
-
-  const productScore = clampScore(source.productScore, 0);
-  const buyingConfidence = clampScore(source.buyingConfidence, productScore);
-  const evidenceText = [
-    source.bottomLine,
-    ...(Array.isArray(source.topComplaints) ? source.topComplaints : []),
-    ...(Array.isArray(source.notIdealFor) ? source.notIdealFor : [])
-  ].join(" ");
-
-  return (
-    productScore < 75 ||
-    buyingConfidence < 60 ||
-    String(source.valueForMoney || "").toLowerCase() === "poor" ||
-    hasContradictoryNegativeLanguage(evidenceText)
-  );
 }
 
 function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLocale): ShopperProductResult {
@@ -1854,6 +1819,9 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
     return "not_enough";
   }
 
+  // v2 already decided. The old "fewer than 3 reviews" gate must not rewrite it.
+  if (isBuyingScoreV2Result(result)) return null;
+
   const trace =
     result.reviewIntelTrace && typeof result.reviewIntelTrace === "object"
       ? (result.reviewIntelTrace as Record<string, unknown>)
@@ -2317,7 +2285,7 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
         parsed = null;
       }
 
-      if (isImpossibleCachedShopperResult(parsed)) {
+      if (resultsPageHidesScan(parsed)) {
         clearLatestResult();
         if (!cancelled) setResult(null);
         return;
@@ -2394,6 +2362,7 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
           ? (sourceRecord.reviewEvidence as Record<string, unknown>)
           : sourceRecord;
       const zeroWrittenReviewEvidence =
+        !isBuyingScoreV2Result(sourceRecord) &&
         Number(reviewEvidenceRecord.reviewsCollected ?? sourceRecord.reviewsCollected ?? 0) <= 0 &&
         Number(reviewEvidenceRecord.commentsAnalyzed ?? sourceRecord.commentsAnalyzed ?? 0) <= 0 &&
         Number(reviewEvidenceRecord.reviewIntelligenceSignals ?? sourceRecord.reviewIntelligenceSignals ?? 0) <= 0;

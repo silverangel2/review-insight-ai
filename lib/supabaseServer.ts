@@ -120,7 +120,7 @@ export async function supabaseDelete(table: string, query: string) {
   return true;
 }
 
-export async function supabaseRpc<T = SupabaseRow>(functionName: string, body: SupabaseRow) {
+export async function supabaseRpc<T = SupabaseRow>(functionName: string, body: SupabaseRow, options?: { quiet?: boolean }) {
   if (!isSupabaseConfigured()) return null;
 
   const response = await fetch(
@@ -134,7 +134,7 @@ export async function supabaseRpc<T = SupabaseRow>(functionName: string, body: S
   ).catch(() => null);
 
   if (!response?.ok) {
-    console.error(`[Supabase] rpc ${functionName} failed`, response?.status || "network");
+    if (!options?.quiet) console.error(`[Supabase] rpc ${functionName} failed`, response?.status || "network");
     return null;
   }
 

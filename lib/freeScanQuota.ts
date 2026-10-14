@@ -196,12 +196,14 @@ export async function releaseFreeScan(input: ClaimInput): Promise<FreeScanClaim>
   }
 
   if (isSupabaseConfigured()) {
+    // The release function may not be migrated yet. A missing function must not
+    // log or fail the scan; the claim simply stays where it is.
     const result = await supabaseRpc<FreeScanClaim>("release_reviewintel_free_scan", {
       p_identity_kind: input.kind,
       p_identity_key: identityKey,
       p_scan_id: input.scanId,
       p_released_at: (input.now || new Date()).toISOString(),
-    });
+    }, { quiet: true }).catch(() => null);
     if (!result) return unavailableClaim();
     return {
       allowed: result.allowed !== false,

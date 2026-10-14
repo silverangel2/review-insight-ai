@@ -340,8 +340,20 @@ function htmlDecodeLight(value: string) {
     .trim();
 }
 
+function elementTextById(html: string, id: string): string | null {
+  const match = html.match(new RegExp(`<([a-z0-9]+)\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)<\\/\\1>`, "i"));
+  if (!match) return null;
+  const text = htmlDecodeLight(match[2].replace(/<[^>]+>/g, " "));
+  return text || null;
+}
+
+function amazonAsinInUrl(value: string | null | undefined): string | null {
+  return String(value || "").match(/\/(?:dp|gp\/product|gp\/aw\/d|product-reviews)\/([A-Z0-9]{10})(?:[/?#]|$)/i)?.[1]?.toUpperCase() || null;
+}
+
 export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
   const title =
+    elementTextById(html, "productTitle") ||
     html.match(/<span[^>]+id=["']productTitle["'][^>]*>([\s\S]{5,500}?)<\/span>/i)?.[1] ||
     html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']{5,500})["']/i)?.[1] ||
     html.match(/<title[^>]*>([\s\S]{5,500}?)<\/title>/i)?.[1] ||
@@ -443,27 +455,39 @@ export async function enrichRetrievedProductCandidate(candidate: RetrievedProduc
         continue;
       }
       const html = await response.text();
-      if (isBlockedOrSignInReviewPage({ requestedUrl: url, finalUrl: response.url, html })) break;
-      if (response.url && !isProductUrl(response.url)) break;
       const finalUrl = normalizeProductUrl(response.url || url);
-      if (hostForUrl(finalUrl) !== hostForUrl(candidate.url)
-        || (amazon && !finalUrl.endsWith(`/dp/${amazon[2]}`))) break;
-      evidence = extractProductEvidenceFromHtml(html, response.url || url);
-      if (amazon && evidence.canonicalUrl && !evidence.canonicalUrl.endsWith(`/dp/${amazon[2]}`)) {
-        evidence.title = null;
+      const requestedAsin = amazon ? amazon[2].toUpperCase() : null;
+      const pageAsin = amazonAsinInUrl(response.url || url) || amazonAsinInUrl(finalUrl);
+      if (requestedAsin && pageAsin && pageAsin !== requestedAsin) break;
+      if (hostForUrl(finalUrl) && hostForUrl(finalUrl) !== hostForUrl(candidate.url)) break;
+      // Sign-in, claim, and other non-product landings are not the listing,
+      // even when the HTML happens to contain a title node.
+      if (response.url && !isProductUrl(response.url)) break;
+      const parsed = extractProductEvidenceFromHtml(html, response.url || url);
+      const readable = Boolean(parsed.title) || parsed.rating !== null || parsed.reviewCount !== null;
+      // A product URL that already shows #productTitle or the main rating block was read.
+      // Script text that mentions a captcha must not throw that read away.
+      if (!readable && isBlockedOrSignInReviewPage({ requestedUrl: url, finalUrl: response.url, html })) break;
+      if (requestedAsin && parsed.canonicalUrl && amazonAsinInUrl(parsed.canonicalUrl) && amazonAsinInUrl(parsed.canonicalUrl) !== requestedAsin) {
         break;
       }
+      evidence = parsed;
       evidence.canonicalUrl ||= finalUrl;
-      if (evidence.title) break;
+      if (readable) break;
     }
 
-    if (!evidence.title) return { ...candidate, enrichmentAttempted: true, enrichmentSucceeded: false };
+    if (!evidence.title && evidence.rating === null && evidence.reviewCount === null) {
+      return { ...candidate, enrichmentAttempted: true, enrichmentSucceeded: false };
+    }
 
+    const resolvedTitle = evidence.title || (isUnusableListingTitle(candidate.title) ? "" : candidate.title);
+    const canonicalAsin = amazonAsinInUrl(evidence.canonicalUrl);
+    const sameListing = !amazon || canonicalAsin === amazon[2].toUpperCase();
     return {
       ...candidate,
       url: evidence.canonicalUrl && isProductUrl(evidence.canonicalUrl) && hostForUrl(evidence.canonicalUrl) === hostForUrl(candidate.url)
-        && (!amazon || evidence.canonicalUrl.endsWith(`/dp/${amazon[2]}`)) ? evidence.canonicalUrl : candidate.url,
-      title: evidence.title || candidate.title,
+        && sameListing ? evidence.canonicalUrl : candidate.url,
+      title: resolvedTitle,
       brand: evidence.brand || candidate.brand || null,
       model: evidence.model || candidate.model || null,
       ...(evidence.rating ? { rating: evidence.rating } : {}),

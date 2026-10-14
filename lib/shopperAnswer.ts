@@ -271,6 +271,8 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
 
   let kind: ShopperAnswerKind = thin ? "not_enough" : verdict === "BUY" ? "buy" : verdict === "AVOID" ? "skip" : "wait";
   if (!thin && !["BUY", "AVOID", "DO NOT BUY YET"].includes(verdict)) kind = "wait";
+  const writtenOnCard = num(obj(obj(result.buyingScoreV2).audit).n);
+  if (writtenOnCard === 0 && (kind === "buy" || kind === "skip")) kind = "not_enough";
   const label = { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
 
   const topLove = loves[0]?.claim, topComplaint = complaints[0]?.claim;
