@@ -1,25 +1,26 @@
-# ReviewIntel browser extension (Chrome, Manifest V3)
+# ReviewIntel browser extension (Chrome and Edge, Manifest V3)
 
-Adds a small **Check reviews** button on Amazon product pages. Clicking it opens
-`https://getreviewintel.com/analyze?url=<product URL>` in a new tab, where ReviewIntel runs its
-normal scan. **Not published.** Do not submit without the Owner's go-ahead.
+Reads the reviews already visible on the product page the shopper has open, then opens the normal ReviewIntel result. **Not published.** Do not submit to a store without the Owner's go-ahead. See `docs/HANDOFF-extension.md`.
 
-## What it does / doesn't do
-- Reads only `location.pathname` to find the 10-character product id (ASIN). It builds a clean `/dp/<ASIN>` URL.
-- Does **not** read page content, scrape reviews, make network requests, store data, or track users.
-- No `permissions`, no `host_permissions`, no background service worker. Its content script runs only on Amazon storefront domains.
-- The button can be dismissed per page (×). It respects reduced-motion and has a visible focus ring.
+## What it does
+
+- The button and the toolbar action both say **Analyze with ReviewIntel**.
+- Nothing is read until that click. The click reads the title, product id, star rating, rating count, and the review cards already on the screen (text, stars, date, verified badge).
+- It does not turn pages, scroll for more reviews, or run in the background.
+- It opens ReviewIntel in a new tab. ReviewIntel scores those reviews with the same daily scan allowance and Buying Score the site already uses.
+
+## Permissions
+
+- `activeTab` — the toolbar click applies to the tab the shopper is looking at.
+- Host access only for the product pages ReviewIntel already supports. No other sites, and not ReviewIntel's own site.
 
 ## Load it locally
-1. Chrome → `chrome://extensions` → enable **Developer mode**.
-2. **Load unpacked** → choose this `extension/` folder.
-3. Open any Amazon product page (`/dp/…`): the button appears bottom-right.
 
-## Chrome Web Store submission checklist
-- Zip the folder contents (`manifest.json`, `content.js`, `content.css`, `icons/`).
-- **Single purpose:** "Open the current Amazon product in ReviewIntel to see a review-based verdict."
-- **Permission justification:** none requested. The content script match patterns are needed to show the button on Amazon product pages only.
-- **Data usage:** collects no user data. Certify "does not collect or use user data".
-- **Privacy policy URL:** https://getreviewintel.com/privacy
-- Store listing: 1280×800 screenshots of the button on a product page and of a ReviewIntel result. Replace the generated icons with final brand artwork (128×128 PNG).
-- Trademark note: describe it as working "on Amazon product pages". Don't use Amazon's logo or imply endorsement. Include: "ReviewIntel is independent and not affiliated with or endorsed by Amazon or any brand."
+1. In `extension/config.js`, set `REVIEWINTEL_ORIGIN` to the site you are signed in on. Use `http://localhost:3000` for a local server, or leave `https://getreviewintel.com`.
+2. Chrome or Edge → extensions → turn on **Developer mode**.
+3. **Load unpacked** → choose this `extension/` folder.
+4. Sign in to ReviewIntel in that same browser.
+5. Reload a product page. Click **Analyze with ReviewIntel** on the page or in the toolbar.
+6. A ReviewIntel tab opens on your result.
+
+The bookmark on `/tools/analyze-page` does the same job on a phone or a computer without the extension.

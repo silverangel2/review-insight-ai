@@ -1,6 +1,6 @@
-#reviewintel-check-reviews-wrap { position: fixed; right: 16px; bottom: 16px; z-index: 2147483000; display: flex; align-items: center; gap: 4px; font: 600 14px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-#reviewintel-check-reviews { display: inline-flex; align-items: center; padding: 10px 16px; border-radius: 999px; background: #0b7c78; color: #fff !important; text-decoration: none !important; box-shadow: 0 8px 20px -10px rgba(11,124,120,.7); transition: transform .2s ease-out; }
-#reviewintel-check-reviews:hover { transform: translateY(-2px); }
-#reviewintel-check-reviews:focus-visible, #reviewintel-check-reviews-close:focus-visible { outline: 2px solid #0b7c78; outline-offset: 2px; }
-#reviewintel-check-reviews-close { width: 28px; height: 28px; border: 0; border-radius: 999px; background: #fff; color: #334155; cursor: pointer; box-shadow: 0 2px 8px rgba(15,23,42,.15); font-size: 16px; }
-@media (prefers-reduced-motion: reduce) { #reviewintel-check-reviews { transition: none; } #reviewintel-check-reviews:hover { transform: none; } }
+#reviewintel-analyze-wrap { position: fixed; right: 16px; bottom: 16px; z-index: 2147483000; display: flex; align-items: center; gap: 4px; font: 600 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+#reviewintel-analyze { display: inline-flex; align-items: center; max-width: 16rem; padding: 10px 16px; border: 0; border-radius: 999px; background: #0b7c78; color: #fff; cursor: pointer; box-shadow: 0 8px 20px -10px rgba(11,124,120,.7); transition: transform .2s ease-out; }
+#reviewintel-analyze:hover { transform: translateY(-2px); }
+#reviewintel-analyze:focus-visible, #reviewintel-analyze-close:focus-visible { outline: 2px solid #0b7c78; outline-offset: 2px; }
+#reviewintel-analyze-close { width: 28px; height: 28px; border: 0; border-radius: 999px; background: #fff; color: #334155; cursor: pointer; box-shadow: 0 2px 8px rgba(15,23,42,.15); font-size: 16px; }
+@media (prefers-reduced-motion: reduce) { #reviewintel-analyze { transition: none; } #reviewintel-analyze:hover { transform: none; } }

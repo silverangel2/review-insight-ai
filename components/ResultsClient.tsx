@@ -25,6 +25,8 @@ import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
 import { isUnreadableAmazonPage, neutralProductLabel, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE, unreadableRetryPhrase } from "@/lib/shopperAnswer";
 import { isBuyingScoreV2Result, buyingScoreWrittenCount, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
+import { linkOnlyScanWasBlocked } from "@/lib/linkScanBlocked";
+import { ExtensionPrompt } from "@/components/ExtensionPrompt";
 
 
 function signedOutProof(scanId: string, cookieGrant: boolean) {
@@ -1310,6 +1312,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     <>
       {/* Mobile-only compact shopper result */}
       <div className="ri-results-mobile space-y-3">
+        {linkOnlyScanWasBlocked(result) ? <ExtensionPrompt /> : null}
         {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
         <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${shownVerdict.soft}`}>
           <div className="mx-auto grid size-16 place-items-center rounded-full border-[4px] border-emerald-400 bg-white text-3xl font-black text-emerald-700 shadow-sm">
@@ -1436,6 +1439,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
       {/* Desktop report layout unchanged */}
       <div className="ri-results-desktop space-y-4 sm:space-y-6">
+        {linkOnlyScanWasBlocked(result) ? <ExtensionPrompt /> : null}
         {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
         <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.75rem] sm:p-4">

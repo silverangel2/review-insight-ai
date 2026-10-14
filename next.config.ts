@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
       "./node_modules/tesseract.js/src/worker-script/**/*",
       "./node_modules/@tesseract.js-data/eng/**/*"
     ],
+    "/tools/analyze-page": ["./extension/extractors.js"],
     "/api/review-screenshot": [
       "./node_modules/tesseract.js-core/*.wasm",
       "./node_modules/tesseract.js-core/*.js",
