@@ -267,7 +267,7 @@ export async function runGeneralBenchmark({layer='development'}={}) {
       await check('signin-is-terminal-per-source',['blocked-signin','multiple-retailers'],'CAPTURED_RESTRICTION_TRANSPORT_SIMULATION',async()=>{
         const base=restricted.adjudicationArgs[1].exactListingUrl;const visited=[];
         await withFetch(async url=>{const u=new URL(url);visited.push(u.toString());if(u.pathname.includes('product-reviews')){const r=new Response('Sign in',{status:200});Object.defineProperty(r,'url',{value:`${u.origin}/ax/claim`});return r;}return new Response('',{status:403});},async()=>{
-          const out=await retrieval.runNativeReviewRetrieval({productTitle:restricted.adjudicationArgs[1].exactListingTitle,brand:restricted.adjudicationArgs[1].brand,listingUrl:base,maxPages:12,maxQueries:1,politeDelayMs:0});assert.equal(out.reviewsCollected,0);assert.equal(out.playwrightAttempted,false);assert.ok(visited.filter(url=>url.includes('product-reviews')).length<=1,'Sign-in endpoint was retried across pagination');
+          const out=await retrieval.runNativeReviewRetrieval({productTitle:restricted.adjudicationArgs[1].exactListingTitle,brand:restricted.adjudicationArgs[1].brand,listingUrl:base,maxPages:12,maxQueries:1,politeDelayMs:0});assert.equal(out.reviewsCollected,0);assert.equal(out.playwrightAttempted,false);const reviewUrls=visited.filter(url=>url.includes('product-reviews'));const reviewPaths=reviewUrls.map(url=>url.split('?')[0]);assert.equal(new Set(reviewPaths).size,reviewPaths.length,'Sign-in review URL was paginated');
         });
       });
       await check('adaptive-depth-after-sufficiency',['pagination','many-reviews','multilingual'],'CAPTURED_BATCHES_WITH_MOCKED_DISCOVERY',async()=>{

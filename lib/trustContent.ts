@@ -375,7 +375,7 @@ export const trustPages: Record<string, TrustPageContent> = {
         body:
           "ReviewIntel may use third-party providers to host the website, store data, authenticate users, process payments, send email, run AI analysis, analyze traffic, protect security, manage affiliate links, serve ads, and connect social platforms.",
         items: [
-          "Examples may include Vercel or similar hosting, Supabase or similar database/auth infrastructure, Stripe for payments, OpenAI or other AI providers for requested analysis, Google services for advertising or measurement, Meta/Facebook APIs, and TikTok APIs.",
+          "Examples include website hosting, data storage and sign-in, payment processing, AI analysis when you ask for it, advertising measurement, and social platform connections.",
           "Third-party providers process data only as needed for their role, subject to their own terms, policies, data-processing commitments, and legal obligations.",
           "ReviewIntel may disclose data when required by law, to protect rights and security, to prevent abuse, during a business transfer, or with your consent."
         ]

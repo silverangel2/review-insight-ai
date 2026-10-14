@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(
         html(
           "error",
-          `Facebook connected, but the configured ReviewIntel Page ID ${config.pageId} was not found. Facebook returned these Pages for this account: ${visiblePages || "none"}.${notes} Copy the correct Page ID into FACEBOOK_PAGE_ID in Vercel, then redeploy and reconnect.`
+          `Facebook connected, but the configured ReviewIntel Page ID ${config.pageId} was not found. Facebook returned these Pages for this account: ${visiblePages || "none"}.${notes} Copy the correct Page ID into FACEBOOK_PAGE_ID in the deployment settings, then redeploy and reconnect.`
         ),
         { status: 404, headers: { "Content-Type": "text/html" } }
       );

@@ -60,11 +60,13 @@ export async function readResponseText(response: Response): Promise<string> {
   return buf.toString("utf8");
 }
 
-function requestInitForFetch(url: string, init: RequestInit): { cacheKey: string; init: RequestInit } {
+function requestInitForFetch(url: string, init: RequestInit): { cacheKey: string; init: RequestInit; continueHost: boolean } {
   const headers = new Headers(init.headers || {});
   const profile = headers.get("x-ri-profile");
+  const continueHost = headers.get("x-ri-continue-host") === "1";
   headers.delete("x-ri-profile");
-  return { cacheKey: profile ? `${profile} ${url}` : url, init: { ...init, headers } };
+  headers.delete("x-ri-continue-host");
+  return { cacheKey: profile ? `${profile} ${url}` : url, init: { ...init, headers }, continueHost };
 }
 
 export const BROWSER_HEADERS = {
@@ -116,7 +118,7 @@ export function createPoliteFetcher(options: { enforceRobots?: boolean; minHostI
       stats.robotsBlocked.push(url);
       return { status: null, ok: false, text: "", finalUrl: url, error: "robots_disallowed", robotsBlocked: true, attempts: 0 };
     }
-    if (stoppedHosts.has(u.host)) {
+    if (stoppedHosts.has(u.host) && !prepared.continueHost) {
       stats.accessStopped.push(url);
       return { status: stoppedHosts.get(u.host)!, ok: false, text: "", finalUrl: url, error: `host access stopped after HTTP ${stoppedHosts.get(u.host)}`, attempts: 0 };
     }

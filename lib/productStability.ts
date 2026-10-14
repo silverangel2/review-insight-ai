@@ -378,7 +378,7 @@ function stableVerdict(memory: ProductMemory, result: JsonRecord) {
       buyerConfidence: null,
       buyScore: null,
       valueForMoney: "Unknown",
-      bottomLine: "Review evidence not enough. ReviewIntel did not collect enough written review text to make a product judgment.",
+      bottomLine: "ReviewIntel did not collect enough written review text to make a product judgment.",
     };
   }
 
@@ -862,7 +862,7 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     toolsUsed: toolAudit.toolsUsed,
     decisionBasis: hasActualReviewEvidence
       ? toolAudit.decisionBasis
-      : "Review evidence not enough. Screenshot and exact listing were treated as product identity only.",
+      : "Screenshot and exact listing were treated as product identity only.",
     productKey: finalMemory.productKey,
     stableProductKey: finalMemory.productKey,
     productIdentity: {

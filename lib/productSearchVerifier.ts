@@ -8,6 +8,7 @@ import {
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 import { PRODUCT_COLOR_WORDS, extractProductIdentityTokenRoles, stableProductSearchTerms } from "./productIdentityTokens";
 import { canonicalAmazonListingUrl, isDriftSearchQuery } from "./listingAuthority";
+import { candidateMatchesLinkIdentity, identityFromProductLink } from "./linkIdentity";
 
 export type ProductSearchJob = {
   scanId: string;
@@ -246,7 +247,7 @@ function importantTerms(job: ProductSearchJob) {
 
   for (const term of text.split(/\s+/)) {
     if (term.length < 3) continue;
-    if (["the", "and", "for", "with", "from", "portable", "rechargeable", "amazon", "walmart"].includes(term)) continue;
+    if (["the", "and", "for", "with", "from", "portable", "rechargeable", "amazon", "walmart", "unknown", "product", "products", "item", "items"].includes(term)) continue;
     terms.add(term);
   }
 
@@ -526,6 +527,63 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
       canScoreProduct: true,
       canonicalIdentifier: candidateAsin,
       canonicalMarketplace: domainFromUrl(authoritativeListing) || candidateDomain || null,
+    };
+  }
+
+  const linkIdentity = identityFromProductLink(job.authoritativeListingUrl);
+  if (linkIdentity) {
+    const tokenMatch = candidateMatchesLinkIdentity(linkIdentity, { url: candidateUrl, title: candidate.title });
+    if (!tokenMatch) {
+      return {
+        verifierStatus: "rejected_similar_product",
+        verifierConfidence: 0,
+        verifierReasons: ["Cross-store candidate does not contain the model or id from the shopper link."],
+        verifiedListingUrl: null,
+        rejectedListingUrl: candidateUrl,
+        rejectedListingTitle: candidate.title || null,
+        retrySearchQueries: [],
+        canCollectReviews: false,
+        canScoreProduct: false,
+        canonicalIdentifier: null,
+        canonicalMarketplace: candidateDomain || null,
+      };
+    }
+    const sameListing = identityFromProductLink(candidateUrl);
+    const sameProduct = Boolean(sameListing && sameListing.storeId === linkIdentity.storeId && sameListing.productId.toUpperCase() === linkIdentity.productId.toUpperCase());
+    const primaryTitle = normalize(String(candidate.title || "").split(/\b(?:compatible\s+with|works\s+with|for\s+use\s+with)\b/i)[0]);
+    const accessory = /\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(primaryTitle)
+      && !/\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(normalize(linkIdentity.displayName));
+    if (!sameProduct && accessory) {
+      return {
+        verifierStatus: "rejected_similar_product",
+        verifierConfidence: 0,
+        verifierReasons: ["Candidate is an accessory or replacement, not the product named by the shopper link."],
+        verifiedListingUrl: null,
+        rejectedListingUrl: candidateUrl,
+        rejectedListingTitle: candidate.title || null,
+        retrySearchQueries: [],
+        canCollectReviews: false,
+        canScoreProduct: false,
+        canonicalIdentifier: null,
+        canonicalMarketplace: candidateDomain || null,
+      };
+    }
+    return {
+      verifierStatus: "verified_exact_match",
+      verifierConfidence: sameProduct ? 96 : 88,
+      verifierReasons: [
+        sameProduct
+          ? "Shopper link product id is the listing. A failed page fetch does not make this a different product."
+          : "Candidate title contains the model or id from the shopper link.",
+      ],
+      verifiedListingUrl: candidateUrl,
+      rejectedListingUrl: null,
+      rejectedListingTitle: null,
+      retrySearchQueries: [],
+      canCollectReviews: true,
+      canScoreProduct: true,
+      canonicalIdentifier: sameProduct ? linkIdentity.productId : (amazonAsinFromUrl(candidateUrl) || linkIdentity.productId),
+      canonicalMarketplace: candidateDomain || null,
     };
   }
 

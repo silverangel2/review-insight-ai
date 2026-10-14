@@ -83,6 +83,7 @@ export function isDriftSearchQuery(value: unknown): boolean {
     if (!key || !/[a-z0-9]/i.test(key)) return false;
     if (MARKETPLACE_TOKEN.test(key)) return false;
     if (RATING_TOKEN.test(key)) return false;
+    if (/^(?:unknown|product|products|item|items)$/i.test(key)) return false;
     if (/^\d+(?:\.\d+)?$/.test(key)) return false;
     return key.length > 1;
   });

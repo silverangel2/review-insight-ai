@@ -270,7 +270,7 @@ export function recoverPartialReviewEvidenceFromText(text: string) {
     reviewAuthenticity: {
       score: null,
       label: "Review scan partially recovered",
-      suspiciousReviewRisk: "Not scored",
+      suspiciousReviewRisk: null,
       reasons: [
         "The model response was malformed, but ReviewIntel recovered available links/numbers instead of discarding the scan.",
       ],

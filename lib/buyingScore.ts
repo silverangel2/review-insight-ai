@@ -672,6 +672,29 @@ export function buyingConfidenceFromV2(level: Confidence): number {
   return 45;
 }
 
+export const BLOCKED_LISTING_LABEL = "Couldn't read the reviews";
+
+/** The shopper already gave the product link. Do not ask them to add it again. */
+export function wordingWhenListingAlreadySupplied<T extends { mode: string; audit: { n: number }; notes: string[]; primaryAction: string | null; label: string }>(card: T, listingSupplied: boolean): T {
+  if (!listingSupplied || card.audit.n > 0) return card;
+  if (card.mode === "provisional_marketplace") {
+    return {
+      ...card,
+      notes: ["Based on the marketplace rating only. Written reviews on this page could not be read."],
+      primaryAction: "Add a screenshot of the reviews if you can see them",
+    };
+  }
+  if (card.mode === "no_score") {
+    return {
+      ...card,
+      label: BLOCKED_LISTING_LABEL,
+      notes: ["We couldn't read the reviews on this page. Try again, or add a screenshot of the product page."],
+      primaryAction: "Try again or add a screenshot of the product page",
+    };
+  }
+  return card;
+}
+
 /** Shopper sentence for a v2 decision. A firm Buy never carries a "couldn't verify" line. */
 export function shopperBottomLineForBuyingScore(
   card: ReturnType<typeof buyingScoreFromReviews>,
@@ -682,6 +705,9 @@ export function shopperBottomLineForBuyingScore(
   if (card.mode === "provisional_marketplace") {
     const leaning = card.leaning === "Buy" || card.leaning === "Skip" || card.leaning === "Wait" ? card.leaning : "Wait";
     return `Provisional Marketplace Score. Leaning ${leaning}.${tail}`;
+  }
+  if (card.label === BLOCKED_LISTING_LABEL) {
+    return "We couldn't read the reviews on this page. Try again, or add a screenshot of the product page.";
   }
   if (card.mode === "no_score" || card.score === null) {
     return "Add the exact product link or a screenshot of the product page to score this.";
