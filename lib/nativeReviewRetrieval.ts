@@ -1,6 +1,10 @@
 import { reportReviewsFound } from "./scanProgress";
 import { createHeadlessRenderer, headlessRenderEnabled } from "./headlessRender";
 import { createPoliteFetcher, BROWSER_HEADERS } from "./politeFetch";
+import { ScanCookieJar } from "./browserProfiles";
+import { emptyLayeredScan, mergeLayeredScan, runLayeredStoreFetch, type LayeredScanSummary } from "./layeredReviewCollection";
+import { scanCollectionRemainingMs } from "./scanDeadline";
+import { amazonStableId, collectorForUrl } from "./storeCollectors";
 import { findSitemapCandidates, loadLocalSitemapIndexes } from "./sitemapProductIndex";
 import { extractListingIdentifiers, identifiersMatch, identifiersConflict, identifierDiscoveryQueries, type ListingIdentifiers } from "./listingIdentifiers";
 import { captureStage } from "./devScanCapture";
@@ -52,6 +56,8 @@ export type NativeReviewRetrievalResult = {
   coverageNote: string;
   stopReason: "corpus_cap_reached" | "candidate_pages_exhausted" | "access_restricted" | "retrieval_budget_reached" | "duration_cap_reached" | "page_cap_reached";
   nativeScraperBlocked: boolean;
+  /** Which public-page tier produced reviews, and whether a stripped shell was seen. */
+  layeredCollection: LayeredScanSummary;
   diagnostics: {
     searchProviders: string[];
     attemptedSearches: number;
@@ -81,6 +87,8 @@ type PageFetchResult = {
   finalUrl?: string;
   method: "fetch" | "playwright";
   error?: string;
+  setCookies?: string[];
+  robotsBlocked?: boolean;
 };
 
 const USER_AGENTS = [
@@ -205,9 +213,11 @@ async function politeDelay(ms: number) {
 
 // One polite fetcher per scan (robots, pacing, 5xx retry, cache); set by runNativeReviewRetrieval.
 let activePoliteFetcher: ReturnType<typeof createPoliteFetcher> | null = null;
+let scanCookieJar = new ScanCookieJar();
+let layeredScan: LayeredScanSummary = emptyLayeredScan();
 function maxPagesForRender(input: { maxPages?: number }) { return typeof input.maxPages === "number" ? Math.max(1, input.maxPages) : 3; }
 
-async function fetchText(url: string, index: number, timeoutMs = 9000, costTelemetry?: ScanCostTelemetry): Promise<PageFetchResult> {
+async function fetchTextOnce(url: string, index: number, timeoutMs = 9000, costTelemetry?: ScanCostTelemetry, headers?: Record<string, string>): Promise<PageFetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -215,7 +225,7 @@ async function fetchText(url: string, index: number, timeoutMs = 9000, costTelem
     const dispatcher = await getProxyDispatcher();
     const init: FetchInitWithDispatcher = {
       method: "GET",
-      headers: { "user-agent": userAgentFor(index), ...BROWSER_HEADERS },
+      headers: headers || { "user-agent": userAgentFor(index), ...BROWSER_HEADERS },
       cache: "no-store",
       signal: controller.signal,
     };
@@ -228,7 +238,10 @@ async function fetchText(url: string, index: number, timeoutMs = 9000, costTelem
     costTelemetry?.recordRetrievalRequest(/(?:bing\.com\/search|duckduckgo\.com\/html)/i.test(url) ? "search" : "other");
     const fetcher = activePoliteFetcher || createPoliteFetcher({ minHostIntervalMs: 0 });
     const result = await fetcher.get(url, init as RequestInit);
-    return { url, ok: result.ok, text: result.text, status: result.status ?? undefined, finalUrl: result.finalUrl, method: "fetch", error: result.error };
+    return {
+      url, ok: result.ok, text: result.text, status: result.status ?? undefined, finalUrl: result.finalUrl,
+      method: "fetch", error: result.error, setCookies: result.setCookies, robotsBlocked: result.robotsBlocked,
+    };
   } catch (error) {
     return {
       url,
@@ -240,6 +253,37 @@ async function fetchText(url: string, index: number, timeoutMs = 9000, costTelem
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchText(url: string, index: number, timeoutMs = 9000, costTelemetry?: ScanCostTelemetry): Promise<PageFetchResult> {
+  if (!collectorForUrl(url)) return fetchTextOnce(url, index, timeoutMs, costTelemetry);
+  const layered = await runLayeredStoreFetch({
+    url,
+    jar: scanCookieJar,
+    remainingMs: () => scanCollectionRemainingMs() ?? Number.POSITIVE_INFINITY,
+    fetchPage: async (attempt, headers) => {
+      const page = await fetchTextOnce(attempt.url, index, timeoutMs, costTelemetry, headers);
+      return {
+        status: page.status ?? null,
+        ok: page.ok,
+        text: page.text,
+        finalUrl: page.finalUrl || attempt.url,
+        error: page.error,
+        robotsBlocked: page.robotsBlocked,
+        setCookies: page.setCookies,
+      };
+    },
+  });
+  mergeLayeredScan(layeredScan, layered);
+  return {
+    url,
+    ok: layered.ok && !layered.blocked,
+    text: layered.text,
+    status: layered.status ?? undefined,
+    finalUrl: layered.finalUrl,
+    method: "fetch",
+    error: layered.error,
+  };
 }
 
 async function fetchTextWithPlaywright(url: string, index: number, timeoutMs = 12000, costTelemetry?: ScanCostTelemetry): Promise<PageFetchResult> {
@@ -438,7 +482,7 @@ function extractReviewsFromText(text: string, sourceUrl: string): CollectedRevie
 }
 
 function nativeSourceMatchesProductImpl(input: NativeReviewRetrievalInput, link: SourceLink) {
-  const asinOf = (url: string) => url.match(/\/(?:dp|gp\/product|product-reviews)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1]?.toUpperCase();
+  const asinOf = (url: string) => amazonStableId(url);
   const expected = asinOf(input.listingUrl || "");
   const found = asinOf(link.url);
   if (expected && found) return expected === found && domainForUrl(link.url) === domainForUrl(input.listingUrl || "");
@@ -456,11 +500,15 @@ function dedupeReviews(reviews: CollectedReview[], limit: number): CollectedRevi
   const seen = new Set<string>();
   const out: CollectedReview[] = [];
 
+  const seenIds = new Set<string>();
   for (const review of reviews) {
     const body = cleanText(review.body);
     if (!body) continue;
+    const reviewId = String(review.reviewId || "").trim().toLowerCase();
     const key = reviewKey({ ...review, body });
-    if (!key || seen.has(key)) continue;
+    // Same review id, or the same written text on another storefront, is one review.
+    if ((reviewId && seenIds.has(reviewId)) || !key || seen.has(key)) continue;
+    if (reviewId) seenIds.add(reviewId);
     seen.add(key);
     out.push({
       ...review,
@@ -575,6 +623,8 @@ export async function runNativeReviewRetrieval(
   input: NativeReviewRetrievalInput
 ): Promise<NativeReviewRetrievalResult> {
   const startedAt = Date.now();
+  scanCookieJar = new ScanCookieJar();
+  layeredScan = emptyLayeredScan();
   activePoliteFetcher = createPoliteFetcher({ minHostIntervalMs: typeof input.politeDelayMs === "number" ? Math.min(input.politeDelayMs, 2000) : 400 });
   const politeStats = activePoliteFetcher.stats;
   // Free local headless render fallback (verified pages with client-side reviews only).
@@ -652,7 +702,7 @@ export async function runNativeReviewRetrieval(
     // A same-marketplace page whose stable product id equals the verified
     // listing's id is the verified product; fuzzy title re-verification of
     // that page must not discard its reviews. Different ids never pass here.
-    const stableIdOf = (url: string) => url.match(/\/(?:dp|gp\/product|product-reviews)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1]?.toUpperCase();
+    const stableIdOf = (url: string) => amazonStableId(url);
     const verifiedStableId = stableIdOf(input.listingUrl || "");
     const sameStableListing = Boolean(verifiedStableId) && stableIdOf(page.finalUrl || link.url) === verifiedStableId &&
       domainForUrl(page.finalUrl || link.url) === requestedHost;
@@ -870,6 +920,7 @@ export async function runNativeReviewRetrieval(
 
   await renderer?.close();
   activePoliteFetcher = null;
+  console.log("[ReviewIntel PIPELINE] layered-collection", JSON.stringify(layeredScan));
   return {
     headlessRender: renderer ? { ...renderer.stats } : { disabled: true },
     politeFetch: politeStats,
@@ -909,6 +960,7 @@ export async function runNativeReviewRetrieval(
     },
     stopReason,
     nativeScraperBlocked: stopReason === "access_restricted",
+    layeredCollection: layeredScan,
   };
 }
 

@@ -63,6 +63,13 @@ export function installScanFetchDeadline() {
   }) as typeof fetch;
 }
 
+/** Milliseconds left in the active collection deadline, or null when no scan deadline is installed. */
+export function scanCollectionRemainingMs(): number | null {
+  const ctx = store.getStore();
+  if (!ctx) return null;
+  return ctx.deadlineAt - Date.now();
+}
+
 /** Run fn with a collection deadline; fetches inside are bounded. */
 export function withScanDeadline<T>(budgetMs: number, fn: () => Promise<T>, perRequestMs = SCAN_PER_REQUEST_TIMEOUT_MS) {
   installScanFetchDeadline();
