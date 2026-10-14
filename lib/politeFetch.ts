@@ -1,3 +1,6 @@
+import { brotliDecompress, gunzip, inflate } from "node:zlib";
+import { promisify } from "node:util";
+
 // Request hygiene for ReviewIntel's own scraper (per scan):
 // robots.txt compliance (User-agent: * group, Allow/Disallow with * and $,
 // longest-match wins), per-host pacing, retries on 5xx/network errors only
@@ -5,7 +8,7 @@
 // are terminal for the caller; they are never retried here.
 
 export type RobotsRules = { allow: string[]; disallow: string[] };
-export type PoliteResult = { status: number | null; ok: boolean; text: string; finalUrl: string; error?: string; robotsBlocked?: boolean; fromCache?: boolean; attempts: number };
+export type PoliteResult = { status: number | null; ok: boolean; text: string; finalUrl: string; error?: string; robotsBlocked?: boolean; fromCache?: boolean; attempts: number; setCookies?: string[] };
 
 export function parseRobotsTxt(text: string): RobotsRules {
   const rules: RobotsRules = { allow: [], disallow: [] };
@@ -38,6 +41,30 @@ export function robotsAllows(rules: RobotsRules, url: string): boolean {
   const best = (list: string[]) => list.filter(rule => ruleMatches(rule, path)).reduce((max, rule) => Math.max(max, rule.length), -1);
   const allow = best(rules.allow), disallow = best(rules.disallow);
   return disallow < 0 || allow >= disallow;
+}
+
+const gunzipAsync = promisify(gunzip);
+const brotliAsync = promisify(brotliDecompress);
+const inflateAsync = promisify(inflate);
+
+/** Decode a body when the caller set Accept-Encoding and the runtime left it compressed. */
+export async function readResponseText(response: Response): Promise<string> {
+  const encoding = (response.headers.get("content-encoding") || "").toLowerCase();
+  if (!encoding || encoding === "identity") return response.text().catch(() => "");
+  const buf = Buffer.from(await response.arrayBuffer());
+  try {
+    if (encoding.includes("br")) return (await brotliAsync(buf)).toString("utf8");
+    if (encoding.includes("gzip")) return (await gunzipAsync(buf)).toString("utf8");
+    if (encoding.includes("deflate")) return (await inflateAsync(buf)).toString("utf8");
+  } catch { /* Already plain text, or not a compressed payload. */ }
+  return buf.toString("utf8");
+}
+
+function requestInitForFetch(url: string, init: RequestInit): { cacheKey: string; init: RequestInit } {
+  const headers = new Headers(init.headers || {});
+  const profile = headers.get("x-ri-profile");
+  headers.delete("x-ri-profile");
+  return { cacheKey: profile ? `${profile} ${url}` : url, init: { ...init, headers } };
 }
 
 export const BROWSER_HEADERS = {
@@ -81,10 +108,11 @@ export function createPoliteFetcher(options: { enforceRobots?: boolean; minHostI
   }
 
   async function get(url: string, init: RequestInit = {}): Promise<PoliteResult> {
+    const prepared = requestInitForFetch(url, init);
     const u = new URL(url);
-    const cached = cache.get(url);
+    const cached = cache.get(prepared.cacheKey);
     if (cached) { stats.cacheHits += 1; return { ...cached, fromCache: true }; }
-    if (enforceRobots && !robotsAllows(await rulesFor(u.origin, init), url)) {
+    if (enforceRobots && !robotsAllows(await rulesFor(u.origin, prepared.init), url)) {
       stats.robotsBlocked.push(url);
       return { status: null, ok: false, text: "", finalUrl: url, error: "robots_disallowed", robotsBlocked: true, attempts: 0 };
     }
@@ -98,9 +126,10 @@ export function createPoliteFetcher(options: { enforceRobots?: boolean; minHostI
       await pace(u.host);
       stats.requests += 1; stats.byHost[u.host] = (stats.byHost[u.host] || 0) + 1;
       try {
-        const response = await doFetch(url, init);
-        const text = await response.text().catch(() => "");
-        last = { status: response.status, ok: response.ok && text.trim().length > 0, text, finalUrl: response.url || url, error: response.ok ? undefined : `HTTP ${response.status}`, attempts };
+        const response = await doFetch(url, prepared.init);
+        const text = await readResponseText(response);
+        const setCookies = typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [];
+        last = { status: response.status, ok: response.ok && text.trim().length > 0, text, finalUrl: response.url || url, error: response.ok ? undefined : `HTTP ${response.status}`, attempts, setCookies };
         if (response.status < 500) break; // 2xx/3xx/4xx (incl. 401/403/429) are final
       } catch (error) {
         last = { status: null, ok: false, text: "", finalUrl: url, error: error instanceof Error ? error.message : "fetch failed", attempts };
@@ -109,7 +138,7 @@ export function createPoliteFetcher(options: { enforceRobots?: boolean; minHostI
       if (attempts <= maxRetries) { stats.retries += 1; await new Promise(resolve => setTimeout(resolve, Math.min(4000, 300 * 2 ** (attempts - 1)))); }
     }
     if (last.status === 401 || last.status === 403 || last.status === 429) stoppedHosts.set(u.host, last.status);
-    if (last.ok) cache.set(url, last);
+    if (last.ok) cache.set(prepared.cacheKey, last);
     return last;
   }
   /** Robots + host-stop decision for another client (e.g. the headless renderer). */
