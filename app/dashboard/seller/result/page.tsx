@@ -7,6 +7,9 @@ import { SellerBusinessKpiDashboard } from "@/components/SellerBusinessKpiDashbo
 import { saveStoredSellerResultToJournal } from "@/lib/sellerJournal";
 import { readLatestSellerResult } from "@/lib/sellerResultStorage";
 import { shortProductName } from "@/lib/productName";
+import { attachSellerAnalysisToProduct } from "@/lib/sellerProductConsolidation";
+import { normalizePlan } from "@/lib/account";
+import { getClientAccount } from "@/lib/clientAccount";
 
 type SellerResult = {
   summary: string;
@@ -51,6 +54,7 @@ type SellerResult = {
 type StoredSellerResult = {
   result: SellerResult;
   fileName: string;
+  productLink?: string;
   createdAt: string;
 };
 
@@ -310,6 +314,14 @@ export default function SellerResultPage() {
       if (!parsed) return;
       setStored(parsed);
       saveStoredSellerResultToJournal(parsed);
+      // Merge every new scan into its product's consolidated record — the
+      // product record is resolved by normalized identity (listing URL, then
+      // product/file name), never duplicated. Fail-soft by design.
+      try {
+        attachSellerAnalysisToProduct(parsed, normalizePlan(getClientAccount()?.plan));
+      } catch {
+        /* never block the result view */
+      }
     } catch {
       setStored(null);
     }
