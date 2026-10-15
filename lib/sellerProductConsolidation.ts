@@ -67,6 +67,24 @@ function hostOf(url: string): string | null {
   }
 }
 
+/** A bare upload filename (e.g. "anker-run1.csv") must never become a product name. */
+function isFileNameLike(value: string): boolean {
+  return /\.(csv|xlsx|xls|txt)$/i.test(value.trim());
+}
+
+/** "anker-run1.csv" -> "Anker Run1"; "reviews" -> "Reviews". Never returns empty. */
+function humanizeFileName(value: string): string {
+  const base = cleanText(value).replace(/\.(csv|xlsx|xls|txt)$/i, "");
+  const words = base
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
+  return words.length ? words.join(" ") : "Untitled product";
+}
+
 function identifierFromUrl(url: string): string | null {
   const dp = url.match(/\/dp\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1];
   if (dp) return dp.toUpperCase();
@@ -105,29 +123,25 @@ export function sellerProductIdentityFor(input: {
   if (rawUrl) {
     const host = hostOf(rawUrl);
     const identifier = identifierFromUrl(rawUrl);
+    // Display rule: a bare CSV filename must never become the product name.
+    // With a URL, the label derives from the URL (host + identifier); with
+    // only a filename, the label is a cleaned human-readable form.
+    const urlLabel = host && identifier ? `${host} · ${identifier}` : host || "";
+    const nameIsUsable = rawName && !isFileNameLike(rawName);
+    const label = nameIsUsable ? rawName : urlLabel || "Untitled product";
     if (host && identifier) {
-      return {
-        key: `url:${host}/${identifier}`,
-        label: cleanText(rawName) || `${host} ${identifier}`,
-        productUrl: rawUrl,
-        platform,
-      };
+      return { key: `url:${host}/${identifier}`, label, productUrl: rawUrl, platform };
     }
     if (host) {
       const slug = pathSlug(rawUrl);
-      return {
-        key: `url:${host}${slug ?? ""}`,
-        label: cleanText(rawName) || host,
-        productUrl: rawUrl,
-        platform,
-      };
+      return { key: `url:${host}${slug ?? ""}`, label, productUrl: rawUrl, platform };
     }
   }
 
   const token = normalizeNameToken(rawName) || "unnamed-product";
   return {
     key: `name:${platform}:${token}`,
-    label: cleanText(rawName) || "Untitled product",
+    label: rawName ? (isFileNameLike(rawName) ? humanizeFileName(rawName) : rawName) : "Untitled product",
     productUrl: "",
     platform,
   };
@@ -164,6 +178,7 @@ export type StoredSellerAnalysis = {
   result?: Record<string, unknown> | null;
   fileName?: string | null;
   productLink?: string | null;
+  productUrl?: string | null;
   createdAt?: string | null;
   savedAt?: string | null;
 };
@@ -203,9 +218,24 @@ export function sellerScanFromStoredResult(
   const strengths = strings(["topPraise"], 6, "Positive feedback needs more review volume.");
   const actions = strings(["nextActions", "productFixes", "listingFixes"], 6, "Monitor the next scan and compare complaint movement.");
 
+  // Canonical product URL rides on the scan so split records can be folded
+  // back together later (retro-merge), even when the record name was lost.
+  const scanProductUrl = cleanText(stored?.productUrl) || cleanText(stored?.productLink);
+
+  // Stable scan id: re-opening a saved result re-attaches it without
+  // duplicating the scan (the attach path dedupes by scan id).
+  const meta = (result["meta"] as Record<string, unknown> | undefined) ?? {};
+  const stableId = cleanText(
+    result["analysisId"] || result["id"] || meta["analysis_id"] || meta["analysisId"]
+  );
+  const scanId = stableId
+    ? `seller-scan-${stableId}`
+    : `seller-scan-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
   return {
-    id: `seller-scan-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id: scanId,
     date,
+    productUrl: scanProductUrl,
     productHealthScore: health,
     customerSatisfactionScore: satisfaction,
     complaintSeverityScore: complaintSeverity,
@@ -231,20 +261,195 @@ export function findSellerProductByIdentity(
   products: SellerProduct[],
   identity: SellerProductIdentity
 ): SellerProduct | null {
-  for (const product of products) {
-    const existing = sellerProductIdentityFor({
-      productUrl: product.productUrl,
-      productName: product.name,
-      platform: product.platform,
-    });
-    if (existing.key === identity.key) return product;
+  const list = Array.isArray(products) ? products : [];
+  for (const product of list) {
+    if (sellerProductCanonicalKey(product) === identity.key) return product;
   }
   return null;
 }
 
 /**
+ * Canonical merge key for an already-stored product record. Prefers the
+ * record's own product URL; falls back to the URL carried on any of its
+ * scans (the retro-merge path for records that were split by filename);
+ * name is the last resort. Records sharing a key are the same product.
+ */
+export function sellerProductCanonicalKey(product: SellerProduct): string {
+  const record = (product ?? {}) as SellerProduct;
+  const scanUrl = (Array.isArray(record.scans) ? record.scans : [])
+    .map((scan) => cleanText((scan as SellerProductScan)?.productUrl))
+    .find((value) => value.length > 0);
+  const identity = sellerProductIdentityFor({
+    productUrl: record.productUrl || scanUrl,
+    productName: record.name,
+    platform: record.platform,
+  });
+  return identity.key;
+}
+
+/** Rename a filename-like record name using the best available identity. */
+function normalizedProductName(product: SellerProduct): string {
+  const record = (product ?? {}) as SellerProduct;
+  const name = cleanText(record.name);
+  if (name && !isFileNameLike(name)) return name;
+  const identity = sellerProductIdentityFor({
+    productUrl: record.productUrl,
+    productLink: (Array.isArray(record.scans) ? record.scans : [])
+      .map((scan) => cleanText((scan as SellerProductScan)?.productUrl))
+      .find((value) => value.length > 0),
+    productName: name,
+    platform: record.platform,
+  });
+  return identity.label;
+}
+
+function earliestIso(a: string, b: string): string {
+  const left = cleanText(a);
+  const right = cleanText(b);
+  if (!left) return right;
+  if (!right) return left;
+  return left <= right ? left : right;
+}
+
+/**
+ * Deterministic merge-on-read: fold records whose scans share the same
+ * canonical URL key (or the same identity key) into one record. Scans merge
+ * deduped by id, the earliest createdAt wins, and the name is normalized so
+ * a bare CSV filename never survives when a better label exists.
+ *
+ * Pure: it returns a new list and never writes storage. Call it in every
+ * read path (dashboard, journal views) and before find/create in the attach
+ * path, where the merged list IS persisted.
+ */
+export function dedupeSellerProducts(products: SellerProduct[]): SellerProduct[] {
+  const list = (Array.isArray(products) ? products : []).filter(
+    (product) => product && (product as SellerProduct).id
+  ) as SellerProduct[];
+  if (list.length < 2) return list.map((product) => ({ ...product, name: normalizedProductName(product) }));
+
+  const groups = new Map<string, SellerProduct[]>();
+  for (const product of list) {
+    const key = sellerProductCanonicalKey(product);
+    const group = groups.get(key);
+    if (group) group.push(product);
+    else groups.set(key, [product]);
+  }
+
+  const merged: SellerProduct[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      const only = group[0];
+      merged.push({ ...only, name: normalizedProductName(only) });
+      continue;
+    }
+    const seen = new Set<string>();
+    const scans: SellerProductScan[] = [];
+    for (const product of group) {
+      for (const scan of Array.isArray(product.scans) ? product.scans : []) {
+        if (!scan || typeof scan !== "object") continue;
+        const id = cleanText((scan as SellerProductScan).id);
+        if (id && seen.has(id)) continue;
+        if (id) seen.add(id);
+        scans.push(scan as SellerProductScan);
+      }
+    }
+    // Newest first, matching the attach path's ordering.
+    scans.sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
+    const sorted = [...group].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+    const first = sorted[0];
+    const scanUrls = group.flatMap((product) =>
+      (Array.isArray(product.scans) ? product.scans : []).map((scan) =>
+        cleanText((scan as SellerProductScan)?.productUrl)
+      )
+    );
+    const productUrl =
+      sorted.map((product) => cleanText(product.productUrl)).find((value) => value.length > 0) ||
+      scanUrls.find((value) => value.length > 0) ||
+      "";
+    const imageUrl =
+      sorted.map((product) => cleanText(product.imageUrl)).find((value) => value.length > 0) || "";
+    const category =
+      sorted.map((product) => cleanText(product.category)).find((value) => value.length > 0) || "";
+    const createdAt = sorted.reduce(
+      (acc, product) => earliestIso(acc, cleanText(product.createdAt)),
+      cleanText(first.createdAt)
+    );
+    const updatedAt = sorted
+      .map((product) => cleanText(product.updatedAt))
+      .filter(Boolean)
+      .sort()
+      .pop() || new Date().toISOString();
+    merged.push({
+      ...first,
+      name: normalizedProductName({ ...first, productUrl }),
+      productUrl,
+      imageUrl,
+      category,
+      scans: scans.slice(0, 180),
+      createdAt,
+      updatedAt,
+    });
+  }
+  return merged;
+}
+
+/**
+ * The single counting source for "how many seller analyses exist".
+ * Counts scans across the deduped (merged) product records — one scan per
+ * completed seller analysis, compare runs excluded (they never attach).
+ * Never throws; 0 when storage is unavailable or the account is not a seller.
+ */
+export function countSellerAnalyses(): number {
+  try {
+    const products = dedupeSellerProducts(readSellerProducts());
+    return products.reduce(
+      (sum, product) => sum + (Array.isArray(product?.scans) ? product.scans.length : 0),
+      0
+    );
+  } catch {
+    return 0;
+  }
+}
+
+function firstText(...values: unknown[]): string {
+  for (const value of values) {
+    const text = cleanText(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+/**
+ * Resolve the product identity for a stored analysis. URL wins whenever one
+ * is present anywhere on the stored payload or the result itself; the bare
+ * CSV filename is only ever the last resort.
+ */
+export function sellerIdentityForStoredAnalysis(stored: StoredSellerAnalysis): SellerProductIdentity {
+  const result = (stored?.result ?? {}) as Record<string, unknown>;
+  const meta = (result["meta"] as Record<string, unknown> | undefined) ?? {};
+  return sellerProductIdentityFor({
+    productUrl: firstText(
+      result["productUrl"],
+      result["exactListingUrl"],
+      result["listingUrl"],
+      meta["productUrl"],
+      meta["exactListingUrl"]
+    ),
+    productLink: firstText(stored?.productLink, result["productLink"]),
+    productName: firstText(result["productName"], result["product_name"], meta["productName"]),
+    fileName: stored?.fileName,
+    platform: firstText(result["platform"], meta["platform"]),
+  });
+}
+
+/**
  * Attach a completed seller analysis to its product record — resolving or
  * creating the product by normalized identity, then appending the snapshot.
+ *
+ * Durability contract: the merged list is written back to the same
+ * localStorage store the dashboard reads (`reviewintel:seller-products:…`),
+ * after a deterministic dedupe pass. Any filename-split records for the same
+ * product are folded together here, so a later read can never see them split.
  * Never throws; returns null when the account is not a seller, the plan
  * product limit is reached, or storage is unavailable.
  */
@@ -254,17 +459,19 @@ export function attachSellerAnalysisToProduct(
 ): { product: SellerProduct; scan: SellerProductScan } | null {
   try {
     if (!stored?.result) return null;
-    const products = readSellerProducts();
-    if (!products) return null;
+    const storedProducts = readSellerProducts();
+    if (!storedProducts) return null;
 
-    const identity = sellerProductIdentityFor({
-      productLink: stored.productLink,
-      fileName: stored.fileName,
-    });
+    // Retro-merge first: filename-split records for the same product fold
+    // together before we resolve this scan's product, and the folded list is
+    // what gets persisted below.
+    const products = dedupeSellerProducts(storedProducts);
+    const identity = sellerIdentityForStoredAnalysis(stored);
 
     let product = findSellerProductByIdentity(products, identity);
+    let working = products;
     if (!product) {
-      product = createSellerProduct(
+      const created = createSellerProduct(
         {
           name: identity.label,
           productUrl: identity.productUrl,
@@ -272,21 +479,25 @@ export function attachSellerAnalysisToProduct(
         },
         plan
       );
+      // createSellerProduct wrote the un-merged list; re-read through dedupe.
+      working = dedupeSellerProducts(readSellerProducts());
+      product = findSellerProductByIdentity(working, identity) ?? created;
     }
 
-    const scan = sellerScanFromStoredResult(stored, identity.label);
-    const latest = readSellerProducts().find((item) => item.id === product!.id)?.scans?.[0];
+    const scan = sellerScanFromStoredResult({ ...stored, productUrl: identity.productUrl }, identity.label);
+    const latest = working.find((item) => item.id === product!.id)?.scans?.[0];
     if (typeof latest?.productHealthScore === "number") {
       const delta = scan.productHealthScore - latest.productHealthScore;
       scan.tone = delta >= 5 ? "improvement" : scan.productHealthScore >= 72 ? "positive" : scan.productHealthScore >= 50 ? "mixed" : "negative";
     }
 
-    const current = readSellerProducts();
-    const target = current.find((item) => item.id === product!.id);
+    const target = working.find((item) => item.id === product!.id);
     if (!target) return null;
     const scans = [scan, ...(target.scans ?? []).filter((item) => item.id !== scan.id)].slice(0, 180);
     const next: SellerProduct = { ...target, scans, updatedAt: new Date().toISOString() };
-    writeSellerProducts(current.map((item) => (item.id === product!.id ? next : item)));
+    writeSellerProducts(
+      dedupeSellerProducts(working.map((item) => (item.id === product!.id ? next : item)))
+    );
     saveActiveSellerProductId(product.id);
     return { product: next, scan };
   } catch {

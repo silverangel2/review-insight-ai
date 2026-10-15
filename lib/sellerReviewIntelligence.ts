@@ -942,7 +942,7 @@ export function buildDeterministicSellerResult(
     ),
     deepInsights: toDeepInsightsView(intel),
     notice:
-      "The AI insight pass was unavailable for this scan, so ReviewIntel built this report deterministically from your CSV. " +
-      `Scores are conservative. Re-run the scan for the full AI analysis of "${fileName}".`,
+      "Built directly from your CSV — every number on this page comes from the reviews you uploaded. " +
+      `Scores are conservative. Re-run the scan for a fresh analysis of "${fileName}".`,
   };
 }

@@ -2,7 +2,8 @@
 // Keeps seller products, journal and notes in the database per account, with
 // localStorage as the offline/fallback copy. On first login with an empty database
 // row, existing browser data is uploaded (one-time migration).
-import { sellerProductsStorageKey } from "./sellerProducts";
+import { sellerProductsStorageKey, type SellerProduct } from "./sellerProducts";
+import { dedupeSellerProducts } from "./sellerProductConsolidation";
 import { sellerJournalStorageKeys } from "./sellerJournal";
 
 type Workspace = { products: unknown[]; journal: unknown[]; notes: Record<string, unknown> };
@@ -47,7 +48,17 @@ export async function startSellerWorkspaceSync(onPulled?: () => void): Promise<"
       if (!isEmpty(localWorkspace())) await push(); // first login: migrate browser data up
     } else {
       const keys = sellerJournalStorageKeys();
-      window.localStorage.setItem(sellerProductsStorageKey(), JSON.stringify(remote!.products || []));
+      // Products merge by canonical identity instead of being replaced:
+      // a blind overwrite with a stale remote snapshot is what made a
+      // just-merged product list "revert" to the unmerged state.
+      // Products merge by canonical identity instead of being replaced:
+      // a blind overwrite with a stale remote snapshot is what made a
+      // just-merged product list "revert" to the unmerged state.
+      const mergedProducts = dedupeSellerProducts([
+        ...((localWorkspace().products || []) as SellerProduct[]),
+        ...(((remote!.products || []) as unknown) as SellerProduct[]),
+      ]);
+      window.localStorage.setItem(sellerProductsStorageKey(), JSON.stringify(mergedProducts));
       window.localStorage.setItem(keys.journal, JSON.stringify(remote!.journal || []));
       window.localStorage.setItem(keys.notes, JSON.stringify(remote!.notes || {}));
       onPulled?.();

@@ -604,7 +604,7 @@ ${deepIntel.evidenceBrief}
     result.deepInsights = toDeepInsightsView(deepIntel);
     if (usedDeterministicFallback && !result.notice) {
       result.notice =
-        "The AI insight pass was unavailable for this scan, so ReviewIntel built this report deterministically from your CSV.";
+        "Built directly from your CSV — every number on this page comes from the reviews you uploaded.";
     }
 
     Object.assign(result, {
@@ -621,7 +621,29 @@ ${deepIntel.evidenceBrief}
             },
     });
 
+    // A seller CSV scan is scored from the uploaded rows themselves — the
+    // shopper-side "not enough evidence" demotion must never replace a scored
+    // seller summary, or the page would show a scored verdict (Needs
+    // Attention / Good, But Needs Work) next to a "could not score" summary.
+    const sellerScoredSummary = readString(result, "summary");
+    const sellerIsScored =
+      readNumber(result, "healthScore") > 0 && Number(result.reviewsAnalyzed) > 0;
     Object.assign(result, await stabilizeAnalysisResultWithMemory(result as Record<string, unknown>, { reviewEvidence }));
+    if (sellerIsScored) {
+      const demotedVerdict = String(result.verdict || "").toUpperCase();
+      if (demotedVerdict === "REVIEW EVIDENCE NOT ENOUGH" || demotedVerdict === "NOT ENOUGH EVIDENCE") {
+        result.verdict = undefined;
+        result.recommendation = undefined;
+        result.finalVerdict = undefined;
+        result.stableVerdict = undefined;
+        result.decisionStatus = undefined;
+        if (sellerScoredSummary) {
+          result.summary = sellerScoredSummary;
+          result.bottomLine = sellerScoredSummary;
+          result.stableVerdictReason = sellerScoredSummary;
+        }
+      }
+    }
     if (email && !isCompareSideAnalysis) {
       const healthScore = readNumber(result, "healthScore");
       const analysisRecord = await saveAnalysisRecord({
@@ -677,7 +699,10 @@ ${deepIntel.evidenceBrief}
       return NextResponse.json({
         ...result,
         analysisId: analysisRecord?.id ?? null,
-        createdAt: analysisRecord?.created_at ?? new Date().toISOString()
+        createdAt: analysisRecord?.created_at ?? new Date().toISOString(),
+        // Echoed so the client can file this analysis under the right product
+        // even if its own upload-page state was lost (identity repair S1).
+        productLink,
       });
     }
 
