@@ -10,6 +10,20 @@ import { PRODUCT_COLOR_WORDS, extractProductIdentityTokenRoles, stableProductSea
 import { canonicalAmazonListingUrl, isDriftSearchQuery } from "./listingAuthority";
 import { candidateMatchesLinkIdentity, identityFromProductLink } from "./linkIdentity";
 
+const ACCESSORY_TERMS = /\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i;
+
+/**
+ * An accessory listing names the accessory as the title's subject: the
+ * accessory term sits in the title's lead (its first segment, within the
+ * first few words). A primary product whose full retail title mentions an
+ * included component later in the title ("..., USB-C Charging Case, ...")
+ * is the product itself, not an accessory for it.
+ */
+export function titleLeadsWithAccessory(primaryTitle: string): boolean {
+  const lead = primaryTitle.split(/[,|]/)[0].split(/\s+/).slice(0, 8).join(" ");
+  return ACCESSORY_TERMS.test(lead);
+}
+
 export type ProductSearchJob = {
   scanId: string;
   store?: string | null;
@@ -551,8 +565,8 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
     const sameListing = identityFromProductLink(candidateUrl);
     const sameProduct = Boolean(sameListing && sameListing.storeId === linkIdentity.storeId && sameListing.productId.toUpperCase() === linkIdentity.productId.toUpperCase());
     const primaryTitle = normalize(String(candidate.title || "").split(/\b(?:compatible\s+with|works\s+with|for\s+use\s+with)\b/i)[0]);
-    const accessory = /\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(primaryTitle)
-      && !/\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(normalize(linkIdentity.displayName));
+    const accessory = titleLeadsWithAccessory(primaryTitle)
+      && !ACCESSORY_TERMS.test(normalize(linkIdentity.displayName));
     if (!sameProduct && accessory) {
       return {
         verifierStatus: "rejected_similar_product",
@@ -672,8 +686,8 @@ function verifyProductCandidateImpl(job: ProductSearchJob, candidate: ProductCan
   if (requestedCategories.length && candidateCategories.length && !requestedCategories.some((category) => category.test(primaryTitle))) {
     reasons.push("Candidate identifies a conflicting product category.");
   }
-  if (/\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(primaryTitle)
-    && !/\b(?:case|cover|replacement|accessory|protector|strap|charger|filter)\b/i.test(normalize(job.productName))) {
+  if (titleLeadsWithAccessory(primaryTitle)
+    && !ACCESSORY_TERMS.test(normalize(job.productName))) {
     reasons.push("Candidate is an accessory or replacement, not the requested primary product.");
   }
   if (stableIdentity.models.some((model) => /\s/.test(model))) {

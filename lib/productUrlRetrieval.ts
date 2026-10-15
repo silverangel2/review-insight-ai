@@ -199,6 +199,52 @@ function titleNear(html: string, index: number) {
   return title || null;
 }
 
+/** Amazon search results are per-product cards keyed by data-asin. */
+export function amazonSearchResultCards(html: string): Array<{ asin: string; chunk: string }> {
+  const starts: Array<{ asin: string; index: number }> = [];
+  const pattern = /<div[^>]*\bdata-asin\s*=\s*"([A-Z0-9]{10})"[^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    starts.push({ asin: match[1].toUpperCase(), index: match.index });
+  }
+  return starts.map((start, i) => ({
+    asin: start.asin,
+    chunk: html.slice(start.index, i + 1 < starts.length ? starts[i + 1].index : Math.min(html.length, start.index + 80_000)),
+  }));
+}
+
+/**
+ * Full product title from one search-result card. The card splits identity
+ * across two headings: a short brand byline h2 (e.g. "Apple") and a title h2
+ * whose aria-label holds the full product title. Neither alone is the name
+ * the shopper sees, and a character window around a link lands on one or
+ * neither, so combine them from the card itself.
+ */
+export function amazonSearchCardTitle(chunk: string): string | null {
+  const headings: Array<{ label: string; text: string }> = [];
+  const pattern = /<h2\b([^>]*)>([\s\S]{0,900}?)<\/h2>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(chunk))) {
+    const label = match[1].match(/aria-label\s*=\s*"([^"]{8,600})"/i)?.[1] || "";
+    headings.push({
+      label: htmlDecodeLight(label),
+      text: htmlDecodeLight(match[2].replace(/<[^>]+>/g, " ")),
+    });
+  }
+  let title = "";
+  for (const heading of headings) {
+    const value = heading.label || heading.text;
+    if (value.length > title.length) title = value;
+  }
+  if (!title) return null;
+  const byline = headings.map((heading) => heading.text).find((text) => text && text.length <= 40 && text !== title);
+  const combined = byline && !title.toLowerCase().includes(byline.toLowerCase()) ? `${byline} ${title}` : title;
+  const cleaned = combined.replace(/\s+/g, " ").trim();
+  // Section headings share the card markup but are not product names.
+  if (!cleaned || ["results", "sponsored", "advertisement", "more results"].includes(cleaned.toLowerCase())) return null;
+  return cleaned;
+}
+
 export function buildRetrievalQueries(input: ProductUrlRetrievalInput) {
   const store = cleanText(input.store || "Amazon.ca");
   const terms = stableProductSearchTerms(input);
@@ -301,25 +347,50 @@ async function fetchAmazonCandidates(query: string, timeoutMs: number, costTelem
 
     const html = await response.text();
     const out: RetrievedProductUrl[] = [];
-    const hrefPattern = /href\s*=\s*(["'])([^"']*\/(?:dp|gp\/product|gp\/aw\/d|product-reviews)\/([A-Z0-9]{10})[^"']*)\1/gi;
-    let match: RegExpExecArray | null;
     const seen = new Set<string>();
-
-    while ((match = hrefPattern.exec(html)) && out.length < 5) {
-      const asin = match[3]?.toUpperCase();
-      if (!asin || seen.has(asin)) continue;
-      seen.add(asin);
-
-      const url = `https://${searchHost}/dp/${asin}`;
-
+    const pushCandidate = (asin: string, title: string | null) => {
       out.push({
-        url,
-        title: titleNear(html, match.index) || `Amazon product ${asin}`,
+        url: `https://${searchHost}/dp/${asin}`,
+        title: title || `Amazon product ${asin}`,
         domain,
         source: "amazon-direct",
         query,
         notes: [`Parsed ${domain} ASIN from direct Amazon search.`],
       });
+    };
+
+    // Primary: per-result-card parse, which yields the real product title.
+    // Prefer the first card per ASIN that yields a title; a card whose
+    // product name is absent from the markup (some sponsored tiles) keeps
+    // the placeholder title, exactly as the flat scan produced.
+    const cardTitles = new Map<string, string | null>();
+    const cardOrder: string[] = [];
+    for (const card of amazonSearchResultCards(html)) {
+      if (!cardTitles.has(card.asin)) {
+        cardTitles.set(card.asin, null);
+        cardOrder.push(card.asin);
+      }
+      if (cardTitles.get(card.asin)) continue;
+      if (!new RegExp(`/(?:dp|gp/product|gp/aw/d|product-reviews)/${card.asin}(?:[/?"']|$)`).test(card.chunk)) continue;
+      const title = amazonSearchCardTitle(card.chunk);
+      if (title) cardTitles.set(card.asin, title);
+    }
+    for (const asin of cardOrder) {
+      if (out.length >= 5) break;
+      seen.add(asin);
+      pushCandidate(asin, cardTitles.get(asin) ?? null);
+    }
+
+    // Fallback: flat href scan for markup variants without result cards.
+    if (!out.length) {
+      const hrefPattern = /href\s*=\s*(["'])([^"']*\/(?:dp|gp\/product|gp\/aw\/d|product-reviews)\/([A-Z0-9]{10})[^"']*)\1/gi;
+      let match: RegExpExecArray | null;
+      while ((match = hrefPattern.exec(html)) && out.length < 5) {
+        const asin = match[3]?.toUpperCase();
+        if (!asin || seen.has(asin)) continue;
+        seen.add(asin);
+        pushCandidate(asin, titleNear(html, match.index));
+      }
     }
 
     return out;
