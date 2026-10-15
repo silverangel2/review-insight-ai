@@ -80,7 +80,7 @@ test("store links keep their own id and slug when the page cannot be read", asyn
   } finally { globalThis.fetch = original; }
 });
 
-test("a block stops that host's product page, and review and sibling tiers still run", async () => {
+test("a block does not skip later product-page attempts, and review and sibling tiers still run", async () => {
   for (const status of [403, 503]) {
     const calls = [];
     const result = await layered.runLayeredStoreFetch({
@@ -98,8 +98,9 @@ test("a block stops that host's product page, and review and sibling tiers still
     assert.equal(result.hasReviews, true);
     assert.ok(calls.some((attempt) => attempt.tier === "reviews-endpoint"));
     assert.ok(result.tierAttempts.some((entry) => entry.stop === `blocked-http-${status}`));
-    assert.ok(result.tierAttempts.some((entry) => entry.stop === "skipped-host-blocked"));
-    assert.equal(calls.filter((attempt) => attempt.tier === "alternate-profile").length, 0);
+    assert.equal(result.tierAttempts.some((entry) => entry.stop === "skipped-host-blocked"), false);
+    assert.ok(calls.some((attempt) => attempt.tier === "alternate-profile"));
+    assert.ok(calls.some((attempt) => attempt.tier === "mobile-url"));
   }
 
   const captchaCalls = [];

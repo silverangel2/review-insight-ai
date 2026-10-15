@@ -98,7 +98,7 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
         </p>
       </section>
 
-      {answer.unreadable ? null : (
+      {answer.unreadable || (answer.reviewCount === 0 && answer.loves.length === 0 && answer.complaints.length === 0) ? null : (
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <PointList title="What buyers love" points={answer.loves} empty="No repeated praise in the real reviews yet." tint="bg-mint" />
         <PointList title="What buyers complain about" points={answer.complaints} empty="No repeated complaints in the real reviews." tint="bg-peach" />

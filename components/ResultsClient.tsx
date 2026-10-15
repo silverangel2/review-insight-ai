@@ -24,6 +24,7 @@ import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCor
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
 import { isUnreadableAmazonPage, neutralProductLabel, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE, unreadableRetryPhrase } from "@/lib/shopperAnswer";
+import { provisionalShopperFacing } from "@/lib/buyingScore";
 import { isBuyingScoreV2Result, buyingScoreWrittenCount, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
 import { linkOnlyScanWasBlocked } from "@/lib/linkScanBlocked";
 import { ExtensionPrompt } from "@/components/ExtensionPrompt";
@@ -401,7 +402,20 @@ const BLOCKED_SHOPPER_COPY = /not enough evidence|not scored|no reviews analyzed
 function sanitizeShopperCopy(value: string): string {
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > 280) return value;
+  if (/could not access enough/i.test(trimmed)) return "Written reviews were not available for a verdict.";
   return BLOCKED_SHOPPER_COPY.test(trimmed) ? THIN_EVIDENCE_NEXT_STEP : value;
+}
+
+/** Drop a "mixed signals" claim unless written evidence actually conflicts. */
+function withoutMixedSignalsClaim(message: string): string {
+  return message
+    .replace(/^There are mixed signals\.\s*/i, "")
+    .replace(/^Les signaux sont mixtes\.\s*/i, "")
+    .replace(/^Las señales son mixtas\.\s*/i, "")
+    .replace(/^信号有好有坏。\s*/, "")
+    .replace(/^Die Signale sind gemischt\.\s*/i, "")
+    .replace(/^संकेत मिले-जुले हैं।\s*/, "")
+    .trim();
 }
 
 type CompareTitleLabels = {
@@ -1213,13 +1227,6 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const v2Confidence = buyingScoreForConfidence?.confidence === "High" || buyingScoreForConfidence?.confidence === "Medium" || buyingScoreForConfidence?.confidence === "Low"
     ? buyingScoreForConfidence.confidence
     : null;
-  const confidenceBadge = pageUnreadable
-    ? "Try again"
-    : v2Confidence
-      ? v2Confidence
-    : reviewEvidenceState === "not_enough" || verdictConfidence === null
-      ? "Low"
-      : `${verdictConfidence}%`;
   const resultEvidenceSource = result as Record<string, unknown>;
   const nestedAnalysisForEvidence =
     resultEvidenceSource.analysis &&
@@ -1272,9 +1279,28 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const visibleValueForMoney = shopper.valueForMoney;
   const acceptedSourceCount = Number((result as Record<string, unknown>).sourceDiversity ??
     ((result as Record<string, unknown>).deterministicScoringInputs as Record<string, unknown> | undefined)?.independentSourceCount);
+  const buyingScoreV2 = isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2)
+    ? (result as Record<string, unknown>).buyingScoreV2 as Parameters<typeof BuyingScoreV2Card>[0]["score"]
+    : null;
+  const writtenReviews = buyingScoreWrittenCount(result);
+  const noWrittenReviews = (writtenReviews ?? shopper.acceptedWrittenReviewCount) === 0;
+  const storeLabel = String(shopper.product.store || (listingEvidenceForDisplay as { store?: unknown } | null)?.store || "");
+  const facing = buyingScoreV2 ? provisionalShopperFacing(buyingScoreV2, storeLabel) : null;
+  const ratingLine = noWrittenReviews && facing ? facing.line : null;
+  const evidenceConflicts = Boolean(
+    (buyingScoreV2?.audit as { discrepancyFlag?: boolean } | undefined)?.discrepancyFlag
+    || (!noWrittenReviews && strengthItems.length > 0 && shopper.complaints.length > 0),
+  );
+  const confidenceBadge = pageUnreadable
+    ? "Try again"
+    : facing?.confidence
+      || v2Confidence
+      || (reviewEvidenceState === "not_enough" || verdictConfidence === null ? "Low" : `${verdictConfidence}%`);
   const sourcesLine = pageUnreadable
     ? unreadableShopperLine(result)
-    : (buyingScoreWrittenCount(result) ?? 0) > 0 || shopper.acceptedWrittenReviewCount > 0
+    : ratingLine
+      ? ratingLine
+    : (writtenReviews ?? 0) > 0 || shopper.acceptedWrittenReviewCount > 0
     ? `${Number.isFinite(acceptedSourceCount) && acceptedSourceCount === 1 ? "Single-source evidence; other sources did not corroborate these reviews. " : ""}Verified review evidence.`
     : listingEvidenceForDisplay?.exactListingUrl || (result as Record<string, unknown>).exactListingUrl
       ? "Low confidence. Add a review screenshot to read more real reviews."
@@ -1286,35 +1312,39 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const researchLevel = shopper.researchQuality.evidenceLevel;
   const researchLabel = copy.researchLabels[researchLevel] || copy.researchLabels.limited;
   const researchNotes = shopper.researchQuality.notes.slice(0, 5);
-
-  const buyingScoreV2 = isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2)
-    ? (result as Record<string, unknown>).buyingScoreV2 as Parameters<typeof BuyingScoreV2Card>[0]["score"]
-    : null;
   const v2Answer = pageUnreadable
     ? "Try again"
-    : buyingScoreV2
-    ? buyingScoreV2.mode === "provisional_marketplace" && buyingScoreV2.leaning
-      ? `LEANING ${buyingScoreV2.leaning.toUpperCase()}`
-      : buyingScoreV2.verdict ? buyingScoreV2.verdict.toUpperCase() : "ADD LINK"
-    : null;
-  const firmVerdict = firmV2Verdict(buyingScoreV2);
+    : facing
+      ? facing.answer
+      : buyingScoreV2
+        ? buyingScoreV2.verdict ? buyingScoreV2.verdict.toUpperCase() : "ADD LINK"
+        : null;
+  const firmVerdict = facing?.firmBuy ? "BUY" as const : firmV2Verdict(buyingScoreV2);
   const shownVerdict = firmVerdict
     ? { ...shopperVerdictStyle[firmVerdict], ...copy.verdicts[firmVerdict], answer: v2Answer || displayShopperVerdict(firmVerdict) }
     : verdict;
   const scannedListing = Boolean(listingEvidenceForDisplay?.exactListingUrl || (result as Record<string, unknown>).exactListingUrl);
+  const reviewFirstMessage = copy.verdicts["REVIEW FIRST"].message;
+  const cautiousMessage = withoutMixedSignalsClaim(reviewFirstMessage) || copy.verdicts["REVIEW FIRST"].title;
+  const usesReviewFirst = firmVerdict === "REVIEW FIRST" || (!firmVerdict && (shopper.verdict === "REVIEW FIRST" || verdict.message === reviewFirstMessage));
   const verdictMessage = pageUnreadable
     ? unreadableShopperLine(result)
-    : firmVerdict
-      ? copy.verdicts[firmVerdict].message
-      : scannedListing && /Scan the Amazon listing link/i.test(verdict.message)
-        ? "Low confidence. Add a review screenshot to read more real reviews."
-        : verdict.message;
+    : ratingLine
+      ? ratingLine
+      : usesReviewFirst
+        ? (evidenceConflicts ? reviewFirstMessage : cautiousMessage)
+        : firmVerdict
+          ? copy.verdicts[firmVerdict].message
+          : scannedListing && /Scan the Amazon listing link/i.test(verdict.message)
+            ? "Low confidence. Add a review screenshot to read more real reviews."
+            : verdict.message;
+  const shownBottomLine = ratingLine || shopper.bottomLine;
   return (
     <>
       {/* Mobile-only compact shopper result */}
       <div className="ri-results-mobile space-y-3">
         {linkOnlyScanWasBlocked(result) ? <ExtensionPrompt /> : null}
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} compact /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} store={storeLabel} compact /> : null}
         <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${shownVerdict.soft}`}>
           <div className="mx-auto grid size-16 place-items-center rounded-full border-[4px] border-emerald-400 bg-white text-3xl font-black text-emerald-700 shadow-sm">
             {(firmVerdict || shopper.verdict) === "BUY" ? "✓" : (firmVerdict || shopper.verdict) === "AVOID" ? "!" : "?"}
@@ -1325,7 +1355,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </p>
 
           <div className="mx-auto mt-2 inline-flex items-center rounded-full bg-white/85 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-700 shadow-sm">
-            {v2Confidence || confidenceBadge} {copy.buyerConfidence}
+            {confidenceBadge} {copy.buyerConfidence}
           </div>
 
           <h1 className="mx-auto mt-3 line-clamp-2 max-w-[310px] text-[17px] font-black leading-[1.08] tracking-tight text-ink dark:text-white">
@@ -1378,13 +1408,13 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-2">
+        {noWrittenReviews ? null : <section className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-300/20 dark:bg-emerald-300/10">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-800 dark:text-emerald-100">
               {copy.topStrengths}
             </p>
             <ul className="mt-2 space-y-1.5">
-              {(strengthItems.slice(0, 5).length ? strengthItems.slice(0, 5) : [copy.noStrengths]).map((item, index) => (
+              {strengthItems.slice(0, 5).map((item, index) => (
                 <li key={`mobile-strength-${index}`} className="text-[10px] font-bold leading-4 text-slate-700 dark:text-slate-200">
                   • {item}
                 </li>
@@ -1397,29 +1427,29 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               {copy.topComplaints}
             </p>
             <ul className="mt-2 space-y-1.5">
-              {(shopper.complaints.slice(0, 5).length ? shopper.complaints.slice(0, 5) : [copy.noComplaints]).map((item, index) => (
+              {shopper.complaints.slice(0, 5).map((item, index) => (
                 <li key={`mobile-complaint-${index}`} className="text-[10px] font-bold leading-4 text-slate-700 dark:text-slate-200">
                   • {item}
                 </li>
               ))}
             </ul>
           </div>
-        </section>
+        </section>}
 
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10">
           <h2 className="text-[13px] font-black text-ink dark:text-white">{copy.bottomLine}</h2>
           <p className="mt-2 text-[11px] font-bold leading-4 text-slate-700 dark:text-slate-200">
-            {shopper.bottomLine}
+            {shownBottomLine}
           </p>
         </section>
 
         <AffiliateSourcePanel result={result} compact />
 
 
-        <section className="grid grid-cols-2 gap-2">
+        {noWrittenReviews ? null : <section className="grid grid-cols-2 gap-2">
           <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor.slice(0, 5)} empty={copy.bestForEmpty} />
           <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor} empty={copy.notIdealEmpty} />
-        </section>
+        </section>}
 
         <div className="rounded-2xl border border-ocean/20 bg-ocean/5 p-3 text-[10px] font-bold leading-4 text-slate-600 dark:border-cyan-300/20 dark:bg-cyan-300/10 dark:text-slate-200">
           <div className="mb-2">
@@ -1441,7 +1471,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       {/* Desktop report layout unchanged */}
       <div className="ri-results-desktop space-y-4 sm:space-y-6">
         {linkOnlyScanWasBlocked(result) ? <ExtensionPrompt /> : null}
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} store={storeLabel} /> : null}
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
         <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.75rem] sm:p-4">
           <div className="relative grid h-[260px] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02] sm:h-[360px] sm:rounded-2xl lg:h-[520px]">
@@ -1497,7 +1527,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               </div>
               <div className="mx-auto grid size-24 place-items-center rounded-full border-[8px] border-slate-200 bg-white sm:size-32 sm:border-[10px]">
                 <div className="text-center">
-                  <p className={`text-2xl font-black sm:text-3xl ${shownVerdict.tone}`}>{pageUnreadable ? "Try again" : v2Confidence || (verdictConfidence !== null ? `${verdictConfidence}%` : "Low")}</p>
+                  <p className={`text-2xl font-black sm:text-3xl ${shownVerdict.tone}`}>{confidenceBadge}</p>
                   <p className="text-[10px] font-black uppercase text-slate-500 sm:text-xs">{copy.buyerConfidence}</p>
                 </div>
               </div>
@@ -1520,14 +1550,14 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
         </div>
       </section>
 
-      <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+      {noWrittenReviews ? null : <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <SignalList title={copy.topStrengths} tone="good" items={strengthItems} empty={copy.noStrengths} />
         <SignalList title={copy.topComplaints} tone="bad" items={shopper.complaints} empty={copy.noComplaints} />
-      </section>
+      </section>}
 
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-soft dark:border-amber-300/20 dark:bg-amber-300/10 sm:rounded-[1.5rem] sm:p-6">
         <h2 className="text-lg font-black text-ink dark:text-white sm:text-xl">{copy.bottomLine}</h2>
-        <p className="mt-3 text-sm font-bold leading-6 text-slate-700 dark:text-slate-200 sm:text-base sm:leading-7">{shopper.bottomLine}</p>
+        <p className="mt-3 text-sm font-bold leading-6 text-slate-700 dark:text-slate-200 sm:text-base sm:leading-7">{shownBottomLine}</p>
       </section>
 
       <ToolEvidenceCard result={result} />
@@ -1537,10 +1567,10 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           <AffiliateSourcePanel result={result} />
 
 
-      <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+      {noWrittenReviews ? null : <section className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <SignalList title={copy.bestFor} tone="good" items={shopper.bestFor} empty={copy.bestForEmpty} />
         <SignalList title={copy.notIdealFor} tone="bad" items={shopper.notIdealFor} empty={copy.notIdealEmpty} />
-      </section>
+      </section>}
       </div>
     </>
   );
@@ -1952,6 +1982,14 @@ function reviewEvidenceDecisionState(value: unknown): "not_enough" | "limited" |
 }
 
 function enforceReviewEvidenceDisplayContract<T extends Record<string, unknown>>(value: T): T {
+  const card = value.buyingScoreV2 && typeof value.buyingScoreV2 === "object"
+    ? value.buyingScoreV2 as { mode?: string; audit?: { Rbar?: number | null; N?: number | null } }
+    : null;
+  const rating = card?.audit?.Rbar;
+  const count = card?.audit?.N;
+  if (card?.mode === "provisional_marketplace" && typeof rating === "number" && typeof count === "number" && count > 0) {
+    return value;
+  }
   const state = reviewEvidenceDecisionState(value);
 
   if (state !== "not_enough") {

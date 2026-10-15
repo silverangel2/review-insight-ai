@@ -1,3 +1,5 @@
+import { provisionalShopperFacing } from "@/lib/buyingScore";
+
 // Plain-language shopper answer derived ONLY from the existing result fields.
 // No invented numbers: missing values stay null/"Unknown"; quotes are real
 // accepted review bodies linked to a claim by its evidence ids/hashes.
@@ -29,7 +31,7 @@ export type ShopperAnswer = {
 export function shopperSafeText(value: unknown): string {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (!text) return "";
-  if (/openai|evidenceState|\bNOT_ENOUGH\b|\bvercel\b|review analysis failed/i.test(text)) {
+  if (/openai|evidenceState|\bNOT_ENOUGH\b|\bvercel\b|review analysis failed|could not access enough/i.test(text)) {
     return "Written reviews were not available for a verdict.";
   }
   return text;
@@ -311,20 +313,29 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
       const body = record?.body && isWrittenReviewBody(String(record.body)) ? String(record.body) : "";
       return { claim: claim.claim, count: claim.supportCount, quote: body ? shortQuote(body) : null, sourceHost: record ? hostOf(record.sourceUrl) : null, sourceUrl: record?.sourceUrl ? String(record.sourceUrl) : null };
     });
-  const claimedLoves = toPoints("strength");
-  const claimedComplaints = toPoints("complaint");
+  const storeLabel = String(obj(result.product).store || result.store || "");
+  const facing = card && String(card.mode || "") === "provisional_marketplace"
+    ? provisionalShopperFacing(card, storeLabel)
+    : null;
+  const provisional = Boolean(facing && cardCount === 0);
+  const claimedLoves = provisional ? [] : toPoints("strength");
+  const claimedComplaints = provisional ? [] : toPoints("complaint");
   // Quotes can fill the quotes section. They are not claims, so they never enter the one-line summary.
-  const loves = claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records);
-  const complaints = claimedComplaints;
+  const loves = provisional ? [] : (claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records));
+  const complaints = provisional ? [] : claimedComplaints;
 
-  let kind: ShopperAnswerKind = thin ? "not_enough" : verdict === "BUY" ? "buy" : verdict === "AVOID" ? "skip" : "wait";
-  if (!thin && !["BUY", "AVOID", "DO NOT BUY YET"].includes(verdict)) kind = "wait";
-  if (card && !thin) {
+  let kind: ShopperAnswerKind = provisional
+    ? (facing!.firmBuy || facing!.leaning === "Buy" ? "buy" : facing!.leaning === "Skip" ? "skip" : "wait")
+    : thin ? "not_enough" : verdict === "BUY" ? "buy" : verdict === "AVOID" ? "skip" : "wait";
+  if (!provisional && !thin && !["BUY", "AVOID", "DO NOT BUY YET"].includes(verdict)) kind = "wait";
+  if (!provisional && card && !thin) {
     const cardVerdict = String(card.verdict || "").toLowerCase();
     kind = cardVerdict === "buy" ? "buy" : cardVerdict === "skip" ? "skip" : "wait";
   }
-  if (card && thin) kind = "not_enough";
-  const label = { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
+  if (!provisional && card && thin) kind = "not_enough";
+  const label = provisional
+    ? (facing!.firmBuy ? "Buy" : facing!.leaning === "Buy" ? "Leaning Buy" : facing!.leaning === "Skip" ? "Skip" : "Wait")
+    : { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
 
   const topLove = claimedLoves[0]?.claim;
   const topComplaint = claimedComplaints[0]?.claim;
@@ -334,7 +345,9 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     : kind === "skip"
       ? "Buyers report enough problems to skip this."
       : "Buyer feedback is mixed or still limited.";
-  const why = kind === "not_enough"
+  const why = provisional && facing
+    ? facing.line
+    : kind === "not_enough"
     ? (hasListing
       ? "Low confidence. Add a review screenshot to read more real reviews."
       : THIN_EVIDENCE_NEXT_STEP)
@@ -347,7 +360,9 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
           : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but ${lower(topComplaint)} comes up` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
 
   const sourceText = sources.length ? sources.join(", ") : "the product listing";
-  const trustLine = kind === "not_enough"
+  const trustLine = provisional && facing
+    ? facing.line
+    : kind === "not_enough"
     ? "Low confidence."
     : `Based on real buyer reviews from ${sourceText}.`;
 
@@ -357,8 +372,8 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const score = card ? v2Score : provisionalScore !== null ? provisionalScore : reviewCount > 0 ? storedScore : null;
   const storedConfidence = canonicalConfidencePercent(result);
   // Keep a real percent. Never replace a missing or thin-evidence value with 0.
-  const confidencePercent = thin && (storedConfidence === null || storedConfidence <= 0) ? null : storedConfidence;
-  const v2Level = v2ConfidenceLevel(result);
+  const confidencePercent = !provisional && thin && (storedConfidence === null || storedConfidence <= 0) ? null : storedConfidence;
+  const v2Level = facing?.confidence || v2ConfidenceLevel(result);
   const confidenceWords: ShopperAnswer["confidenceWords"] = v2Level || (thin ? "Low" : confidenceInWords(confidencePercent));
   const confidenceFromV2 = Boolean(v2Level);
   const valueRaw = String(result.valueForMoney || obj(result.deterministicResult).valueForMoney || "Unknown");
@@ -412,5 +427,5 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     { id: "compare", label: "Compare with an alternative", detail: "Scan a similar product and compare what real buyers say." },
   ] : [];
 
-  return { kind, label, why, loves, complaints, reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
+  return { kind, label, why, loves, complaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
 }

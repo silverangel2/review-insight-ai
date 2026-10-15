@@ -72,7 +72,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
     }
 
     if (mode !== "reset" && password.length < 8) {
-      setError("Use at least 8 characters for production-ready password rules.");
+      setError("Use at least 8 characters.");
       return;
     }
 

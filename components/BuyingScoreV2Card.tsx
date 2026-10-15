@@ -1,6 +1,6 @@
 import type React from "react";
 import Link from "next/link";
-import type { BuyingScoreResult } from "@/lib/buyingScore";
+import { provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
 
@@ -31,11 +31,14 @@ export function isBuyingScoreV2(value: unknown): value is Card {
   return Boolean(value && typeof value === "object" && (value as Record<string, unknown>).version === "buying-score-v2");
 }
 
-export function BuyingScoreV2Card({ score, compact = false }: { score: Card; compact?: boolean }) {
+export function BuyingScoreV2Card({ score, compact = false, store }: { score: Card; compact?: boolean; store?: string | null }) {
   const isProvisional = score.mode === "provisional_marketplace";
   const isNoScore = score.mode === "no_score";
-  const verdictText = isProvisional && score.leaning ? `Leaning ${score.leaning}` : score.verdict || "";
-  const toneKey = score.verdict || score.leaning || "Wait";
+  const facing = isProvisional ? provisionalShopperFacing(score, store) : null;
+  const verdictText = facing
+    ? (facing.firmBuy ? "Buy" : `Leaning ${facing.leaning}`)
+    : isProvisional && score.leaning ? `Leaning ${score.leaning}` : score.verdict || "";
+  const toneKey = facing?.verdict || facing?.leaning || score.verdict || score.leaning || "Wait";
   const quotes = score.quotes;
   return (
     <section data-testid="buying-score-v2" data-mode={score.mode}
@@ -48,8 +51,8 @@ export function BuyingScoreV2Card({ score, compact = false }: { score: Card; com
               {score.provisionalLabel}
             </p>
           ) : null}
-          <p data-testid="evidence-line" className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">{score.evidenceLine}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Confidence: {score.confidenceReason}</p>
+          <p data-testid="evidence-line" className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">{facing?.line || score.evidenceLine}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Confidence: {facing ? `${facing.confidence} confidence` : score.confidenceReason}</p>
         </div>
         {!isNoScore ? (
           <div className="flex items-center gap-3">
@@ -57,8 +60,8 @@ export function BuyingScoreV2Card({ score, compact = false }: { score: Card; com
               <span className={`${compact ? "text-2xl" : "text-3xl"} font-black text-ink dark:text-white`}>{score.score}</span>
               <span className="-mt-2 text-[10px] font-bold text-slate-400">/100</span>
             </div>
-            <span data-testid="verdict" style={isProvisional ? undefined : verdictStyle[toneKey]}
-              className={`rounded-full px-3 py-1.5 text-sm font-black ${isProvisional ? "border border-slate-300 bg-white text-slate-800" : ""}`}>
+            <span data-testid="verdict" style={facing?.firmBuy ? verdictStyle.Buy : isProvisional ? undefined : verdictStyle[toneKey]}
+              className={`rounded-full px-3 py-1.5 text-sm font-black ${facing?.firmBuy ? "" : isProvisional ? "border border-slate-300 bg-white text-slate-800" : ""}`}>
               {verdictText}
             </span>
           </div>

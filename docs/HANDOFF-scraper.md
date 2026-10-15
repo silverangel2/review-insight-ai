@@ -1,98 +1,131 @@
-# Handoff: layered review collection
+# Turnover: review collection and the result page
 
-## Goal
+This file is the handover for the next session. It is the state on 2026-10-14. Read it before changing the scraper or the result page. Do not merge. Do not deploy. The Owner has not said yes.
 
-Link-only scans should collect real written reviews for arbitrary products on Amazon, Walmart, Best Buy, Target, and Home Depot. The screenshot fallback should be rare. The live failure this is aimed at: an Amazon.com link returns HTTP 200 with a stripped shell (about 250KB, no `#productTitle`, no review blocks) on both `/dp` and the reviews page, while a normal browser shows the reviews.
+## Owner's rules
 
-Collection is general. There are no product-specific hacks. A CAPTCHA or sign-in page stops that profile on that host. Public review endpoints and sibling storefronts are still tried. There is no CAPTCHA solving, no sign-in, and no OpenAI in this path. Only real review text is kept. The same review text or review id is kept once across storefronts. Unreadable text does not raise confidence. Shoppers are not shown review counts. The shopper payload must not say "Not scored" or "Review evidence not enough". All of this stays inside `lib/scanDeadline.ts` (default 50s collection budget, 8s per request).
+These apply to every change, including a "small" follow-up.
 
-## Live test of the first multi-store deploy (2026-10-14)
+- Zero OpenAI. Collection and the Buying Score do not call it. `openAiCalls` on these scans stays 0.
+- No CAPTCHA solving. No sign-in bypass. A challenge page is a failed attempt, not a puzzle to beat.
+- No paid proxies. The Owner refused. Do not add Bright Data, Oxylabs, IPRoyal, ScraperAPI, ScrapingBee, or any other paid egress. A proxy env var already exists (`REVIEWINTEL_HTTP_PROXY` / `HTTPS_PROXY`). Production has none. Leave it that way.
+- Never show a shopper how many reviews were read. The public rating count on the store page is allowed. A sentence like "12 reviews read" is not.
+- Rules are general. Do not special-case one ASIN, one product name, or one store listing.
+- Shoppers never see "Vercel", a host name, `evidenceState`, `NOT_ENOUGH`, "Not scored", "Review evidence not enough", or "OpenAI review analysis failed". Internal logs may keep those words.
+- Rollback is only a temporary measure. Production is on an old deploy because the newer one made scans worse. The job is still to collect real reviews, not to stay rolled back.
+- No deploy and no merge without the Owner's yes. A green test run is not that yes.
 
-PR #15 merged as `646d8f6` and was rolled back. Production is PR #14 (`687b041`). Seven link-only scans, all HTTP 200, `x-reviewintel-openai-calls: 0`, all under 60s. Zero real reviews. The Home Depot scan showed a different product, which is why it was rolled back.
+## Today's timeline (2026-10-14)
 
-| Store | Link | What the shopper saw | Ladder |
-| --- | --- | --- | --- |
-| amazon.com | `/dp/B00002X2GQ` | Stanley 33-425, provisional score, no written reviews | `{tier:null, strippedPage:false, attempts:3, blocked:true}` |
-| amazon.com | `/dp/B0D1XD1ZV3` | AirPods Pro 2, provisional score, no written reviews | blocked after the first profiles |
-| amazon.ca | `/dp/B00002X2GQ` | same Stanley, provisional score | blocked |
-| walmart.com | `/ip/...FMHT74038.../147784490` | "Unknown product" | ladder never ran |
-| bestbuy.com | `/site/.../6447382.p` | "Unknown product" | ladder never ran |
-| target.com | `/p/.../A-1000747659` | "Unknown product" | ladder never ran |
-| homedepot.com | `/p/...FMHT33338L/204624581` | wrong Amazon battery titled "Unknown Product" | ladder never ran; search was `site:amazon.ca "unknown product"` |
+Times below are the times recorded with each event. They are not a reconstructed timezone.
 
-`B00002X2GQ` is the Stanley 33-425 Chrome, not FatMax. That was a test-input error. Bing and DuckDuckGo returned "search page unavailable" on every scan. The API still contained `suspiciousReviewRisk: "Not scored"` and the label "Review evidence not enough".
+1. **PR #14** merged at 13:42 UTC as `687b041` ("Show live v2 scans and keep zero-review scores as a leaning"). https://github.com/silverangel2/review-insight-ai/pull/14
+   Before the layered headers, link scans from this deployment could read reviews. AirPods `B0D1XD1ZV3` read 10 reviews at 09:31. Across that earlier window, 5 of 8 link scans read 7–12 reviews each.
 
-## Fix in this branch
+2. **PR #15** merged at 19:09 UTC as `646d8f6` ("Collect real reviews across Amazon, Walmart, Best Buy, Target, and Home Depot"). https://github.com/silverangel2/review-insight-ai/pull/15
+   It was deployed. It routed every store fetch through a layered ladder with browser-imitation headers. AirPods `B0D1XD1ZV3` then read 0 reviews at 16:15 (`native-page dp status 200 rawReviews 0`, then `layered-collection blocked:true`). The live check after that deploy was 7 of 7 link scans, HTTP 200, `x-reviewintel-openai-calls: 0`, under 60 seconds, and 0 real reviews.
 
-- Placeholder names (`unknown`, `unknown product`, `product`, `item`) are not search queries and are not match terms.
-- When the store page cannot be read, the product id and name come from the link: Walmart `/ip/<slug>/<id>`, Home Depot `/p/<slug>/<id>`, Target `/p/<slug>/-/A-<tcin>`, Best Buy `/site/<slug>/<sku>.p`, Amazon `/dp/<asin>` plus its slug. That identity is what starts the store ladder.
-- A 401/403/429/503 or a CAPTCHA stops further product-page profiles on that host. `reviews-endpoint` and `sibling-domain` are still requested once each inside the collection budget. A review path that already returned a challenge is not fetched again for another query, another page number, or a later sibling listing. The log field `tierAttempts` records each tier and why it stopped (`blocked-challenge`, `blocked-http-403`, `skipped-host-blocked`, `reviews`, `stripped`, `stopped-budget`, and the others).
-- A candidate on another listing is accepted only when its title contains the model or id tokens from the link, or it is the same store product id. Otherwise the shopper gets the couldn't-read result and the scan does not charge a credit.
-- Shopper-facing authenticity text no longer uses "Not scored" or "Review evidence not enough".
+   | Store | Link | What the shopper saw | Ladder |
+   | --- | --- | --- | --- |
+   | amazon.com | `/dp/B00002X2GQ` | Stanley 33-425, provisional score, no written reviews | attempts 3, blocked |
+   | amazon.com | `/dp/B0D1XD1ZV3` | AirPods Pro 2, provisional score, no written reviews | blocked after the first profiles |
+   | amazon.ca | `/dp/B00002X2GQ` | same Stanley, provisional score | blocked |
+   | walmart.com | `/ip/...FMHT74038.../147784490` | "Unknown product" | ladder never ran |
+   | bestbuy.com | `/site/.../6447382.p` | "Unknown product" | ladder never ran |
+   | target.com | `/p/.../A-1000747659` | "Unknown product" | ladder never ran |
+   | homedepot.com | `/p/...FMHT33338L/204624581` | wrong Amazon battery | ladder never ran; search was `site:amazon.ca "unknown product"` |
 
-Amazon from this deployment's own addresses is still expected to block the product page, the reviews endpoint, and the sibling domains, because they share one egress network. Trying those tiers does not change the IP. Reading Amazon reviews from this deployment needs a residential or ISP proxy (or a fetch API that only changes the IP and does not solve CAPTCHAs). The Owner has refused paid proxies. See Open risks.
+   `B00002X2GQ` is the Stanley 33-425 Chrome, not FatMax. That was a bad test input. Production was rolled back after this.
 
-## What's done
+3. **PR #16** merged at 20:57 UTC as `e3eeffa` ("Fix live link scans that returned the wrong product or no reviews"). https://github.com/silverangel2/review-insight-ai/pull/16
+   On main. Not what production is running.
 
-Shared interface in `lib/storeCollectors.ts`, engine in `lib/layeredReviewCollection.ts`, profiles and cookie jar in `lib/browserProfiles.ts`. `runNativeReviewRetrieval` uses the engine for product URLs on those five stores. Other fetches are unchanged.
+4. **PR #17** merged at 21:07 UTC as `c079607` ("Read visible product-page reviews in the shopper's browser"). https://github.com/silverangel2/review-insight-ai/pull/17
+   This is `origin/main`. Not what production is running.
 
-Each store request sends a full Chrome header set: user agent, `sec-ch-ua`, `sec-ch-ua-mobile`, `sec-ch-ua-platform`, `Accept-Language` matched to the host, `sec-fetch-*`, and `Accept-Encoding: gzip, deflate, br`. The polite fetcher decompresses gzip, deflate, and brotli when the runtime leaves the body compressed. A per-scan cookie jar stores `Set-Cookie` and sends it on later requests. The response cache key includes the profile id, so a stripped page is not reused as the answer for a different profile. The internal `x-ri-profile` header is removed before the request is sent.
+5. **PR #18** is an open draft, not merged: https://github.com/silverangel2/review-insight-ai/pull/18 on `cursor/plain-first-fetch-1af3`. Its preview deployment went Ready. `vercel curl` was not authenticated here (the CLI started a device login and never returned). The AirPods link was not scanned on that preview. Reviews read: not measured. Do not retry the device login.
 
-Stripped page: HTTP 200, not a challenge, no product-title marker, no review marker, and body length between 400 bytes and 2MB. That covers both a small lite shell and the fat ~250KB shell. A page with a title or with review markers is not stripped, and the ladder stops so existing pagination tests stay one request per URL.
+## Current production state
 
-Ladder order, stopping at the first page that contains review markers:
+Live production is the rollback target:
 
-1. `primary-profile` — Chrome on Windows, requested URL
-2. `alternate-profile` — Chrome on Mac, same URL
-3. `alternate-url` — store-specific product URL forms
-4. `mobile-url` — mobile page or the product URL with the Android profile
-5. `reviews-endpoint` — public review HTML or JSON that does not need a signed-in session
-6. `sibling-domain` — same product id on a sibling storefront, where that id is actually shared
-7. `chromium` — optional, only after the HTTP ladder found no reviews and did not see a healthy page
+- Deployment: `dpl_CmUN4s7qSkheBdjH6y2HBtEjafBV`
+- Code: PR #14, commit `687b041`
 
-A challenge (`isBlockedOrSignInReviewPage`, including CAPTCHA and sign-in URLs) or HTTP 401/403/429/503 stops further product-page profiles on that host. It does not solve the challenge and it does not sign in. The same ladder still requests `reviews-endpoint` and `sibling-domain` until the collection budget or the 12-attempt cap. Chromium stays off, and it is not launched when the only answers were blocks. Page 2+ only tries the two desktop profiles, so pagination does not fan out. `tierAttempts` is included on `result.layeredCollection` and on the `[ReviewIntel PIPELINE] layered-collection` line.
+That rollback is temporary. It is not a fix. A live AirPods scan on that same PR #14 deployment also read 0 reviews at 18:52. Putting the old headers back is necessary and it is not sufficient. Do not tell the Owner that Amazon reads work because the headers match `687b041`.
 
-Amazon forms: `/dp/ASIN`, `/gp/product/ASIN`, `/dp/ASIN?th=1&psc=1`, `/gp/aw/d/ASIN`, `/product-reviews/ASIN?reviewerType=all_reviews&sortBy=recent`, and the public `GET /hz/reviews-render/ajax/reviews/get/` fragment endpoint. Siblings: `.com`, `.ca`, `.co.uk`. Same-host ajax and mobile URLs count as the same ASIN (`amazonStableId`), so their reviews are accepted without a second title check. A sibling host still has to pass the existing title check.
+## Root cause
 
-Walmart: `/ip/{id}`, `/reviews/product/{id}`, mobile profile, and the other of `.com` / `.ca`. Item ids are not guaranteed to be the same product across countries; identity verification still applies.
+Two separate facts. Both are true.
 
-Best Buy: product page, reviews page, and the public reviews JSON the site loads (`bestbuy.com/ugc/v2/reviews` or `bestbuy.ca/api/reviews/v2/...`). No sibling domain. SKUs are not shared between `.com` and `.ca`.
+1. **PR #15 headers caused Amazon bot checks.** `fetchText` sent every store URL through `runLayeredStoreFetch`. Those requests added `sec-ch-ua*`, `sec-fetch-*`, `accept-encoding: br`, a cookie jar, and new user agents from `lib/browserProfiles.ts`. Amazon answered HTTP 200 with a bot-check page. The ladder then marked the whole host blocked after the first challenge, so later product-page attempts never ran. That is why AirPods went from 10 reviews at 09:31 to 0 at 16:15, and why the post-deploy check was 0 of 7.
 
-Target: canonical `/p/-/A-{tcin}`, mobile profile, and the public reviews summary on `r2d2.target.com` using the storefront key already shipped in Target's web client (`TARGET_PUBLIC_STOREFRONT_KEY`). That key is not an account secret.
+2. **The rolled-back deploy also read nothing later the same day.** The live AirPods scan on PR #14 (`dpl_CmUN4s7qSkheBdjH6y2HBtEjafBV`) read 0 reviews at 18:52. The old request is not a proven live read from this deployment anymore.
 
-Home Depot: product page, `/p/reviews/...`, mobile profile, and a Bazaarvoice reviews URL only when the fetched HTML itself contains a public `passkey`. No hardcoded passkey.
+Walmart, Best Buy, Target, and Home Depot are a third problem. A preview found that those four stores challenge requests from this deployment or disallow the review URL in robots.txt. Paid proxies are refused, so they were not given another IP.
 
-JSON review payloads are renamed into `{ reviews: [{ reviewBody, rating, title, date }] }` and then run through the existing extractor. Review text is copied, not written. Generic `"text"` fields count only when the object also has a date or review id, so product blurbs are not promoted.
+## What is in main but not live
 
-Cross-listing dedup in native retrieval drops a repeated review id or the same normalized body.
+`origin/main` is `c079607`. Production is `687b041`. Main contains three merges that the live deployment is not running:
 
-Per scan, `result.layeredCollection` and one log line `[ReviewIntel PIPELINE] layered-collection` record:
+- **#15** (`646d8f6`) — the layered ladder. This is the change that was deployed and rolled back. It is still in the git history of main.
+- **#16** (`e3eeffa`) — link identity and shopper-safe results. Placeholder names (`unknown`, `unknown product`, `product`, `item`) are not search queries. When the page fetch fails, the name and id come from the link (Walmart `/ip/<slug>/<id>`, Home Depot `/p/<slug>/<id>`, Target `/-/A-<tcin>` including a 10-digit TCIN, Best Buy `/site/<slug>/<sku>.p`, Amazon `/dp/<asin>` plus a slug). A cross-store match requires the title to contain the model or id tokens. Shopper strings no longer say "Not scored" or "Review evidence not enough". A blocked but identified listing does not ask the shopper to add the link again. Shoppers do not see "Vercel".
+- **#17** (`c079607`) — shopper page-capture. The page-capture API, the extension, and the bookmarklet let the shopper's own browser send the product page they can already see. This does not scrape past a challenge from the server.
 
-- `tier` — the tier that first produced review markers, or null
-- `profileId`
-- `strippedPage` — true if any attempt was a stripped shell
-- `attempts`
-- `stores`
-- `blocked`
-- `chromium` — `not-used`, `skipped-budget`, `skipped-disabled`, `skipped-blocked`, `unavailable`, `used`, `blocked`, or `empty`
-- `tierAttempts` — each tier that was considered, with `stop` set to why it ended (`reviews`, `stripped`, `blocked-challenge`, `blocked-http-403`, `blocked-http-503`, `skipped-host-blocked`, `stopped-budget`, and the others)
+## What is on the #18 branch
 
-`scanCollectionRemainingMs()` exposes the active collection deadline. The ladder will not start an HTTP attempt with under 1.5s left, or Chromium with under 15s left. Default cap is 12 HTTP attempts per product URL.
+Draft PR only. Branch `cursor/plain-first-fetch-1af3`, based on main `c079607`. Not merged. Not deployed over production.
 
-### Chromium
+Collection changes already on the branch before the result-page work:
 
-Implemented in `lib/layeredChromium.ts` as a dynamic import of `playwright-core` and `@sparticuz/chromium`. It is off unless `REVIEWINTEL_LAYERED_CHROMIUM=on`. The packages are not installed. `@sparticuz/chromium` is about 50MB compressed, and `/api/analyze` already traces tesseract into the same function, so adding the binary is likely to blow the serverless unzipped function limit. A cold start can also eat the rest of the 50s budget. When the flag is on and the packages are missing, the tier records `unavailable` and the scan continues. Tests inject `chromiumFetch` instead of launching a browser.
+- For every store, the first attempt is `fetchTextOnce` with the `687b041` user agent and `BROWSER_HEADERS`, as a plain object, not wrapped in `Headers`. The ladder runs only when that response has no written reviews.
+- Ladder profiles do not send `sec-ch-ua*`, `sec-fetch-*`, or an explicit `accept-encoding`.
+- One challenge or 401/403/429/503 does not skip the rest of the product-page attempts. Review endpoints and sibling domains still run. A review path that already returned a challenge is not fetched again.
+- #16 and #17 behavior is kept: link identity, placeholder guard, shopper-safe text, no "Vercel" in shopper text, page-capture API, extension, bookmarklet.
+- `tests/layeredReviewCollection.test.mjs` asserts the first Amazon `/dp/` request headers equal the `687b041` headers.
 
-## What's left
+Result-page changes added after that, still on this branch:
 
-- Live-prove the ladder against a current stripped Amazon response (see below). The fixtures simulate that shell; they are not a copy of Amazon's HTML.
-- If the ajax fragment and the sibling storefronts are also stripped, the remaining step is the Chromium tier. Measure the function size before installing `@sparticuz/chromium` and `playwright-core`, then set the flag only if the unzipped function stays within the serverless size limit and a launch-plus-navigation still fits in the leftover budget.
-- Confirm Target's public storefront key still works. If Target rotates it, read the key from the product HTML instead of the constant.
-- Confirm Walmart.ca review paths. The plan uses `/reviews/product/{id}` and `/en/ip/{id}`. If Canada uses a different public path, add that form in `walmartCollector.plan`.
-- Home Depot reviews that are not in the HTML and not accompanied by a passkey still need a public endpoint discovered from the page. Do not invent a passkey.
-- Best Buy.com `ugc/v2/reviews` may start requiring extra public headers. If it returns a challenge, the ladder already stops that path.
-- Wire the same ladder into `collectWrittenReviewsFromListing` only if a caller still uses that path for link-only scans. Link-only evidence collection goes through `runNativeReviewRetrieval`.
-- Fallback-rate dashboard: the log line is the measurement. Nothing aggregates it yet.
+A scan that read no written reviews was showing Low confidence, "LEANING BUY – mixed signals", and empty boxes ("No clear strengths found", "No repeated praise") even when the store showed a strong public rating. AirPods Pro 2 was the live example: 4.6 stars from 46,944 ratings. The rules are general. They are not an AirPods exception.
+
+- The Bayesian score is unchanged (`C = 4.0`, `m = 500`, Buy at 75, Wait at 50). The too-new cap (`N < 50` caps the raw score at 74) still applies.
+- Clear Buy: rating at least 4.5 and at least 5,000 ratings. Floor is about B 86, more than 10 points above 75, and the prior is under 10% of the weight. Shoppers see **BUY** with **Medium** confidence. Written text was not read, so this is never High. This is the only zero-review case that is a firm BUY. It is never AVOID.
+- Supported: rating at least 4.3 and at least 1,000 ratings, when the Bayesian score is a Buy. Shoppers see **Leaning Buy** with **Medium** confidence. The prior is still about a third of the weight, so this is not a firm BUY.
+- Below either gate, a Bayesian Buy is shown as Wait. Examples: 4.2 from 20,000 and 4.0 from 1,000. Confidence is Medium when the count is at least 1,000, otherwise Low. A strong rating is never labeled Low.
+- Saved scans that stored Low are recomputed at render time by `provisionalShopperFacing`. The page does not trust the stored Low.
+- One sentence replaces the empty boxes and the failure line: `Based on 46,944 Amazon ratings averaging 4.6★`. The store name is Amazon, Walmart, Best Buy, Target, Home Depot, or "marketplace".
+- Strengths, complaints, praise, Top Strengths, Top Complaints, Best For, and Not Ideal are omitted when no written reviews were read. Empty-state sentences are not rendered.
+- "There are mixed signals" is used only when written evidence conflicts (`discrepancyFlag`, or written reviews that contain both a strength and a complaint). Zero written reviews is not a conflict.
+- The shopper phrase "could not access enough public review evidence" is replaced with "Written reviews were not available for a verdict." Old stored copies of that phrase are mapped to the same sentence.
+
+## Open problems
+
+- Amazon from this deployment is unproven. The old headers failed live at 18:52 on PR #14. The new headers failed live after PR #15. PR #18 restores the old first request and still has no live screenshot of review quotes.
+- The #18 preview was Ready and was not scanned. `vercel curl` had no token. Do not start another device login from the agent.
+- Walmart, Best Buy, Target, and Home Depot challenge this deployment or block the review URL in robots.txt. Paid proxies are refused. Chromium (`REVIEWINTEL_LAYERED_CHROMIUM`) is off. The packages are not installed. Turning Chromium on is not a CAPTCHA bypass and it is likely to exceed the serverless function size.
+- #16 and #17 are on main and are not live. They do not, by themselves, make Amazon return review text.
+- The result-page bands are on the #18 branch only. Production still shows the old Low / Leaning Buy / mixed-signals page for a strong rating with no written reviews.
+- There is no live screenshot of real review quotes. That is the proof bar below. A log line is not it.
+
+## Exact next steps
+
+Do these in order. Stop when a step is not allowed.
+
+1. Stay on draft PR #18. Do not open a second PR for this work. Do not merge. Do not deploy. Rollback stays in place until the Owner says otherwise. Rollback is temporary, not the destination.
+2. Do not add a proxy, a CAPTCHA solver, a sign-in flow, or an OpenAI call. Do not tune a threshold to one product.
+3. The collection change on this branch is the right first request (plain `687b041` headers, then the ladder, and one challenge does not cancel the host). It is not proof. PR #14 already used those headers and read 0 AirPods reviews at 18:52.
+4. **Proof bar.** The work is not finished until there is a live screenshot of a link-only scan whose result shows real review quotes: the actual words a shopper wrote, visible on the page. A `reviewsCollected` number in a log is not the bar. A rating sentence with no quotes is not the bar. Do not show the shopper how many reviews were read. Do not deploy to get that screenshot unless the Owner says yes. A preview the Owner approves is the place to take it. The AirPods link used in the failed checks is `https://www.amazon.com/dp/B0D1XD1ZV3`. One product is not enough for a general claim. After that screenshot exists, repeat with one product each on Walmart, Best Buy, Target, and Home Depot, still with no paid proxy.
+5. If the preview returns a challenge page, record the status and stop that attempt. Do not solve it. Tell the Owner the screenshot does not exist yet.
+6. Page capture (#17) is the shopper-browser path for a page the shopper can already see. It is on main, not live. It is not a server-side bypass. Mention it to the Owner as an option. Do not ship it without a yes.
+7. When a live scan does return written reviews, the result page should show those quotes in the strength and complaint sections. The provisional BUY / Leaning Buy bands apply only when the written count is 0.
+
+## Where the code is
+
+- First fetch and ladder: `lib/nativeReviewRetrieval.ts` (`fetchText`, `plainPageHasWrittenReviews`), `lib/politeFetch.ts` (`requestInitForFetch` leaves the plain header object alone), `lib/browserProfiles.ts`, `lib/layeredReviewCollection.ts`.
+- Buying Score bands: `lib/buyingScore.ts` (`provisionalShopperFacing`, `marketplaceRatingSentence`, `customerFacingDecision`, `shopperBottomLineForBuyingScore`).
+- Result page: `components/ResultsClient.tsx`, `components/BuyingScoreV2Card.tsx`, `components/ShopperAnswerCard.tsx`, `lib/shopperAnswer.ts`, `lib/shopperResultVisibility.ts`.
+- A cached firm BUY with zero written reviews is still flagged, except a clear provisional Buy (`isClearProvisionalBuy`). The results page does not hide v2 results.
+- Header regression: `tests/layeredReviewCollection.test.mjs`. Band and render coverage: `tests/buyingScoreV2.test.mjs`, `tests/liveScanV2Results.test.mjs`.
 
 ## How to test
 
@@ -104,58 +137,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key \
 SUPABASE_URL=http://127.0.0.1:54321 \
 SUPABASE_SERVICE_ROLE_KEY=test-service-key \
 OPENAI_API_KEY= \
-node --test tests/layeredReviewCollection.test.mjs
-
-# then the existing suite, same fake env
 npm test
 npx tsc --noEmit
 npm run build
 ```
 
-Fixtures live in `tests/fixtures/layered-reviews/`: `stripped.html`, `full.html`, `mobile.html`, `reviews.html`, `captcha.html`.
+On this branch that suite is 636 tests, 616 pass, 19 fail, 1 skipped. `tsc` and `next build` pass. The 19 failures are the known set. Do not "fix" them:
 
-The new tests cover stripped vs full vs mobile vs reviews vs captcha, a fat 250KB shell, tier order, cookie reuse, Accept-Language, gzip, budget stop, Chromium last and skipped when time is short, captcha does not continue, Amazon ajax after a stripped `/dp` and reviews page, Walmart reviews page, Best Buy and Target JSON, Home Depot passkey discovery, and cross-domain body dedup.
+- email sending retries temporary failures
+- general ReviewIntel architecture development, holdout, and reserve (missing `.reviewintel-captures/scan_*.json`, including `route-envelope-*` and `holdout-capture-0` through `holdout-capture-6`)
+- after the collection deadline, new fetches fail immediately (early stop)
+- Facebook Reel publisher `video_reels` in `tests/socialAutoPost`
 
-`tests/productPipelineHardening.test.mjs` still expects exactly 7 Amazon.ca page fetches for the pagination fixture and exactly 1 fetch for an HTTP-200 sign-in redirect. Do not fan out when the first response already has review markers or is a challenge.
-
-## Live-test plan
-
-Do not run this from the agent against production shopper traffic. A human or a later session with an explicit live check can:
-
-1. Paste one Amazon.com `/dp` URL that previously returned the stripped shell (the Stanley FatMax case, plus two unrelated ASINs in other categories).
-2. Confirm the scan log's `layered-collection` line. Success is `tier` of `reviews-endpoint`, `alternate-profile`, `mobile-url`, or `sibling-domain`, with `strippedPage: true` if the first response was the shell, and `reviewsCollected` greater than 0.
-3. Repeat for one Walmart, one Best Buy, one Target, and one Home Depot product URL.
-4. Confirm a known captcha or sign-in response logs `blocked: true` and does not keep requesting that URL with new profiles.
-5. Confirm `openAiCalls` stays 0 on these scans.
-6. After deploy (not part of this change), compare the share of scans with `strippedPage: true` and `tier: null` week over week. That is the fallback rate.
-
-## Preview of this branch
-
-A preview of `a7af8f0` found two more bugs, fixed here. A bare Amazon link such as `https://www.amazon.com/dp/B00FLYWNYQ` (and the same path on amazon.ca) was stored with an empty ASIN and the name "Amazon product", so collection stopped with "Product name was not clear enough to search reviews" and fetched nothing. The ASIN is read again from `/dp/`, `/gp/product/`, and a slug in front of those paths, the listing page fetch runs, and the shopper name comes from that page.
-
-When collection was blocked on a product the link had already identified, the shopper saw REVIEW FIRST and "Add the exact product link". That wording is gone when the link was already supplied. A marketplace rating and count stay on the result when the page actually had them. If nothing on the page was readable, the scan does not use a credit. Shoppers do not see `evidenceState`, `NOT_ENOUGH`, review-analysis failure notes, or the name of the host.
-
-The same preview showed that Walmart, Best Buy, Target, and Home Depot all challenge requests from this deployment or disallow the review URL in robots.txt. The Owner refuses paid proxies, so those stores are not given a different IP in this change. Shopper-facing pages, API messages, result notes, and emails do not name the host.
-
-## Open risks
-
-- Amazon can still answer every public URL from this deployment's address with a challenge. The ladder now tries the reviews endpoint and the sibling domains, then stops. It will not solve a CAPTCHA. Those URLs leave from the same network, so a block on `/dp` usually means a block on `/product-reviews`, the ajax fragment, and `.ca` / `.co.uk` as well. Chromium is off and is not a way around that.
-- The preview also found that Walmart, Best Buy, Target, and Home Depot challenge requests from this deployment or block the review URL in robots.txt. The Owner refuses paid proxies, so this branch does not add one.
-- Link-only scans from this deployment are unlikely to read real review text without a paid egress change, and that option is refused. For the record, public 2026 list prices were about $3–$8 per GB for residential proxies, with monthly minimums from about $50 to a few hundred dollars. Datacenter proxies are the class of address these stores already block. Fetch APIs that only change the IP start around $49/month and must not solve CAPTCHAs. Store product APIs do not return the written review text this scanner needs.
-- Sibling Amazon domains sometimes list a different variant under the same ASIN. Title verification is unchanged and must keep rejecting those.
-- Walmart.com and Walmart.ca item ids are not a reliable pair. A sibling hit still has to match the product title.
-- The Target storefront key is public but can be rotated.
-- Robots.txt is still enforced. If a store disallows a review URL for `User-agent: *`, that URL is skipped.
-- The polite fetcher still stops a host for the rest of the scan after 401/403/429.
-- Module-level scan state (`scanCookieJar`, `layeredScan`, the polite fetcher) matches the existing one-scan-at-a-time pattern. Overlapping scans in one process would share that state.
-- This change does not deploy and does not merge.
-
-## Multi-store status
-
-| Store | Profiles + cookie jar | Stripped detection | Alternate URLs | Public reviews endpoint | Sibling domain | Native wiring |
-| --- | --- | --- | --- | --- | --- | --- |
-| Amazon | yes | yes | `/dp`, `/gp/product`, `?th=1&psc=1`, `/gp/aw/d` | reviews HTML + ajax fragment | `.com` `.ca` `.co.uk` | yes |
-| Walmart | yes | yes | `/ip/{id}` | `/reviews/product/{id}` | `.com` / `.ca`, id not guaranteed | yes |
-| Best Buy | yes | yes | product + reviews page | US `ugc/v2`, CA `api/reviews/v2` | no (SKUs differ) | yes |
-| Target | yes | yes | `/p/-/A-{tcin}` | `r2d2` public summary | no | yes |
-| Home Depot | yes | yes | product + `/p/reviews` | Bazaarvoice only if the page exposes a passkey | no | yes |
+Node on this VM is 22. `engines` says 24. The `EBADENGINE` warning is expected. Tests still run.

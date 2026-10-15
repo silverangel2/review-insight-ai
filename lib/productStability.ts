@@ -854,7 +854,7 @@ export async function stabilizeAnalysisResultWithMemory<T extends JsonRecord>(
     ? promotedBottomLine
     : hasWeakReviewEvidence
       ? "ReviewIntel found the exact product listing and weak review evidence, but not enough readable review evidence to make a confident product judgment. This is limited evidence, not a Buy or Avoid verdict."
-      : "Exact product identity may be found, but ReviewIntel could not access enough readable review evidence to assess this product. This is not a product judgment.";
+      : "Written reviews were not available for a verdict.";
 
   return enforceFinalVerdictConsistency({
     ...result,

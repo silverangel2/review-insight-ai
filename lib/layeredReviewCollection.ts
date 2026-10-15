@@ -1,9 +1,9 @@
 // Layered public-page collection for one product URL.
 // Order: primary browser profile, one alternate profile, alternate URL forms,
 // mobile page, public review endpoints, sibling storefronts, then optional
-// Chromium. A CAPTCHA, sign-in page, or 401/403/429/503 stops that profile
-// on that host. Public review endpoints and sibling storefronts are still
-// tried. Nothing here solves a challenge or submits a login.
+// Chromium. One challenge or 401/403/429/503 stops that attempt only.
+// Later product-page profiles, public review endpoints, and sibling
+// storefronts are still tried. Nothing here solves a challenge or submits a login.
 
 import { headersForAttempt, ScanCookieJar, type FetchTier } from "./browserProfiles";
 import { maybeSparticuzChromium } from "./layeredChromium";
@@ -143,10 +143,6 @@ function remainingOf(remainingMs?: () => number): number {
   return left == null ? Number.POSITIVE_INFINITY : left;
 }
 
-function hostOf(url: string): string {
-  try { return new URL(url).host; } catch { return ""; }
-}
-
 type Held = { text: string; finalUrl: string; status: number | null; error?: string; tier: FetchTier; profileId: string; hasReviews: boolean; hasTitle: boolean };
 
 export async function runLayeredStoreFetch(input: {
@@ -180,7 +176,6 @@ export async function runLayeredStoreFetch(input: {
 
   const queue = collector.plan(input.url, !laterResultsPage(input.url));
   const seen = new Set(queue.map((attempt) => `${attempt.profileId} ${attempt.url}`));
-  const blockedProductHosts = new Set<string>();
   const tierAttempts: TierAttemptLog[] = [];
   let attempts = 0;
   let strippedPage = false;
@@ -189,7 +184,6 @@ export async function runLayeredStoreFetch(input: {
   let lastBlockedStatus: number | null = null;
   const bestPage: { current: Held | null } = { current: null };
   let lastError: string | undefined;
-  const productPageTier = (tier: FetchTier) => tier === "primary-profile" || tier === "alternate-profile" || tier === "alternate-url" || tier === "mobile-url";
   const note = (attempt: StoreAttempt, stop: string) => {
     tierAttempts.push({ tier: attempt.tier, profileId: attempt.profileId, url: attempt.url, stop });
   };
@@ -211,10 +205,6 @@ export async function runLayeredStoreFetch(input: {
       note(attempt, "stopped-budget");
       break;
     }
-    if (productPageTier(attempt.tier) && blockedProductHosts.has(hostOf(attempt.url))) {
-      note(attempt, "skipped-host-blocked");
-      continue;
-    }
     attempts += 1;
     const headers = headersForAttempt({
       url: attempt.url,
@@ -223,7 +213,9 @@ export async function runLayeredStoreFetch(input: {
       jar,
       referer: input.url,
     });
-    if (attempt.tier === "reviews-endpoint" || attempt.tier === "sibling-domain") headers["x-ri-continue-host"] = "1";
+    // A 401/403/429 on an earlier attempt must not cancel the rest of this
+    // product's page, review, or sibling requests.
+    headers["x-ri-continue-host"] = "1";
     let page: LayeredPage;
     try {
       page = await input.fetchPage(attempt, headers);
@@ -237,7 +229,6 @@ export async function runLayeredStoreFetch(input: {
     if (page.robotsBlocked) { lastError = page.error || "robots_disallowed"; note(attempt, "robots"); continue; }
     if (/retrieval ceiling|time budget/i.test(page.error || "")) { lastError = page.error; note(attempt, "stopped-budget"); break; }
     if (/host access stopped/i.test(page.error || "")) {
-      blockedProductHosts.add(hostOf(attempt.url));
       lastError = page.error;
       note(attempt, "skipped-host-blocked");
       continue;
@@ -254,7 +245,6 @@ export async function runLayeredStoreFetch(input: {
     if (assessment.challenge || httpBlocked) {
       sawBlock = true;
       lastBlockedStatus = page.status;
-      blockedProductHosts.add(hostOf(attempt.url));
       lastError = assessment.challenge ? "challenge or sign-in page" : (page.error || `HTTP ${page.status}`);
       note(attempt, assessment.challenge ? "blocked-challenge" : `blocked-http-${page.status}`);
       continue;

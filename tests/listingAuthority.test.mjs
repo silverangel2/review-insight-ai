@@ -72,7 +72,7 @@ test("OCR stars and review count become the provisional marketplace score when t
     reviews: [],
   });
   assert.equal(score.mode, "provisional_marketplace");
-  assert.equal(score.verdict, null);
+  assert.equal(score.verdict, "Buy");
   assert.equal(typeof score.score, "number");
   assert.ok(score.score > 10);
   assert.ok(score.leaning);
@@ -206,11 +206,10 @@ test("zero analyzed reviews never keep a review-evidence Buy score", () => {
   const faced = buying.customerFacingDecision({ analyzedReviews: 0, buyingScore: written });
   assert.equal(faced.finalDecisionSource, "buyingScoreV2");
   assert.notEqual(faced.finalDecisionSource, "reviewEvidence");
-  assert.equal(faced.verdict, "REVIEW FIRST");
-  assert.notEqual(faced.verdict, "BUY");
+  assert.equal(faced.verdict, "BUY");
   assert.notEqual(faced.verdict, "AVOID");
   assert.equal(faced.buyingScore.mode, "provisional_marketplace");
-  assert.equal(faced.buyingScore.verdict, null);
+  assert.equal(faced.buyingScore.verdict, "Buy");
   assert.ok(faced.buyingScore.leaning);
   assert.equal(typeof faced.buyScore, "number");
   assert.ok(faced.buyScore > 10);

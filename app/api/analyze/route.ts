@@ -1483,7 +1483,7 @@ const visionSchema = {
 };
 
 const PUBLIC_REVIEW_EVIDENCE_FAILURE =
-  "ReviewIntel could not access enough public review evidence for this product.";
+  "Written reviews were not available for a verdict.";
 
 function collectWebCitations(value: unknown, citations = new Map<string, string>()) {
   if (Array.isArray(value)) {
@@ -2486,7 +2486,7 @@ function buildReviewEvidenceShopperResult(input: {
   let valueForMoney = "Unknown";
   let scoreAudit: Record<string, unknown> | null = null;
   let bottomLine =
-    "ReviewIntel searched the web and found the product identity/listing, but could not access enough readable review evidence to judge this product.";
+    "Written reviews were not available for a verdict.";
 
   if (noPublicReviewEvidence) {
     finalDecisionSource = "reviewEvidenceRecoveryFailed";
@@ -2742,7 +2742,7 @@ function buildReviewEvidenceShopperResult(input: {
       : faced.buyingScore.mode === "provisional_marketplace" ? "provisional_marketplace" : "needs_exact_listing";
     finalDecisionSource = faced.finalDecisionSource;
     displayedVerdictConfidence = buyingConfidenceFromV2(faced.buyingScore.confidence);
-    bottomLine = shopperSafeText(shopperBottomLineForBuyingScore(buyingScoreV2, faced.verdict));
+    bottomLine = shopperSafeText(shopperBottomLineForBuyingScore(buyingScoreV2, faced.verdict, store));
     const marketplaceKnown = (v2Rating !== null && v2Rating > 0) || (v2Count !== null && v2Count > 0);
     pageUnreadable = listingWasSupplied && commentsAnalyzed === 0 && buyingScoreV2.audit.n === 0 && !marketplaceKnown && buyingScoreV2.mode === "no_score";
   }

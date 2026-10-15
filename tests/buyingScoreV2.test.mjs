@@ -94,7 +94,7 @@ test("Example 5: single safety report -> cap 74 Wait, High, no recall text", () 
   assert.equal(recalled.verdict, "Skip");
 });
 
-test("Example 6: zero written reviews -> Provisional Marketplace Score 85, Leaning Buy, Low", () => {
+test("Example 6: zero written reviews -> Provisional Marketplace Score 85, Leaning Buy, Medium", () => {
   const r = computeBuyingScore(sig({ rating: 4.5, ratingCount: 2143, n: 0, meanSentiment: 0 }));
   assert.equal(r.audit.Rstar, 4.405);
   assert.equal(r.mode, "provisional_marketplace");
@@ -102,10 +102,85 @@ test("Example 6: zero written reviews -> Provisional Marketplace Score 85, Leani
   assert.equal(r.score, 85);
   assert.equal(r.verdict, null);
   assert.equal(r.leaning, "Buy");
-  assert.equal(r.confidence, "Low");
+  assert.equal(r.confidence, "Medium");
   assert.equal(r.provisionalLabel, "Provisional · based on marketplace rating only");
   assert.equal(r.primaryAction, "Paste the exact product link for a full Buying Score");
-  assert.ok(r.notes[0].startsWith("Based on the marketplace rating only."));
+  assert.deepEqual(r.notes, []);
+  assert.equal(r.evidenceLine, "Based on 2,143 marketplace ratings averaging 4.5★");
+  assert.doesNotMatch(allText(r), /reviews read|mixed signals|could not access enough/i);
+});
+
+test("provisional verdicts scale with the rating and the count", () => {
+  const faced = (rating, count, store) => {
+    const card = computeBuyingScore(sig({ rating, ratingCount: count, n: 0, meanSentiment: 0 }));
+    return { card, decision: bs.customerFacingDecision({ analyzedReviews: 0, buyingScore: card }), line: bs.shopperBottomLineForBuyingScore(card, "REVIEW FIRST", store) };
+  };
+  const clear = faced(4.6, 46944, "Amazon");
+  assert.equal(clear.card.score, 90);
+  assert.equal(clear.card.verdict, "Buy");
+  assert.equal(clear.card.confidence, "Medium");
+  assert.equal(clear.decision.verdict, "BUY");
+  assert.equal(clear.line, "Based on 46,944 Amazon ratings averaging 4.6★");
+  assert.doesNotMatch(`${clear.line} ${clear.card.notes.join(" ")}`, /mixed signals|reviews read|could not access enough|Low confidence/i);
+
+  const clearFloor = faced(4.5, 5000);
+  assert.equal(clearFloor.card.verdict, "Buy");
+  assert.equal(clearFloor.decision.verdict, "BUY");
+  assert.equal(clearFloor.card.confidence, "Medium");
+
+  const supported = faced(4.5, 4999);
+  assert.equal(supported.card.verdict, null);
+  assert.equal(supported.card.leaning, "Buy");
+  assert.equal(supported.decision.verdict, "REVIEW FIRST");
+  assert.equal(supported.card.confidence, "Medium");
+
+  const supportedFloor = faced(4.3, 1000);
+  assert.equal(supportedFloor.card.score, 80);
+  assert.equal(supportedFloor.card.verdict, null);
+  assert.equal(supportedFloor.card.leaning, "Buy");
+  assert.equal(supportedFloor.card.confidence, "Medium");
+
+  const justUnder = faced(4.3, 999);
+  assert.equal(justUnder.card.leaning, "Wait");
+  assert.equal(justUnder.card.verdict, null);
+  assert.equal(justUnder.card.confidence, "Low");
+  assert.notEqual(justUnder.decision.verdict, "BUY");
+
+  const bayesBuyCautious = faced(4.2, 20000);
+  assert.ok(bayesBuyCautious.card.score >= 75);
+  assert.equal(bayesBuyCautious.card.leaning, "Wait");
+  assert.equal(bayesBuyCautious.card.verdict, null);
+  assert.equal(bayesBuyCautious.card.confidence, "Medium");
+  assert.notEqual(bayesBuyCautious.decision.verdict, "BUY");
+
+  const smallSample = faced(4.8, 200);
+  assert.equal(smallSample.card.leaning, "Wait");
+  assert.equal(smallSample.card.confidence, "Low");
+  assert.notEqual(smallSample.decision.verdict, "BUY");
+
+  const weakLarge = faced(3.2, 50000);
+  assert.equal(weakLarge.card.leaning, "Wait");
+  assert.equal(weakLarge.card.confidence, "Medium");
+  assert.notEqual(weakLarge.decision.verdict, "BUY");
+  assert.notEqual(weakLarge.decision.verdict, "AVOID");
+
+  const tooNew = faced(5.0, 12);
+  assert.equal(tooNew.card.score, 74);
+  assert.equal(tooNew.card.leaning, "Wait");
+  assert.equal(tooNew.card.confidence, "Low");
+
+  const savedLow = bs.provisionalShopperFacing({
+    mode: "provisional_marketplace",
+    score: 90,
+    verdict: null,
+    leaning: "Buy",
+    confidence: "Low",
+    audit: { n: 0, Rbar: 4.6, N: 46944 },
+  }, "Amazon.com");
+  assert.equal(savedLow.firmBuy, true);
+  assert.equal(savedLow.answer, "BUY");
+  assert.equal(savedLow.confidence, "Medium");
+  assert.equal(savedLow.line, "Based on 46,944 Amazon ratings averaging 4.6★");
 });
 
 test("edge: N = 0 / no rating with written reviews -> written-only Buying Score, Low", () => {
@@ -309,8 +384,8 @@ test("Plain rule 1: count-only or stub reviews are not 'read' and add no confide
   const r = buyingScoreFromReviews({ marketplace: { rating: 4.5, count: 2143 }, reviews: stubs });
   assert.equal(r.audit.n, 0);
   assert.equal(r.mode, "provisional_marketplace");
-  assert.equal(r.evidenceLine, "4.5★ from 2,143 ratings");
-  assert.equal(r.confidence, "Low");
+  assert.equal(r.evidenceLine, "Based on 2,143 marketplace ratings averaging 4.5★");
+  assert.equal(r.confidence, "Medium");
   const mixed = buyingScoreFromReviews({ marketplace: { rating: 4.4, count: 20000 }, reviews: [...stubs, { body: "Great and reliable.", rating: 5 }] });
   assert.equal(mixed.audit.n, 1);
   assert.equal(mixed.audit.nEff, 1);
