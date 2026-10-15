@@ -261,6 +261,28 @@ function pickDistinctTheme(items: string[], fallback: string, blocked: string[] 
   );
 }
 
+/**
+ * The fallback fragments pickDistinctTheme returns when no real theme was
+ * found. These must never be interpolated into template sentences (they
+ * read as garbage, e.g. "The strongest sales proof is the strongest
+ * positive proof point needs more clean review evidence.").
+ */
+const THEME_FALLBACKS = new Set([
+  "unclear durability or expectation gap",
+  "the next visible buyer objection",
+  "the strongest positive proof point needs more clean review evidence",
+  "clarify the most important buyer expectation in the listing",
+  "support, shipping, packaging, or return expectations need monitoring",
+]);
+
+function isFallbackTheme(theme: string): boolean {
+  return THEME_FALLBACKS.has(String(theme || "").trim());
+}
+
+function pluralize(count: number, singular: string): string {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
 function metricToGaugeScore(metric: string) {
   const clean = metric.toLowerCase();
   const percentMatch = clean.match(/(\d{1,3})\s*%/);
@@ -531,6 +553,12 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
   const topRequest = pickDistinctTheme(requests, "clarify the most important buyer expectation in the listing", [topComplaint, secondaryComplaint, topPraise]);
   const topSupport = pickDistinctTheme(support, "support, shipping, packaging, or return expectations need monitoring", [topComplaint, secondaryComplaint, topPraise, topRequest]);
 
+  // Empty-state copy: when a theme is a fallback fragment, render plain
+  // empty-state copy instead of interpolating the fragment into a sentence.
+  const praiseIsFallback = isFallbackTheme(topPraise);
+  const complaintIsFallback = isFallbackTheme(topComplaint);
+  const neutralCollectionAction = "Keep collecting reviews; repeated themes will appear here once review volume grows.";
+
   const totalSignalBase = Math.max(reviewCount, complaints.length + praise.length + support.length + 4);
   const complaintShare = complaints.length ? estimateShare(Math.min(complaints.length, totalSignalBase), totalSignalBase) : "Low signal";
   const praisePeople = praise.length ? peopleStyle(Math.min(praise.length + 2, totalSignalBase), totalSignalBase) : "Directional";
@@ -542,8 +570,10 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       metric: complaintShare,
       tone: "border-coral/35 from-orange-100 via-white to-rose-100",
       gauge: "heat" as const,
-      insight: `Buyers may hesitate because the sample points to ${topComplaint}.`,
-      action: sellerActionForTheme(topComplaint, "objection"),
+      insight: complaintIsFallback
+        ? "No dominant complaint cluster yet — this insight appears once repeated buyer objections show up."
+        : `Buyers may hesitate because the sample points to ${topComplaint}.`,
+      action: complaintIsFallback ? neutralCollectionAction : sellerActionForTheme(topComplaint, "objection"),
       impact: "Reduces pre-checkout doubt and prevents surprise complaints after purchase."
     },
     {
@@ -551,8 +581,10 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       metric: praisePeople,
       tone: "border-teal/35 from-emerald-100 via-white to-teal/20",
       gauge: "bars" as const,
-      insight: `The strongest sales proof is ${topPraise}.`,
-      action: sellerActionForTheme(topPraise, "proof"),
+      insight: praiseIsFallback
+        ? "No repeated praise detected yet — the sales-proof insight appears once review volume grows."
+        : `The strongest sales proof is ${topPraise}.`,
+      action: praiseIsFallback ? neutralCollectionAction : sellerActionForTheme(topPraise, "proof"),
       impact: "Makes customer proof easier to see before shoppers leave the page."
     },
     {
@@ -566,7 +598,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
     },
     {
       title: "Top Complaint Share",
-      metric: complaints.length ? `${complaints.length} signals` : "0 signals",
+      metric: complaints.length ? pluralize(complaints.length, "signal") : "0 signals",
       tone: "border-coral/35 from-rose-100 via-white to-orange-100",
       gauge: "priority" as const,
       insight: complaints.length ? `The most visible complaint area is ${secondaryComplaint === "the next visible buyer objection" ? topComplaint : secondaryComplaint}.` : "No strong repeated complaint cluster was detected.",
@@ -575,11 +607,13 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
     },
     {
       title: "Repeat Praise Signal",
-      metric: praise.length ? `${praise.length} proofs` : "Weak signal",
+      metric: praise.length ? pluralize(praise.length, "proof") : "Weak signal",
       tone: "border-amber/40 from-yellow-100 via-white to-amber/20",
       gauge: "wave" as const,
-      insight: `Positive buyer language supports highlighting ${topPraise}.`,
-      action: sellerActionForTheme(topPraise, "proof"),
+      insight: praiseIsFallback
+        ? "No repeat praise pattern yet — positive signals appear with more reviews."
+        : `Positive buyer language supports highlighting ${topPraise}.`,
+      action: praiseIsFallback ? neutralCollectionAction : sellerActionForTheme(topPraise, "proof"),
       impact: "Converts review praise into marketing proof without inventing claims."
     },
     {
