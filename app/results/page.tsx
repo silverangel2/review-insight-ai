@@ -6,6 +6,7 @@ import { CommunityReviewsSection } from "@/components/CommunityReviewsSection";
 import { RescueEmailCapture } from "@/components/RescueEmailCapture";
 import { normalizeProductKey } from "@/lib/communityReviews";
 import { loadServerResult } from "@/lib/serverResult";
+import { isNoVerdictResult as isNoVerdictResultShared } from "@/lib/evidenceConsistency";
 import { cookieGrantsScan, SCAN_ACCESS_COOKIE } from "@/lib/scanAccess";
 import type { AnalyzeResponse } from "@/lib/types";
 
@@ -16,13 +17,14 @@ export const metadata: Metadata = withSeo("/results", {
 }, { noindex: true });
 export const dynamic = "force-dynamic";
 
-/** Server-side insufficient-evidence signal (same family the flag hook uses). */
+/**
+ * Server-side insufficient-evidence signal (same family the flag hook uses).
+ * Defect batch 2, rule 4: the rescue box renders ONLY when the scan genuinely
+ * has no score/verdict — shared implementation in lib/evidenceConsistency.ts
+ * (unit-tested there).
+ */
 function isNoVerdictResult(result: AnalyzeResponse | null): boolean {
-  if (!result) return false;
-  const record = result as unknown as Record<string, unknown>;
-  if (record.scanState === "INSUFFICIENT_EVIDENCE") return true;
-  const verdict = String(record.verdict ?? "").toUpperCase();
-  return verdict === "REVIEW EVIDENCE NOT ENOUGH" || verdict === "NOT_ENOUGH";
+  return isNoVerdictResultShared(result);
 }
 
 export default async function ResultsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
