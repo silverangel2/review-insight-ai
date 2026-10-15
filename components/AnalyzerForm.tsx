@@ -455,7 +455,7 @@ export default function AnalyzerForm() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
-      {scanStage ? <ReviewIntelScanOverlay stage={scanStage} uploadProgress={uploadPercent} scanId={liveScanId} /> : null}
+      {scanStage ? <ReviewIntelScanOverlay stage={scanStage} uploadProgress={uploadPercent} scanId={liveScanId} productImage={previewDataUrl || preview || null} /> : null}
       <div className="text-center">
         <p className="text-sm font-black uppercase tracking-[0.3em] text-teal">Know the Truth Before You Buy</p>
         <h1 className="mt-4 text-5xl font-black tracking-tight text-ink dark:text-white sm:text-6xl">

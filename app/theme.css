@@ -1,0 +1,306 @@
+/* ==========================================================================
+   ReviewIntel premium theme — "Apple polish" indigo system (2026-10-15).
+   PALETTE RULE (owner): gradients run #0a6cff -> #5b3df0 ONLY. No rainbow,
+   no multi-hue spectrums anywhere. Aurora wash stays in the indigo / violet /
+   teal family.
+   This file is additive: it never overrides existing component classes, only
+   adds the ri-* system. Safe to ship alongside globals.css.
+   ========================================================================== */
+
+:root {
+  --ri-blue: #0a6cff;
+  --ri-indigo: #5b3df0;
+  --ri-ink: #17181c;
+  --ri-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ---- Aurora page backdrop: one calm canvas for the whole site, so the
+   scanning -> result transition feels continuous. ---- */
+body {
+  background:
+    radial-gradient(900px 480px at 12% -60px, rgba(88, 101, 242, 0.16), rgba(88, 101, 242, 0) 60%),
+    radial-gradient(820px 460px at 88% -40px, rgba(91, 61, 240, 0.11), rgba(91, 61, 240, 0) 60%),
+    radial-gradient(700px 500px at 50% 340px, rgba(0, 199, 190, 0.1), rgba(0, 199, 190, 0) 65%),
+    linear-gradient(180deg, #fbfbfd 0%, #f5f5f7 100%);
+  background-attachment: fixed;
+}
+.dark body {
+  background:
+    radial-gradient(900px 480px at 12% -60px, rgba(91, 61, 240, 0.18), rgba(91, 61, 240, 0) 60%),
+    radial-gradient(820px 460px at 88% -40px, rgba(10, 108, 255, 0.12), rgba(10, 108, 255, 0) 60%),
+    linear-gradient(180deg, #12121c 0%, #0b0b12 100%);
+  background-attachment: fixed;
+}
+/* Slow aurora drift — background-level motion, added by ThemeEffects only
+   when the device allows motion. */
+body.ri-drift-on {
+  animation: ri-drift 18s ease-in-out infinite alternate;
+}
+@keyframes ri-drift {
+  from { background-position: 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: 60px -20px, -50px 10px, 30px 24px, 0 0; }
+}
+
+/* ---- Cursor-follow glow (Apple-style). Rendered by ThemeEffects;
+   pointer:fine only, rAF-throttled, CSS-variable driven. ---- */
+.ri-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    560px 340px at var(--mx, 50%) var(--my, -80px),
+    rgba(91, 61, 240, 0.13),
+    rgba(91, 61, 240, 0) 65%
+  );
+}
+.dark .ri-glow {
+  background: radial-gradient(
+    560px 340px at var(--mx, 50%) var(--my, -80px),
+    rgba(91, 61, 240, 0.2),
+    rgba(91, 61, 240, 0) 65%
+  );
+}
+
+/* ---- Gradient text: deep blue -> indigo only. ---- */
+.ri-gradient-text {
+  background: linear-gradient(94deg, var(--ri-blue) 0%, var(--ri-indigo) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- Glass surface. ---- */
+.ri-glass {
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(20, 24, 40, 0.06);
+}
+.dark .ri-glass {
+  background: rgba(22, 24, 38, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ---- Premium card: soft colored shadow scale. ---- */
+.ri-card {
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow:
+    0 18px 44px rgba(50, 44, 140, 0.1),
+    0 2px 10px rgba(20, 24, 40, 0.05);
+}
+.dark .ri-card {
+  background: #171824;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.45),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- Gradient hairline across the top of a card. ---- */
+.ri-hairline {
+  position: relative;
+  overflow: hidden;
+}
+.ri-hairline::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ri-blue), var(--ri-indigo));
+}
+
+/* ---- Hover lift: pointer devices only. ---- */
+.ri-lift {
+  transition: transform 0.45s var(--ri-ease), box-shadow 0.45s var(--ri-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ri-lift:hover {
+    transform: translateY(-5px);
+    box-shadow:
+      0 26px 54px rgba(50, 44, 140, 0.16),
+      0 4px 14px rgba(20, 24, 40, 0.06);
+  }
+}
+
+/* ---- Gradient button. ---- */
+.ri-btn-gradient {
+  background: linear-gradient(94deg, var(--ri-blue), var(--ri-indigo));
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(70, 60, 220, 0.35);
+  transition: transform 0.25s var(--ri-ease), box-shadow 0.25s var(--ri-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ri-btn-gradient:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(70, 60, 220, 0.45);
+  }
+}
+.ri-btn-gradient:active {
+  transform: scale(0.97);
+}
+
+/* ---- Glass input bar (hero). ---- */
+.ri-ask {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(20, 24, 40, 0.06);
+  box-shadow:
+    0 10px 34px rgba(60, 50, 160, 0.13),
+    0 2px 8px rgba(20, 24, 40, 0.06);
+  transition: box-shadow 0.3s var(--ri-ease), transform 0.3s var(--ri-ease);
+}
+.ri-ask:focus-within {
+  box-shadow:
+    0 0 0 4px rgba(91, 61, 240, 0.16),
+    0 16px 40px rgba(60, 50, 160, 0.18);
+  transform: translateY(-1px);
+}
+.dark .ri-ask {
+  background: rgba(24, 26, 40, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ---- Scroll reveal (driven by ThemeEffects' IntersectionObserver). ---- */
+.ri-reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.9s var(--ri-ease),
+    transform 0.9s var(--ri-ease);
+}
+.ri-reveal.ri-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---- Result unlock (Phase 7): the iPhone-unlock moment. One smooth rise +
+   settle on the answer card (~650ms, Apple easing, no bounce), then the
+   details stagger in beneath. Everything is one-shot; afterwards the page
+   is completely still.
+   Animations run ONLY under .ri-reveal-armed, which BriefReveal adds for a
+   fresh reveal when motion is allowed. No armed parent (repeat view,
+   reduced motion, SSR first paint) = instant final state, no flash. ---- */
+.ri-reveal-armed .ri-unlock {
+  animation: ri-unlock-in 0.65s var(--ri-ease) both;
+}
+@keyframes ri-unlock-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ri-reveal-armed .ri-unlock-child {
+  animation: ri-unlock-in 0.6s var(--ri-ease) both;
+}
+.ri-reveal-armed .ri-d1 { animation-delay: 0.1s; }
+.ri-reveal-armed .ri-d2 { animation-delay: 0.2s; }
+.ri-reveal-armed .ri-d3 { animation-delay: 0.32s; }
+.ri-reveal-armed .ri-d4 { animation-delay: 0.44s; }
+.ri-reveal-armed .ri-d5 { animation-delay: 0.56s; }
+
+/* One-time glimmer sweeping the verdict word as the card lands. */
+.ri-glimmer {
+  position: relative;
+  overflow: hidden;
+}
+.ri-reveal-armed .ri-glimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.8) 50%,
+    transparent 60%
+  );
+  transform: translateX(-130%);
+  animation: ri-glimmer-sweep 0.9s ease 0.3s 1 both;
+  pointer-events: none;
+}
+@keyframes ri-glimmer-sweep {
+  to {
+    transform: translateX(130%);
+  }
+}
+
+/* ---- Scan overlay: living treatment for the active stage. ---- */
+.ri-progress-track {
+  background: rgba(20, 24, 40, 0.08);
+}
+.ri-progress-fill {
+  background: linear-gradient(90deg, var(--ri-blue), var(--ri-indigo));
+}
+.ri-stage-active {
+  animation: ri-pulse 1.8s ease-in-out infinite;
+}
+@keyframes ri-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.ri-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.ri-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(91, 61, 240, 0.22) 50%,
+    transparent 70%
+  );
+  animation: ri-shimmer-slide 1.7s linear infinite;
+  pointer-events: none;
+}
+@keyframes ri-shimmer-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+.ri-stage-dot-done {
+  background: linear-gradient(135deg, var(--ri-blue), var(--ri-indigo));
+}
+
+/* ---- Reduced motion: everything renders in its final state. No count-up,
+   no glimmer, no drift, no glow, no reveal hiding. ---- */
+@media (prefers-reduced-motion: reduce) {
+  body.ri-drift-on {
+    animation: none;
+  }
+  .ri-glow {
+    display: none;
+  }
+  .ri-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .ri-reveal-armed .ri-unlock,
+  .ri-reveal-armed .ri-unlock-child {
+    animation: none;
+  }
+  .ri-reveal-armed .ri-glimmer::after {
+    display: none;
+  }
+  .ri-shimmer::after {
+    display: none;
+  }
+  .ri-stage-active {
+    animation: none;
+    opacity: 1;
+  }
+  .ri-lift,
+  .ri-btn-gradient,
+  .ri-ask {
+    transition: none;
+  }
+}

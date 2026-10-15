@@ -8,6 +8,7 @@ import { normalizeProductKey } from "@/lib/communityReviews";
 import { loadServerResult } from "@/lib/serverResult";
 import { cookieGrantsScan, SCAN_ACCESS_COOKIE } from "@/lib/scanAccess";
 import type { AnalyzeResponse } from "@/lib/types";
+import { shouldShowRescueCapture } from "@/lib/rescueCaptureGate";
 
 export const metadata: Metadata = withSeo("/results", {
   title: "Your ReviewIntel result",
@@ -16,13 +17,9 @@ export const metadata: Metadata = withSeo("/results", {
 }, { noindex: true });
 export const dynamic = "force-dynamic";
 
-/** Server-side insufficient-evidence signal (same family the flag hook uses). */
+/** Server-side insufficient-evidence signal, aligned with the brief's verdict gate. */
 function isNoVerdictResult(result: AnalyzeResponse | null): boolean {
-  if (!result) return false;
-  const record = result as unknown as Record<string, unknown>;
-  if (record.scanState === "INSUFFICIENT_EVIDENCE") return true;
-  const verdict = String(record.verdict ?? "").toUpperCase();
-  return verdict === "REVIEW EVIDENCE NOT ENOUGH" || verdict === "NOT_ENOUGH";
+  return shouldShowRescueCapture(result);
 }
 
 export default async function ResultsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

@@ -5,7 +5,7 @@ import { provisionalShopperFacing } from "@/lib/buyingScore";
 // accepted review bodies linked to a claim by its evidence ids/hashes.
 
 export type ShopperAnswerKind = "buy" | "wait" | "skip" | "not_enough";
-export type ShopperPoint = { claim: string; count: number; quote: string | null; sourceHost: string | null; sourceUrl: string | null };
+export type ShopperPoint = { claim: string; count: number; quote: string | null; sourceHost: string | null; sourceUrl: string | null; sourceIds: string[]; sourceHashes: string[] };
 export type ShopperAnswer = {
   kind: ShopperAnswerKind;
   label: string;
@@ -80,7 +80,7 @@ export function shortQuote(body: string, max = 150): string {
   return `${clean.slice(0, cut > 40 ? cut : max)}…`;
 }
 
-function acceptedRecords(result: Rec): Array<{ id?: string; stableEvidenceHash?: string; body?: string; sourceUrl?: string | null }> {
+export function acceptedRecords(result: Rec): Array<{ id?: string; stableEvidenceHash?: string; body?: string; sourceUrl?: string | null }> {
   const evidence = obj(result.reviewEvidence);
   const adjudication = obj(evidence.evidenceAdjudication);
   const list = adjudication.acceptedRecords;
@@ -325,6 +325,8 @@ function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attributio
       quote,
       sourceHost: host,
       sourceUrl: record.sourceUrl ? String(record.sourceUrl) : null,
+      sourceIds: record.id ? [String(record.id)] : [],
+      sourceHashes: record.stableEvidenceHash ? [String(record.stableEvidenceHash)] : [],
     });
     if (points.length >= 3) break;
   }
@@ -417,7 +419,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
       const body = record?.body && isWrittenReviewBody(String(record.body)) ? String(record.body) : "";
       const quote = body ? shortQuote(body) : null;
       const host = quote ? (attribution.get(normalizeQuoteKey(quote)) ?? (record ? hostOf(record.sourceUrl) : null)) : null;
-      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: host, sourceUrl: record?.sourceUrl ? String(record.sourceUrl) : null };
+      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: host, sourceUrl: record?.sourceUrl ? String(record.sourceUrl) : null, sourceIds: claim.sourceIds, sourceHashes: claim.sourceHashes };
     });
   const storeLabel = String(obj(result.product).store || result.store || "");
   const facing = card && String(card.mode || "") === "provisional_marketplace"
