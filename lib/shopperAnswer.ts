@@ -166,6 +166,29 @@ function trimRating(rating: number): string {
   return String(rounded);
 }
 
+/**
+ * Raw marketplace aggregate numbers for the decision-brief answer card,
+ * using the SAME precedence as marketplaceAggregateForDisplay (listing
+ * evidence first, then product-level fallbacks). Display-only.
+ */
+export function marketplaceAggregateNumbers(input: unknown): { rating: number | null; count: number | null } {
+  const result = obj(input);
+  const evidence = obj(result.reviewEvidence);
+  const listing = obj(evidence.listingEvidence);
+  const product = obj(result.product);
+  const rating =
+    num(listing.rating) ?? num(product.rating) ?? num(result.marketplaceRating) ?? num(result.rating);
+  const count =
+    num(listing.reviewCount) ??
+    num(evidence.marketplaceReviewCount) ??
+    num(product.reviewCount) ??
+    num(result.marketplaceReviewCount);
+  return {
+    rating: rating !== null && rating > 0 ? Math.round(rating * 10) / 10 : null,
+    count: count !== null && count > 0 ? Math.round(count) : null,
+  };
+}
+
 /** Written review text only. Star ratings and blank bodies are not reviews. */
 export function isWrittenReviewBody(body: string): boolean {
   const text = body.replace(/\s+/g, " ").trim();
