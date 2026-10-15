@@ -1,6 +1,7 @@
 import type React from "react";
 import Link from "next/link";
 import { provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
+import { cleanQuoteText, normalizeQuoteKey } from "@/lib/shopperAnswer";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
 
@@ -31,7 +32,21 @@ export function isBuyingScoreV2(value: unknown): value is Card {
   return Boolean(value && typeof value === "object" && (value as Record<string, unknown>).version === "buying-score-v2");
 }
 
-export function BuyingScoreV2Card({ score, compact = false, store }: { score: Card; compact?: boolean; store?: string | null }) {
+export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, attributionOf }: {
+  score: Card;
+  compact?: boolean;
+  store?: string | null;
+  /**
+   * Normalized quote keys already shown in the primary quotes section
+   * (ShopperAnswerCard). Quotes matching these are not repeated here.
+   */
+  quoteKeys?: string[];
+  /**
+   * Canonical attribution for a displayed quote (same label everywhere).
+   * Receives the quote text, returns the source host or null.
+   */
+  attributionOf?: (quote: string) => string | null;
+}) {
   const isProvisional = score.mode === "provisional_marketplace";
   const isNoScore = score.mode === "no_score";
   const facing = isProvisional ? provisionalShopperFacing(score, store) : null;
@@ -40,6 +55,21 @@ export function BuyingScoreV2Card({ score, compact = false, store }: { score: Ca
     : isProvisional && score.leaning ? `Leaning ${score.leaning}` : score.verdict || "";
   const toneKey = facing?.verdict || facing?.leaning || score.verdict || score.leaning || "Wait";
   const quotes = score.quotes;
+  // Display-layer quote hygiene (defects 1, 2, 4): clean markdown artifacts,
+  // dedupe against the primary quotes section, and use one canonical
+  // attribution per quote. No stored data is changed.
+  const excludeKeys = new Set(quoteKeys ?? []);
+  const visibleQuotes = (list: string[]): Array<{ text: string; host: string | null }> => {
+    const out: Array<{ text: string; host: string | null }> = [];
+    for (const raw of list) {
+      const text = cleanQuoteText(raw);
+      if (!text || excludeKeys.has(normalizeQuoteKey(text))) continue;
+      out.push({ text, host: attributionOf ? attributionOf(raw) : null });
+    }
+    return out;
+  };
+  const visiblePositive = visibleQuotes(quotes?.positive ?? []);
+  const visibleNegative = visibleQuotes(quotes?.negative ?? []);
   return (
     <section data-testid="buying-score-v2" data-mode={score.mode}
       className={`rounded-2xl border border-line bg-white shadow-soft dark:border-white/10 dark:bg-slate-900 ${compact ? "p-4" : "p-6"}`}>
@@ -75,7 +105,7 @@ export function BuyingScoreV2Card({ score, compact = false, store }: { score: Ca
               <p className="text-[11px] font-black uppercase tracking-[0.12em] opacity-80">{warningTitle[w.tier]}</p>
               <p className="font-semibold">{w.text}</p>
               {w.quotes.map((q, j) => (
-                <blockquote key={j} className="mt-1 border-l-2 border-current/30 pl-2 text-xs italic opacity-90">“{q}”</blockquote>
+                <blockquote key={j} className="mt-1 border-l-2 border-current/30 pl-2 text-xs italic opacity-90">“{cleanQuoteText(q)}”</blockquote>
               ))}
               {w.sourceUrl ? <a href={w.sourceUrl} className="mt-1 inline-block text-xs font-bold underline" rel="noopener noreferrer" target="_blank">Source</a> : null}
             </div>
@@ -89,18 +119,28 @@ export function BuyingScoreV2Card({ score, compact = false, store }: { score: Ca
         </ul>
       ) : null}
 
-      {!isProvisional && !isNoScore && quotes && (quotes.positive.length || quotes.negative.length) ? (
+      {!isProvisional && !isNoScore && (visiblePositive.length || visibleNegative.length) ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {quotes.positive.length ? (
+          {visiblePositive.length ? (
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-700">What buyers like</p>
-              {quotes.positive.slice(0, compact ? 2 : 3).map((q, i) => <blockquote key={i} className="mt-1 text-xs italic text-slate-700 dark:text-slate-300">“{q}”</blockquote>)}
+              {visiblePositive.slice(0, compact ? 2 : 3).map((q, i) => (
+                <blockquote key={i} className="mt-1 text-xs italic text-slate-700 dark:text-slate-300">
+                  “{q.text}”
+                  {q.host ? <span className="mt-1 block text-[11px] not-italic text-slate-400">{q.host}</span> : null}
+                </blockquote>
+              ))}
             </div>
           ) : null}
-          {quotes.negative.length ? (
+          {visibleNegative.length ? (
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-rose-700">Complaints</p>
-              {quotes.negative.slice(0, compact ? 2 : 3).map((q, i) => <blockquote key={i} className="mt-1 text-xs italic text-slate-700 dark:text-slate-300">“{q}”</blockquote>)}
+              {visibleNegative.slice(0, compact ? 2 : 3).map((q, i) => (
+                <blockquote key={i} className="mt-1 text-xs italic text-slate-700 dark:text-slate-300">
+                  “{q.text}”
+                  {q.host ? <span className="mt-1 block text-[11px] not-italic text-slate-400">{q.host}</span> : null}
+                </blockquote>
+              ))}
             </div>
           ) : null}
         </div>

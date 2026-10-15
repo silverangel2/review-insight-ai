@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { deriveShopperAnswer, formatShopperConfidence, unreadableRetryPhrase, type ShopperPoint } from "@/lib/shopperAnswer";
+import { deriveShopperAnswer, formatShopperConfidence, marketplaceAggregateForDisplay, unreadableRetryPhrase, type ShopperPoint } from "@/lib/shopperAnswer";
 import { CountUp } from "./motion/CountUp";
 import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 
@@ -74,6 +74,7 @@ function ScreenshotUpload({ productName }: { productName: string }) {
 export function ShopperAnswerCard({ result, productName }: { result: unknown; productName: string }) {
   const answer = deriveShopperAnswer(result);
   const tone = TONE[answer.kind];
+  const aggregate = marketplaceAggregateForDisplay(result);
   return (
     <div className="space-y-4 sm:space-y-6" data-testid="shopper-answer">
       <section className={`rounded-[2rem] bg-white p-6 ring-1 ${tone.ring} sm:p-10`}>
@@ -89,6 +90,9 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-slate-100 pt-5 text-sm">
           <div><dt className="text-slate-500">How sure we are</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-confidence">{formatShopperConfidence(answer)}</dd></div>
           <div><dt className="text-slate-500">Value for money</dt><dd className="mt-1 font-semibold text-slate-900">{answer.value}</dd></div>
+          {aggregate.rating ? (
+            <div><dt className="text-slate-500">Marketplace rating</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-marketplace-rating">{aggregate.rating}{aggregate.countLine ? <span className="ml-2 font-normal text-slate-500">{aggregate.countLine}</span> : null}</dd></div>
+          ) : null}
         </dl>
         )}
         {answer.unreadable ? null : <p className="mt-5 text-sm text-slate-500">{answer.trustLine}</p>}
