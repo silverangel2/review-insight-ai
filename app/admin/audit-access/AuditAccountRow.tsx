@@ -27,6 +27,12 @@ export function AuditAccountRow({ email }: { email: string }) {
         setBusy(false);
         return;
       }
+      // The admin session cookie makes every page resolve the operator
+      // identity, masking the minted test account. Clear ONLY the admin
+      // cookie (the logout route leaves the account session untouched) so
+      // the browser truly becomes the test account. The operator re-enters
+      // via /admin-access when needed.
+      await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
       window.location.href = landingForRole(String(data.role ?? ""));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Minting failed.");
