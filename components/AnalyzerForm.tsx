@@ -126,7 +126,11 @@ function analyzerFormCopy(locale: string) {
         analyzeError: "Nous n’avons pas pu analyser cette capture.",
         intro: "Vous pensez acheter quelque chose ? Téléversez une capture et obtenez un verdict d’achat IA instantané.",
         previewAlt: "Aperçu de la capture du produit",
-        scanLimitMessage: "Vous avez utilisé vos 3 analyses gratuites aujourd’hui. Vos analyses se réinitialisent demain."
+        scanLimitMessage: "Vous avez utilisé vos 3 analyses gratuites aujourd’hui. Vos analyses se réinitialisent demain.",
+        pageCaptureTitle: "Déjà sur la page du produit ?",
+        pageCaptureHint: "ReviewIntel peut lire les avis affichés sur la page que vous consultez grâce à un favori ou une extension gratuite.",
+        pageCaptureCta: "Analyser cette page →",
+        pageCaptureNote: "Nécessite un compte ReviewIntel gratuit — connectez-vous d’abord."
       };
     case "es":
       return {
@@ -140,7 +144,11 @@ function analyzerFormCopy(locale: string) {
         analyzeError: "No pudimos analizar esta captura.",
         intro: "¿Piensas comprar algo? Sube una captura y obtén un veredicto de compra instantáneo con IA.",
         previewAlt: "Vista previa de la captura del producto",
-        scanLimitMessage: "Ya usaste tus 3 análisis gratis de hoy. Tus análisis se restablecen mañana."
+        scanLimitMessage: "Ya usaste tus 3 análisis gratis de hoy. Tus análisis se restablecen mañana.",
+        pageCaptureTitle: "¿Ya estás viendo la página del producto?",
+        pageCaptureHint: "ReviewIntel puede leer las reseñas de la página que estás viendo con un marcador o una extensión gratuita.",
+        pageCaptureCta: "Analizar esta página →",
+        pageCaptureNote: "Necesitas una cuenta gratuita de ReviewIntel — inicia sesión primero."
       };
     case "zh":
       return {
@@ -154,7 +162,11 @@ function analyzerFormCopy(locale: string) {
         analyzeError: "我们无法分析这张截图。",
         intro: "想买东西？上传截图，即可获得即时 AI 购买判断。",
         previewAlt: "产品截图预览",
-        scanLimitMessage: "你今天的 3 次免费扫描已经用完。扫描次数明天重置。"
+        scanLimitMessage: "你今天的 3 次免费扫描已经用完。扫描次数明天重置。",
+        pageCaptureTitle: "已经在看产品页面了？",
+        pageCaptureHint: "ReviewIntel 可以通过免费书签或浏览器扩展读取您正在查看的页面上的评论。",
+        pageCaptureCta: "分析此页面 →",
+        pageCaptureNote: "需要免费的 ReviewIntel 账户——请先登录。"
       };
     case "de":
       return {
@@ -168,7 +180,11 @@ function analyzerFormCopy(locale: string) {
         analyzeError: "Wir konnten diesen Screenshot nicht analysieren.",
         intro: "Denkst du darüber nach, etwas zu kaufen? Lade einen Screenshot hoch und erhalte sofort ein KI-Kaufurteil.",
         previewAlt: "Vorschau des Produkt-Screenshots",
-        scanLimitMessage: "Du hast heute alle 3 kostenlosen Scans verwendet. Deine Scans werden morgen zurückgesetzt."
+        scanLimitMessage: "Du hast heute alle 3 kostenlosen Scans verwendet. Deine Scans werden morgen zurückgesetzt.",
+        pageCaptureTitle: "Schon auf der Produktseite?",
+        pageCaptureHint: "ReviewIntel kann die Bewertungen auf der Seite lesen, die Sie gerade ansehen — mit einem kostenlosen Lesezeichen oder einer Browser-Erweiterung.",
+        pageCaptureCta: "Diese Seite analysieren →",
+        pageCaptureNote: "Benötigt ein kostenloses ReviewIntel-Konto — bitte zuerst anmelden."
       };
     case "hi":
       return {
@@ -182,7 +198,11 @@ function analyzerFormCopy(locale: string) {
         analyzeError: "हम इस स्क्रीनशॉट का विश्लेषण नहीं कर सके।",
         intro: "कुछ खरीदने की सोच रहे हैं? स्क्रीनशॉट अपलोड करें और तुरंत AI buying verdict पाएं।",
         previewAlt: "उत्पाद स्क्रीनशॉट preview",
-        scanLimitMessage: "आपने आज के सभी 3 free scans इस्तेमाल कर लिए हैं। आपके scans कल reset होंगे."
+        scanLimitMessage: "आपने आज के सभी 3 free scans इस्तेमाल कर लिए हैं। आपके scans कल reset होंगे.",
+        pageCaptureTitle: "पहले से प्रोडक्ट पेज देख रहे हैं?",
+        pageCaptureHint: "ReviewIntel मुफ़्त बुकमार्क या ब्राउज़र एक्सटेंशन से आपके सामने वाले पेज की reviews पढ़ सकता है।",
+        pageCaptureCta: "इस पेज का विश्लेषण करें →",
+        pageCaptureNote: "मुफ़्त ReviewIntel खाता चाहिए — पहले साइन इन करें।"
       };
     default:
       return {
@@ -196,7 +216,11 @@ function analyzerFormCopy(locale: string) {
         analyzeError: "We could not analyze this screenshot.",
         intro: "Paste a product link, or add a product-page screenshot. A screenshot is optional and helps when the store page is hard to read.",
         previewAlt: "Product screenshot preview",
-        scanLimitMessage: "You have used all 3 free scans for today. Your scans reset tomorrow."
+        scanLimitMessage: "You have used all 3 free scans for today. Your scans reset tomorrow.",
+        pageCaptureTitle: "Already looking at the product page?",
+        pageCaptureHint: "ReviewIntel can read the reviews on the page you’re looking at with a free bookmark or browser extension.",
+        pageCaptureCta: "Analyze this page →",
+        pageCaptureNote: "Needs a free ReviewIntel account — sign in first."
       };
   }
 }
@@ -513,6 +537,18 @@ export default function AnalyzerForm() {
             {isLoading ? analyzerFormCopy(readStoredLocale()).analyzing : analyzerFormCopy(readStoredLocale()).analyze}
           </span>
         </button>
+
+        <a
+          href="/tools/analyze-page"
+          className="mt-5 flex w-full items-center justify-between gap-4 rounded-2xl border border-teal/30 bg-teal/5 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:border-teal dark:border-cyan-300/30 dark:bg-cyan-300/5"
+        >
+          <span>
+            <span className="block text-base font-black text-ink dark:text-white">{analyzerFormCopy(readStoredLocale()).pageCaptureTitle}</span>
+            <span className="mt-1 block text-sm font-bold text-slate-500 dark:text-slate-400">{analyzerFormCopy(readStoredLocale()).pageCaptureHint}</span>
+            <span className="mt-1 block text-xs font-bold text-slate-400 dark:text-slate-500">{analyzerFormCopy(readStoredLocale()).pageCaptureNote}</span>
+          </span>
+          <span className="shrink-0 text-sm font-black text-teal dark:text-cyan-300">{analyzerFormCopy(readStoredLocale()).pageCaptureCta}</span>
+        </a>
 
         </>
         )}

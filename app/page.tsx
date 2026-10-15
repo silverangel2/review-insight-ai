@@ -69,7 +69,7 @@ export default async function LandingPage() {
             <HeroVerdictCycle />
             <div className="mt-5 max-w-xl"><HomePasteLink /></div>
             <p className="text-sm text-slate-500">
-              Or <Link href="/analyze" className="font-medium text-coralink underline decoration-coral/50 underline-offset-2 hover:text-teal">upload review screenshots</Link> instead.
+              Or <Link href="/analyze" className="font-medium text-coralink underline decoration-coral/50 underline-offset-2 hover:text-teal">upload review screenshots</Link>, or <Link href="/tools/analyze-page" className="font-medium text-coralink underline decoration-coral/50 underline-offset-2 hover:text-teal">analyze the page you&apos;re looking at</Link> instead.
             </p>
           </div>
           <div className="ri-reveal">
