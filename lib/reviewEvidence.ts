@@ -2499,7 +2499,12 @@ export async function collectAndAnalyzeReviewEvidence(
 
   let hasCollectedWrittenReviewEvidence = false;
 
-  let checkedListingUrl = String(listingEvidenceForCollection?.exactListingUrl || "").trim();
+  // Adjudication's listing association keys off this URL: it must be the verified
+  // listing the collector actually read. The listing-evidence object can carry a
+  // null URL even when the verifier accepted one (its URL lives on the verifier
+  // result), which silently stripped the association and made the accessory gate
+  // reject genuine reviews for naming components of the product itself.
+  let checkedListingUrl = String(listingUrlForReviewCollector || listingEvidenceForCollection?.exactListingUrl || "").trim();
   let checkedListingTitle = String(listingEvidenceForCollection?.exactListingTitle || input.productName || "").trim();
   let checkedListingId =
     checkedListingUrl.match(/\/([A-Z0-9]{8,})(?:[/?#]|$)/i)?.[1] || "";
