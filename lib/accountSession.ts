@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 
 export const ACCOUNT_SESSION_COOKIE = "reviewintel_account_session";
 
+export const DEFAULT_ACCOUNT_SESSION_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
+
 export type AccountSession = {
   email: string;
   role: string;
@@ -34,20 +36,28 @@ function sign(payload: string) {
   return crypto.createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
 }
 
-export function createAccountSession(account: {
-  email?: string;
-  role?: string;
-  plan?: string;
-  name?: string;
-  userId?: string;
-}) {
+/**
+ * Lifetime override (seconds) keeps the normal 7-day default; audit access
+ * passes AUDIT_SESSION_DAYS worth of seconds. The reader
+ * (verifyAccountSessionToken) is unchanged — it only checks `exp`.
+ */
+export function createAccountSession(
+  account: {
+    email?: string;
+    role?: string;
+    plan?: string;
+    name?: string;
+    userId?: string;
+  },
+  lifetimeSeconds: number = DEFAULT_ACCOUNT_SESSION_LIFETIME_SECONDS
+) {
   const session: AccountSession = {
     email: String(account.email ?? "").toLowerCase().trim(),
     role: String(account.role ?? "").toLowerCase().trim(),
     plan: String(account.plan ?? "").toLowerCase().trim(),
     name: account.name,
     userId: account.userId,
-    exp: Date.now() + 7 * 24 * 60 * 60 * 1000
+    exp: Date.now() + Math.max(1, Math.floor(lifetimeSeconds)) * 1000
   };
 
   if (!session.email) {
@@ -104,14 +114,15 @@ export function setAccountSessionCookie(
     plan?: string;
     name?: string;
     userId?: string;
-  }
+  },
+  maxAgeSeconds: number = DEFAULT_ACCOUNT_SESSION_LIFETIME_SECONDS
 ) {
-  const maxAge = 7 * 24 * 60 * 60;
+  const maxAge = Math.max(1, Math.floor(maxAgeSeconds));
   const role = String(account.role ?? "").toLowerCase().trim();
   const plan = String(account.plan ?? "").toLowerCase().trim();
   const email = String(account.email ?? "").toLowerCase().trim();
 
-  response.cookies.set(ACCOUNT_SESSION_COOKIE, createAccountSession(account), {
+  response.cookies.set(ACCOUNT_SESSION_COOKIE, createAccountSession(account, maxAge), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
