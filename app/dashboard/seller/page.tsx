@@ -23,6 +23,7 @@ import { ProOnlyGate } from "@/components/ProOnlyGate";
 import { SellerImprovementCalendar } from "@/components/SellerImprovementCalendar";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { readSellerProducts, type SellerProduct } from "@/lib/sellerProducts";
+import { SellerProductBusinessAnalysis } from "@/components/SellerProductBusinessAnalysis";
 import { readSellerJournal } from "@/lib/sellerJournal";
 import { startSellerWorkspaceSync } from "@/lib/sellerWorkspaceSync";
 import { getClientAccount } from "@/lib/clientAccount";
@@ -933,6 +934,8 @@ export default function SellerDashboardPage() {
             items={dashboard.positiveSignals.length ? dashboard.positiveSignals : ["Positive buyer signals will appear after saved seller scans."]}
           />
         </section>
+
+        <SellerProductBusinessAnalysis products={products} isPro={isSellerPro} />
 
         <section className="seller-premium-utility-grid mb-6 grid gap-5 lg:grid-cols-2">
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
