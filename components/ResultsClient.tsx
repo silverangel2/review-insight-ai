@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { ResultsDashboard } from "@/components/ResultsDashboard";
-import { ShopperAnswerCard } from "@/components/ShopperAnswerCard";
+import { ShopperAnswerCard } from "@/components/ShopperAnswerCard"; import { DecisionBrief } from "@/components/DecisionBrief";
 import { UpgradeMoment } from "@/components/upsell/UpgradeMoment";
 import { reconcileAnalysisScores } from "@/lib/analysisScoring";
 import { canAccessSellerAnalytics } from "@/lib/account";
@@ -2790,7 +2790,7 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
   const productTitle = isUnreadableAmazonPage(result)
     ? "Amazon product"
     : neutralProductLabel(rawProductTitle) || displayCodeForResult(result, "Product detail verdict");
-  const resultHeading = isSellerAudience
+  const decisionBriefReady = !isUnreadableAmazonPage(result) && ["buy", "wait", "skip"].includes(deriveShopperAnswer(result).kind); const evidenceStateForBrief = reviewEvidenceDecisionState(result); const resultHeading = isSellerAudience
     ? `${sellerPlanLabel} intelligence`
     : isCompareResult
       ? compareResultTitle(result)
@@ -2828,7 +2828,7 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
         <ShopperCompareDetail result={result} />
       ) : (
         <>
-          <ShopperAnswerCard result={result} productName={productTitle} />
+          {decisionBriefReady ? <DecisionBrief result={result} productName={productTitle} previewImage={preview} evidenceState={evidenceStateForBrief} /> : (<><ShopperAnswerCard result={result} productName={productTitle} />
           <BetterPicksPanel result={result as unknown as Record<string, unknown>} productName={productTitle} />
           <UpgradeMoment placement="results" sellerIntent={String((result as unknown as Record<string, unknown>).mode || "") === "seller"} />
           <details className="group rounded-3xl bg-white ring-1 ring-slate-900/5 dark:bg-slate-900">
@@ -2839,7 +2839,7 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
             <div className="px-2 pb-4 sm:px-4">
               <ShopperProductDetail result={result} preview={preview} />
             </div>
-          </details>
+          </details></>)}
         </>
       )}
       <style jsx global>{`
