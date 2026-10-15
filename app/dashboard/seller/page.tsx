@@ -530,6 +530,15 @@ export default function SellerDashboardPage() {
     };
   }, [products, journalScans, accountAnalyses]);
 
+  // Hoisted above the early return: hooks must run in the same order on
+  // every render. Behavior identical — the gate condition is not part of
+  // the memoized value.
+  const savedScanCount = useMemo(
+    () => countSellerAnalyses(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [products, journalScans]
+  );
+
   if (account && !isSeller) {
     return (
       <ProOnlyGate>
@@ -556,11 +565,7 @@ export default function SellerDashboardPage() {
   // Saved-scan count has ONE source: scans across the deduped product
   // records (the same store the attach path writes). The old API+local
   // history merge is what made the count flicker (6 → 9 → 10 → 2 → 10).
-  const savedScanCount = useMemo(
-    () => countSellerAnalyses(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [products, journalScans]
-  );
+  // (savedScanCount is hoisted above the early return; see there.)
   const safeSatisfaction = typeof dashboard.satisfaction === "number" ? dashboard.satisfaction : null;
   const safeProductScore = typeof dashboard.productScore === "number" ? dashboard.productScore : null;
   const satisfactionTone = safeSatisfaction === null ? "warn" : safeSatisfaction >= 70 ? "good" : "warn";
