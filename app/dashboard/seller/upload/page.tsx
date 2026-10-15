@@ -26,6 +26,8 @@ export default function SellerDashboardPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
+  const [productLink, setProductLink] = useState("");
+  const [libraryConsent, setLibraryConsent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   async function analyzeCsv() {
@@ -41,6 +43,8 @@ export default function SellerDashboardPage() {
       const formData = new FormData();
       formData.append("csv", file);
       formData.append("locale", readStoredLocale());
+      formData.append("productLink", productLink.trim());
+      formData.append("libraryConsent", libraryConsent ? "1" : "0");
 
       const response = await fetch("/api/seller-analyze", {
         method: "POST",
@@ -128,6 +132,41 @@ export default function SellerDashboardPage() {
                   setError("");
                 }}
               />
+            </label>
+
+            <div className="mt-4 rounded-2xl border border-line bg-white px-5 py-4 shadow-soft dark:border-white/10 dark:bg-white/5">
+              <label
+                htmlFor="seller-product-link"
+                className="text-xs font-black uppercase tracking-[0.18em] text-teal dark:text-cyan-200"
+              >
+                Product link (optional)
+              </label>
+              <input
+                id="seller-product-link"
+                type="url"
+                inputMode="url"
+                value={productLink}
+                onChange={(event) => setProductLink(event.target.value)}
+                placeholder="https://www.amazon.ca/dp/B0DGJDKHRQ"
+                disabled={isLoading}
+                className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 text-sm font-semibold text-ink placeholder:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/40"
+              />
+              <p className="mt-1.5 text-[11px] font-semibold leading-relaxed text-slate-500 dark:text-slate-400">
+                Paste your product&apos;s store link so ReviewIntel can file these reviews under the right product.
+              </p>
+            </div>
+
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-soft dark:border-white/10 dark:bg-white/5">
+              <input
+                type="checkbox"
+                checked={libraryConsent}
+                onChange={(event) => setLibraryConsent(event.target.checked)}
+                disabled={isLoading}
+                className="mt-1 size-5 shrink-0 accent-teal"
+              />
+              <span className="text-sm font-semibold leading-relaxed text-slate-600 dark:text-slate-300">
+                These are reviews of my own product. ReviewIntel may include them in its shared product evidence library.
+              </span>
             </label>
 
             {error && (

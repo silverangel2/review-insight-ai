@@ -22,6 +22,10 @@ import {
   buildDeterministicSellerResult,
   toDeepInsightsView,
 } from "@/lib/sellerReviewIntelligence";
+import {
+  buildSellerLibraryWrite,
+  persistSellerImportToLibrary,
+} from "@/lib/sellerLibrary";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -442,6 +446,12 @@ async function handlePOST(request: Request): Promise<Response> {
     const file = formData.get("csv");
     const locale = String(formData.get("locale") || "en").trim();
     const purpose = String(formData.get("purpose") || "").trim();
+    // Seller-import lane: optional product identity + explicit consent for
+    // consolidating the seller's own reviews into the shared product library.
+    const productLink = String(formData.get("productLink") || "").trim();
+    const libraryConsent = ["1", "true", "on", "yes"].includes(
+      String(formData.get("libraryConsent") || "").trim().toLowerCase()
+    );
     const isCompareSideAnalysis = purpose === "seller_compare_side";
     const outputLanguage = languageNameFromLocale(locale);
 
@@ -642,6 +652,26 @@ ${deepIntel.evidenceBrief}
           plan,
           productName: file.name.replace(/\.csv$/i, ""),
         });
+      }
+
+      // Consolidate the seller's own reviews into the shared product library
+      // when they consented and gave a product identity. Fire-and-forget:
+      // storage must never delay or alter the seller report. Compare-side
+      // analyses are intentionally excluded (their rows belong to the main
+      // per-account analysis, not a fresh import).
+      try {
+        const write = buildSellerLibraryWrite({
+          consent: libraryConsent,
+          productLink,
+          rows,
+          productName:
+            productNameForEvidence.toLowerCase() === "seller product"
+              ? null
+              : productNameForEvidence,
+        });
+        if (write) void persistSellerImportToLibrary(write).catch(() => {});
+      } catch {
+        // Library failures never affect the seller report.
       }
 
       return NextResponse.json({
