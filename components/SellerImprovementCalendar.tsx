@@ -267,6 +267,7 @@ type SupabaseAnalysisRow = {
   recommendation?: unknown;
   summary?: string | null;
   analysis_json?: Record<string, unknown> | null;
+  review_count?: number | null;
   created_at?: string | null;
 };
 
@@ -293,7 +294,17 @@ function mapAnalysisRowToSellerScan(row: SupabaseAnalysisRow): SellerJournalScan
     productName: String(row.product_name ?? analysis.product_name ?? "Saved seller scan"),
     productScore: score,
     sentimentScore: asNumber(analysis.sentiment_score ?? sellerInsights.sentiment_score, 0),
-    reviewCount: asNumber(analysis.review_count ?? analysis.reviewCount, 0),
+    // Review counts must come from the analysis record itself — the seller
+    // analysis stores them as `reviewsAnalyzed`, so a plain 0 default is
+    // wrong ("0 reviews scanned" for a real scan).
+    reviewCount: asNumber(
+      analysis.reviewsAnalyzed ??
+        analysis.reviews_analyzed ??
+        analysis.review_count ??
+        analysis.reviewCount ??
+        row.review_count,
+      0
+    ),
     topComplaints: complaints.map((item) => String(item)),
     topPositiveFeedback: praise.map((item) => String(item)),
     recommendations: Array.isArray(analysis.recommendations)
