@@ -1,4 +1,6 @@
 import { provisionalShopperFacing } from "@/lib/buyingScore";
+import { quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
+import { supportingClauseForClaim } from "@/lib/claimClauseEvidence";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
 // No invented numbers: missing values stay null/"Unknown"; quotes are real
@@ -386,15 +388,43 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     ? cardCount === 0 || String(card.mode || "") === "no_score"
     : state === "NOT_ENOUGH" || reviewCount === 0 || /NOT[_ ]ENOUGH|NOT SCORED/.test(verdict);
 
+  // Page-level single assignment: a quote shown under one theme is never
+  // repeated under another (defect batch 2, rule 1).
+  const usedQuoteKeys = new Set<string>();
+  const claimUsedKey = (quote: string | null): string | null => {
+    if (!quote) return null;
+    const key = quoteIdentityKey(quote);
+    for (const used of usedQuoteKeys) {
+      if (used === key || sameDisplayedQuote(used, quote)) return used;
+    }
+    return null;
+  };
+  // Clause-level evidence (defect batch 2, rule 2): the quote shown for a
+  // theme claim is the clause that matched the theme's rule — the clause is
+  // guaranteed complaint-bearing (complaint themes) or praise-bearing
+  // (strength themes) by the same guards provenance used. A positive quote
+  // can never again sit under a complaint theme.
   const toPoints = (kind: "strength" | "complaint"): ShopperPoint[] => claimsOf(result, kind)
     .sort((a, b) => b.supportCount - a.supportCount)
     .slice(0, 3)
     .map(claim => {
-      const record = records.find(item => (item.id && claim.sourceIds.includes(item.id)) || (item.stableEvidenceHash && claim.sourceHashes.includes(item.stableEvidenceHash)));
-      const body = record?.body && isWrittenReviewBody(String(record.body)) ? String(record.body) : "";
-      const quote = body ? shortQuote(body) : null;
-      const host = quote ? (attribution.get(normalizeQuoteKey(quote)) ?? (record ? hostOf(record.sourceUrl) : null)) : null;
-      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: host, sourceUrl: record?.sourceUrl ? String(record.sourceUrl) : null };
+      const candidates = records.filter(item => (item.id && claim.sourceIds.includes(item.id)) || (item.stableEvidenceHash && claim.sourceHashes.includes(item.stableEvidenceHash)));
+      let quote: string | null = null;
+      let host: string | null = null;
+      let sourceUrl: string | null = null;
+      for (const record of candidates) {
+        const body = record?.body && isWrittenReviewBody(String(record.body)) ? String(record.body) : "";
+        if (!body) continue;
+        const clause = supportingClauseForClaim(body, claim.claim);
+        const candidate = clause ? shortQuote(clause) : shortQuote(body);
+        if (claimUsedKey(candidate)) continue;
+        quote = candidate;
+        usedQuoteKeys.add(quoteIdentityKey(quote));
+        host = attribution.get(normalizeQuoteKey(quote)) ?? hostOf(record.sourceUrl);
+        sourceUrl = record.sourceUrl ? String(record.sourceUrl) : null;
+        break;
+      }
+      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: host, sourceUrl };
     });
   const storeLabel = String(obj(result.product).store || result.store || "");
   const facing = card && String(card.mode || "") === "provisional_marketplace"
@@ -440,7 +470,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
         ? `Buyers consistently report ${topLove ? lower(topLove) : "good results"}${topComplaint ? `, and complaints like ${lower(topComplaint)} are rare` : ""}.`
         : kind === "skip"
           ? `Too many buyers report ${topComplaint ? lower(topComplaint) : "serious problems"}${topLove ? `, which outweighs ${lower(topLove)}` : ""}.`
-          : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but ${lower(topComplaint)} comes up` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
+          : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but buyers also mention ${lower(topComplaint)}` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
 
   const sourceText = sources.length ? sources.join(", ") : "the product listing";
   const trustLine = provisional && facing
