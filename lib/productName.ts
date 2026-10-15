@@ -11,6 +11,10 @@ export function shortProductName(value: unknown, fallback = "Product") {
     .replace(/^screenshot\s+\d{4}.*$/i, "Uploaded screenshot")
     .replace(/^screen\s*shot\s+\d{4}.*$/i, "Uploaded screenshot")
     .replace(/\b(compare|comparison|reviewintel|analysis|result|verdict)\b[:\s-]*/gi, "")
+    // Parenthetical variants ("(5th Gen, 2022 release)") are model metadata,
+    // not part of the readable product name — strip them before shortening so
+    // headlines never end mid-parenthesis like "Echo Dot (5th Gen,".
+    .replace(/\s*\([^()]{0,60}\)/g, "")
     .replace(/\b(suitable for|compatible with|for use with|works with)\b.*$/i, "")
     .replace(/\b(with|including|includes)\b.*$/i, "")
     .replace(/\b\d+\s*(pack|pcs|pieces|count|set)\b.*$/i, "")
@@ -25,11 +29,19 @@ export function shortProductName(value: unknown, fallback = "Product") {
   const words = name.split(" ").filter(Boolean);
 
   if (words.length > 4) {
-    name = words.slice(0, 4).join(" ");
+    const kept = words.slice(0, 4);
+    // Never leave a dangling preposition/conjunction: "CeraVe Moisturizing
+    // Cream for" reads as a cut-off, not a headline. Drop trailing fillers.
+    while (kept.length > 2 && /^(for|with|and|the|of|in|on|a|an|to)$/i.test(kept[kept.length - 1])) {
+      kept.pop();
+    }
+    name = `${kept.join(" ")}…`;
   }
 
-  if (name.length > 34) {
-    name = `${name.slice(0, 31).trim()}…`;
+  if (name.length > 40) {
+    const cut = name.slice(0, 37).trim();
+    const boundary = cut.lastIndexOf(" ");
+    name = `${(boundary > 20 ? cut.slice(0, boundary) : cut).trim()}…`;
   }
 
   return name || fallback;

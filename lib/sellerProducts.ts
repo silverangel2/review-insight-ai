@@ -11,6 +11,9 @@ export type SellerProductScanTone = "positive" | "mixed" | "negative" | "improve
 export type SellerProductScan = {
   id: string;
   date: string;
+  /** Canonical product URL carried on the scan so split records can be
+   *  folded back together (retro-merge). Optional: older scans lack it. */
+  productUrl?: string;
   productHealthScore: number;
   customerSatisfactionScore: number;
   complaintSeverityScore: number;
