@@ -27,6 +27,8 @@ type ReviewIntelScanOverlayProps = {
   initialProgress?: LiveScanProgress | null;
   /** Poll interval (ms). */
   pollMs?: number;
+  /** Where to land when the scan finishes server-side. Defaults to /results?scanId=<id>. */
+  resultUrl?: string;
 };
 
 /**
@@ -53,9 +55,14 @@ export function progressFraction(stage: ScanStage, uploadProgress: number, live:
   return Math.min(0.95, 0.1 + (index / (ORDER.length - 1)) * 0.85);
 }
 
-export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, scanId, initialProgress = null, pollMs = 1200 }: ReviewIntelScanOverlayProps) {
+export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, scanId, initialProgress = null, pollMs = 1200, resultUrl }: ReviewIntelScanOverlayProps) {
   const [visible, setVisible] = useState(true);
   const [live, setLive] = useState<LiveScanProgress | null>(initialProgress);
+  // Defect batch 2, rule 7c: if the scan completes server-side but the form's
+  // own response never lands (stuck "Finding your product"), the poll lands
+  // on the result and a recovery button appears after a long stall.
+  const [recoveryVisible, setRecoveryVisible] = useState(false);
+  const resultTarget = resultUrl ?? (scanId ? `/results?scanId=${encodeURIComponent(scanId)}` : null);
 
   useEffect(() => {
     if (stage === "done") {
@@ -73,13 +80,23 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
         const response = await fetch(`/api/scan-progress?scanId=${encodeURIComponent(scanId)}`, { cache: "no-store" });
         if (!response.ok) return;
         const data = await response.json();
-        if (!cancelled && data?.progress) setLive(data.progress as LiveScanProgress);
+        if (!cancelled && data?.progress) {
+          setLive(data.progress as LiveScanProgress);
+          // Server-side finished while the submit POST response never
+          // arrived: land on the result instead of hanging forever.
+          if (data.progress?.stage === "done" && resultTarget) {
+            window.location.assign(resultTarget);
+          }
+        }
       } catch { /* keep last known state */ }
     };
     void poll();
     const timer = window.setInterval(poll, pollMs);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [scanId, stage, pollMs, initialProgress]);
+    // 3.5 minutes with no completion: offer an honest escape hatch rather
+    // than a stuck screen. The result page handles missing/expired scans.
+    const recoveryTimer = window.setTimeout(() => { if (!cancelled) setRecoveryVisible(true); }, 210000);
+    return () => { cancelled = true; window.clearInterval(timer); window.clearTimeout(recoveryTimer); };
+  }, [scanId, stage, pollMs, initialProgress, resultTarget]);
 
   if (!visible) return null;
 
@@ -153,6 +170,16 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
         ) : null}
 
         <p className="mt-6 text-xs text-slate-400">Deep scans can take a minute or two. Keep this tab open.</p>
+
+        {recoveryVisible && resultTarget && stage !== "done" ? (
+          <button
+            type="button"
+            onClick={() => window.location.assign(resultTarget)}
+            className="mt-4 w-full rounded-2xl border border-teal/40 bg-teal/10 px-4 py-3 text-sm font-bold text-teal transition hover:bg-teal/20"
+          >
+            This is taking longer than usual — check your result
+          </button>
+        ) : null}
       </div>
     </div>
   );
