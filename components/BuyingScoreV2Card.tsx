@@ -1,7 +1,8 @@
 import type React from "react";
 import Link from "next/link";
 import { provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
-import { cleanQuoteText, normalizeQuoteKey } from "@/lib/shopperAnswer";
+import { cleanQuoteText } from "@/lib/shopperAnswer";
+import { sameDisplayedQuote } from "@/lib/evidenceConsistency";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
 
@@ -55,15 +56,22 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
     : isProvisional && score.leaning ? `Leaning ${score.leaning}` : score.verdict || "";
   const toneKey = facing?.verdict || facing?.leaning || score.verdict || score.leaning || "Wait";
   const quotes = score.quotes;
-  // Display-layer quote hygiene (defects 1, 2, 4): clean markdown artifacts,
-  // dedupe against the primary quotes section, and use one canonical
-  // attribution per quote. No stored data is changed.
-  const excludeKeys = new Set(quoteKeys ?? []);
+  // Display-layer quote hygiene (defect batches 1+2): clean markdown artifacts,
+  // never repeat a quote already shown in the primary quotes section or
+  // earlier on this card, and use one canonical attribution per quote.
+  // Truncation-aware matching: the same review body truncated at different
+  // lengths on different sections still counts as the same quote. No stored
+  // data is changed.
+  const excludeKeys = quoteKeys ?? [];
   const visibleQuotes = (list: string[]): Array<{ text: string; host: string | null }> => {
     const out: Array<{ text: string; host: string | null }> = [];
+    const cardKeys: string[] = [];
     for (const raw of list) {
       const text = cleanQuoteText(raw);
-      if (!text || excludeKeys.has(normalizeQuoteKey(text))) continue;
+      if (!text) continue;
+      if (excludeKeys.some((key) => sameDisplayedQuote(key, text))) continue;
+      if (cardKeys.some((key) => sameDisplayedQuote(key, text))) continue;
+      cardKeys.push(text);
       out.push({ text, host: attributionOf ? attributionOf(raw) : null });
     }
     return out;
@@ -82,7 +90,7 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
             </p>
           ) : null}
           <p data-testid="evidence-line" className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">{facing?.line || score.evidenceLine}</p>
-          <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Confidence: {facing ? `${facing.confidence} confidence` : score.confidenceReason}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Confidence: {facing ? `${facing.confidence} confidence` : `${score.confidence} confidence`}</p>
         </div>
         {!isNoScore ? (
           <div className="flex items-center gap-3">
@@ -152,7 +160,7 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
           {score.primaryAction}
         </Link>
       ) : null}
-      <p className="mt-3 text-[11px] text-slate-400">Only real written reviews and the marketplace rating are used. The score never reads more than the reviews shown above.</p>
+      <p className="mt-3 text-[11px] text-slate-400">Only real written reviews and the marketplace rating are used. The score is based only on the reviews shown above.</p>
     </section>
   );
 }

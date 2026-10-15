@@ -18,6 +18,7 @@ import {
   type SellerProductScan,
   type SellerProductScanTone
 } from "@/lib/sellerProducts";
+import { dedupeSellerProducts } from "@/lib/sellerProductConsolidation";
 import type { ReviewPlatform, SubscriptionPlan } from "@/lib/types";
 
 const toneClasses: Record<SellerProductScanTone, string> = {
@@ -104,7 +105,7 @@ export function SellerProductHealthTracker() {
 
   useEffect(() => {
     const account = getClientAccount();
-    const nextProducts = readSellerProducts();
+    const nextProducts = dedupeSellerProducts(readSellerProducts());
     const savedId = activeSellerProductId();
     setPlan(account?.plan ?? "free_buyer");
     setProducts(nextProducts);
@@ -125,7 +126,7 @@ export function SellerProductHealthTracker() {
   const actionPlan = uniqueItems(selectedProduct?.scans.flatMap((scan) => scan.actionPlan) ?? []);
 
   function refresh(nextSelectedId = selectedId) {
-    const nextProducts = readSellerProducts();
+    const nextProducts = dedupeSellerProducts(readSellerProducts());
     setProducts(nextProducts);
     const safeId = nextSelectedId && nextProducts.some((product) => product.id === nextSelectedId) ? nextSelectedId : nextProducts[0]?.id ?? "";
     setSelectedId(safeId);
