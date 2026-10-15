@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { clearClientAccount } from "@/lib/clientAccount";
+import { clearClientAccount, saveClientAccount } from "@/lib/clientAccount";
 
 function landingForRole(role: string) {
   const r = role.toLowerCase();
@@ -34,15 +34,21 @@ export function AuditAccountRow({ email }: { email: string }) {
       // the browser truly becomes the test account. The operator re-enters
       // via /admin-access when needed.
       await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
-      // The app also caches the signed-in account in localStorage and sends
-      // it as identity headers; a stale operator entry makes /api/account
-      // refuse the minted session (header email != session email) and the
-      // dashboard keeps showing the operator. Clear the cached client
-      // account + owner-unlock flags so the next page load resolves purely
-      // from the minted session cookie.
+      // The app ALSO caches the signed-in account in localStorage, and the
+      // account dashboard renders from that cache alone: with no cached
+      // account it shows "Account required" and never asks the server, and
+      // with a stale operator entry its identity headers clash with the
+      // minted session. So mirror what the normal login flow does: clear
+      // the stale cache, read the fresh account for the minted session from
+      // /api/account, and save it as the client account before navigating.
       clearClientAccount();
       window.sessionStorage.removeItem("reviewintel:owner-unlocked");
       window.sessionStorage.removeItem("reviewintel:owner-last-active");
+      const accountRes = await fetch("/api/account").catch(() => null);
+      const accountData = accountRes ? await accountRes.json().catch(() => null) : null;
+      if (accountData?.account?.email) {
+        saveClientAccount(accountData.account);
+      }
       window.location.href = landingForRole(String(data.role ?? ""));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Minting failed.");
