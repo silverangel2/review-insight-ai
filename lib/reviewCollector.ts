@@ -999,3 +999,43 @@ export async function collectWrittenReviewsFromListing(input: {
     };
   }
 }
+
+/**
+ * Aggregate-only read of a verified listing page. Native retrieval reads
+ * review bodies but never parses the listing's aggregate rating block, and
+ * the listing collector above does not run when native retrieval produced
+ * the corpus — so the marketplace aggregate arrived empty and the Buying
+ * Score lost its marketplace prior. This recovers the aggregate from the
+ * exact listing the verifier accepted. Returns null when the page is
+ * blocked, challenged, or carries no parseable aggregate; never invents
+ * values.
+ */
+export async function fetchMarketplaceAggregateFromListingUrl(input: {
+  listingUrl?: string | null;
+  costTelemetry?: ScanCostTelemetry;
+}): Promise<ExtractedMarketplaceAggregate | null> {
+  const listingUrl = input.listingUrl || null;
+  if (!listingUrl) return null;
+  try {
+    if (input.costTelemetry && !input.costTelemetry.canStartRetrievalRequest()) return null;
+    input.costTelemetry?.recordRetrievalRequest("other");
+    const response = await fetch(listingUrl, {
+      method: "GET",
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (compatible; ReviewIntel/1.0; +https://getreviewintel.com)",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "en-CA,en;q=0.9",
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!response.ok) return null;
+    const html = await response.text();
+    if (isBlockedOrSignInReviewPage({ requestedUrl: listingUrl, finalUrl: response.url, html })) return null;
+    const aggregate = extractMarketplaceAggregateFromHtml(html);
+    return aggregate.rating !== null || aggregate.count !== null ? aggregate : null;
+  } catch {
+    return null;
+  }
+}
