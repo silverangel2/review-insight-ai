@@ -1,6 +1,6 @@
 import type React from "react";
 import Link from "next/link";
-import { provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
+import { formatStars, marketplaceStoreLabel, provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
 
@@ -31,7 +31,13 @@ export function isBuyingScoreV2(value: unknown): value is Card {
   return Boolean(value && typeof value === "object" && (value as Record<string, unknown>).version === "buying-score-v2");
 }
 
-export function BuyingScoreV2Card({ score, compact = false, store }: { score: Card; compact?: boolean; store?: string | null }) {
+export function BuyingScoreV2Card({ score, compact = false, store, aggregate }: {
+  score: Card;
+  compact?: boolean;
+  store?: string | null;
+  /** Display-only: the store's published aggregate, shown when the score itself did not carry one. */
+  aggregate?: { rating: number; count: number | null } | null;
+}) {
   const isProvisional = score.mode === "provisional_marketplace";
   const isNoScore = score.mode === "no_score";
   const facing = isProvisional ? provisionalShopperFacing(score, store) : null;
@@ -52,6 +58,13 @@ export function BuyingScoreV2Card({ score, compact = false, store }: { score: Ca
             </p>
           ) : null}
           <p data-testid="evidence-line" className="mt-2 text-sm font-bold text-slate-700 dark:text-slate-200">{facing?.line || score.evidenceLine}</p>
+          {aggregate && typeof aggregate.rating === "number" ? (
+            <p data-testid="marketplace-aggregate" className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Store rating: {formatStars(aggregate.rating)}
+              {typeof aggregate.count === "number" && aggregate.count > 0 ? ` · ${aggregate.count.toLocaleString("en-US")} ratings` : ""}
+              {store ? ` · ${marketplaceStoreLabel(store)}` : ""}
+            </p>
+          ) : null}
           <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Confidence: {facing ? `${facing.confidence} confidence` : score.confidenceReason}</p>
         </div>
         {!isNoScore ? (

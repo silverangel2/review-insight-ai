@@ -1,4 +1,5 @@
 import { provisionalShopperFacing } from "@/lib/buyingScore";
+import { canonicalQuoteKey, sanitizeQuoteForDisplay } from "@/lib/displayQuote";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
 // No invented numbers: missing values stay null/"Unknown"; quotes are real
@@ -70,9 +71,9 @@ function hostOf(url: unknown): string | null {
   try { return new URL(String(url)).hostname.replace(/^www\./, ""); } catch { return null; }
 }
 
-/** A short, real excerpt: first sentence(s) up to ~150 chars, cut at a word boundary. */
+/** A short, real excerpt: first sentence(s) up to ~150 chars, cut at a word boundary. Markdown markers are stripped so they never leak into the UI. */
 export function shortQuote(body: string, max = 150): string {
-  const clean = body.replace(/\s+/g, " ").trim();
+  const clean = sanitizeQuoteForDisplay(body);
   if (clean.length <= max) return clean;
   const sentenceEnd = clean.slice(0, max).search(/[.!?](?=\s)[^.!?]*$/);
   if (sentenceEnd >= 60) return clean.slice(0, sentenceEnd + 1);
@@ -96,14 +97,18 @@ export function isWrittenReviewBody(body: string): boolean {
   return true;
 }
 
-/** Short excerpts of accepted written reviews. Never invented, never filled from a star rating. */
+/** Short excerpts of accepted written reviews. Never invented, never filled from a star rating. Deduped by canonical key so the same review from two stores appears once. */
 export function realReviewQuotes(input: unknown, limit = 4): string[] {
   const quotes: string[] = [];
+  const seen = new Set<string>();
   for (const record of acceptedRecords(obj(input))) {
     const body = String(record.body || "");
     if (!isWrittenReviewBody(body)) continue;
     const quote = shortQuote(body);
-    if (!quotes.includes(quote)) quotes.push(quote);
+    const key = canonicalQuoteKey(quote);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    quotes.push(quote);
     if (quotes.length >= limit) break;
   }
   return quotes;
@@ -210,18 +215,51 @@ function writtenReviewCount(result: Rec, records: ReturnType<typeof acceptedReco
   return comments !== null && comments > 0 ? Math.round(comments) : 0;
 }
 
-function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>): ShopperPoint[] {
+/** Host of the scanned listing / store: the canonical attribution for quotes. */
+export function primaryScanHost(result: Rec): string | null {
+  const evidence = obj(result.reviewEvidence);
+  const listing = obj(evidence.listingEvidence);
+  const url = listing.exactListingUrl || result.sourceUrl || result.url;
+  const host = hostOf(url);
+  if (host) return host;
+  const store = String(obj(result.product).store || result.store || "").trim().toLowerCase().replace(/^www\./, "");
+  return store || null;
+}
+
+/**
+ * One canonical attribution per quote text: among all accepted records carrying
+ * the same canonical quote, prefer the record from the scanned store, so the
+ * same quote is never labeled amazon.ca in one section and apple.com in another.
+ */
+export function canonicalAttributionForQuote(
+  records: Array<{ body?: string; sourceUrl?: string | null }>,
+  quoteKey: string,
+  primaryHost: string | null
+): { sourceHost: string | null; sourceUrl: string | null } {
+  if (!quoteKey) return { sourceHost: null, sourceUrl: null };
+  const matches = records.filter((record) => canonicalQuoteKey(shortQuote(String(record.body || ""))) === quoteKey);
+  const chosen = (primaryHost && matches.find((record) => hostOf(record.sourceUrl) === primaryHost)) || matches[0];
+  if (!chosen) return { sourceHost: null, sourceUrl: null };
+  return { sourceHost: hostOf(chosen.sourceUrl), sourceUrl: chosen.sourceUrl ? String(chosen.sourceUrl) : null };
+}
+
+function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, primaryHost: string | null): ShopperPoint[] {
   const points: ShopperPoint[] = [];
+  const seen = new Set<string>();
   for (const record of records) {
     const body = String(record.body || "");
     if (!isWrittenReviewBody(body)) continue;
     const quote = shortQuote(body);
+    const key = canonicalQuoteKey(quote);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const attribution = canonicalAttributionForQuote(records, key, primaryHost);
     points.push({
       claim: quote,
       count: 1,
       quote,
-      sourceHost: hostOf(record.sourceUrl),
-      sourceUrl: record.sourceUrl ? String(record.sourceUrl) : null,
+      sourceHost: attribution.sourceHost,
+      sourceUrl: attribution.sourceUrl,
     });
     if (points.length >= 3) break;
   }
@@ -305,13 +343,17 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     ? cardCount === 0 || String(card.mode || "") === "no_score"
     : state === "NOT_ENOUGH" || reviewCount === 0 || /NOT[_ ]ENOUGH|NOT SCORED/.test(verdict);
 
+  const primaryHost = primaryScanHost(result);
   const toPoints = (kind: "strength" | "complaint"): ShopperPoint[] => claimsOf(result, kind)
     .sort((a, b) => b.supportCount - a.supportCount)
     .slice(0, 3)
     .map(claim => {
-      const record = records.find(item => (item.id && claim.sourceIds.includes(item.id)) || (item.stableEvidenceHash && claim.sourceHashes.includes(item.stableEvidenceHash)));
+      const matches = records.filter(item => (item.id && claim.sourceIds.includes(item.id)) || (item.stableEvidenceHash && claim.sourceHashes.includes(item.stableEvidenceHash)));
+      const record = (primaryHost && matches.find(item => hostOf(item.sourceUrl) === primaryHost)) || matches[0];
       const body = record?.body && isWrittenReviewBody(String(record.body)) ? String(record.body) : "";
-      return { claim: claim.claim, count: claim.supportCount, quote: body ? shortQuote(body) : null, sourceHost: record ? hostOf(record.sourceUrl) : null, sourceUrl: record?.sourceUrl ? String(record.sourceUrl) : null };
+      const quote = body ? shortQuote(body) : null;
+      const attribution = quote ? canonicalAttributionForQuote(records, canonicalQuoteKey(quote), primaryHost) : { sourceHost: null, sourceUrl: null };
+      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: attribution.sourceHost, sourceUrl: attribution.sourceUrl };
     });
   const storeLabel = String(obj(result.product).store || result.store || "");
   const facing = card && String(card.mode || "") === "provisional_marketplace"
@@ -320,9 +362,21 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const provisional = Boolean(facing && cardCount === 0);
   const claimedLoves = provisional ? [] : toPoints("strength");
   const claimedComplaints = provisional ? [] : toPoints("complaint");
+  // One quote renders once per page: dedupe across loves/complaints by canonical key.
+  const seenQuoteKeys = new Set<string>();
+  const uniquePoints = (points: ShopperPoint[]): ShopperPoint[] =>
+    points.filter((point) => {
+      if (!point.quote) return true;
+      const key = canonicalQuoteKey(point.quote);
+      if (!key || seenQuoteKeys.has(key)) return !key;
+      seenQuoteKeys.add(key);
+      return true;
+    });
+  const lovesUnique = uniquePoints(claimedLoves);
+  const complaintsUnique = uniquePoints(claimedComplaints);
   // Quotes can fill the quotes section. They are not claims, so they never enter the one-line summary.
-  const loves = provisional ? [] : (claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records));
-  const complaints = provisional ? [] : claimedComplaints;
+  const loves = provisional ? [] : (lovesUnique.length || complaintsUnique.length ? lovesUnique : quoteOnlyPoints(records, primaryHost));
+  const complaints = provisional ? [] : complaintsUnique;
 
   let kind: ShopperAnswerKind = provisional
     ? (facing!.firmBuy || facing!.leaning === "Buy" ? "buy" : facing!.leaning === "Skip" ? "skip" : "wait")

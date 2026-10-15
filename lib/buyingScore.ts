@@ -6,6 +6,26 @@
  * invents a review, a star rating or an opinion.
  */
 
+// Local display-quote helpers (mirrors lib/displayQuote.ts). Kept inline so this
+// module stays dependency-free: pure, deterministic, loadable without the "@"
+// alias (several test files jiti-load it directly).
+function stripMarkdownEmphasisLocal(text: string): string {
+  let out = String(text ?? "");
+  for (const [pattern, replacement] of [
+    [/\*\*(.+?)\*\*/g, "$1"],
+    [/__(.+?)__/g, "$1"],
+    [/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, "$1$2"],
+    [/(^|\s)_([^_\n]+)_(?=\s|$)/g, "$1$2"],
+  ] as Array<[RegExp, string]>) out = out.replace(pattern, replacement);
+  return out;
+}
+function sanitizeQuoteForDisplayLocal(text: unknown): string {
+  return stripMarkdownEmphasisLocal(String(text ?? "")).replace(/\s+/g, " ").trim();
+}
+function canonicalQuoteKeyLocal(text: unknown): string {
+  return sanitizeQuoteForDisplayLocal(text).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+}
+
 // ---------------------------------------------------------------------------
 // Documented constants (section 3). Fixed neutral prior. NOT calibrated from
 // pre-v2 scan history; recalibrate only on ~90 days of clean v2 data.
@@ -152,11 +172,11 @@ export function verdictFromScore(score: number): Verdict {
   return "Skip";
 }
 
-function validRating(value: unknown): number | null {
+export function validRating(value: unknown): number | null {
   const n = typeof value === "number" ? value : Number(String(value ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) && n >= 1 && n <= 5 ? n : null;
 }
-function validCount(value: unknown): number | null {
+export function validCount(value: unknown): number | null {
   const n = typeof value === "number" ? value : Number(String(value ?? "").replace(/[^0-9]/g, ""));
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
 }
@@ -189,7 +209,7 @@ export function discrepancyFlag(s: Pick<BuyingScoreSignals, "n" | "rating" | "vi
   return false;
 }
 
-function formatStars(r: number) {
+export function formatStars(r: number) {
   return `${Number.isInteger(r) ? r.toFixed(1) : String(round1(r))}★`;
 }
 
@@ -636,7 +656,7 @@ export function classifyReview(r: WrittenReview): ClassifiedReview {
 }
 
 function shortQuote(r: WrittenReview, max = 220) {
-  const t = String(r.body || "").replace(/\s+/g, " ").trim();
+  const t = sanitizeQuoteForDisplayLocal(r.body);
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
 }
 
@@ -715,6 +735,16 @@ export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
   const secondStoreReviewCount = Math.max(0, ...Array.from(classifiableStores.entries()).filter(([s]) => s !== primary).map(([, v]) => v));
 
   const marketOk = input.marketplace?.matchesExactModel !== false;
+  // Display only: one quote renders once. Dedupe by canonical key across
+  // positive/negative (positive wins); scoring counts are untouched.
+  const displayQuoteKeys = new Set<string>();
+  const uniqueDisplayQuotes = (list: string[]): string[] =>
+    list.filter((quote) => {
+      const key = canonicalQuoteKeyLocal(quote);
+      if (!key || displayQuoteKeys.has(key)) return false;
+      displayQuoteKeys.add(key);
+      return true;
+    });
   const signals: BuyingScoreSignals = {
     rating: marketOk ? validRating(input.marketplace?.rating) : null,
     ratingCount: marketOk ? validCount(input.marketplace?.count) : null,
@@ -740,8 +770,8 @@ export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
     quotes: {
       safety: saf.quotes,
       reliability: rel.quotes,
-      positive: classified.filter(({ c }) => c.sentiment > 0.3).map(({ r }) => shortQuote(r)).slice(0, 4),
-      negative: classified.filter(({ c }) => c.sentiment < -0.2).map(({ r }) => shortQuote(r)).slice(0, 4),
+      positive: uniqueDisplayQuotes(classified.filter(({ c }) => c.sentiment > 0.3).map(({ r }) => shortQuote(r)).slice(0, 4)),
+      negative: uniqueDisplayQuotes(classified.filter(({ c }) => c.sentiment < -0.2).map(({ r }) => shortQuote(r)).slice(0, 4)),
     },
   };
   return { signals, deduped, dropped, duplicatesRemoved: matched.length - n, stores: Object.fromEntries(stores) };
