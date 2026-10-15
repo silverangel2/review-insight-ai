@@ -26,6 +26,8 @@ import {
 import { claimFreeScan, releaseFreeScan, type FreeScanIdentityKind } from "@/lib/freeScanQuota";
 import { isUnreadableAmazonPage, shopperSafeText } from "@/lib/shopperAnswer";
 import { linkScanBlockedForLinkOnly } from "@/lib/linkScanBlocked";
+import { flagRescueCandidateFromScanResult } from "@/lib/rescueFlag";
+
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
@@ -3186,7 +3188,7 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
             scanState: finalDecisionSource === "reviewEvidence" ? "COMPLETE" : "INSUFFICIENT_EVIDENCE",
           };
 
-      if (!email) {
+      void flagRescueCandidateFromScanResult({ result: terminalScanResult as unknown as Record<string, unknown>, scanId, email, productLink }); if (!email) {
         const guestResult = {
           ...terminalScanResult,
           quota: claimedQuota,

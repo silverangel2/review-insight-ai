@@ -27,6 +27,7 @@ const navItems: Record<DashboardExperience, Array<[string, string]>> = {
     ["/admin/system", "System Checks"],
     ["/admin/health", "App Health"],
     ["/admin/audit-access", "Audit Access"],
+    ["/admin/rescue", "Scan Rescue"],
   ]
 };
 
