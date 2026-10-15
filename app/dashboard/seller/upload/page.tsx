@@ -60,6 +60,7 @@ export default function SellerDashboardPage() {
       saveLatestSellerResult({
         result: data,
         fileName,
+        productLink: productLink.trim(),
         createdAt: new Date().toISOString()
       });
 
