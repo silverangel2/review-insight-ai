@@ -563,6 +563,29 @@ export function reviewMatchesExactModel(r: WrittenReview, requestedModel: string
 // ---- Rule-based classification ----------------------------------------------
 const NEGATORS = /\b(?:no|not|never|without|zero|nothing|didn't|didnt|doesn't|doesnt|hasn't|hasnt|haven't|havent|wasn't|wasnt|isn't|isnt|won't|wont)\b(?:\W+\w+){0,3}\W*$/i;
 
+/**
+ * Evidence-consistency guard (defect batch 2, rule 2): a warning's displayed
+ * quote must itself evidence the hazard claim — the same pattern the
+ * classifier used, re-checked against the displayed quote text. A positive
+ * review whose title tripped the classifier can never render as the backing
+ * quote for a safety/reliability claim. Display-selection only; classification
+ * counts and scoring math are untouched.
+ */
+export function quoteEvidencesPattern(quote: string, pattern: RegExp): boolean {
+  return hit(String(quote ?? ""), pattern);
+}
+
+function evidencingQuotes(
+  quotes: string[],
+  rules: Array<{ key: string; pattern: RegExp }>,
+  topKey: string | null
+): string[] {
+  const rule = topKey ? rules.find((entry) => entry.key === topKey) : null;
+  if (!rule) return quotes;
+  const filtered = quotes.filter((quote) => quoteEvidencesPattern(quote, rule.pattern));
+  return filtered;
+}
+
 function hit(text: string, pattern: RegExp) {
   const re = new RegExp(pattern.source, pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g");
   let m: RegExpExecArray | null;
@@ -685,7 +708,6 @@ export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
     return { total, top, topKey, quotes: topKey ? quotes.get(topKey)! : [], allQuotes: Array.from(quotes.values()).flat() };
   };
   const saf = independent((c) => c.safety);
-  const rel = independent((c) => c.reliability);
   const reliabilityCount = classified.filter(({ c }) => c.reliability && !c.safety).length;
   const relIndependent = independent((c) => (c.safety ? null : c.reliability));
 
@@ -738,8 +760,12 @@ export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
     variantResolved: input.variantResolved,
     recall: input.recall || null,
     quotes: {
-      safety: saf.quotes,
-      reliability: rel.quotes,
+      // Safety/reliability warning quotes are evidence-filtered: only quotes
+      // that themselves evidence the claimed hazard render as backing
+      // evidence (defect batch 2, rule 2). Classification counts feeding the
+      // score are unchanged.
+      safety: evidencingQuotes(saf.quotes, SAFETY_HAZARDS, saf.topKey),
+      reliability: evidencingQuotes(relIndependent.quotes, RELIABILITY_FAILURES, relIndependent.topKey),
       positive: classified.filter(({ c }) => c.sentiment > 0.3).map(({ r }) => shortQuote(r)).slice(0, 4),
       negative: classified.filter(({ c }) => c.sentiment < -0.2).map(({ r }) => shortQuote(r)).slice(0, 4),
     },
