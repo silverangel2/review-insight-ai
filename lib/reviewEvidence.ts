@@ -61,10 +61,16 @@ import { collectorListingForAuthoritativeAsin, isDriftSearchQuery } from "./list
 import { stableProductSearchTerms } from "./productIdentityTokens";
 import {
   collectWrittenReviewsFromListing,
-  collectWrittenReviewsFromUrls,
+    collectWrittenReviewsFromUrls,
+  fetchMarketplaceAggregateFromListingUrl,
   formatCollectedReviewsForPrompt,
   type ReviewCollectorResult,
 } from "@/lib/reviewCollector";
+import {
+  libraryProductKeyFor,
+  loadLibraryCorpus,
+  saveLibraryCorpus,
+} from "@/lib/productReviewLibrary";
 import {
   runAdaptiveReviewResearch,
   type AdaptiveReviewRecord,
@@ -2497,6 +2503,29 @@ export async function collectAndAnalyzeReviewEvidence(
       : "Native retrieval skipped because the screenshot identity was not specific enough to safely match public reviews.";
   }
 
+  // Native retrieval reads review bodies but never parses the listing's
+  // aggregate rating block, and the listing collector does not run when
+  // native retrieval produced the corpus — so the marketplace aggregate
+  // could arrive empty and the Buying Score lost its marketplace prior.
+  // Recover it from the verified listing the collector actually used; a
+  // blocked or aggregate-free page simply leaves the value unknown.
+  const collectorAggregate = collectedWrittenReviews.marketplaceAggregate;
+  if (
+    listingUrlForReviewCollector &&
+    !(collectorAggregate && (collectorAggregate.rating !== null || collectorAggregate.count !== null))
+  ) {
+    const recoveredAggregate = await fetchMarketplaceAggregateFromListingUrl({
+      listingUrl: listingUrlForReviewCollector,
+      costTelemetry: input.costTelemetry,
+    }).catch(() => null);
+    if (recoveredAggregate) {
+      collectedWrittenReviews = {
+        ...collectedWrittenReviews,
+        marketplaceAggregate: recoveredAggregate,
+      };
+    }
+  }
+
   let hasCollectedWrittenReviewEvidence = false;
 
   // Adjudication's listing association keys off this URL: it must be the verified
@@ -2769,6 +2798,37 @@ export async function collectAndAnalyzeReviewEvidence(
     }
   }
 
+  // Product review library: consolidate this scan's fresh corpus with the
+  // reviews ReviewIntel has already accepted for this exact product, so the
+  // shared adjudication pass — and therefore the verdict — works on the
+  // whole accumulated corpus. An unchanged corpus reproduces the identical
+  // verdict; genuinely new reviews re-verdict on the larger corpus. Only a
+  // verified exact listing with a canonical marketplace identifier takes
+  // part, and any storage failure leaves the scan exactly as it was.
+  const libraryProductKey = exactListingAccepted
+    ? libraryProductKeyFor({
+        asin: listingEvidenceForCollection?.asin,
+        canonicalMarketplace: listingEvidenceForCollection?.canonicalMarketplace,
+        store: listingEvidenceForCollection?.store,
+        listingUrl: checkedListingUrl || null,
+      })
+    : null;
+  let libraryPreviousScanCount = 0;
+  if (libraryProductKey) {
+    const libraryEntry = await loadLibraryCorpus(libraryProductKey);
+    libraryPreviousScanCount = libraryEntry.scanCount;
+    if (libraryEntry.reviews.length) {
+      collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
+        reviews: mergeUnknownArrays<ReviewCollectorResult["reviews"][number]>(
+          collectedWrittenReviews.reviews,
+          libraryEntry.reviews as ReviewCollectorResult["reviews"],
+          500
+        ),
+        coverageNote: `${collectedWrittenReviews.coverageNote} Consolidated with ${libraryEntry.reviews.length} previously accepted ReviewIntel library review(s) for this exact product.`,
+      });
+    }
+  }
+
   // One shared adjudication pass owns provenance, exact-product acceptance,
   // stable hashing, duplicate handling, and independent-source accounting for
   // every collector (native, direct, adaptive, or fallback) record.
@@ -2796,6 +2856,22 @@ export async function collectAndAnalyzeReviewEvidence(
       ? `${collectedWrittenReviews.coverageNote} Canonical adjudication accepted the written reviews that match this exact product.`
       : `${collectedWrittenReviews.coverageNote} Written-review candidates were collected, but canonical exact-product association is not yet established, so none are accepted evidence.`,
   });
+
+  // Persist the consolidated corpus so the next scan of this product starts
+  // from everything ReviewIntel has accepted so far. Fail-soft by design.
+  if (libraryProductKey && adjudicatedReviews.length) {
+    await saveLibraryCorpus({
+      productKey: libraryProductKey,
+      canonicalUrl: checkedListingUrl || null,
+      productName: listingEvidenceForCollection?.exactListingTitle || input.productName || null,
+      brand: input.brand || null,
+      store: listingEvidenceForCollection?.store || null,
+      aggregateRating: collectedWrittenReviews.marketplaceAggregate?.rating ?? null,
+      aggregateCount: collectedWrittenReviews.marketplaceAggregate?.count ?? null,
+      corpus: adjudicatedReviews as unknown as Array<Record<string, unknown>>,
+      previousScanCount: libraryPreviousScanCount,
+    });
+  }
 
   // Keep the original adjudication ledger. Re-adjudicating accepted-only
   // records erases rejection and duplication counts before persistence.

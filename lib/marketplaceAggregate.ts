@@ -87,6 +87,13 @@ export function extractMarketplaceAggregateFromHtml(html: string): ExtractedMark
     const md = text.match(/itemprop=["'](?:ratingCount|reviewCount)["'][^>]*content=["']([\d,]+)["']/i);
     if (md) { count = okCount(num(md[1])); source = source || "microdata"; }
   }
+  if (count === null) {
+    // Reviews-summary block as bare text: "2,341 global ratings". Some page
+    // variants drop the acrCustomerReviewText element but keep this line
+    // beside the histogram.
+    const gr = text.match(/([\d,]+)\s+global ratings/i);
+    if (gr) { count = okCount(num(gr[1])); source = source || "amazon-html"; }
+  }
 
   // Histogram: "72 percent of reviews have 5 stars" (Amazon aria-labels) or "5 star ... 72%".
   const histogram: Partial<Record<1 | 2 | 3 | 4 | 5, number>> = {};
