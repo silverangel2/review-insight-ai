@@ -1719,7 +1719,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
   const reviewIntelligenceSignals =
     getToolProofNumber(reviewEvidence, "reviewIntelligenceSignals") ??
     commentsAnalyzed;
-  const evidenceStrengthDisplay = evidenceStrengthLabel(reviewEvidenceDecisionState(raw));
+  const evidenceStrengthRaw = getToolProofString(reviewEvidence, "evidenceStrength"); const evidenceStrengthDisplay = evidenceStrengthLabel(reviewEvidenceDecisionState(raw));
   const aiLikeScore = getToolProofNumber(reviewAuthenticity, "score");
   const exactConfidence = getToolProofString(listingEvidence, "confidence");
   const insufficientEvidenceState = reviewEvidenceDecisionState(raw) === "not_enough";
@@ -1730,7 +1730,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
     (commentsAnalyzed ?? 0) <= 0 &&
     sourcesChecked.length === 0 &&
     (reviewIntelligenceSignals ?? 0) <= 0 &&
-    (evidenceStrength === "none" || reviewIntelligenceMode === "listing_metadata");
+    (evidenceStrengthRaw === "none" || reviewIntelligenceMode === "listing_metadata");
 
   const buyScore = getToolProofNumber(raw, "buyScore");
   const verdict = governedVerdictFromSource(raw);
