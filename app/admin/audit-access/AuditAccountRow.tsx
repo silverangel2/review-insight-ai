@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { clearClientAccount } from "@/lib/clientAccount";
 
 function landingForRole(role: string) {
   const r = role.toLowerCase();
@@ -33,6 +34,15 @@ export function AuditAccountRow({ email }: { email: string }) {
       // the browser truly becomes the test account. The operator re-enters
       // via /admin-access when needed.
       await fetch("/api/admin/logout", { method: "POST" }).catch(() => null);
+      // The app also caches the signed-in account in localStorage and sends
+      // it as identity headers; a stale operator entry makes /api/account
+      // refuse the minted session (header email != session email) and the
+      // dashboard keeps showing the operator. Clear the cached client
+      // account + owner-unlock flags so the next page load resolves purely
+      // from the minted session cookie.
+      clearClientAccount();
+      window.sessionStorage.removeItem("reviewintel:owner-unlocked");
+      window.sessionStorage.removeItem("reviewintel:owner-last-active");
       window.location.href = landingForRole(String(data.role ?? ""));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Minting failed.");
