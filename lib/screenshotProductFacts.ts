@@ -63,6 +63,60 @@ export function authoritativeDisplayName(input: { listingTitle?: string | null; 
   return "";
 }
 
+const PRICE_RE = /(?:CDN\$|C\$|US\$|CA\$|\$|€|£)\s?\d{1,5}(?:[.,]\d{2})?/;
+// Installment / financing amounts sit near the real price on most retailer pages and
+// are never the product price ("4 biweekly payments of $44.75 with Klarna").
+const INSTALLMENT = /biweekly|monthly payment|payments? of|per month|\/mo\b|klarna|afterpay|affirm|sezzle|financing/i;
+// Retail site chrome beyond Amazon's: headers, department menus, account links, cookie
+// and legal banners. Two or more distinct hits mark a line as chrome, not a title.
+const CHROME_WORDS = ["departments", "services", "grocery", "flyer", "reorder", "my items", "myitems", "credit card",
+  "sign in", "signin", "your account", "youraccount", "addtocart", "deliver to", "search everything", "searcheverything", "new&trending", "everyday low prices"];
+const NON_TITLE = /cookies|cookie settings|privacy|marketing notice|we want your shopping|key item features|about this item/i;
+
+function isBreadcrumbLine(text: string): boolean {
+  if (!/[/›»|]/.test(text)) return false;
+  const segments = text.split(/\s*(?:\/|›|»|\|)\s*/).map(s => s.trim()).filter(Boolean);
+  if (segments.length < 3) return false;
+  if (/\$\s?\d/.test(text)) return false;
+  return segments.every(s => s.split(/\s+/).length <= 4);
+}
+
+function chromeWordHits(text: string): number {
+  const lower = text.toLowerCase();
+  return CHROME_WORDS.filter(w => lower.includes(w)).length;
+}
+
+function isNoiseToken(token: string): boolean {
+  if (!token) return true;
+  if (token.length === 1 && !/\d/.test(token)) return true; // lone letter/symbol debris at a title edge
+  const alnum = (token.match(/[a-z0-9]/gi) ?? []).length;
+  return alnum === 0 || alnum / token.length < 0.5;
+}
+
+function priceValue(raw: string): number {
+  return Number(raw.replace(/[^0-9.,]/g, "").replace(",", "."));
+}
+
+function lineHasRealPrice(text: string): boolean {
+  const m = text.match(PRICE_RE);
+  return m !== null && priceValue(m[0]) > 0;
+}
+
+/** Strip OCR noise tokens and a trailing price from a raw title line. Clean titles pass through unchanged. */
+function cleanOcrTitle(raw: string): string {
+  let tokens = raw.split(/\s+/).filter(Boolean);
+  while (tokens.length > 1 && isNoiseToken(tokens[0])) tokens = tokens.slice(1);
+  while (tokens.length > 1 && isNoiseToken(tokens[tokens.length - 1])) tokens = tokens.slice(0, -1);
+  let text = tokens.join(" ");
+  const priceTail = text.match(new RegExp(`\\s+${PRICE_RE.source}\\s*$`));
+  if (priceTail) text = text.slice(0, text.length - priceTail[0].length).trim();
+  tokens = text.split(/\s+/).filter(Boolean);
+  // A lone trailing letter is OCR debris ("Apple AirPods 4 N"); real titles do not end that way.
+  if (tokens.length > 2 && /^[a-z]$/i.test(tokens[tokens.length - 1])) tokens = tokens.slice(0, -1);
+  while (tokens.length > 1 && isNoiseToken(tokens[tokens.length - 1])) tokens = tokens.slice(0, -1);
+  return tokens.join(" ");
+}
+
 export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70): ScreenshotProductFacts {
   const lines = ocr.lines.filter(l => l.confidence >= minConfidence).map(l => l.text.trim()).filter(Boolean);
   const all = lines.join("\n");
@@ -72,25 +126,77 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   const store = STORES.find(([re]) => re.test(anyText))?.[1] ?? "";
   const ratingM = all.match(/\b([1-5](?:[.,]\d)?)\s*(?:out of\s*5|\/\s*5)(?:\s*stars?)?/i);
   const countM = all.match(/\b(\d{1,3}(?:[,.\s]\d{3})+|\d{1,6})\s*(?:global\s+)?(?:ratings?|reviews?|avis|évaluations)\b/i);
-  const priceM = all.match(/(?:CDN\$|C\$|US\$|CA\$|\$|€|£)\s?\d{1,5}(?:[.,]\d{2})?/);
-  // Title: the first long, mostly-letters line that isn't page chrome or Amazon's nav menu.
-  const title = lines.slice(0, 25).find(l => l.length >= 18 && l.length <= 220 && /[a-z]{3,}/i.test(l) && !isAmazonNavOrHeaderText(l)
-    && (l.match(/[a-z]/gi)?.length ?? 0) / l.length > 0.55 && !/out of 5|ratings?|reviews?/i.test(l)) ?? "";
+
+  // Title: scored over a wider confidence pool than the corroborating facts. On real
+  // screenshots the title line often OCRs at 50-70 (bold text on brand-colored blocks),
+  // below the old cutoff, which let high-confidence breadcrumbs win by default. Structural
+  // rejection (nav, breadcrumbs, retail chrome, legal/feature headings) plus scoring
+  // (a same-line price is the strongest product-block signal) picks the real title.
+  const pool = ocr.lines
+    .map((l, index) => ({ index, confidence: l.confidence, text: l.text.trim() }))
+    .filter(l => l.confidence >= 50 && l.text)
+    .slice(0, 40);
+  let bestTitle = "";
+  let bestScore = -Infinity;
+  let bestTitleLine = "";
+  for (const line of pool) {
+    const raw = line.text;
+    if (raw.length < 12 || raw.length > 320) continue;
+    if (isAmazonNavOrHeaderText(raw) || isBreadcrumbLine(raw) || NON_TITLE.test(raw)) continue;
+    if (chromeWordHits(raw) >= 2) continue;
+    if (/out of 5|ratings?|reviews?/i.test(raw)) continue;
+    const candidate = cleanOcrTitle(raw);
+    if (candidate.length < 8) continue;
+    const letters = (candidate.match(/[a-z]/gi) ?? []).length;
+    if (letters / candidate.length < 0.45) continue;
+    let score = 0;
+    if (lineHasRealPrice(raw)) score += 3;
+    if (candidate.length >= 18 && candidate.length <= 200) score += 1;
+    if (/^[a-z]/.test(candidate)) score -= 2; // sentence-fragment continuation, not a title
+    if (/\b(with|and|or|the|a|for|to|of)$/i.test(candidate)) score -= 2; // dangling fragment ending
+    const firstToken = candidate.split(/\s+/)[0].toLowerCase();
+    const brandLineNear = pool.some(other => other.index !== line.index && Math.abs(other.index - line.index) <= 2
+      && other.text.split(/\s+/).filter(Boolean).length <= 4
+      && other.text.toLowerCase().includes(firstToken));
+    if (brandLineNear) score += 1;
+    score -= line.index * 0.02; // titles sit above features and legal text
+    if (score > bestScore) { bestScore = score; bestTitle = candidate; bestTitleLine = raw; }
+  }
+  const title = bestTitle && !isUnusableListingTitle(bestTitle) ? bestTitle : "";
+
+  // Price: the price on the title line wins; otherwise the largest non-installment price
+  // in the readable pool (installment amounts and plan prices are smaller decoys).
+  const pricePool = ocr.lines.filter(l => l.confidence >= 40).map(l => l.text);
+  let priceText = "";
+  const titleLinePrice = bestTitleLine ? bestTitleLine.match(PRICE_RE) : null;
+  if (titleLinePrice && priceValue(titleLinePrice[0]) > 0) priceText = titleLinePrice[0];
+  else {
+    const candidates: Array<{ raw: string; value: number }> = [];
+    for (const text of pricePool) {
+      if (INSTALLMENT.test(text)) continue;
+      for (const m of text.matchAll(new RegExp(PRICE_RE.source, "g"))) {
+        const value = Number(m[0].replace(/[^0-9.,]/g, "").replace(",", "."));
+        if (Number.isFinite(value) && value > 0) candidates.push({ raw: m[0], value });
+      }
+    }
+    candidates.sort((a, b) => b.value - a.value);
+    if (candidates.length) priceText = candidates[0].raw;
+  }
   const brandM = all.match(/(?:visit the|brand:?)\s+([A-Z0-9][\w&'.-]{1,30})(?:\s+store)?/i);
   const brand = brandM?.[1] ?? (title ? title.split(/\s+/)[0].replace(/[^\w&'.-]/g, "") : "");
   if (!title) warnings.push("Could not read the product title clearly from the screenshot.");
-  if (!priceM) warnings.push("No price was read with good confidence.");
+  if (!priceText) warnings.push("No price was read with good confidence.");
   // Without layout understanding we can't prove the price/rating belong to the main product unless a title was read.
   const tied = Boolean(title);
   // Price needs a real title. Ratings and review counts stay supplemental even when the
   // only long line was Amazon's menu (the product link names the product).
-  if (!tied && priceM) warnings.push("Price seen but not tied to a readable title, so it is ignored.");
+  if (!tied && priceText) warnings.push("Price seen but not tied to a readable title, so it is ignored.");
   const conf = Math.round(Math.max(0, Math.min(100, ocr.ocrConfidence * (title ? 1 : 0.5))));
   return {
     name: title, brand: title ? brand : "", category: "", store,
-    price: tied && priceM ? priceM[0].replace(/\s+/g, "") : "", rating: ratingM ? ratingM[1].replace(",", ".") : "",
+    price: tied && priceText ? priceText.replace(/\s+/g, "") : "", rating: ratingM ? ratingM[1].replace(",", ".") : "",
     reviewCount: countM ? countM[1].replace(/[\s.,]/g, "") : "",
-    priceBelongsToProduct: tied && Boolean(priceM), ratingBelongsToProduct: Boolean(ratingM), reviewCountBelongsToProduct: Boolean(countM),
+    priceBelongsToProduct: tied && Boolean(priceText), ratingBelongsToProduct: Boolean(ratingM), reviewCountBelongsToProduct: Boolean(countM),
     visibleFeatures: [], visibleBadges: lines.filter(l => /best seller|amazon'?s choice|overall pick|top rated/i.test(l)).slice(0, 5),
     identityWarnings: ["Read with free on-device OCR (no AI vision); please confirm the product name.", ...warnings],
     normalizedSearchQuery: title, imageConfidence: conf,
