@@ -1,1 +1,1 @@
-{"crons":[{"path":"/api/cron/social-autopost","schedule":"0 13 * * *"},{"path":"/api/cron/health-snapshot","schedule":"30 11 * * *"}]}
+{"crons":[{"path":"/api/cron/social-autopost","schedule":"0 13 * * *"},{"path":"/api/cron/health-snapshot","schedule":"30 11 * * *"},{"path":"/api/cron/review-ask-email","schedule":"0 12 * * *"}]}
