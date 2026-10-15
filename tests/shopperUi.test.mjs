@@ -41,7 +41,9 @@ test("loves/complaints quote REAL accepted review bodies linked by evidence id, 
   for (const point of [...answer.loves, ...answer.complaints]) {
     assert.ok(point.quote, `quote for ${point.claim}`);
     const stem = point.quote.replace(/…$/, "");
-    assert.ok(bodies.some(body => body.startsWith(stem)), `quote is a real body prefix: ${stem}`);
+    // Batch 2, rule 2: the quote is the clause that matched the theme, so it
+    // is a real substring of the accepted body, not necessarily its prefix.
+    assert.ok(bodies.some(body => body.includes(stem)), `quote is real evidence text: ${stem}`);
     assert.ok(point.sourceHost);
   }
   assert.ok(answer.loves.length <= 3 && answer.complaints.length <= 3);
