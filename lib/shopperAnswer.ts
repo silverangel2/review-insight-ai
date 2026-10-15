@@ -72,7 +72,7 @@ function hostOf(url: unknown): string | null {
 
 /** A short, real excerpt: first sentence(s) up to ~150 chars, cut at a word boundary. */
 export function shortQuote(body: string, max = 150): string {
-  const clean = body.replace(/\s+/g, " ").trim();
+  const clean = cleanQuoteText(body);
   if (clean.length <= max) return clean;
   const sentenceEnd = clean.slice(0, max).search(/[.!?](?=\s)[^.!?]*$/);
   if (sentenceEnd >= 60) return clean.slice(0, sentenceEnd + 1);
@@ -85,6 +85,85 @@ function acceptedRecords(result: Rec): Array<{ id?: string; stableEvidenceHash?:
   const adjudication = obj(evidence.evidenceAdjudication);
   const list = adjudication.acceptedRecords;
   return Array.isArray(list) ? list as Array<Rec> as never : [];
+}
+
+
+/**
+ * Strip markdown/display artifacts from review text before it reaches
+ * shoppers. Stored review bodies sometimes carry metadata prefixes like
+ * "**Rating: \u2605\u2605\u2605\u2605\u2605**", which the old code
+ * rendered literally. This cleans at the display boundary; stored data is
+ * never mutated.
+ */
+export function cleanQuoteText(body: string): string {
+  let text = String(body ?? "");
+  text = text.replace(/\*\*([^*]+?)\*\*/g, "$1"); // **bold** -> bold
+  text = text.replace(/\*([^\*\n]+?)\*/g, "$1"); // *italic* -> italic
+  text = text.replace(/__([^_]+?)__/g, "$1"); // __bold__ -> bold
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"); // [text](url) -> text
+  text = text.replace(/^(?:rating|note)\s*:\s*[\u2605\u2606]{1,5}\s*/i, ""); // leading "Rating: stars" metadata
+  text = text.replace(/(?<!\w)\*+(?!\w)/g, ""); // stray asterisk runs
+  text = text.replace(/\s+/g, " ").trim();
+  return text;
+}
+
+/** Canonical identity for a displayed quote: identical text = identical quote. */
+export function normalizeQuoteKey(quote: string): string {
+  return cleanQuoteText(quote).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * One canonical attribution per quote, from the quote's own provenance.
+ * Iterates the accepted records once; the first record carrying a given
+ * quote text wins, so the same text always carries the same source label
+ * everywhere it renders.
+ */
+export function canonicalQuoteAttribution(input: unknown): Map<string, string | null> {
+  const map = new Map<string, string | null>();
+  for (const record of acceptedRecords(obj(input))) {
+    const body = String(record.body || "");
+    if (!isWrittenReviewBody(body)) continue;
+    const key = normalizeQuoteKey(shortQuote(body));
+    if (!map.has(key)) map.set(key, hostOf(record.sourceUrl));
+  }
+  return map;
+}
+
+/**
+ * One coherent shopper-facing evidence-strength label, from the single
+ * source of truth (the evidence decision state). Never concatenates two
+ * vocabularies, never leaks internal strings.
+ */
+export function evidenceStrengthLabel(state: "not_enough" | "limited" | "usable" | null): string {
+  if (state === "usable") return "Strong";
+  if (state === "limited") return "Moderate";
+  return "Low";
+}
+
+/**
+ * The marketplace aggregate rating for the headline card, mirroring the
+ * precedence the "How we checked" disclosure uses (listing evidence first,
+ * then product-level fallbacks). Display-only.
+ */
+export function marketplaceAggregateForDisplay(input: unknown): { rating: string | null; countLine: string | null } {
+  const result = obj(input);
+  const evidence = obj(result.reviewEvidence);
+  const listing = obj(evidence.listingEvidence);
+  const product = obj(result.product);
+  const rating = num(listing.rating) ?? num(product.rating) ?? num(result.marketplaceRating) ?? num(result.rating);
+  const count =
+    num(listing.reviewCount) ??
+    num(evidence.marketplaceReviewCount) ??
+    num(product.reviewCount) ??
+    num(result.marketplaceReviewCount);
+  const ratingText = rating !== null && rating > 0 ? `${trimRating(rating)} / 5` : null;
+  const countText = count !== null && count > 0 ? `from ${Math.round(count).toLocaleString("en-US")} ratings` : null;
+  return { rating: ratingText, countLine: countText };
+}
+
+function trimRating(rating: number): string {
+  const rounded = Math.round(rating * 10) / 10;
+  return String(rounded);
 }
 
 /** Written review text only. Star ratings and blank bodies are not reviews. */
@@ -210,17 +289,18 @@ function writtenReviewCount(result: Rec, records: ReturnType<typeof acceptedReco
   return comments !== null && comments > 0 ? Math.round(comments) : 0;
 }
 
-function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>): ShopperPoint[] {
+function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attribution: Map<string, string | null>): ShopperPoint[] {
   const points: ShopperPoint[] = [];
   for (const record of records) {
     const body = String(record.body || "");
     if (!isWrittenReviewBody(body)) continue;
     const quote = shortQuote(body);
+    const host = attribution.get(normalizeQuoteKey(quote)) ?? hostOf(record.sourceUrl);
     points.push({
       claim: quote,
       count: 1,
       quote,
-      sourceHost: hostOf(record.sourceUrl),
+      sourceHost: host,
       sourceUrl: record.sourceUrl ? String(record.sourceUrl) : null,
     });
     if (points.length >= 3) break;
@@ -293,6 +373,7 @@ export function formatShopperConfidence(answer: Pick<ShopperAnswer, "kind" | "co
 export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const result = obj(input);
   const records = acceptedRecords(result);
+  const attribution = canonicalQuoteAttribution(result);
   const reviewCount = writtenReviewCount(result, records);
   const sources = Array.from(new Set(records.map(record => hostOf(record.sourceUrl)).filter((host): host is string => Boolean(host))));
   const verdict = verdictOf(result);
@@ -311,7 +392,9 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     .map(claim => {
       const record = records.find(item => (item.id && claim.sourceIds.includes(item.id)) || (item.stableEvidenceHash && claim.sourceHashes.includes(item.stableEvidenceHash)));
       const body = record?.body && isWrittenReviewBody(String(record.body)) ? String(record.body) : "";
-      return { claim: claim.claim, count: claim.supportCount, quote: body ? shortQuote(body) : null, sourceHost: record ? hostOf(record.sourceUrl) : null, sourceUrl: record?.sourceUrl ? String(record.sourceUrl) : null };
+      const quote = body ? shortQuote(body) : null;
+      const host = quote ? (attribution.get(normalizeQuoteKey(quote)) ?? (record ? hostOf(record.sourceUrl) : null)) : null;
+      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: host, sourceUrl: record?.sourceUrl ? String(record.sourceUrl) : null };
     });
   const storeLabel = String(obj(result.product).store || result.store || "");
   const facing = card && String(card.mode || "") === "provisional_marketplace"
@@ -321,7 +404,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const claimedLoves = provisional ? [] : toPoints("strength");
   const claimedComplaints = provisional ? [] : toPoints("complaint");
   // Quotes can fill the quotes section. They are not claims, so they never enter the one-line summary.
-  const loves = provisional ? [] : (claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records));
+  const loves = provisional ? [] : (claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records, attribution));
   const complaints = provisional ? [] : claimedComplaints;
 
   let kind: ShopperAnswerKind = provisional
