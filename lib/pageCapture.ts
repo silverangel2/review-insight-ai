@@ -22,6 +22,12 @@ import {
   type StoreId,
 } from "@/lib/storeCollectors";
 import { supportedShopperStore } from "@/lib/linkScanBlocked";
+import {
+  LIBRARY_CORPUS_CAP,
+  libraryProductKeyFor,
+  loadLibraryCorpus,
+  saveLibraryCorpus,
+} from "@/lib/productReviewLibrary";
 
 export const PAGE_CAPTURE_LIMITS = {
   maxBytes: 180_000,
@@ -197,15 +203,174 @@ const STORE_LABEL: Record<StoreId, string> = {
   homedepot: "Home Depot",
 };
 
-export function scorePageCapture(capture: PageCapture, scanId: string) {
-  const written: WrittenReview[] = capture.reviews.map((review) => ({
+/**
+ * Product review library integration for the page-capture lane.
+ *
+ * A validated capture knows the product identity exactly (URL + productId),
+ * so captures consolidate with the stored corpus the same way scans do:
+ * stored reviews merge with the captured ones BEFORE scoring, and the scored
+ * corpus is saved back. Everything is fail-soft: any library error leaves
+ * page-capture behaving exactly as it did without the library. Zero OpenAI.
+ */
+export const CAPTURE_LIBRARY_PROVENANCE = "shopper_page_capture";
+
+type LibraryScoredReview = WrittenReview & { verified: boolean; provenance?: unknown };
+
+/**
+ * Exact library key for a validated capture. The marketplace comes from the
+ * capture URL's hostname so the key space matches the scan path's
+ * (e.g. "amazon.ca:B0DGJDKHRQ"), not the short store id.
+ */
+export function pageCaptureLibraryKey(capture: PageCapture): string | null {
+  let marketplace: string | null = null;
+  try {
+    marketplace = new URL(capture.url).hostname.toLowerCase().replace(/^www\./, "") || null;
+  } catch {
+    marketplace = null;
+  }
+  return libraryProductKeyFor({
+    asin: capture.productId,
+    canonicalMarketplace: marketplace,
+    store: capture.store,
+    listingUrl: capture.url,
+  });
+}
+
+export function captureReviewToWritten(review: PageCaptureReview, capture: PageCapture): LibraryScoredReview {
+  return {
     body: review.text,
     title: review.title,
     rating: review.stars,
     date: review.date,
     source: capture.store,
     sourceUrl: capture.url,
-  }));
+    verified: review.verified === true,
+  };
+}
+
+/** Map a stored library record back into a scorable review. Records without readable text are dropped. */
+export function libraryRecordToWrittenReview(record: unknown): LibraryScoredReview | null {
+  if (!record || typeof record !== "object") return null;
+  const rec = record as Record<string, unknown>;
+  const body = String(rec.body ?? "");
+  if (!hasReadableText({ body })) return null;
+  const rating = typeof rec.rating === "number" && Number.isFinite(rec.rating) ? rec.rating : null;
+  const review: LibraryScoredReview = {
+    body,
+    title: typeof rec.title === "string" ? rec.title : null,
+    rating,
+    date: typeof rec.date === "string" ? rec.date : null,
+    source: typeof rec.source === "string" && rec.source ? rec.source : "unknown",
+    sourceUrl: typeof rec.sourceUrl === "string" && rec.sourceUrl ? rec.sourceUrl : null,
+    verified: rec.verified === true,
+  };
+  if (rec.provenance !== undefined) review.provenance = rec.provenance;
+  return review;
+}
+
+/**
+ * Fresh-first concat + exact-JSON dedupe + cap. Mirrors mergeUnknownArrays in
+ * lib/reviewEvidence.ts (which is not exported there) — the same dedupe the
+ * scan path applies before its shared adjudication pass.
+ */
+export function mergeCaptureReviewSets(
+  left: LibraryScoredReview[],
+  right: LibraryScoredReview[],
+  limit: number
+): LibraryScoredReview[] {
+  const merged = [...left, ...right];
+  const seen = new Set<string>();
+  const next: LibraryScoredReview[] = [];
+  for (const item of merged) {
+    let key: string;
+    try {
+      key = JSON.stringify(item).toLowerCase();
+    } catch {
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(item);
+    if (next.length >= limit) break;
+  }
+  return next;
+}
+
+export type CaptureLibraryConsolidation = {
+  written: LibraryScoredReview[];
+  productKey: string | null;
+  previousScanCount: number;
+  libraryReviewCount: number;
+};
+
+/** Load the stored corpus for this capture's product and merge it with the fresh reviews. Fail-soft. */
+export async function consolidateCaptureWithLibrary(capture: PageCapture): Promise<CaptureLibraryConsolidation> {
+  const fresh = capture.reviews.map((review) => captureReviewToWritten(review, capture));
+  const productKey = pageCaptureLibraryKey(capture);
+  if (!productKey) return { written: fresh, productKey: null, previousScanCount: 0, libraryReviewCount: 0 };
+  try {
+    const entry = await loadLibraryCorpus(productKey);
+    const stored: LibraryScoredReview[] = [];
+    for (const record of entry.reviews) {
+      const review = libraryRecordToWrittenReview(record);
+      if (review) stored.push(review);
+    }
+    // Exact dedupe first, then the cross-store fuzzy dedupe — the same
+    // family of helpers the scan path uses.
+    const merged = dedupeAcrossStores(mergeCaptureReviewSets(fresh, stored, LIBRARY_CORPUS_CAP));
+    return { written: merged, productKey, previousScanCount: entry.scanCount, libraryReviewCount: stored.length };
+  } catch {
+    return { written: fresh, productKey: null, previousScanCount: 0, libraryReviewCount: 0 };
+  }
+}
+
+export function scorePageCapture(capture: PageCapture, scanId: string) {
+  return scoreCaptureReviews(
+    capture,
+    capture.reviews.map((review) => captureReviewToWritten(review, capture)),
+    scanId
+  );
+}
+
+/**
+ * Library-consolidated scoring for the page-capture route: stored reviews
+ * merge with the captured ones BEFORE the verdict, and the scored corpus is
+ * saved back to the library. Any library failure (load or save) leaves the
+ * capture scoring exactly as it would have been without the library.
+ */
+export async function scorePageCaptureWithLibrary(capture: PageCapture, scanId: string) {
+  const consolidation = await consolidateCaptureWithLibrary(capture);
+  const result = scoreCaptureReviews(capture, consolidation.written, scanId);
+  if (consolidation.productKey && consolidation.written.length > 0) {
+    try {
+      await saveLibraryCorpus({
+        productKey: consolidation.productKey,
+        canonicalUrl: capture.url,
+        productName: capture.title || null,
+        brand: null,
+        store: (() => {
+          try {
+            return new URL(capture.url).hostname.toLowerCase().replace(/^www\./, "") || capture.store;
+          } catch {
+            return capture.store;
+          }
+        })(),
+        aggregateRating: capture.rating,
+        aggregateCount: capture.ratingCount,
+        corpus: consolidation.written.map((review) => ({
+          ...(review as unknown as Record<string, unknown>),
+          provenance: (review as unknown as Record<string, unknown>).provenance ?? CAPTURE_LIBRARY_PROVENANCE,
+        })),
+        previousScanCount: consolidation.previousScanCount,
+      });
+    } catch {
+      // Fail-soft: the capture already scored; storage must never break it.
+    }
+  }
+  return result;
+}
+
+function scoreCaptureReviews(capture: PageCapture, written: LibraryScoredReview[], scanId: string) {
   const card = buyingScoreFromReviews({
     marketplace: {
       rating: capture.rating,
@@ -227,15 +392,16 @@ export function scorePageCapture(capture: PageCapture, scanId: string) {
     throw new Error("PAGE_CAPTURE_COPY");
   }
 
-  const acceptedRecords = capture.reviews.map((review, index) => ({
+  const acceptedRecords = written.map((review, index) => ({
     id: `page-${index + 1}`,
-    body: review.text,
-    sourceUrl: capture.url,
-    source: capture.store,
-    title: review.title,
-    rating: review.stars,
-    date: review.date,
-    verified: review.verified,
+    body: review.body,
+    sourceUrl: review.sourceUrl ?? capture.url,
+    source: review.source ?? capture.store,
+    title: review.title ?? null,
+    rating: review.rating ?? null,
+    date: review.date ?? null,
+    verified: review.verified === true,
+    provenance: (review as unknown as Record<string, unknown>).provenance ?? CAPTURE_LIBRARY_PROVENANCE,
   }));
 
   return {

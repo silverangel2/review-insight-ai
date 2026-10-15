@@ -4,7 +4,7 @@ import { attachScanAccess } from "@/lib/scanAccess";
 import { rateLimitRequest, rejectSuspiciousInput } from "@/lib/security";
 import { completeAccountScan } from "@/lib/scanCompletion";
 import { consumePersistentQuota, isSupabaseConfigured, saveAnalysisRecord, supabaseSelect } from "@/lib/supabaseServer";
-import { scorePageCapture, validatePageCapture } from "@/lib/pageCapture";
+import { scorePageCaptureWithLibrary, validatePageCapture } from "@/lib/pageCapture";
 import { claimShopperScan, releaseShopperScan, resolveShopperScanAccount } from "@/lib/shopperScanAllowance";
 
 export const runtime = "nodejs";
@@ -58,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
 
   let result;
   try {
-    result = scorePageCapture(validated.capture, id);
+    result = await scorePageCaptureWithLibrary(validated.capture, id);
   } catch {
     await releaseShopperScan(allowance.subject);
     return NextResponse.json({ error: "ReviewIntel could not score this page. Please try again.", code: "SCORE_FAILED", scanId: id }, { status: 500 });
