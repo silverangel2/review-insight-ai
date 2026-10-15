@@ -1344,7 +1344,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       {/* Mobile-only compact shopper result */}
       <div className="ri-results-mobile space-y-3">
         {linkOnlyScanWasBlocked(result) ? <ExtensionPrompt /> : null}
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} store={storeLabel} compact /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page &mdash; or <Link href="/tools/analyze-page" className="font-black underline">analyze the page you&apos;re looking at</Link>.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} store={storeLabel} compact /> : null}
         <section className={`rounded-[1.4rem] border p-4 text-center shadow-soft ${shownVerdict.soft}`}>
           <div className="mx-auto grid size-16 place-items-center rounded-full border-[4px] border-emerald-400 bg-white text-3xl font-black text-emerald-700 shadow-sm">
             {(firmVerdict || shopper.verdict) === "BUY" ? "✓" : (firmVerdict || shopper.verdict) === "AVOID" ? "!" : "?"}
@@ -1471,7 +1471,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
       {/* Desktop report layout unchanged */}
       <div className="ri-results-desktop space-y-4 sm:space-y-6">
         {linkOnlyScanWasBlocked(result) ? <ExtensionPrompt /> : null}
-        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} store={storeLabel} /> : null}
+        {pageUnreadable ? <p data-testid="unreadable-amazon-page">{UNREADABLE_AMAZON_MESSAGE} {unreadableRetryPhrase(result)} Try again, or add a screenshot of the product page &mdash; or <Link href="/tools/analyze-page" className="font-black underline">analyze the page you&apos;re looking at</Link>.</p> : buyingScoreV2 ? <BuyingScoreV2Card score={buyingScoreV2} store={storeLabel} /> : null}
       <section className="grid gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:gap-6">
         <div className="rounded-2xl border border-line bg-white p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:rounded-[1.75rem] sm:p-4">
           <div className="relative grid h-[260px] place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-white/5 dark:to-white/[0.02] sm:h-[360px] sm:rounded-2xl lg:h-[520px]">
