@@ -12,6 +12,8 @@ import { ClientTextLocalizer } from "@/components/ClientTextLocalizer";
 import { LocaleSync } from "@/components/LocaleSync";
 import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
+import "./theme.css";
+import { ThemeEffects } from "@/components/ThemeEffects";
 import { IdleLogoutGuard } from "@/components/IdleLogoutGuard";
 import { SmartAdSlot } from "@/components/advertising/SmartAdSlot";
 import { SellerResultHistoryCorner } from "@/components/SellerResultHistoryCorner";
@@ -49,7 +51,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ReviewIntel",
-    description: "Paste a product link and get a plain Buy, Wait or Skip answer built from real written buyer reviews, with the quotes to prove it.",
+    description: "Paste a product link and get a plain Buy, Wait or Skip answer built from real written buyer reviews, with the analysis to prove it.",
     images: ["/og-reviewintel.png"]
   }
 };
@@ -67,6 +69,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale} data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
+        {/* Site-wide premium theme effects: cursor glow, scroll reveals, aurora
+            drift. All disabled under prefers-reduced-motion and on touch. */}
+        <ThemeEffects />
         {/* Advertising loads only via the consent-gated block in
             components/advertising/AdSlot.tsx, which injects the script after
             the visitor accepts optional cookies. Do not hardcode that script

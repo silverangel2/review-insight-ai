@@ -2,25 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  SCAN_ORDER,
+  SCAN_STEPS,
+  progressFraction,
+  type LiveScanProgress,
+  type ScanStage,
+} from "@/lib/scanProgress";
 
-export type ScanStage = "uploading" | "analyzing" | "done";
-
-export type LiveScanProgress = {
-  stage: "starting" | "identifying" | "searching" | "reading" | "checking" | "scoring" | "done" | "failed";
-  productIdentified: boolean;
-  productName: string | null;
-  sourcesChecked: number;
-  sourceHosts: string[];
-  reviewsFound: number | null;
-  reviewsAccepted: number | null;
-  snippets: Array<{ text: string; host: string | null }>;
-};
+export type { LiveScanProgress, ScanStage };
+export { progressFraction };
 
 type ReviewIntelScanOverlayProps = {
   stage: ScanStage;
   /** 0-100. Real upload progress from the XHR upload events — not simulated. */
   uploadProgress: number;
   productLabel?: string;
+  /** Real product thumbnail when available (e.g. the uploaded screenshot preview). Never a placeholder. */
+  productImage?: string | null;
   /** Client scan id; when present the overlay polls REAL pipeline progress. */
   scanId?: string | null;
   /** Test/preview hook: a fixed progress snapshot instead of polling. */
@@ -29,31 +28,18 @@ type ReviewIntelScanOverlayProps = {
   pollMs?: number;
 };
 
+const STEPS = SCAN_STEPS;
+const ORDER = SCAN_ORDER;
+
 /**
  * Honest live scan overlay. Every number comes from the server's real
  * pipeline events (/api/scan-progress). When no event has arrived yet (or the
  * poll lands on another server instance), the stage is shown as
- * indeterminate — never a fake timer or invented count.
+ * indeterminate — never a fake timer or invented count. Stages move only on
+ * real milestones; the progress bar fills by stages completed.
  */
-const STEPS: Array<{ id: LiveScanProgress["stage"]; label: string }> = [
-  { id: "identifying", label: "Identifying the exact product" },
-  { id: "searching", label: "Checking review sources" },
-  { id: "reading", label: "Reading written reviews" },
-  { id: "checking", label: "Keeping only real reviews of this product" },
-  { id: "scoring", label: "Weighing praise against complaints" },
-];
-const ORDER = ["starting", "identifying", "searching", "reading", "checking", "scoring", "done"];
 
-/** Stage-based fraction (real stage reached), not elapsed time. */
-export function progressFraction(stage: ScanStage, uploadProgress: number, live: LiveScanProgress | null): number | null {
-  if (stage === "done") return 1;
-  if (stage === "uploading") return Math.max(0, Math.min(1, uploadProgress / 100)) * 0.1;
-  if (!live) return null;
-  const index = Math.max(0, ORDER.indexOf(live.stage));
-  return Math.min(0.95, 0.1 + (index / (ORDER.length - 1)) * 0.85);
-}
-
-export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, scanId, initialProgress = null, pollMs = 1200 }: ReviewIntelScanOverlayProps) {
+export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, productImage, scanId, initialProgress = null, pollMs = 1200 }: ReviewIntelScanOverlayProps) {
   const [visible, setVisible] = useState(true);
   const [live, setLive] = useState<LiveScanProgress | null>(initialProgress);
 
@@ -85,6 +71,7 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
 
   const fraction = progressFraction(stage, uploadProgress, live);
   const currentIndex = live ? ORDER.indexOf(live.stage) : -1;
+  const isDone = stage === "done" || live?.stage === "done";
   const counters: Array<{ label: string; value: string | null }> = [
     { label: "Product identified", value: live ? (live.productIdentified ? "Yes" : "Working…") : null },
     { label: "Sources checked", value: live ? String(live.sourcesChecked) : null },
@@ -93,22 +80,66 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
   const overlay = (
     <div
       style={{ zIndex: 2147483000 }}
-      className={`ri-scan-overlay fixed inset-0 flex items-center justify-center overflow-y-auto bg-slate-950/80 px-4 py-8 backdrop-blur-md transition-opacity duration-500 ${stage === "done" ? "opacity-0" : "opacity-100"}`}
+      className={`ri-scan-overlay fixed inset-0 flex items-center justify-center overflow-y-auto px-4 py-8 transition-opacity duration-500 ${stage === "done" ? "opacity-0" : "opacity-100"}`}
       role="status" aria-live="polite" aria-label="Product scan in progress" data-testid="scan-overlay"
     >
+      {/* Aurora backdrop: same canvas as the result page, so the handoff feels continuous. */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute inset-0 bg-[#14142b]/90 backdrop-blur-xl" />
+        <div className="absolute -top-32 left-1/4 h-96 w-96 rounded-full bg-indigo-600/25 blur-3xl motion-reduce:hidden" />
+        <div className="absolute bottom-0 right-1/4 h-80 w-80 rounded-full bg-violet-600/20 blur-3xl motion-reduce:hidden" />
+        <div className="absolute top-1/3 right-0 h-64 w-64 rounded-full bg-teal-400/10 blur-3xl motion-reduce:hidden" />
+      </div>
       {/* Scoped to the overlay only; outranks the site-wide mobile "1 column" grid rules without changing them. */}
       <style>{`html .ri-scan-overlay .ri-scan-counters, html[data-layout-mode] .ri-scan-overlay .ri-scan-counters { display: grid !important; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }`}</style>
-      <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 text-left text-slate-900 shadow-2xl sm:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal">Scanning reviews</p>
-        <h2 className="mt-2 text-xl font-bold leading-snug sm:text-2xl">
-          {live?.productName || productLabel || (stage === "uploading" ? "Uploading your screenshot" : "Finding your product")}
-        </h2>
+      <div className="ri-glass ri-hairline relative w-full max-w-lg rounded-3xl p-6 text-left text-slate-900 shadow-[0_30px_80px_rgba(50,44,140,0.35)] sm:p-8">
+        {/* The product, pinned and highlighted at the top as soon as it's identified. */}
+        <div className="flex items-center gap-4">
+          <div className="relative shrink-0">
+            {productImage ? (
+              <img
+                src={productImage}
+                alt=""
+                className="size-16 rounded-2xl object-cover ring-2 ring-indigo-500/40 shadow-[0_8px_24px_rgba(91,61,240,0.35)]"
+              />
+            ) : (
+              <div
+                className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0a6cff] to-[#5b3df0] text-white shadow-[0_8px_24px_rgba(91,61,240,0.35)]"
+                aria-hidden="true"
+              >
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </div>
+            )}
+            {live?.productIdentified ? (
+              <span
+                className="ri-stage-dot-done absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                aria-hidden="true"
+              >
+                ✓
+              </span>
+            ) : null}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-indigo-600">
+              {live?.productIdentified ? "Product identified" : stage === "uploading" ? "Uploading" : "Scanning your product"}
+            </p>
+            <p className="mt-0.5 truncate text-lg font-bold leading-snug">
+              {live?.productName || productLabel || "Working…"}
+            </p>
+          </div>
+        </div>
 
-        <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+        <div className="ri-progress-track mt-5 h-2 overflow-hidden rounded-full" aria-hidden="true">
           {fraction === null ? (
-            <div className="animate-pulse rounded-full motion-reduce:animate-none" style={{ width: "33%", height: "100%", background: "rgba(11,124,120,0.45)" }} />
+            <div className="ri-shimmer h-full rounded-full" style={{ width: "33%" }} />
           ) : (
-            <div className="h-full w-full origin-left rounded-full transition-transform duration-500 ease-out motion-reduce:transition-none" style={{ transform: `scaleX(${Math.max(0.02, fraction)})`, background: "#0b7c78" }} />
+            <div
+              className="ri-progress-fill h-full w-full origin-left rounded-full transition-transform duration-500 ease-out motion-reduce:transition-none"
+              style={{ transform: `scaleX(${Math.max(0.02, fraction)})` }}
+            />
           )}
         </div>
         <p className="mt-2 text-xs text-slate-500">
@@ -117,25 +148,33 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
 
         <dl className="ri-scan-counters mt-6">
           {counters.map(item => (
-            <div key={item.label} className="rounded-2xl bg-slate-50 px-4 py-3">
+            <div key={item.label} className="rounded-2xl bg-white/70 px-4 py-3 ring-1 ring-slate-900/5">
               <dt className="text-xs text-slate-500">{item.label}</dt>
               <dd className="mt-1 text-lg font-bold tabular-nums">
-                {item.value ?? <span className="inline-block h-4 w-10 animate-pulse rounded bg-slate-200 align-middle" aria-label="not yet known" />}
+                {item.value ?? <span className="inline-block h-4 w-10 animate-pulse rounded bg-slate-200 align-middle motion-reduce:animate-none" aria-label="not yet known" />}
               </dd>
             </div>
           ))}
         </dl>
 
-        <ol className="mt-6 space-y-2">
+        <ol className="mt-6 space-y-1">
           {STEPS.map(step => {
             const index = ORDER.indexOf(step.id);
-            const state = currentIndex > index ? "done" : currentIndex === index ? "active" : "pending";
+            const state = isDone || currentIndex > index ? "done" : currentIndex === index ? "active" : "pending";
             return (
-              <li key={step.id} className={`flex items-center gap-3 text-sm ${state === "pending" ? "text-slate-400" : "text-slate-800"}`}>
-                <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${state === "done" ? "bg-teal text-white" : state === "active" ? "animate-pulse bg-teal/15 text-teal" : "bg-slate-100"}`} aria-hidden="true">
-                  {state === "done" ? "✓" : ""}
+              <li
+                key={step.id}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${state === "active" ? "ri-shimmer bg-indigo-500/5" : ""} ${state === "pending" ? "text-slate-400" : "text-slate-800"}`}
+              >
+                <span
+                  className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${state === "done" ? "ri-stage-dot-done text-white" : state === "active" ? "ri-stage-active bg-indigo-500/25 text-indigo-600" : "bg-slate-100 text-slate-400"}`}
+                  aria-hidden="true"
+                >
+                  {state === "done" ? "✓" : state === "active" ? "●" : ""}
                 </span>
-                {step.label}
+                <span className={state === "active" ? "font-semibold" : ""}>
+                  {state === "active" ? <span className="ri-gradient-text">{step.label}</span> : step.label}
+                </span>
               </li>
             );
           })}
@@ -145,7 +184,7 @@ export function ReviewIntelScanOverlay({ stage, uploadProgress, productLabel, sc
           <div className="mt-6 space-y-2">
             <p className="text-xs font-semibold text-slate-500">Real reviews we kept</p>
             {live.snippets.slice(0, 3).map((snippet, index) => (
-              <blockquote key={`${index}-${snippet.text.slice(0, 40)}`} className="ri-fade-in rounded-2xl border-l-4 border-teal bg-slate-50 px-4 py-2 text-sm text-slate-700" style={{ ["--ri-delay" as string]: `${index * 120}ms` }}>
+              <blockquote key={`${index}-${snippet.text.slice(0, 40)}`} className="rounded-2xl border-l-4 border-indigo-500 bg-white/70 px-4 py-2 text-sm text-slate-700 ring-1 ring-slate-900/5">
                 “{snippet.text}”{snippet.host ? <span className="block text-xs text-slate-500">{snippet.host}</span> : null}
               </blockquote>
             ))}

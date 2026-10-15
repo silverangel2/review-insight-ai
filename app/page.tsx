@@ -3,10 +3,8 @@ import { AdSlot } from "@/components/advertising/AdSlot";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { FeaturedReviews } from "@/components/FeaturedReviews";
-import { HomePasteLink } from "@/components/HomePasteLink";
-import { VerdictSummaryCard, type VerdictSummary } from "@/components/VerdictSummaryCard";
-import { HeroVerdictCycle } from "@/components/motion/HeroVerdictCycle";
-import homeSample from "@/lib/homeSample.json";
+import { HeroScanBar } from "@/components/HeroScanBar";
+import { HeroProofCard } from "@/components/HeroProofCard";
 import { supabaseCount } from "@/lib/supabaseServer";
 import { HomepageInstructionVideo } from "@/components/HomepageInstructionVideo";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
@@ -15,7 +13,7 @@ import { withSeo } from "@/lib/pageSeo";
 
 export const metadata = withSeo("/", {
   title: { absolute: "ReviewIntel | Should you buy it? We read the real reviews for you" },
-  description: "Paste a product link, add a screenshot, and get a plain Buy, Wait or Skip answer built from real written buyer reviews, with quotes and an honest confidence level. Free to start.",
+  description: "Paste a product link, add a screenshot, and get a plain Buy, Wait or Skip answer built from grouped analysis of real written buyer reviews, with an honest confidence level. Free to start.",
 });
 
 
@@ -53,96 +51,112 @@ export default async function LandingPage() {
 
   return (
     <>
-    <main className="reviewintel-home-main bg-white text-ink">
+    <main className="reviewintel-home-main bg-transparent text-ink">
       <SponsorAnalytics placement="landing" />
 
-      <section className="ri-home-hero border-b border-slate-200/70 bg-[linear-gradient(135deg,#e6f7f1_0%,#fff6ec_55%,#ffeee6_100%)]">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 pb-12 pt-10 sm:px-6 sm:pt-14 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-14 lg:pb-16">
-          <div>
-            <p className="inline-flex rounded-full bg-peach px-3 py-1 text-sm font-semibold text-coralink ring-1 ring-coral/30">Real buyer reviews. Plain answers.</p>
-            <h1 className="mt-3 text-4xl font-semibold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl">
-              Should you buy it? <span className="text-teal" style={{ fontSize: "inherit", fontWeight: "inherit" }}>We read the reviews</span> so you don&apos;t have to.
-            </h1>
-            <p className="mt-4 max-w-xl text-lg leading-8 text-slate-600">
-              Paste a product link, then add a screenshot of the product page. We read what real buyers wrote about that exact product and give you a straight answer, with their own words to back it up.
-            </p>
-            <HeroVerdictCycle />
-            <div className="mt-5 max-w-xl"><HomePasteLink /></div>
-            <p className="text-sm text-slate-500">
-              Or <Link href="/analyze" className="font-medium text-coralink underline decoration-coral/50 underline-offset-2 hover:text-teal">upload review screenshots</Link>, or <Link href="/tools/analyze-page" className="font-medium text-coralink underline decoration-coral/50 underline-offset-2 hover:text-teal">analyze the page you&apos;re looking at</Link> instead.
-            </p>
+      {/* Hero (v4): quiet, centered, indigo system. Exactly ONE hero implementation. */}
+      <section className="relative overflow-hidden">
+        <div className="mx-auto max-w-3xl px-5 pb-10 pt-14 text-center sm:pt-20">
+          <h1 className="text-5xl font-extrabold leading-[1.06] tracking-tight text-ink dark:text-white sm:text-6xl">
+            Should you buy it?<br />
+            <span className="ri-gradient-text">
+              We read the reviews<br className="hidden sm:block" /> so you don&apos;t have to.
+            </span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-slate-600 dark:text-slate-300">
+            Paste a product link. We group what real buyers said — the good and the bad — weigh it
+            as a whole, and give you one plain answer.
+          </p>
+          <div className="mt-8">
+            <HeroScanBar />
           </div>
-          <div className="ri-reveal">
-            <VerdictSummaryCard summary={homeSample as VerdictSummary} />
-            <p className="mt-3 text-xs text-slate-500">
-              Example of what your result looks like. Your scan shows the real verdict, score and buyer quotes for the product you paste.
-            </p>
-          </div>
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+            or{" "}
+            <Link href="/analyze" className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-500 dark:text-indigo-300">
+              upload screenshots of the reviews
+            </Link>
+            {" "}or{" "}
+            <Link href="/tools/analyze-page" className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-500 dark:text-indigo-300">
+              analyze the page you&apos;re looking at
+            </Link>
+          </p>
+          <p className="mt-6 text-[13px] leading-6 text-slate-500 dark:text-slate-400">
+            <strong className="font-semibold text-slate-700 dark:text-slate-200">Real buyer reviews only</strong>
+            {" · "}No fake or generated reviews{" · "}If there aren&apos;t enough reviews, we say so
+          </p>
         </div>
+        <div className="mx-auto w-full max-w-[620px] px-5 pb-3">
+          <HeroProofCard />
+        </div>
+        <p className="pb-12 text-center text-xs text-slate-400 dark:text-slate-500">
+          A real result — exactly what a buyer sees after a scan.
+        </p>
       </section>
 
-      <section aria-labelledby="how-it-works" className="bg-[linear-gradient(180deg,#f1edff_0%,#ffffff_100%)] px-5 py-14 sm:px-6">
-        <div className="mx-auto max-w-6xl">
-          <h2 id="how-it-works" className="text-2xl font-semibold text-slate-900">How it works</h2>
-          <ol className="mt-6 grid gap-6 sm:grid-cols-3">
+      <section aria-label="How it works" className="px-5 py-14 sm:px-6">
+        <div className="mx-auto max-w-5xl">
+          <ol className="grid gap-4 sm:grid-cols-3">
             {[
-              ["Paste a link", "Any Amazon product link, or screenshots of its reviews."],
-              ["We read real reviews", "Only written reviews of this exact product count. Other models, sizes and bundles are left out."],
-              ["Get a plain answer", "Buy, Wait or Skip, with real quotes. If there aren't enough reviews, we say so."],
+              ["Paste a link", "Any product link — or screenshots of its reviews."],
+              ["We analyze the reviews", "We group what real buyers said, the good and the bad, and weigh it as a whole."],
+              ["Get one plain answer", "Buy, Wait or Skip — and the reasons, in plain words. If there aren't enough reviews, we say so."],
             ].map(([title, body], index) => (
-              <li key={title} className="rounded-2xl bg-slate-50 p-5">
-                <span className="flex size-8 items-center justify-center rounded-full bg-teal text-sm font-semibold text-white" aria-hidden="true">{index + 1}</span>
-                <h3 className="mt-3 font-semibold text-slate-900">{title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+              <li key={title} className="ri-card ri-lift ri-reveal p-5">
+                <span className="ri-gradient-text text-sm font-extrabold" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <h3 className="mt-2 font-semibold text-slate-900 dark:text-white">{title}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{body}</p>
               </li>
             ))}
           </ol>
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 pt-5 text-sm text-slate-600">
-            {scanCount > 0 ? <span><strong className="font-semibold text-slate-900">{scanCount.toLocaleString("en-CA")}</strong> scans run on ReviewIntel</span> : null}
-            <span>Never fake or generated reviews</span>
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 pt-5 text-sm text-slate-600 dark:text-slate-400">
+            {scanCount > 0 ? <span><strong className="font-semibold text-slate-900 dark:text-white">{scanCount.toLocaleString("en-CA")}</strong> scans run on ReviewIntel</span> : null}
+            <span>Real buyer reviews only</span>
+            <span>No fake or generated reviews</span>
             <span>No scores without written evidence</span>
-            <Link href="/about" className="font-medium text-teal underline-offset-2 hover:underline">About ReviewIntel</Link>
+            <Link href="/about" className="font-medium text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-300">About ReviewIntel</Link>
           </div>
         </div>
       </section>
 
       {/* Platform logo orbit removed: it implied TikTok/eBay coverage we do not scan. */}
 
-      <section aria-labelledby="home-video" className="home-premium-payoff bg-butter px-5 py-16 sm:px-6">
+      <section aria-labelledby="home-video" className="home-premium-payoff px-5 py-16 sm:px-6">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_1fr] lg:items-center">
           <div>
-            <p className="text-sm font-semibold text-teal">{t("instructionVideo.eyebrow")}</p>
-            <h2 id="home-video" className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-900 sm:text-4xl">{t("instructionVideo.title")}</h2>
-            <p className="mt-4 max-w-lg text-base leading-7 text-slate-600">{t("instructionVideo.body")}</p>
+            <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-300">{t("instructionVideo.eyebrow")}</p>
+            <h2 id="home-video" className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-white sm:text-4xl">{t("instructionVideo.title")}</h2>
+            <p className="mt-4 max-w-lg text-base leading-7 text-slate-600 dark:text-slate-300">{t("instructionVideo.body")}</p>
           </div>
-          <div className="home-instruction-video-frame mx-auto w-full max-w-[400px] overflow-hidden rounded-[1.75rem] bg-white p-2.5 ring-1 ring-slate-900/5 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+          <div className="ri-card home-instruction-video-frame mx-auto w-full max-w-[400px] overflow-hidden p-2.5">
             <HomepageInstructionVideo video={homepageVideo} />
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="home-audience" className="home-premium-audience bg-[linear-gradient(180deg,#ffffff_0%,#e6f7f1_100%)] px-5 py-16 sm:px-6">
+      <section aria-labelledby="home-audience" className="home-premium-audience px-5 py-16 sm:px-6">
         <div className="mx-auto max-w-6xl">
-          <h2 id="home-audience" className="text-2xl font-semibold text-slate-900">Built for both sides of the purchase</h2>
+          <h2 id="home-audience" className="text-2xl font-semibold text-slate-900 dark:text-white">Built for both sides of the purchase</h2>
           <div className="mt-6 grid gap-5 md:grid-cols-2">
             {[
               { eyebrow: t("shopperMode"), title: t("fastShoppingVerdict"), items: buyerWins, href: "/analyze", cta: t("tryShopperScan"), primary: true },
               { eyebrow: t("sellerPro"), title: t("businessIntelligence"), items: sellerWins, href: "/pricing", cta: t("seeSellerPlans"), primary: false },
             ].map((card) => (
-              <article key={card.href} className="home-premium-audience-card flex flex-col rounded-[1.75rem] bg-slate-50 p-6 sm:p-8">
-                <p className="text-sm font-semibold text-teal">{card.eyebrow}</p>
-                <h3 className="mt-1 text-2xl font-semibold text-slate-900">{card.title}</h3>
+              <article key={card.href} className="ri-card home-premium-audience-card flex flex-col p-6 sm:p-8">
+                <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-300">{card.eyebrow}</p>
+                <h3 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{card.title}</h3>
                 <ul className="mt-5 grid gap-2.5">
                   {card.items.map((item) => (
-                    <li key={item} className="flex gap-2.5 text-[15px] leading-6 text-slate-700">
-                      <span aria-hidden="true" className="mt-0.5 text-teal">✓</span>{item}
+                    <li key={item} className="flex gap-2.5 text-[15px] leading-6 text-slate-700 dark:text-slate-300">
+                      <span aria-hidden="true" className="mt-0.5 text-indigo-600 dark:text-indigo-300">✓</span>{item}
                     </li>
                   ))}
                 </ul>
                 <div className="mt-auto pt-7">
                   <Link href={card.href} className={card.primary
-                    ? "inline-flex rounded-full bg-teal px-6 py-3 text-sm font-semibold text-white hover:bg-teal/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
-                    : "inline-flex rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"}>
+                    ? "ri-btn-gradient inline-flex rounded-full px-6 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                    : "inline-flex rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 hover:border-indigo-500 hover:text-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-white/15 dark:bg-transparent dark:text-slate-100"}>
                     {card.cta}
                   </Link>
                 </div>
@@ -153,7 +167,7 @@ export default async function LandingPage() {
       </section>
 
       <div className="home-premium-featured-reviews hidden sm:block"><FeaturedReviews /></div>
-    
+
       <section className="home-premium-ad-section hidden mx-auto max-w-6xl px-6 pb-12 sm:block">
         <AdSlot placement="homepage_mid" />
       </section>
