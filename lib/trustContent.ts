@@ -78,7 +78,6 @@ export const footerLinkGroups = [
 
 export const trustPages: Record<string, TrustPageContent> = {
   disclaimer: {
-    draft: true,
     slug: "disclaimer",
     title: "Disclaimer",
     eyebrow: "Product guidance, not guaranteed truth",
@@ -111,7 +110,6 @@ export const trustPages: Record<string, TrustPageContent> = {
     cta: { label: "Contact customer service", href: "/contact" }
   },
   terms: {
-    draft: true,
     slug: "terms",
     title: "Terms of Service",
     eyebrow: "Rules for using ReviewIntel",
@@ -261,7 +259,6 @@ export const trustPages: Record<string, TrustPageContent> = {
     cta: { label: "Read Acceptable Use", href: "/acceptable-use" }
   },
   privacy: {
-    draft: true,
     slug: "privacy",
     title: "Privacy Policy",
     eyebrow: "How ReviewIntel handles data",
@@ -486,7 +483,7 @@ export const trustPages: Record<string, TrustPageContent> = {
       {
         title: "What does ReviewIntel analyze?",
         body:
-          "It analyzes pasted review text, TXT or CSV batches, and screenshot uploads. It estimates review volume, sentiment, complaints, fake-review risk, value for money, and recommendation signals."
+          "It analyzes product links and screenshot uploads of product pages and reviews. It estimates review volume, sentiment, complaints, fake-review risk, value for money, and recommendation signals."
       },
       {
         title: "Is Shopper Mode different from Seller Mode?",
@@ -693,7 +690,7 @@ export const trustPages: Record<string, TrustPageContent> = {
 };
 
 trustPages["affiliate-disclosure"] = {
-  draft: true, slug: "affiliate-disclosure", title: "Affiliate disclosure", eyebrow: "Trust", tone: "trust", updated: "October 11, 2026",
+  slug: "affiliate-disclosure", title: "Affiliate disclosure", eyebrow: "Trust", tone: "trust", updated: "October 11, 2026",
   summary: "How ReviewIntel earns money from links, and why that never changes a verdict.",
   sections: [
     { title: "Amazon Associates", body: ["As an Amazon Associate, ReviewIntel earns from qualifying purchases.", "Some links to Amazon on ReviewIntel are affiliate links. If you buy through them, we may earn a commission at no extra cost to you."] },
@@ -702,7 +699,7 @@ trustPages["affiliate-disclosure"] = {
   ],
 };
 trustPages["ad-policy"] = {
-  draft: true, slug: "ad-policy", title: "Ad content policy", eyebrow: "Advertising", tone: "warning", updated: "October 11, 2026",
+  slug: "ad-policy", title: "Ad content policy", eyebrow: "Advertising", tone: "warning", updated: "October 11, 2026",
   summary: "What we accept in sponsored placements on ReviewIntel.",
   sections: [
     { title: "Every ad is labelled", body: "All paid placements show a clear \"Sponsored\" or \"Affiliate\" label. Ads never appear inside a verdict and cannot influence one." },
@@ -712,7 +709,7 @@ trustPages["ad-policy"] = {
   ],
 };
 trustPages["advertiser-terms"] = {
-  draft: true, slug: "advertiser-terms", title: "Advertiser terms", eyebrow: "Advertising", tone: "billing", updated: "October 11, 2026",
+  slug: "advertiser-terms", title: "Advertiser terms", eyebrow: "Advertising", tone: "billing", updated: "October 11, 2026",
   summary: "The basic terms for buying a sponsored placement on ReviewIntel.",
   sections: [
     { title: "Approval first", body: "Submitting an inquiry does not guarantee a placement. We review your brand, landing page and creative against the Ad content policy before sending a payment link." },

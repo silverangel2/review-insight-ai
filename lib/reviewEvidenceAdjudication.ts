@@ -278,7 +278,17 @@ function identityAccepted(body: string, record: AdjudicationInputRecord, options
 
   const accessory = /\b(?:sizing kit|size kit|kit de tailles?|kit de mesures?|replacement filter|replacement part|charging case|(?:the|wall|car|replacement) charger|mount|accessory)\b/i;
   const requestedIsAccessory = accessory.test(normalized([options.productName, options.model].join(" ")));
-  const accessoryMention = accessory.test(reviewSubjectText);
+  // A page-inherited name is the verified listing's own title, not the
+  // review's claim about its subject. It cannot make the review "about an
+  // accessory": the listing title itself may name an included component
+  // (e.g. the charging case earbuds ship with). Accessory mentions must
+  // come from the review's own words or a per-review product name.
+  const pageInheritedListingName = listingAssociation && pageInheritedName;
+  const accessoryMention = accessory.test(normalized([
+    body,
+    record.title,
+    pageInheritedListingName ? "" : record.reviewedProductName,
+  ].filter(Boolean).join(" ")));
   // Derive product anchors from the requested identity, rather than a list
   // of previously seen product categories. Accessory compatibility alone is
   // not primary-product use; a primary anchor needs its own experience verb.
@@ -287,7 +297,7 @@ function identityAccepted(body: string, record: AdjudicationInputRecord, options
   const anchorPattern = [...anchors, "device", "product", "unit"].map(token => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   const productExperience = new RegExp(`\\b(?:${anchorPattern})\\b.{0,65}\\b(?:works?|worked|using|used|comfortable|battery|charge|failed|died|broke|clean|cooks?|cooked|performance)\\b|\\b(?:using|used|wear|wore|bought|purchased)\\b.{0,20}\\b(?:${anchorPattern})\\b`, "i").test(reviewSubjectText)
     || /\b(?:this|current|new)\s+(?:version|one|unit|product)\b.{0,180}\b(?:works?|used|use|power|keeps?|charge)\b/i.test(reviewSubjectText);
-  const accessorySubject = accessory.test(normalized(record.reviewedProductName));
+  const accessorySubject = !pageInheritedListingName && accessory.test(normalized(record.reviewedProductName));
   // The reviewer's own words (not the listing title) naming the requested
   // product's category/identity words (singular or plural) show the review is about it; an incidental accessory mention
   // (e.g. "I have a ceiling mount") must not discard that review.

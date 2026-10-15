@@ -27,7 +27,7 @@ export default function AboutPage() {
           <div>
             <h3 className="text-base font-black text-ink dark:text-white">Shopper scans</h3>
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Paste a product link, upload a screenshot of a listing, or import a TXT or CSV of reviews. ReviewIntel reads the review language, maps rating patterns, groups repeated complaint themes, checks value signals against the price, and flags fake-review risk indicators. The result is a BUY, REVIEW FIRST, or AVOID verdict with the risk signals, complaint patterns, and best-for match behind it — plus a confidence level so you know how much weight to give it.
+              Paste a product link or upload a screenshot of a listing. ReviewIntel reads the review language, maps rating patterns, groups repeated complaint themes, checks value signals against the price, and flags fake-review risk indicators. The result is a BUY, REVIEW FIRST, or AVOID verdict with the risk signals, complaint patterns, and best-for match behind it — plus a confidence level so you know how much weight to give it.
             </p>
           </div>
           <div>
