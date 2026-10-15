@@ -39,6 +39,40 @@ export function getAmazonAssociateTag() {
   return process.env.AMAZON_ASSOCIATE_TAG?.trim() || "";
 }
 
+/**
+ * Per-store Amazon Associate tags (Junel's directive, Oct 2026):
+ *  - amazon.com links earn through the Roamly Associates account, whose
+ *    site list includes getreviewintel.com → default tag `roamly02e-20`.
+ *  - amazon.ca links keep the legacy AMAZON_ASSOCIATE_TAG when one is
+ *    configured (e.g. reviewintel-20), else default to `roamly060-20`.
+ *  - Other Amazon marketplaces keep legacy behavior (env tag or untagged).
+ *
+ * Per-store env overrides (AMAZON_ASSOCIATE_TAG_COM / _CA) win over the
+ * defaults without touching the legacy variable.
+ */
+const DEFAULT_AMAZON_TAG_COM = "roamly02e-20";
+const DEFAULT_AMAZON_TAG_CA = "roamly060-20";
+
+function amazonStoreKind(hostname: string): "ca" | "com" | "other" {
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  if (host === "amazon.ca" || host.endsWith(".amazon.ca")) return "ca";
+  if (host === "amazon.com" || host.endsWith(".amazon.com")) return "com";
+  return "other";
+}
+
+export function getAmazonAssociateTagForHost(
+  hostname: string,
+  env: Record<string, string | undefined> = process.env
+) {
+  const kind = amazonStoreKind(hostname);
+  const explicitCom = (env.AMAZON_ASSOCIATE_TAG_COM || "").trim();
+  const explicitCa = (env.AMAZON_ASSOCIATE_TAG_CA || "").trim();
+  const legacy = (env.AMAZON_ASSOCIATE_TAG || "").trim();
+  if (kind === "ca") return explicitCa || legacy || DEFAULT_AMAZON_TAG_CA;
+  if (kind === "com") return explicitCom || DEFAULT_AMAZON_TAG_COM;
+  return legacy;
+}
+
 export function getWalmartAffiliateId() {
   return (
     process.env.WALMART_AFFILIATE_ID?.trim() ||
@@ -126,15 +160,17 @@ export function isSupportedAffiliateUrl(url: string) {
 }
 
 export function buildAmazonAffiliateUrl(url: string) {
-  const tag = getAmazonAssociateTag();
-
-  if (!url || !url.startsWith("http") || !tag) return url;
+  if (!url || !url.startsWith("http")) return url;
 
   try {
     const parsed = new URL(url);
 
     if (!isAmazonHost(parsed.hostname)) return url;
 
+    const tag = getAmazonAssociateTagForHost(parsed.hostname);
+    if (!tag) return url;
+
+    // set() replaces any existing tag param — a URL is never double-tagged.
     parsed.searchParams.set("tag", tag);
     return parsed.toString();
   } catch {
