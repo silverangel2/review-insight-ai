@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readScanProgress, scanProgressHttp } from "@/lib/scanProgress";
+import { readScanProgress, scanProgressHttp } from "@/lib/scanProgressStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

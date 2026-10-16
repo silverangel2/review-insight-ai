@@ -12,7 +12,7 @@ const retrieval = jiti("./lib/productUrlRetrieval.ts");
 const aggregate = jiti("./lib/marketplaceAggregate.ts");
 const access = jiti("./lib/scanAccess.ts");
 const ownership = jiti("./lib/scanOwnership.ts");
-const progress = jiti("./lib/scanProgress.ts");
+const progress = jiti("./lib/scanProgressStore.ts");
 const email = jiti("./lib/lifecycleEmail.ts");
 
 const ASIN = "B0D1XD1ZV3";
