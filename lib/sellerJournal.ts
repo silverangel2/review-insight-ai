@@ -20,6 +20,8 @@ export type SellerJournalScan = {
   recommendations: string[];
   actionPlan: string[];
   summary: string;
+  /** Canonical product URL when the scan carried one (identity for merging). */
+  productUrl?: string;
   productMemory?: ReturnType<typeof buildProductMemoryBrain>;
 };
 
@@ -32,6 +34,21 @@ function todayKey() {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Local-calendar date key (yyyy-mm-dd in the device timezone). The calendar
+ * groups scans by local date, so journal scans must be stamped the same way —
+ * slicing a UTC ISO string shifted evening scans onto the wrong day ("0
+ * reviews scanned" on days that had scans).
+ */
+function localDateKey(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return todayKey();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -156,6 +173,8 @@ export type StoredSellerDashboardResult = {
     nextActions?: string[];
   };
   fileName?: string;
+  /** Canonical product URL when the scan carried one (identity for merging). */
+  productLink?: string;
   createdAt?: string;
 };
 
@@ -167,9 +186,15 @@ export function saveStoredSellerResultToJournal(stored: StoredSellerDashboardRes
 
   const createdAt = stored.createdAt || new Date().toISOString();
   const productName = stored.fileName?.replace(/\.[^/.]+$/, "").trim() || "Seller analysis";
-  const date = createdAt.slice(0, 10) || todayKey();
+  // Same local-date basis the calendar groups by (never a UTC slice).
+  const date = localDateKey(createdAt);
+  // Carry the canonical product URL when the scan had one: the calendar and
+  // dashboard can then group runs of the same product even when the file
+  // names differ.
+  const productUrl = String(stored.productLink || "").trim();
 
-  const stableId = `seller-session-${productName}-${createdAt}`
+  const idBasis = productUrl || `${productName}-${createdAt}`;
+  const stableId = `seller-session-${idBasis}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
@@ -180,6 +205,7 @@ export function saveStoredSellerResultToJournal(stored: StoredSellerDashboardRes
     savedAt: createdAt,
     createdAt,
     productName,
+    productUrl: productUrl || undefined,
     productScore: Math.round(result.healthScore || 0),
     sentimentScore: Math.round(result.buyerSatisfaction || 0),
     reviewCount: result.reviewsAnalyzed || 0,

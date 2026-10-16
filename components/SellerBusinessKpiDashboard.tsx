@@ -545,7 +545,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
   const praise = getPraise(analysis);
   const requests = getFeatureRequests(analysis);
   const support = getSupportIssues(analysis);
-  const score = cleanScore(analysis.product_score ?? analysis.productScore ?? analysis.confidence_score, 74);
+  const score = cleanScore(analysis.product_score ?? analysis.productScore ?? analysis.confidence_score, -1);
 
   const topComplaint = pickDistinctTheme(complaints, "unclear durability or expectation gap");
   const secondaryComplaint = pickDistinctTheme(complaints, "the next visible buyer objection", [topComplaint]);
@@ -557,17 +557,22 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
   // empty-state copy instead of interpolating the fragment into a sentence.
   const praiseIsFallback = isFallbackTheme(topPraise);
   const complaintIsFallback = isFallbackTheme(topComplaint);
+  const supportIsFallback = isFallbackTheme(topSupport);
+  const requestIsFallback = isFallbackTheme(topRequest);
   const neutralCollectionAction = "Keep collecting reviews; repeated themes will appear here once review volume grows.";
 
-  const totalSignalBase = Math.max(reviewCount, complaints.length + praise.length + support.length + 4);
-  const complaintShare = complaints.length ? estimateShare(Math.min(complaints.length, totalSignalBase), totalSignalBase) : "Low signal";
-  const praisePeople = praise.length ? peopleStyle(Math.min(praise.length + 2, totalSignalBase), totalSignalBase) : "Directional";
+  // Honest metrics: only counts of real theme phrases are shown. A
+  // percentage share or "N of 10 signals" cannot be computed from theme
+  // counts, so low evidence renders a qualitative label instead of an
+  // invented number that could contradict the scored verdict.
+  const complaintMetric = complaints.length ? pluralize(complaints.length, "signal") : "Low signal";
+  const praiseMetric = praise.length ? pluralize(praise.length, "proof") : "Low signal";
   const sampleWarning = reviewCount && reviewCount < 15 ? "Small sample size: directional signal only." : "Based on the provided review sample.";
 
   const cards = [
     {
       title: "Conversion Blocker",
-      metric: complaintShare,
+      metric: complaintMetric,
       tone: "border-coral/35 from-orange-100 via-white to-rose-100",
       gauge: "heat" as const,
       insight: complaintIsFallback
@@ -578,7 +583,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
     },
     {
       title: "Revenue Opportunity",
-      metric: praisePeople,
+      metric: praiseMetric,
       tone: "border-teal/35 from-emerald-100 via-white to-teal/20",
       gauge: "bars" as const,
       insight: praiseIsFallback
@@ -589,7 +594,7 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
     },
     {
       title: "Buyer Trust Gap",
-      metric: `${score}%`,
+      metric: score >= 0 ? `${score}%` : "Low signal",
       tone: "border-blue-300 from-sky-100 via-white to-blue-100",
       gauge: "needle" as const,
       insight: "Buyers are checking whether the product feels real, reliable, worth the price, and supported.",
@@ -621,8 +626,10 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
       metric: support.length ? "Watch" : "Low",
       tone: "border-violet-300 from-violet-100 via-white to-blue-100",
       gauge: "signal" as const,
-      insight: `Customer care signal: ${topSupport}.`,
-      action: sellerActionForTheme(topSupport, "support"),
+      insight: supportIsFallback
+        ? "No support-pattern signal yet — support insights appear once repeated buyer objections show up."
+        : `Customer care signal: ${topSupport}.`,
+      action: supportIsFallback ? neutralCollectionAction : sellerActionForTheme(topSupport, "support"),
       impact: "Protects trust after purchase and can reduce refunds, disputes, and negative reviews."
     }
   ];
@@ -650,9 +657,9 @@ export function SellerBusinessKpiDashboard({ analysis, plan }: { analysis: AnyRe
         <article className="seller-money-summary-card rounded-[1.75rem] border border-line bg-mist p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <h3 className="text-xl font-black text-ink dark:text-white">Money Opportunity</h3>
           <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
-            <li><span className="font-black">What may be costing sales:</span> {topComplaint}</li>
-            <li><span className="font-black">What to highlight more:</span> {topPraise}</li>
-            <li><span className="font-black">What to fix first:</span> {topRequest}</li>
+            <li><span className="font-black">What may be costing sales:</span> {complaintIsFallback ? "Collecting reviews — repeated objections will appear here once review volume grows." : topComplaint}</li>
+            <li><span className="font-black">What to highlight more:</span> {praiseIsFallback ? "Collecting reviews — repeated praise will appear here once review volume grows." : topPraise}</li>
+            <li><span className="font-black">What to fix first:</span> {requestIsFallback ? "Collecting reviews — repeated requests will appear here once review volume grows." : topRequest}</li>
             <li><span className="font-black">What to answer before checkout:</span> durability, value, support, and expectation fit.</li>
           </ul>
         </article>

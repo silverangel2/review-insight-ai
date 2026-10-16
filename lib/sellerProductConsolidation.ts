@@ -651,3 +651,157 @@ export function consolidateSellerProductScans(scans: SellerProductScan[]): Conso
     priorityActions: rollupThemes(ordered, (s) => s.actionPlan ?? [], 8),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Identity + dedupe for DB/history-shaped analysis records            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A DB / history-shaped seller analysis record: Supabase `analyses` rows,
+ * local audit-history entries, journal scans, dashboard scan blobs. The
+ * canonical identity rule is the same as for product records — the product
+ * URL wins, the stored product name is the fallback — so two CSV runs of
+ * the same product fold into one card even when their filenames differ and
+ * the product_name was written from the filename.
+ */
+export type SellerAnalysisRecordShape = Record<string, unknown>;
+
+function recordAnalysisJson(record: Record<string, unknown>): Record<string, unknown> {
+  const analysis = record.analysis_json;
+  return analysis && typeof analysis === "object"
+    ? (analysis as Record<string, unknown>)
+    : {};
+}
+
+/** Canonical identity for a DB/history-shaped analysis record. */
+export function sellerAnalysisIdentityFor(
+  record: SellerAnalysisRecordShape | null | undefined
+): SellerProductIdentity {
+  const rec = ((record ?? {}) as Record<string, unknown>);
+  const analysis = recordAnalysisJson(rec);
+  return sellerProductIdentityFor({
+    productUrl: firstText(
+      analysis.productUrl,
+      analysis.exactListingUrl,
+      analysis.listingUrl,
+      rec.productUrl,
+      rec.exactListingUrl,
+      rec.listingUrl
+    ),
+    productLink: firstText(analysis.productLink, rec.productLink),
+    productName: firstText(
+      rec.product_name,
+      rec.productName,
+      rec.name,
+      rec.title,
+      rec.fileName
+    ),
+    platform: firstText(rec.platform, analysis.platform),
+  });
+}
+
+function recordCreatedAt(record: Record<string, unknown>): string {
+  return cleanText(
+    record.created_at ?? record.createdAt ?? record.savedAt ?? record.analyzedAt ?? record.date
+  );
+}
+
+function recordReviewCount(record: Record<string, unknown>): number {
+  const analysis = recordAnalysisJson(record);
+  const raw =
+    analysis.reviewsAnalyzed ??
+    analysis.reviews_analyzed ??
+    analysis.review_count ??
+    analysis.reviewCount ??
+    record.reviewsAnalyzed ??
+    record.reviewCount ??
+    record.review_count;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
+
+/** A filename with the extension stripped ("anker-run2", "logi_03") is
+ *  still a filename — it must never become a display name either. */
+function looksLikeFilenameStem(value: string): boolean {
+  const v = cleanText(value);
+  return isFileNameLike(v) || /[-_]run\d*$/i.test(v) || /[-_]\d{2,}$/.test(v);
+}
+
+function displayNameForRecord(
+  record: Record<string, unknown>,
+  identity: SellerProductIdentity
+): string {
+  const stored = cleanText(
+    record.product_name ?? record.productName ?? record.name ?? record.title
+  );
+  // A bare filename (or its stem) must never survive as the display name.
+  // When the stored name is filename-derived, the label falls back to the
+  // URL-derived identity label (e.g. "amazon.ca · B07P39MLKH") — identity-
+  // honest, and it makes visibly clear both runs are the same product.
+  if (stored && !looksLikeFilenameStem(stored)) return stored;
+  const unlabeled = sellerProductIdentityFor({
+    productUrl: identity.productUrl || null,
+    platform: identity.platform || null,
+  });
+  return unlabeled.label;
+}
+
+export type DedupedSellerAnalysis<T extends SellerAnalysisRecordShape = SellerAnalysisRecordShape> =
+  T & {
+    /** How many raw records folded into this product card. */
+    mergedRecordCount: number;
+    /** Sum of review counts across the folded records. */
+    mergedReviewCount: number;
+    /** The canonical identity key all folded records share. */
+    canonicalKey: string;
+  };
+
+/**
+ * Deterministic merge of DB/history analysis records by canonical identity.
+ * Two CSV runs of the same product (same link, different filenames) become
+ * ONE card: the newest record wins for display fields, review counts sum,
+ * and mergedRecordCount carries how many runs folded in. Pure — never
+ * writes storage. Every dashboard read path (history list, product rows,
+ * "last products checked", counts) must go through this.
+ */
+export function dedupeSellerAnalyses<T extends SellerAnalysisRecordShape>(
+  records: T[] | null | undefined
+): DedupedSellerAnalysis<T>[] {
+  const list = (Array.isArray(records) ? records : []).filter(
+    (record) => record && typeof record === "object"
+  ) as T[];
+  const groups = new Map<string, { identity: SellerProductIdentity; records: T[] }>();
+  for (const record of list) {
+    const identity = sellerAnalysisIdentityFor(record);
+    const group = groups.get(identity.key);
+    if (group) group.records.push(record);
+    else groups.set(identity.key, { identity, records: [record] });
+  }
+  const merged: DedupedSellerAnalysis<T>[] = [];
+  for (const [key, { identity, records: group }] of groups) {
+    const sorted = [...group].sort((a, b) =>
+      String(recordCreatedAt(b as Record<string, unknown>)).localeCompare(
+        String(recordCreatedAt(a as Record<string, unknown>))
+      )
+    );
+    const latest = sorted[0] as Record<string, unknown>;
+    const mergedReviewCount = group.reduce(
+      (sum, record) => sum + recordReviewCount(record as Record<string, unknown>),
+      0
+    );
+    merged.push({
+      ...(latest as T),
+      product_name: displayNameForRecord(latest, identity),
+      mergedRecordCount: group.length,
+      mergedReviewCount,
+      canonicalKey: key,
+    });
+  }
+  // Newest product card first, matching the dashboard's ordering.
+  merged.sort((a, b) =>
+    String(recordCreatedAt(b as Record<string, unknown>)).localeCompare(
+      String(recordCreatedAt(a as Record<string, unknown>))
+    )
+  );
+  return merged;
+}

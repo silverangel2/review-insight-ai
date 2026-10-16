@@ -646,10 +646,24 @@ ${deepIntel.evidenceBrief}
     }
     if (email && !isCompareSideAnalysis) {
       const healthScore = readNumber(result, "healthScore");
+      // Identity repair (seller consolidation): the product link is the
+      // canonical identity and must ride on the persisted record. The
+      // analyses table has no product_url column, so the link travels inside
+      // analysis_json, where every read path can resolve it. A bare CSV
+      // filename must never become the stored product identity when a real
+      // product name is known from the CSV rows.
+      if (productLink) {
+        result.productUrl = productLink;
+        result.exactListingUrl = productLink;
+      }
+      const dbProductName =
+        productNameForEvidence && productNameForEvidence.toLowerCase() !== "seller product"
+          ? productNameForEvidence
+          : file.name.replace(/\.csv$/i, "") || "Seller CSV scan";
       const analysisRecord = await saveAnalysisRecord({
         profile_email: email,
         mode: "seller",
-        product_name: file.name.replace(/\.csv$/i, "") || "Seller CSV scan",
+        product_name: dbProductName,
         platform: "other",
         product_score: healthScore,
         recommendation: healthScore >= 70 ? "seller_watch" : "seller_fix",
