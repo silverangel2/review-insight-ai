@@ -23,7 +23,12 @@ import { ProOnlyGate } from "@/components/ProOnlyGate";
 import { SellerImprovementCalendar } from "@/components/SellerImprovementCalendar";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { readSellerProducts, type SellerProduct } from "@/lib/sellerProducts";
-import { countSellerAnalyses, dedupeSellerProducts } from "@/lib/sellerProductConsolidation";
+import {
+  countSellerAnalyses,
+  dedupeSellerProducts,
+  dedupeSellerAnalyses,
+  sellerAnalysisIdentityFor,
+} from "@/lib/sellerProductConsolidation";
 import { SellerProductBusinessAnalysis } from "@/components/SellerProductBusinessAnalysis";
 import { readSellerJournal } from "@/lib/sellerJournal";
 import { startSellerWorkspaceSync } from "@/lib/sellerWorkspaceSync";
@@ -163,7 +168,12 @@ function productHealthRows(scans: unknown[]) {
   for (const scan of scans) {
     if (isCompareScan(scan)) continue;
 
-    const name = scanText(scan, ["productName", "name", "title", "fileName"], "Unnamed product");
+    // Canonical identity: the product URL wins over the raw name text, so
+    // two CSV runs of the same product (different filenames) fold into one
+    // product row instead of staying split by filename.
+    const identity = sellerAnalysisIdentityFor(scan as Record<string, unknown>);
+    const key = identity.key;
+    const name = identity.label || "Unnamed product";
     const score = scanNumber(scan, ["productScore", "product_score", "healthScore", "score", "buyingConfidence", "confidenceScore", "confidence_score", "rating"], 0);
     const concerns = scanArray(scan, ["painPoints", "complaints", "negativeSignals", "topComplaints", "issues"]);
     const positives = scanArray(scan, ["praises", "positiveSignals", "topPositiveFeedback", "praisedFeatures", "strengths", "positivePoints"]);
@@ -179,7 +189,7 @@ function productHealthRows(scans: unknown[]) {
 
     const savedAt = new Date(String(savedAtRaw)).getTime();
 
-    const current = groups.get(name) ?? { name, scans: [] };
+    const current = groups.get(key) ?? { name, scans: [] };
 
     current.scans.push({
       scan,
@@ -190,7 +200,7 @@ function productHealthRows(scans: unknown[]) {
       actions
     });
 
-    groups.set(name, current);
+    groups.set(key, current);
   }
 
   return Array.from(groups.values())
@@ -466,7 +476,25 @@ export default function SellerDashboardPage() {
 
     // Recent product signals should show the same saved history source as the History button.
     // This includes PRD seller scans and CMR seller compare records.
-    const recentSignalScans = auditScans.length ? auditScans.slice(0, 10) : latestScans.slice(0, 10);
+    const signalScanSource = auditScans.length ? auditScans : latestScans;
+    const recentSignalScans = signalScanSource.slice(0, 10);
+    // One row per canonical product: runs of the same product (same link,
+    // different filenames) merge here too, with mergedRecordCount carrying
+    // how many runs folded in.
+    const recentSignalProducts = dedupeSellerAnalyses(
+      signalScanSource.filter((scan) => {
+        const blob = JSON.stringify(scan || {}).toLowerCase();
+        const display = String(
+          scanText(scan, ["displayCode", "code", "refCode", "id"], "")
+        ).toUpperCase();
+        return (
+          display.startsWith("PRD-") ||
+          display.startsWith("CMR-") ||
+          blob.includes("seller_compare") ||
+          blob.includes("seller_analyze")
+        );
+      })
+    ).slice(0, 10);
 
     const painPoints = uniqueTop(
       latestScans.flatMap((scan) =>
@@ -512,6 +540,7 @@ export default function SellerDashboardPage() {
       auditScans,
       latestScans,
       recentSignalScans,
+      recentSignalProducts,
       painPoints,
       featureRequests,
       positiveSignals,
@@ -1110,26 +1139,7 @@ export default function SellerDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {dashboard.recentSignalScans
-                    .filter((scan) => {
-                      const blob = JSON.stringify(scan || {}).toLowerCase();
-                      const display = String(
-                        scan.displayCode ||
-                          scan.code ||
-                          scan.refCode ||
-                          scan.id ||
-                          ""
-                      ).toUpperCase();
-
-                      return (
-                        display.startsWith("PRD-") ||
-                        display.startsWith("CMR-") ||
-                        blob.includes("seller_compare") ||
-                        blob.includes("seller_analyze")
-                      );
-                    })
-                    .slice(0, 10)
-                    .map((scan, index) => {
+                      {dashboard.recentSignalProducts.map((scan, index) => {
                         const rawDate = scanText(scan, ["savedAt", "createdAt", "date"], "");
                         const dateLabel = rawDate
                           ? new Date(rawDate).toLocaleString(undefined, {
@@ -1141,11 +1151,17 @@ export default function SellerDashboardPage() {
                             })
                           : "Saved scan";
 
+                        const mergedRuns = Number(scan.mergedRecordCount || 1);
                         return (
-                          <tr key={scanText(scan, ["id"], `scan-${index}`)} className="border-t border-line dark:border-white/10">
+                          <tr key={scanText(scan, ["canonicalKey", "id"], `scan-${index}`)} className="border-t border-line dark:border-white/10">
                             <td className="whitespace-nowrap px-4 py-3 text-xs font-black text-slate-500 dark:text-slate-400">{dateLabel}</td>
                             <td className="max-w-[220px] truncate px-4 py-3 font-black text-ink dark:text-white">
-                              {displayCodeForResult(scan, scanText(scan, ["productName", "name", "title", "fileName"], "Saved product scan"))}
+                              {displayCodeForResult(scan, scanText(scan, ["productName", "product_name", "name", "title", "fileName"], "Saved product scan"))}
+                              {mergedRuns > 1 ? (
+                                <span className="ml-2 inline-block rounded-full bg-ocean/10 px-2 py-0.5 align-middle text-[10px] font-black text-ocean dark:bg-white/10 dark:text-slate-200">
+                                  {mergedRuns} scans merged
+                                </span>
+                              ) : null}
                             </td>
                             <td className="whitespace-nowrap px-4 py-3 font-black text-ocean">{scanNumber(scan, ["productScore", "product_score", "healthScore", "score", "buyingConfidence", "confidenceScore", "confidence_score", "rating"], 0)}</td>
                             <td className="whitespace-nowrap px-4 py-3 font-black text-slate-700 dark:text-slate-200">{scanNumber(scan, ["sentimentScore", "sentiment_score", "sentiment", "satisfactionScore", "customer_satisfaction_score", "buyerSatisfaction"], 0)}</td>
