@@ -411,6 +411,32 @@ function htmlDecodeLight(value: string) {
     .trim();
 }
 
+/**
+ * Amazon detail-page main product image. The served listing HTML carries no
+ * og:image/twitter:image meta tags, so those are always null on real Amazon
+ * pages; the canonical main image lives on the #landingImage element.
+ * data-old-hires is the hi-res original, src is the resized display copy.
+ * Attribute order varies between templates; either order is accepted. Only
+ * real m.media-amazon.com product-image URLs qualify — never sprites,
+ * placeholders, or data: URIs. Null when the page carries none.
+ */
+function landingImageUrl(html: string): string | null {
+  const tag = html.match(/<img\b[^>]*\bid=["']landingImage["'][^>]*>/i)?.[0];
+  if (!tag) return null;
+  const candidates = [
+    tag.match(/data-old-hires=["']([^"']+)["']/i)?.[1],
+    tag.match(/(?<![\w-])src=["']([^"']+)["']/i)?.[1],
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const url = htmlDecodeLight(raw);
+    if (/^https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9+_=\-.%]+\.(?:jpg|jpeg|png)/i.test(url)) {
+      return url;
+    }
+  }
+  return null;
+}
+
 function elementTextById(html: string, id: string): string | null {
   const match = html.match(new RegExp(`<([a-z0-9]+)\\b[^>]*\\bid=["']${id}["'][^>]*>([\\s\\S]*?)<\\/\\1>`, "i"));
   if (!match) return null;
@@ -490,11 +516,14 @@ export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
 
   const canonicalTag = html.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0] || html.match(/<link\b[^>]*href=["'][^"']+["'][^>]*rel=["']canonical["'][^>]*>/i)?.[0];
   const canonicalRaw = canonicalTag?.match(/href=["']([^"']+)["']/i)?.[1] || html.match(/<meta[^>]+property=["']og:url["'][^>]+content=["']([^"']+)["']/i)?.[1] || null;
-  // Main product image only: the og:image of the listing page itself.
-  // Never invented, never a placeholder — null when the page carries none.
+  // Main product image only: the og:image of the listing page itself, else the
+  // #landingImage element on Amazon detail pages (whose served HTML carries
+  // no og:image tags). Never invented, never a placeholder — null when the
+  // page carries none.
   const image =
     html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']{5,2000})["']/i)?.[1] ||
     html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']{5,2000})["']/i)?.[1] ||
+    landingImageUrl(html) ||
     null;
   let canonicalUrl: string | null = null;
   if (canonicalRaw) {
