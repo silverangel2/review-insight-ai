@@ -58,6 +58,7 @@ import {
 } from "./productSearchVerifier";
 import { normalizeProductUrl } from "./productUrlRetrieval";
 import { collectorListingForAuthoritativeAsin, isDriftSearchQuery } from "./listingAuthority";
+import { adoptPrimaryPageIdentity } from "./adoptListingIdentity";
 import { stableProductSearchTerms } from "./productIdentityTokens";
 import {
   collectWrittenReviewsFromListing,
@@ -2401,6 +2402,10 @@ export async function collectAndAnalyzeReviewEvidence(
       costTelemetry: input.costTelemetry,
     });
     nativeRetrievalNote = nativeReviewRetrieval.coverageNote;
+    // The collector read the real listing page: name the product it scanned.
+    listingEvidenceForCollection =
+      adoptPrimaryPageIdentity(listingEvidenceForCollection, nativeReviewRetrieval?.primaryPageIdentity) ??
+      listingEvidenceForCollection;
   } else {
     nativeRetrievalNote = "Native retrieval skipped because exact product identity was not verified.";
   }
@@ -2696,6 +2701,10 @@ export async function collectAndAnalyzeReviewEvidence(
         maxSnippets: Math.max(10, 240 - collectedWrittenReviewCount()),
         costTelemetry: input.costTelemetry,
       });
+      // The collector read the real listing page: name the product it scanned.
+      listingEvidenceForCollection =
+        adoptPrimaryPageIdentity(listingEvidenceForCollection, nativeReviewRetrieval?.primaryPageIdentity) ??
+        listingEvidenceForCollection;
       const directReviews = collectorFromNative(nativeReviewRetrieval, verified.verifiedListingUrl);
       if (directReviews.reviews.length > 0) {
         collectedWrittenReviews = reviewCollectorResultWith(
