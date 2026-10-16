@@ -10,6 +10,7 @@ import {
   foldAuthLines,
   briefFactRows,
 } from "@/lib/briefNarration";
+import { sameSentence } from "@/lib/textDedupe";
 import { BriefReveal } from "@/components/BriefReveal";
 import { ScoreCountUp } from "@/components/ScoreCountUp";
 
@@ -68,6 +69,16 @@ export function DecisionBrief({
   // Round 3: render-boundary guard — the verdict word can only ever be
   // Buy / Wait / Skip, no matter what is stored or generated. The old
   // "Review first" fallback and the "Avoid" branch are retired.
+
+  // Round 5: duplicate-line guard — the one-off echo-guard fallback in
+  // lib/reviewAnalysis.ts composes a factor's summary as the bare basis
+  // label ("One buyer reported this.") while the basis field carries the
+  // identical text. Rendering both prints the same sentence twice. Keep
+  // the summary line, suppress the duplicate basis line. Factors with a
+  // real summary ≠ basis render exactly as before.
+  const showBasisFor = (summary: string, basis: string): boolean =>
+    !sameSentence(summary, basis);
+
   const verdictWord = sanitizeVerdictWord(shopperVerdictWord(result));
   const verdict =
     verdictWord === "Skip"
@@ -202,7 +213,11 @@ export function DecisionBrief({
                   <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
                     {factor.summary}
                   </p>
-                  <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">{factor.basis}</p>
+                  {showBasisFor(factor.summary, factor.basis) ? (
+                    <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">
+                      {factor.basis}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -224,7 +239,11 @@ export function DecisionBrief({
                   <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
                     {factor.summary}
                   </p>
-                  <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">{factor.basis}</p>
+                  {showBasisFor(factor.summary, factor.basis) ? (
+                    <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">
+                      {factor.basis}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>
