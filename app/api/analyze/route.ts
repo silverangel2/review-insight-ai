@@ -5,7 +5,7 @@ import { candidateMatchesLinkIdentity, collectionProductName, identityFromProduc
 import { attachScanAccess } from "@/lib/scanAccess";
 import { guardedOpenAiFetch, isOpenAiFeatureEnabled, runZeroOpenAi } from "@/lib/openAiGuard";
 import { withDevScanCapture, captureScanId, captureStage } from "@/lib/devScanCapture";
-import { aliasScanProgress, runWithScanProgress } from "@/lib/scanProgress";
+import { aliasScanProgress, runWithScanProgress } from "@/lib/scanProgressStore";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
 import { raceWithBudget, scanBudgets, withScanDeadline } from "@/lib/scanDeadline";

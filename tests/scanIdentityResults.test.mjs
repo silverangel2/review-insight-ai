@@ -15,7 +15,7 @@ const LISTING = `https://www.amazon.com/dp/${ASIN}`;
 const facts = jiti("./lib/screenshotProductFacts.ts");
 const ownership = jiti("./lib/scanOwnership.ts");
 const access = jiti("./lib/scanAccess.ts");
-const progress = jiti("./lib/scanProgress.ts");
+const progress = jiti("./lib/scanProgressStore.ts");
 const verifier = jiti("./lib/productSearchVerifier.ts");
 
 test("Amazon nav menu text is not the product name, and ratings still come through", () => {

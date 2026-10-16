@@ -77,14 +77,18 @@ test("defect 4: same quote text gets one canonical attribution everywhere", () =
   assert.equal(attribution.get(key), "amazon.ca");
 });
 
-test("defect 4: deriveShopperAnswer labels identical quotes identically", () => {
+// Batch 2, rule 1 (2026-10-15 full-scan audit, Junel-commissioned): each
+// distinct quote renders AT MOST ONCE per page. The identical quote under the
+// second theme is dropped; the theme label is kept. Canonical attribution is
+// unchanged (same quote -> same label whenever it renders).
+test("defect 4: deriveShopperAnswer shows an identical quote only once", () => {
   const answer = sa.deriveShopperAnswer(auditFixture());
   assert.equal(answer.loves.length, 2);
   const [love1, love2] = answer.loves;
   assert.ok(love1.quote && !love1.quote.includes("**"), "defect 1: markdown in primary quote");
-  assert.equal(love1.quote, love2.quote, "same text must render identically");
+  assert.equal(love2.quote, null, "batch 2 rule 1: identical quote must not render twice");
   assert.equal(love1.sourceHost, "amazon.ca");
-  assert.equal(love2.sourceHost, "amazon.ca", "defect 4: second label must match the canonical first");
+  assert.equal(love2.claim, "Good battery", "theme label is kept; only the duplicate quote is dropped");
 });
 
 // ---------- Defect 3: aggregate rating surfaced in the headline card ----------

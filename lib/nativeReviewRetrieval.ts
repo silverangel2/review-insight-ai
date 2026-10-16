@@ -1,4 +1,4 @@
-import { reportReviewsFound } from "./scanProgress";
+import { reportReviewsFound } from "./scanProgressStore";
 import { createHeadlessRenderer, headlessRenderEnabled } from "./headlessRender";
 import { createPoliteFetcher, BROWSER_HEADERS } from "./politeFetch";
 import { ScanCookieJar } from "./browserProfiles";

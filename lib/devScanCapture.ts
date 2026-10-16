@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { noteScanProgressEvent } from "./scanProgress";
+import { noteScanProgressEvent } from "./scanProgressStore";
 import { mkdir, writeFile, rename } from "node:fs/promises";
 import { join } from "node:path";
 

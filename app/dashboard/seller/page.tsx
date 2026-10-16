@@ -23,6 +23,7 @@ import { ProOnlyGate } from "@/components/ProOnlyGate";
 import { SellerImprovementCalendar } from "@/components/SellerImprovementCalendar";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { readSellerProducts, type SellerProduct } from "@/lib/sellerProducts";
+import { countSellerAnalyses, dedupeSellerProducts } from "@/lib/sellerProductConsolidation";
 import { SellerProductBusinessAnalysis } from "@/components/SellerProductBusinessAnalysis";
 import { readSellerJournal } from "@/lib/sellerJournal";
 import { startSellerWorkspaceSync } from "@/lib/sellerWorkspaceSync";
@@ -348,16 +349,16 @@ export default function SellerDashboardPage() {
 
   useEffect(() => {
     setAccount(getClientAccount());
-    setProducts(readSellerProducts());
+    setProducts(dedupeSellerProducts(readSellerProducts()));
     setJournalScans(readSellerJournal());
     void startSellerWorkspaceSync(() => {
-      setProducts(readSellerProducts());
+      setProducts(dedupeSellerProducts(readSellerProducts()));
       setJournalScans(readSellerJournal());
     });
 
     const refresh = () => {
       setAccount(getClientAccount());
-      setProducts(readSellerProducts());
+      setProducts(dedupeSellerProducts(readSellerProducts()));
     setJournalScans(readSellerJournal());
     };
 
@@ -529,6 +530,15 @@ export default function SellerDashboardPage() {
     };
   }, [products, journalScans, accountAnalyses]);
 
+  // Hoisted above the early return: hooks must run in the same order on
+  // every render. Behavior identical — the gate condition is not part of
+  // the memoized value.
+  const savedScanCount = useMemo(
+    () => countSellerAnalyses(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [products, journalScans]
+  );
+
   if (account && !isSeller) {
     return (
       <ProOnlyGate>
@@ -552,6 +562,10 @@ export default function SellerDashboardPage() {
   }
 
   const hasData = dashboard.scans.length > 0;
+  // Saved-scan count has ONE source: scans across the deduped product
+  // records (the same store the attach path writes). The old API+local
+  // history merge is what made the count flicker (6 → 9 → 10 → 2 → 10).
+  // (savedScanCount is hoisted above the early return; see there.)
   const safeSatisfaction = typeof dashboard.satisfaction === "number" ? dashboard.satisfaction : null;
   const safeProductScore = typeof dashboard.productScore === "number" ? dashboard.productScore : null;
   const satisfactionTone = safeSatisfaction === null ? "warn" : safeSatisfaction >= 70 ? "good" : "warn";
@@ -620,7 +634,7 @@ export default function SellerDashboardPage() {
             </Link>
             {hasData ? (
               <p className="mt-4 text-sm text-slate-600">
-                You have {dashboard.scans.length} saved {dashboard.scans.length === 1 ? "scan" : "scans"} in History. Product tracking starts with your next upload.
+                You have {savedScanCount} saved {savedScanCount === 1 ? "scan" : "scans"} in History. Product tracking starts with your next upload.
               </p>
             ) : null}
             <p className="mt-4 text-sm text-slate-500">
@@ -677,7 +691,7 @@ export default function SellerDashboardPage() {
           />
           <DashboardMetric
             label="Saved scans"
-            value={String(dashboard.scans.length)}
+            value={String(savedScanCount)}
             detail="Seller scans saved to your history (compare runs not included)."
             tone="info"
           />

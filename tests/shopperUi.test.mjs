@@ -8,7 +8,7 @@ const jiti = require("jiti")(new URL("../review-evidence-scoring-test.js", impor
 const { adjudicateReviewEvidence } = jiti("./lib/reviewEvidenceAdjudication.ts");
 const { deriveDeterministicEvidenceResult } = jiti("./lib/reviewEvidenceDeterminism.ts");
 const { deriveShopperAnswer, confidenceInWords, shortQuote } = jiti("./lib/shopperAnswer.ts");
-const progress = jiti("./lib/scanProgress.ts");
+const progress = jiti("./lib/scanProgressStore.ts");
 const fixture = JSON.parse(readFileSync("tests/fixtures/reviewintel/ringconn-existing-capture-inputs.json"));
 
 function realResult(overrides = {}) {
@@ -41,7 +41,9 @@ test("loves/complaints quote REAL accepted review bodies linked by evidence id, 
   for (const point of [...answer.loves, ...answer.complaints]) {
     assert.ok(point.quote, `quote for ${point.claim}`);
     const stem = point.quote.replace(/…$/, "");
-    assert.ok(bodies.some(body => body.startsWith(stem)), `quote is a real body prefix: ${stem}`);
+    // Batch 2, rule 2: the quote is the clause that matched the theme, so it
+    // is a real substring of the accepted body, not necessarily its prefix.
+    assert.ok(bodies.some(body => body.includes(stem)), `quote is real evidence text: ${stem}`);
     assert.ok(point.sourceHost);
   }
   assert.ok(answer.loves.length <= 3 && answer.complaints.length <= 3);
@@ -94,7 +96,11 @@ test("progress bar fraction comes from the real stage, indeterminate without dat
   const ts = require("typescript");
   const src = readFileSync("components/ReviewIntelScanOverlay.tsx", "utf8");
   const code = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const mod = { exports: {} }; new Function("require", "module", "exports", code)(require, mod, mod.exports);
+  const mod = { exports: {} };
+  // The rebuilt overlay imports the "@/..." alias; resolve it through the same
+  // jiti instance the test uses for lib modules (raw require cannot).
+  const overlayRequire = (id) => (typeof id === "string" && id.startsWith("@/") ? jiti(`./${id.slice(2)}.ts`) : require(id));
+  new Function("require", "module", "exports", code)(overlayRequire, mod, mod.exports);
   const { progressFraction, ReviewIntelScanOverlay } = mod.exports;
   assert.equal(progressFraction("analyzing", 100, null), null);
   assert.ok(progressFraction("analyzing", 100, { stage: "checking" }) > progressFraction("analyzing", 100, { stage: "searching" }));

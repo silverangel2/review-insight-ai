@@ -24,7 +24,7 @@ import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCor
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
 import { canonicalQuoteAttribution, cleanQuoteText, deriveShopperAnswer, evidenceStrengthLabel, isUnreadableAmazonPage, neutralProductLabel, normalizeQuoteKey, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE, unreadableRetryPhrase } from "@/lib/shopperAnswer";
-import { provisionalShopperFacing } from "@/lib/buyingScore";
+import { provisionalShopperFacing } from "@/lib/buyingScore"; import { deriveBestForNotIdeal } from "@/lib/bestForFit"; import { stripAggregateRestatement } from "@/lib/evidenceConsistency";
 import { isBuyingScoreV2Result, buyingScoreWrittenCount, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
 import { linkOnlyScanWasBlocked } from "@/lib/linkScanBlocked";
 import { ExtensionPrompt } from "@/components/ExtensionPrompt";
@@ -51,10 +51,10 @@ function envelopeAccountEmail(result: AnalyzeResponse | null) {
 function displayShopperVerdict(value: unknown) {
   const verdict = String(value || "").trim().toUpperCase();
 
-  if (verdict === "BUY") return "VERIFIED BUY";
-  if (verdict === "REVIEW FIRST" || verdict === "CONSIDER" || verdict === "MAYBE") return "DO NOT BUY YET";
-  if (verdict === "DO NOT BUY YET") return "DO NOT BUY YET";
-  if (verdict === "AVOID") return "AVOID";
+  if (verdict === "BUY" || verdict === "VERIFIED BUY") return "Buy";
+  if (verdict === "REVIEW FIRST" || verdict === "CONSIDER" || verdict === "MAYBE" || verdict === "DO NOT BUY YET") return "Wait";
+
+  if (verdict === "AVOID" || verdict === "SKIP") return "Skip";
   if (
     !verdict ||
     verdict === "NOT_ENOUGH" ||
@@ -63,10 +63,10 @@ function displayShopperVerdict(value: unknown) {
     verdict.includes("NOT ENOUGH") ||
     verdict.includes("REVIEW EVIDENCE")
   ) {
-    return "LOW CONFIDENCE";
+    return "Low confidence";
   }
 
-  return verdict;
+  return "Low confidence";
 }
 
 
@@ -857,7 +857,7 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
     4
   );
 
-  const strengthText = strengths.join(" ").toLowerCase();
+  const { bestFor: derivedBestFor, notIdealFor: derivedNotIdealFor } = deriveBestForNotIdeal({ strengths, complaints, suppliedBestFor, suppliedNotIdealFor, productName: product.title || product.name }); const bestFor = derivedBestFor; const notIdealFor = derivedNotIdealFor; { const strengthText = strengths.join(" ").toLowerCase();
   const complaintText = complaints.join(" ").toLowerCase();
 
   const derivedBestFor: string[] = [];
@@ -940,7 +940,7 @@ function shopperProductFromResult(result: AnalyzeResponse, locale: ReviewIntelLo
   const notIdealFor =
     suppliedNotIdealFor.length > 0 && !genericNotIdealFor
       ? suppliedNotIdealFor
-      : cleanBuyerInsightArray(derivedNotIdealFor, 4);
+      : cleanBuyerInsightArray(derivedNotIdealFor, 4); }
   const sourceRecord = source as Record<string, unknown>;
   const analysisRecord = (analysis || {}) as Record<string, unknown>;
   const reviewEvidenceRecord =
@@ -1301,7 +1301,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
     : ratingLine
       ? ratingLine
     : (writtenReviews ?? 0) > 0 || shopper.acceptedWrittenReviewCount > 0
-    ? `${Number.isFinite(acceptedSourceCount) && acceptedSourceCount === 1 ? "Single-source evidence; other sources did not corroborate these reviews. " : ""}Verified review evidence.`
+    ? (Number.isFinite(acceptedSourceCount) && acceptedSourceCount === 1 ? "Verified review evidence from one source." : "Verified review evidence from multiple sources.")
     : listingEvidenceForDisplay?.exactListingUrl || (result as Record<string, unknown>).exactListingUrl
       ? "Low confidence. Add a review screenshot to read more real reviews."
       : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
@@ -1338,7 +1338,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
           : scannedListing && /Scan the Amazon listing link/i.test(verdict.message)
             ? "Low confidence. Add a review screenshot to read more real reviews."
             : verdict.message;
-  const shownBottomLine = ratingLine || shopper.bottomLine;
+  const shownBottomLine = ratingLine || stripAggregateRestatement(shopper.bottomLine);
   return (
     <>
       {/* Mobile-only compact shopper result */}
@@ -1377,7 +1377,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               value={shopper.fakeReviewPercent === null ? "—" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
               helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? "Low" : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
-            <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
+            
           </div>
         </section>
 
@@ -1402,7 +1402,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             </p>
             <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px] font-bold leading-4 text-slate-600 dark:text-slate-300">
               {shopper.product.brand ? <span>{shopper.product.brand}</span> : null}
-              <span>{visibleReviews}</span>
+              
               {shopper.product.store ? <span>{shopper.product.store}</span> : null}
             </div>
           </div>
@@ -1494,8 +1494,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-bold text-slate-600 dark:text-slate-300 sm:mt-5 sm:gap-5 sm:text-base">
               {shopper.product.brand ? <span>{shopper.product.brand}</span> : null}
-              {visibleRating !== copy.notShown ? <span>{visibleRating}</span> : null}
-              <span>{visibleReviews}</span>
+              
+              
               {shopper.product.store ? <span>{shopper.product.store}</span> : null}
             </div>
           </div>
@@ -1544,7 +1544,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
               value={shopper.fakeReviewPercent === null ? "—" : `${shopper.fakeReviewPercent}% ${copy.signs}`}
               helper={pageUnreadable ? "Try again" : shopper.fakeReviewPercent === null ? "Low" : `${localizedRiskLabel(locale, shopper.fakeReviewRisk)} ${copy.risk}`}
             />
-              <MiniMetric label={copy.rating} value={visibleRating} helper={visibleReviews} />
+              
             </div>
           </section>
         </div>
@@ -1623,7 +1623,7 @@ function formatCoverageRatio(value: number | null) {
   return `${Math.round(value)}%`;
 }
 
-function ToolProofPill({ label, value }: { label: string; value: string | number | null | undefined }) {
+function ToolProofPill({ label, value }: { label: string; value: string | number | null | undefined }) { if (value === null || value === undefined || value === "") return null;
   return (
     <div className="rounded-2xl border border-line bg-white/80 p-3 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/70">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</p>
@@ -1781,7 +1781,7 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
               ? exactListingUrl
                 ? "Low confidence. Add a review screenshot to read more real reviews."
                 : "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews."
-              : "Screenshot identified the product. The verdict is anchored to product memory, exact listing search, and review evidence when available."}
+              : (exactListingUrl ? "The exact product link identified this product. The verdict is anchored to product memory, exact listing search, and review evidence when available." : "The verdict is anchored to product memory, exact listing search, and review evidence when available.")}
           </p>
         </div>
         {exactListingUrl ? (
@@ -1797,17 +1797,17 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <ToolProofPill label="Store" value={store || "Not confirmed"} />
-        <ToolProofPill label="Scan ID" value={scanId ? scanId.slice(0, 18) : "Missing"} />
+        <ToolProofPill label="Store" value={store || null} />
+        <ToolProofPill label="Scan ID" value={scanId ? scanId.slice(0, 18) : null} />
         <ToolProofPill label="Result source" value={resultSource || "analyze"} />
-        <ToolProofPill label="Product key" value={detectedProductKey ? "Stamped" : "Missing"} />
-        <ToolProofPill label="Brand" value={brand || "Not confirmed"} />
+        <ToolProofPill label="Product match" value={detectedProductKey ? "Confirmed" : null} />
+        <ToolProofPill label="Brand" value={brand || null} />
         <ToolProofPill label="Price" value={price !== null ? `$${price}` : null} />
-        <ToolProofPill label="Stable key" value={stableProductKey ? "Matched" : "New/unknown"} />
-        <ToolProofPill label="Rating" value={rating !== null ? `${rating}/5` : null} />
-        <ToolProofPill label="Total marketplace reviews" value={totalMarketplaceReviews} />
-        <ToolProofPill label="Discovery sources checked" value={sourcesChecked.length} />
-        <ToolProofPill label="Coverage ratio" value={formatCoverageRatio(reviewCoverageRatio)} />
+        <ToolProofPill label="Product memory" value={stableProductKey ? "Recognized" : null} />
+        
+        
+        <ToolProofPill label="Sources checked" value={sourcesChecked.length} />
+        <ToolProofPill label="Review coverage" value={formatCoverageRatio(reviewCoverageRatio)} />
         <ToolProofPill
           label="Evidence mode"
           value={
@@ -1824,13 +1824,13 @@ function ToolEvidenceCard({ result }: { result: AnalyzeResponse }) {
         />
         <ToolProofPill label="Evidence signals" value={reviewIntelligenceSignals ?? 0} />
         <ToolProofPill label="Evidence strength" value={evidenceStrengthDisplay} />
-        <ToolProofPill label="Exact listing" value={exactListingAccepted ? exactConfidence || "Accepted" : "Rejected/not exact"} />
-        <ToolProofPill label="Collector source" value={collectorSourceAccepted ? "Accepted" : "Rejected"} />
+        <ToolProofPill label="Exact listing" value={exactListingAccepted ? exactConfidence || "Exact match" : "Not exact"} />
+        <ToolProofPill label="Source check" value={collectorSourceAccepted ? "Verified" : "Not verified"} />
         <ToolProofPill label="Verdict" value={displayShopperVerdict(verdict)} />
         <ToolProofPill label="Buy score" value={buyScore !== null ? `${Math.round(buyScore)} / 100` : "—"} />
-        <ToolProofPill label="Verdict confidence" value={isUnreadableAmazonPage(result) ? "Try again" : isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2) ? String(((result as Record<string, unknown>).buyingScoreV2 as { confidence?: string }).confidence || "Low") : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : "Low"} />
+        <ToolProofPill label="Confidence" value={isUnreadableAmazonPage(result) ? "Try again" : isBuyingScoreV2((result as Record<string, unknown>).buyingScoreV2) ? String(((result as Record<string, unknown>).buyingScoreV2 as { confidence?: string }).confidence || "Low") : verdictConfidence !== null && verdictConfidence > 0 ? `${verdictConfidence}%` : "Low"} />
         <ToolProofPill label="AI-like risk" value={aiLikeScore !== null ? `${aiLikeScore}%` : "—"} />
-        <ToolProofPill label="Memory" value={stableProductKey ? "Saved/merged" : "Not saved"} />
+        <ToolProofPill label="Review library" value={stableProductKey ? "Saved" : "Not saved"} />
       </div>
 
       {isUnreadableAmazonPage(result) ? (
