@@ -337,7 +337,7 @@ function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attributio
   return points;
 }
 
-function productTitleOf(result: Rec) {
+export function productTitleOf(result: Rec) {
   const product = obj(result.product);
   return String(product.title || product.name || result.productName || result.title || "").trim();
 }

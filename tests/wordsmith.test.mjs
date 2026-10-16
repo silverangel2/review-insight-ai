@@ -22,8 +22,9 @@ const records = (bodies, prefix = "r") =>
   }));
 const ids = (n, prefix = "r") => Array.from({ length: n }, (_, i) => `${prefix}${i + 1}`);
 
-const BUYER_WORDS_SENTENCE = /details buyers keep naming|buyers get concrete|own specifics|named specifically|specifics buyers cite|name the particulars/i;
-const BUYER_WORDS_SINGLE_SENTENCE = /the one buyer who raised this named|described in that review as|that buyer got specific/i;
+const BUYER_WORDS_SENTENCE =
+  /that's what buyers keep naming|in the reviewers' own specifics|the detail that keeps coming up|what buyers name, again and again|the recurring detail across reviews/i;
+const BUYER_WORDS_SINGLE_SENTENCE = /that's what the one buyer named|described in that review as|that buyer got specific/i;
 
 // ---------- Rich corpus: repeated specifics must surface, nothing invented ----------
 const richBodies = [
@@ -44,6 +45,9 @@ function richFixture() {
       commentsAnalyzed: 8,
       listingEvidence: { rating: 4.5, reviewCount: 1200 },
     },
+    // Hotfix 2026-10-16: real inputs carry the listing title; the wordsmith
+    // requires it (title-token filter). Fixtures must model that.
+    product: { title: "Apple AirPods 4 Wireless Earbuds", store: "amazon.ca" },
     strengths: [{ claim: "battery life", supportCount: 6, sourceIds: ids(8), sourceHashes: [] }],
     complaints: [],
   };
@@ -114,6 +118,7 @@ test("one counterfeit report: red flag named at true size, with mined detail", (
       commentsAnalyzed: 9,
       listingEvidence: { rating: 4.2, reviewCount: 800 },
     },
+    product: { title: "Apple AirPods 4 Wireless Earbuds", store: "amazon.ca" },
     strengths: [{ claim: "sound quality", supportCount: 3, sourceIds: ids(3), sourceHashes: [] }],
     complaints: [{ claim: "suspected counterfeit (one-off report)", supportCount: 1, sourceIds: ["rc1"], sourceHashes: [] }],
   };
