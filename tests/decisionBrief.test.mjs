@@ -513,3 +513,41 @@ test("marketplaceAggregateNumbers: same precedence as the display helper", () =>
   assert.equal(fallback.count, 100);
   assert.deepEqual(sa.marketplaceAggregateNumbers({}), { rating: null, count: null });
 });
+
+test("generic concern: title and body come from the SAME band (regression: 'one buyer' title over 'most repeated' body)", () => {
+  const odour = [
+    "Mine had a strong chemical odour right out of the box and it never faded.",
+    "The odour from the plastic was so strong my whole closet smelled like it.",
+    "Gave me a headache from the chemical smell, had to air it out for a week.",
+    "Smells like a tire factory, the odour is unbearable indoors.",
+    "The chemical odour clings to everything it touches in the drawer.",
+    "Two weeks later the smell is still there, windows open or not.",
+  ];
+  const r = airpodsFixture({
+    complaints: [],
+    buyingScoreV2: {
+      ...BASE.buyingScoreV2,
+      quotes: { positive: [], negative: odour, reliability: [], safety: [] },
+    },
+  });
+  const a = ra.deriveReviewAnalysis(r);
+  const g = a.againstFactors.find((f) => f.band === "dominant");
+  assert.ok(g, "expected a dominant generic-concern factor");
+  assert.equal(g.title, "The complaint buyers repeat most");
+  assert.ok(!/one buyer/i.test(g.title), "dominant factor must not carry a one-buyer title");
+  assert.equal(g.basis, "Pattern across most reviews");
+});
+
+test("generic concern: a single unmapped complaint keeps the one-buyer title", () => {
+  const r = airpodsFixture({
+    complaints: [],
+    buyingScoreV2: {
+      ...BASE.buyingScoreV2,
+      quotes: { positive: [], negative: ["Mine had a strong chemical odour right out of the box and it never faded."], reliability: [], safety: [] },
+    },
+  });
+  const a = ra.deriveReviewAnalysis(r);
+  const g = a.againstFactors.find((f) => f.title === "A concern raised by one buyer");
+  assert.ok(g, "expected the one-buyer generic title at single support");
+  assert.equal(g.basis, "One buyer reported this");
+});

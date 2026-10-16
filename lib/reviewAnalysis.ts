@@ -335,7 +335,7 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
   const band = bandFor(s.count, ctx.reviewCount);
   const basis = basisFor(band);
   const depth = depthFor(s.key);
-  const title = depth?.title ?? sentenceCaseTheme(s.claim);
+  const title = depth?.bandTitles?.[band] ?? depth?.title ?? sentenceCaseTheme(s.claim);
   const severity = s.severityRed ? ("red" as const) : undefined;
 
   // Phase-5 warnings: authoritative deterministic analysis language, verbatim.
