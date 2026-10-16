@@ -170,7 +170,7 @@ export function governBuyerDecision(input: {
     };
   }
 
-  // Enough review evidence can support a cautious REVIEW FIRST.
+  // Enough review evidence can support a cautious WAIT.
   // Listing identity or memory alone cannot trigger this.
   if (
     evidenceBundle.hasEnoughEvidence &&
@@ -179,7 +179,7 @@ export function governBuyerDecision(input: {
     !(aiLikeRisk !== null && aiLikeRisk >= 75)
   ) {
     return {
-      verdict: "REVIEW FIRST",
+      verdict: "WAIT",
       buyerConfidence: Math.min(82, Math.max(60, evidenceBundle.evidenceScore)),
       buyScore:
         rating !== null && rating >= 4.5 && reviewCount !== null && reviewCount >= 300

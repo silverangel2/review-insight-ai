@@ -301,7 +301,7 @@ export type DimensionDepth = {
   bandTitles?: Partial<Record<"dominant" | "repeated" | "single", string>>;
   /** Noun for the co-occurrence bridge, e.g. "comfort". */
   pairNoun?: string;
-  /** {note} content when the same theme has opposing signals, e.g. "the fit feels less secure for some ears". */
+  /** {note} content when the same theme has opposing signals, e.g. "the fit feels less secure for some people". */
   againstNote?: string;
   /** Lead-family override ("value" uses VALUE_LEADS). */
   leadFamily?: "value";
@@ -328,7 +328,7 @@ export const DIMENSION_DEPTH: Record<string, DimensionDepth> = {
   "comfortable fit": {
     title: "Comfortable, lightweight fit",
     pairNoun: "comfort",
-    againstNote: "the fit feels less secure for some ears",
+    againstNote: "the fit feels less secure for some people",
     aspects: [
       {
         id: "secure",
@@ -338,7 +338,7 @@ export const DIMENSION_DEPTH: Record<string, DimensionDepth> = {
       {
         id: "no-ache",
         words: ["don't ache", "doesn't ache", "didn't ache", "no ache", "no pain", "pain-free", "pain free", "forget i'm wearing", "forget they're wearing", "all day", "long wear", "for hours", "extended wear"],
-        phrases: ["don't ache over long listening", "stay comfortable through all-day wear"],
+        phrases: ["don't ache over long use", "stay comfortable through all-day wear"],
       },
       {
         id: "light",

@@ -26,7 +26,8 @@ function normalizedVerdict(record: AnyRecord) {
     ""
   ).toUpperCase();
 
-  if (verdict === "CONSIDER" || verdict === "MAYBE") return "REVIEW FIRST";
+  if (verdict === "CONSIDER" || verdict === "MAYBE") return "WAIT";
+  if (verdict === "AVOID") return "SKIP";
   return verdict;
 }
 
@@ -68,8 +69,8 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
       "Good buy. ReviewIntel found enough positive evidence to support a confident purchase.";
   }
 
-  if (verdict === "REVIEW FIRST") {
-    // Mixed evidence can legitimately sit anywhere in the REVIEW FIRST band.
+  if (verdict === "WAIT") {
+    // Mixed evidence can legitimately sit anywhere in the WAIT band.
     nextScore = nextScore === null ? null : nextScore > 0 ? Math.min(7, Math.max(nextScore, 4)) : null;
     nextConfidence = nextConfidence === null ? null : Math.min(82, Math.max(nextConfidence, 60));
     nextValue = nextValue === "Poor" || nextValue === "Unknown" ? "Unknown" : nextValue;
@@ -79,7 +80,7 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
         : "Decent option for the price, but not strong enough for a confident Buy. Check common complaints, review details, and return policy before purchasing.";
   }
 
-  if (verdict === "AVOID") {
+  if (verdict === "SKIP") {
     nextScore = nextScore === null ? null : Math.min(nextScore, 4);
     nextConfidence = nextConfidence === null ? null : Math.min(nextConfidence, 55);
     nextValue = "Poor";

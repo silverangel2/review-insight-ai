@@ -52,8 +52,10 @@ import {
 // HARD RULE (2026-10-15): never hide a negative. Any negative signal anywhere
 // in the segregated corpus (grouped complaints, Phase-5 one-off sources, or
 // net-direction losers) is SAID — as an against-factor, a red-flag sentence,
-// a caveat clause, or a named suppressed theme. The "no complaints" empty
-// state renders ONLY when hasNegatives is false.
+// a caveat clause, or a named suppressed theme — PROVIDED at least one
+// accepted written review evidences it (R3, restored 2026-10-16: an
+// unevidenced claim is suppressed, never printed as a bare meta-sentence).
+// The "no complaints" empty state renders ONLY when hasNegatives is false.
 
 export type FactorBand = "dominant" | "repeated" | "single";
 
@@ -152,6 +154,8 @@ type MinedSignal = {
   texts: string[];
   /** Warning text is authoritative analysis language — rendered verbatim. */
   fixedSummary: string | null;
+  /** Score-card warning tier, when this signal came from a warning. */
+  tier: string | null;
 };
 
 /** The canonical score card, same precedence the shopper answer uses. */
@@ -230,15 +234,16 @@ export function mineScoreComplaints(input: unknown): MinedSignal[] {
   if (!card) return [];
   const byKey = new Map<string, MinedSignal>();
 
-  const add = (key: string, claim: string, count: number, texts: string[], fixedSummary: string | null) => {
+  const add = (key: string, claim: string, count: number, texts: string[], fixedSummary: string | null, tier: string | null = null) => {
     const prev = byKey.get(key);
     if (prev) {
       prev.count = Math.max(prev.count, count);
       prev.texts.push(...texts);
       if (!prev.fixedSummary && fixedSummary) prev.fixedSummary = fixedSummary;
+      if (!prev.tier && tier) prev.tier = tier;
       return;
     }
-    byKey.set(key, { key, claim, count, texts: [...texts], fixedSummary });
+    byKey.set(key, { key, claim, count, texts: [...texts], fixedSummary, tier });
   };
 
   // 1. Warnings: deterministic analysis language (never buyer quotes).
@@ -262,7 +267,7 @@ export function mineScoreComplaints(input: unknown): MinedSignal[] {
     const backing = tier === "official_recall" ? 2 : warningCorpusBacking(result, text);
     if (!backing) return;
     const count = tier === "single_safety" ? 1 : Math.max(1, Math.min(2, backing));
-    add(key, claim || key, count, [], text);
+    add(key, claim || key, count, [], text, tier);
   });
 
   // 2. Sentiment-classified negative excerpts: keyword-mined, never rendered.
@@ -293,6 +298,10 @@ type ThemeSignal = {
   claim: string;
   count: number;
   opposingCount: number;
+  /** R3: whether the opposing side's signal was evidenced by a written
+   *  review. The caveat clause voices the loser — it may only render when
+   *  the loser was evidenced. */
+  opposingEvident: boolean;
   side: "for" | "against";
   rank: number;
   texts: string[];
@@ -453,8 +462,10 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
   );
 
   // Caveat: the same theme has signals on the other side — never pretend
-  // unanimity. Threshold >= 1 (hard rule: never hide a negative signal).
-  if (s.opposingCount >= 1) {
+  // unanimity. R3: the caveat voices the loser, so it renders only when the
+  // loser was evidenced by a written review (hard rule: never hide an
+  // EVIDENCED negative signal; never print an unevidenced one).
+  if (s.opposingCount >= 1 && s.opposingEvident) {
     const base = sentence2.replace(/\.\s*$/, "");
     if (s.side === "for") {
       const note = depth?.againstNote ?? "some buyers had the opposite experience";
@@ -495,6 +506,8 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
     sourceHashes: string[];
     extraTexts: string[];
     fixedSummary: string | null;
+    /** Score-card warning tier (official_recall is an external fact, not a review claim). */
+    tier: string | null;
   };
   const forAgg = new Map<string, Agg>();
   const againstAgg = new Map<string, Agg>();
@@ -510,7 +523,7 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
       prev.sourceHashes.push(...sourceHashes);
       return;
     }
-    map.set(key, { claim, count, sourceIds: [...sourceIds], sourceHashes: [...sourceHashes], extraTexts: [], fixedSummary: null });
+    map.set(key, { claim, count, sourceIds: [...sourceIds], sourceHashes: [...sourceHashes], extraTexts: [], fixedSummary: null, tier: null });
   };
 
   for (const point of answer.loves) {
@@ -533,6 +546,7 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
       prev.count = Math.max(prev.count, m.count);
       prev.extraTexts.push(...m.texts);
       if (!prev.fixedSummary && m.fixedSummary) prev.fixedSummary = m.fixedSummary;
+      if (!prev.tier && m.tier) prev.tier = m.tier;
     } else {
       againstAgg.set(key, {
         claim: m.claim || m.key,
@@ -541,12 +555,16 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
         sourceHashes: [],
         extraTexts: [...m.texts],
         fixedSummary: m.fixedSummary,
+        tier: m.tier,
       });
     }
   }
 
-  // Hard rule: any negative signal anywhere?
-  const hadNegatives = answer.complaints.some((p) => normalizeThemeKey(p.claim)) || mined.length > 0;
+  // Hard rule: any negative signal anywhere? (Recomputed after the R3
+  // evidence gate below: unevidenced warnings no longer count, so an
+  // aggregate-only scan honestly reports "no buyer complaints in the reviews
+  // we read" instead of printing warnings with no buyer behind them.)
+  let hadNegatives = answer.complaints.some((p) => normalizeThemeKey(p.claim)) || mined.length > 0;
 
   // Resolve sides by net direction.
   const signals: ThemeSignal[] = [];
@@ -561,6 +579,13 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   }
 
   const allKeys = new Set([...forAgg.keys(), ...againstAgg.keys()]);
+  // R3: tracks whether any evidenced negative was voiced only as a suppressed
+  // theme / caveat (no standalone against-factor won its side). Also tracks
+  // dropped signals that still had real excerpt evidence (__generic_concern
+  // rows carry no analyzable content, but their excerpts prove buyers raised
+  // concerns — hadNegatives stays honest).
+  let evidencedSuppressedNegatives = false;
+  let droppedEvidentNegatives = false;
   for (const key of allKeys) {
     const f = forAgg.get(key);
     const a = againstAgg.get(key);
@@ -571,7 +596,23 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
     const opposingCount = side === "for" ? againstCount : forCount;
     if (side === "for" && opposingCount >= 1) {
       const depth = depthFor(key);
-      suppressedThemes.push(depth?.title ?? sentenceCaseTheme(winner.claim));
+      // R3: a suppressed (net-direction loser) theme is only NAMED when the
+      // losing complaint was evidenced by a written review — an unevidenced
+      // loser is dropped silently, never printed as a claim. (Evidence is
+      // computed below as opposingEvident; mirror the rule here.)
+      const loserAgg = a;
+      const loserAggTexts = loserAgg
+        ? [...(loserAgg.sourceIds ?? []), ...(loserAgg.sourceHashes ?? [])]
+            .map((rk) => bodyByKey.get(String(rk)))
+            .filter((b): b is string => Boolean(b))
+        : [];
+      const loserEvident = loserAgg
+        ? loserAggTexts.length > 0 || (loserAgg.extraTexts ?? []).length > 0
+        : false;
+      if (loserEvident) {
+        suppressedThemes.push(depth?.title ?? sentenceCaseTheme(winner.claim));
+        evidencedSuppressedNegatives = true;
+      }
     }
     const recordKeys = [...(winner.sourceIds ?? []), ...(winner.sourceHashes ?? [])].map(String);
     const seen = new Set<string>();
@@ -589,12 +630,40 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
         texts.push(extra);
       }
     }
+    // R3 (round 2, restored): a warning/complaint claim may only render when
+    // at least one accepted written review actually evidences it. Unevidenced
+    // negatives (e.g. grouped complaints whose provenance no longer resolves
+    // to accepted bodies, or score-card warnings on aggregate-only scans) are
+    // suppressed entirely — printing a concern with no buyer behind it is not
+    // honest analysis. An official recall is an external fact, not a review
+    // claim, so it is exempt from this gate. Round 3: __generic_concern rows
+    // carry no analyzable content (the actual claim was discarded for a
+    // generic bandTitle), so they are dropped as rows too — but their real
+    // excerpts still count as evidence that buyers raised concerns.
+    const isOfficialRecall = winner.tier === "official_recall";
+    const isVacuousGeneric = key === "__generic_concern";
+    if (side === "against" && (texts.length === 0 || isVacuousGeneric) && !isOfficialRecall) {
+      if (texts.length > 0) droppedEvidentNegatives = true;
+      continue;
+    }
     const depth = depthFor(key);
+    // R3: the caveat voices the LOSER — compute whether the loser was
+    // evidenced (same evidence rule as the gate above).
+    const loser = side === "for" ? a : f;
+    const loserTexts = loser
+      ? [...(loser.sourceIds ?? []), ...(loser.sourceHashes ?? [])]
+          .map((rk) => bodyByKey.get(String(rk)))
+          .filter((b): b is string => Boolean(b))
+      : [];
+    const opposingEvident = loser
+      ? loserTexts.length > 0 || (loser.extraTexts ?? []).length > 0 || loser.tier === "official_recall"
+      : false;
     signals.push({
       key,
       claim: cleanThemeLabel(winner.claim),
       count: side === "for" ? forCount : againstCount,
       opposingCount,
+      opposingEvident,
       side,
       rank: 0,
       texts: texts.slice(0, 12),
@@ -667,6 +736,12 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   const complaintsPattern: ReviewAnalysis["complaintsPattern"] =
     againstFactors.length === 0 ? "none" : againstFactors.every((f) => f.band === "single") ? "one_off" : "recurring";
 
+  // R3: hadNegatives follows the evidence gate — surviving (evidenced)
+  // against-factors, an official recall, an evidenced negative voiced as a
+  // caveat/suppressed theme, or dropped rows that still had real excerpt
+  // evidence. Unevidenced warnings never count, so the "no buyer complaints"
+  // empty state stays honest.
+  hadNegatives = againstFactors.length > 0 || evidencedSuppressedNegatives || droppedEvidentNegatives;
   return { forFactors, againstFactors, complaintsPattern, reviewCount, hasNegatives: hadNegatives, suppressedThemes };
 }
 

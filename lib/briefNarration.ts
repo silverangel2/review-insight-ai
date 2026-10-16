@@ -7,8 +7,9 @@
  *   never "Unknown", never blank).
  * - The How-we-checked fold tells ONE story in plain words: what backs the
  *   verdict + what limits it. No second confidence verdict, no self-arguing.
- * - No counts of reviews read — depth is expressed in words only. Marketplace
- *   aggregate counts are fine (Junel's rule).
+ * - No counts of reviews read — depth is expressed in words only. The
+ *   marketplace aggregate is stated once, on the answer-card fact rows;
+ *   the basis sentence never restates its numbers.
  * - No internal labels, no backstage vocabulary in any returned string.
  */
 import {
@@ -68,27 +69,20 @@ export function writtenDepthWord(input: unknown): DepthWord | null {
   return "a deep set of";
 }
 
-function ratingText(rating: number): string {
-  const rounded = Math.round(rating * 10) / 10;
-  return String(rounded);
-}
-
 /**
  * The fold's one basis sentence: what actually backs this verdict, in a
- * single plain sentence. Aggregate numbers when present, written-corpus
- * depth in words when present. Null when neither can be stated.
+ * single plain sentence. The marketplace aggregate lives on the answer card
+ * ("Marketplace rating" / "Ratings counted" rows) — it is NEVER restated
+ * here, so the numbers appear exactly once per page. Written-corpus depth in
+ * words when present. Null when neither can be stated.
  */
 export function foldBasisLine(input: unknown): string | null {
   const agg = marketplaceAggregateNumbers(input);
   const depth = writtenDepthWord(input);
   const parts: string[] = [];
-  if (agg.rating !== null) {
-    parts.push(
-      agg.count !== null
-        ? `a ${ratingText(agg.rating)}-star marketplace rating from ${agg.count.toLocaleString("en-US")} ratings`
-        : `a ${ratingText(agg.rating)}-star marketplace rating`
-    );
-  }
+  // Round 3: no numbers in the basis sentence — the aggregate is stated once,
+  // on the answer card. Restating it here was defect 3 (aggregate twice).
+  if (agg.rating !== null) parts.push("the marketplace rating");
   if (depth) parts.push(`${depth} written reviews we read`);
   if (parts.length === 0) return null;
   const basis = parts.length === 1 ? parts[0] : `${parts[0]} and ${parts[1]}`;

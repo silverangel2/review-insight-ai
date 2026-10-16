@@ -48,18 +48,22 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 120; // platform ceiling; the scan itself is capped at scanBudgets().totalMs (80s)
 
-type Verdict = "BUY" | "REVIEW FIRST" | "AVOID" | "DO NOT BUY YET";
+type Verdict = "BUY" | "WAIT" | "SKIP" | "DO NOT BUY YET";
 type JsonRecord = Record<string, unknown>;
 
 function normalizeOptionalShopperVerdict(value: unknown): Verdict | null {
   const verdict = String(value || "").trim().toUpperCase();
 
   if (verdict === "BUY") return "BUY";
-  if (verdict === "AVOID") return "AVOID";
-  if (verdict === "DO NOT BUY YET" || verdict === "NOT_ENOUGH" || verdict === "REVIEW EVIDENCE NOT ENOUGH") {
-    return "DO NOT BUY YET";
+  // Legacy stored labels are accepted and normalized to the canonical
+  // vocabulary (Buy / Wait / Skip): old mid-band rows become WAIT so
+  // the waitCount history filter below can match them again (it was dead
+  // when the old label normalized to DO NOT BUY YET).
+  if (verdict === "SKIP" || verdict === "AVOID") return "SKIP";
+  if (verdict === "WAIT" || verdict === "REVIEW FIRST" || verdict === "MAYBE" || verdict === "CONSIDER") {
+    return "WAIT";
   }
-  if (verdict === "REVIEW FIRST" || verdict === "MAYBE" || verdict === "CONSIDER") {
+  if (verdict === "DO NOT BUY YET" || verdict === "NOT_ENOUGH" || verdict === "REVIEW EVIDENCE NOT ENOUGH") {
     return "DO NOT BUY YET";
   }
 
@@ -621,17 +625,17 @@ function applyProductMemory(
   let bottomLine = result.bottomLine;
   let topComplaints = result.topComplaints;
 
-  const avoidCount = memorySummary.verdictHistory.filter((item) => item === "AVOID").length;
-  const reviewFirstCount = memorySummary.verdictHistory.filter((item) => item === "REVIEW FIRST").length;
+  const skipCount = memorySummary.verdictHistory.filter((item) => item === "SKIP").length;
+  const waitCount = memorySummary.verdictHistory.filter((item) => item === "WAIT").length;
 
-  if (avoidCount >= 3) {
-    verdict = "AVOID";
+  if (skipCount >= 3) {
+    verdict = "SKIP";
     productScore = Math.min(productScore, 49);
-  } else if (avoidCount >= 2 && verdict === "BUY") {
-    verdict = "REVIEW FIRST";
+  } else if (skipCount >= 2 && verdict === "BUY") {
+    verdict = "WAIT";
     productScore = Math.min(productScore, 74);
-  } else if (reviewFirstCount + avoidCount >= 3 && verdict === "BUY") {
-    verdict = "REVIEW FIRST";
+  } else if (waitCount + skipCount >= 3 && verdict === "BUY") {
+    verdict = "WAIT";
     productScore = Math.min(productScore, 74);
   }
 
@@ -1020,11 +1024,11 @@ function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
 
   buyingConfidence = clampScore(buyingConfidence);
 
-  let verdict: Verdict = "REVIEW FIRST";
+  let verdict: Verdict = "WAIT";
 
   // Do not allow confident BUY/AVOID from public rating/count alone.
   if (analyzedReviewCount < 5) {
-    verdict = "REVIEW FIRST";
+    verdict = "WAIT";
   } else if (
     productScore >= 75 &&
     buyingConfidence >= 70 &&
@@ -1032,7 +1036,7 @@ function calculateReviewIntelScore(result: ReturnType<typeof normalizeResult>) {
   ) {
     verdict = "BUY";
   } else if (productScore < 45 || seriousComplaintCount >= 4) {
-    verdict = "AVOID";
+    verdict = "SKIP";
   }
 
   return {
@@ -1070,7 +1074,7 @@ function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithSc
   let notIdealFor = result.notIdealFor;
 
   if (evidenceLevel === "product_mismatch" || !exactMatch) {
-    verdict = productScore < 45 ? "AVOID" : "REVIEW FIRST";
+    verdict = productScore < 45 ? "SKIP" : "WAIT";
     productScore = Math.min(productScore, 54);
     buyingConfidence = Math.min(buyingConfidence, 45);
     valueForMoney = valueForMoney === "Excellent" ? "Fair" : valueForMoney;
@@ -1089,7 +1093,7 @@ function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithSc
       ], 4);
     }
   } else if (evidenceLevel === "screenshot_only" || sourceCount === 0) {
-    if (verdict === "BUY") verdict = "REVIEW FIRST";
+    if (verdict === "BUY") verdict = "WAIT";
     productScore = Math.min(productScore, 59);
     buyingConfidence = Math.min(buyingConfidence, 45);
     if (valueForMoney === "Excellent") valueForMoney = "Fair";
@@ -1099,7 +1103,7 @@ function enforceResearchQuality(result: ReturnType<typeof normalizeVerdictWithSc
         "This scan did not find enough verified public review evidence. The screenshot identifies the product, but ReviewIntel needs web review sources or a product link before giving a confident buying verdict.";
     }
   } else if (evidenceLevel === "limited" || sourceCount < 2) {
-    if (verdict === "BUY") verdict = "REVIEW FIRST";
+    if (verdict === "BUY") verdict = "WAIT";
     productScore = Math.min(productScore, 69);
     buyingConfidence = Math.min(buyingConfidence, 60);
     if (valueForMoney === "Excellent") valueForMoney = "Good";
@@ -1169,7 +1173,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
 
   // HARD TRUST RULES — raw AI cannot override these.
   if (aiReviewSigns >= 50 && verdict === "BUY") {
-    verdict = "REVIEW FIRST";
+    verdict = "WAIT";
     productScore = Math.min(productScore, 74);
     buyingConfidence = Math.min(buyingConfidence, 65);
     if (canRewriteCopy) {
@@ -1179,7 +1183,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
   }
 
   if (aiReviewSigns >= 75) {
-    verdict = "AVOID";
+    verdict = "SKIP";
     productScore = Math.min(productScore, 45);
     buyingConfidence = Math.min(buyingConfidence, 45);
     valueForMoney = "Poor";
@@ -1190,7 +1194,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
   }
 
   if (hasSeriousComplaints && verdict === "BUY") {
-    verdict = "REVIEW FIRST";
+    verdict = "WAIT";
     productScore = Math.min(productScore, 74);
     buyingConfidence = Math.min(buyingConfidence, 65);
     if (canRewriteCopy) {
@@ -1200,10 +1204,10 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
   }
 
   if (verdict === "BUY" && productScore < 75) {
-    verdict = "REVIEW FIRST";
+    verdict = "WAIT";
   }
 
-  if (verdict === "AVOID") {
+  if (verdict === "SKIP") {
     productScore = Math.min(productScore, 49);
     buyingConfidence = Math.min(buyingConfidence, 50);
     valueForMoney = "Poor";
@@ -1220,7 +1224,7 @@ function applyReviewIntelBrain(result: ReturnType<typeof normalizeResult>, local
     }
   }
 
-  if (verdict === "REVIEW FIRST") {
+  if (verdict === "WAIT") {
     productScore = Math.min(productScore, 74);
     if (valueForMoney === "Excellent") valueForMoney = "Good";
 
@@ -1251,7 +1255,7 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
 
   let valueForMoney = result.valueForMoney;
 
-  if (calculated.verdict === "AVOID" || calculated.productScore < 40) {
+  if (calculated.verdict === "SKIP" || calculated.productScore < 40) {
     valueForMoney = "Poor";
   } else if (calculated.productScore < 55 && (valueForMoney === "Excellent" || valueForMoney === "Good")) {
     valueForMoney = "Fair";
@@ -1279,7 +1283,7 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
     return applyReviewIntelBrain(
       {
         ...result,
-        verdict: "REVIEW FIRST" as Verdict,
+        verdict: "WAIT" as Verdict,
         productScore: Math.min(Math.max(calculated.productScore, 45), 64),
         buyingConfidence: Math.min(Math.max(calculated.buyingConfidence, 40), 59),
         valueForMoney: valueForMoney === "Excellent" ? "Good" : valueForMoney === "Poor" ? "Fair" : valueForMoney,
@@ -1306,7 +1310,7 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
     );
   }
 
-  if (calculated.verdict === "AVOID") {
+  if (calculated.verdict === "SKIP") {
     if (canRewriteCopy) {
       bestFor = ["Not recommended based on the current buying evidence."];
     }
@@ -1332,7 +1336,7 @@ function normalizeVerdictWithScores(result: ReturnType<typeof normalizeResult>, 
     }
   }
 
-  if (calculated.verdict === "REVIEW FIRST") {
+  if (calculated.verdict === "WAIT") {
     if (canRewriteCopy) {
       bestFor = bestFor.length ? bestFor : ["Shoppers who are willing to compare alternatives first."];
       bottomLine = bottomLine || "This may work for some buyers, but the evidence is mixed. Compare similar products before buying.";
@@ -1386,7 +1390,7 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
   if (!enoughReviewEvidence) {
     return {
       ...result,
-      verdict: "REVIEW FIRST" as Verdict,
+      verdict: "WAIT" as Verdict,
       productScore: Math.min(Math.max(productScore, 45), 64),
       buyingConfidence: Math.min(Math.max(buyingConfidence, 40), 59),
       valueForMoney: valueForMoney === "Excellent" ? "Good" : valueForMoney === "Poor" ? "Fair" : valueForMoney,
@@ -1398,18 +1402,18 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
   }
 
   if (verdict === "BUY" && (productScore < 75 || buyingConfidence < 60 || poorValue || negativeEvidence)) {
-    verdict = productScore < 45 || poorValue || negativeEvidence ? "AVOID" : "REVIEW FIRST";
+    verdict = productScore < 45 || poorValue || negativeEvidence ? "SKIP" : "WAIT";
   }
 
-  if (verdict === "REVIEW FIRST" && ((productScore < 35 && buyingConfidence < 45) || (poorValue && negativeEvidence))) {
-    verdict = "AVOID";
+  if (verdict === "WAIT" && ((productScore < 35 && buyingConfidence < 45) || (poorValue && negativeEvidence))) {
+    verdict = "SKIP";
   }
 
   if (verdict === "BUY") {
     return result;
   }
 
-  if (verdict === "REVIEW FIRST") {
+  if (verdict === "WAIT") {
     valueForMoney = valueForMoney === "Excellent" ? "Good" : valueForMoney;
     if (normalizedLocaleCode(locale) === "en" && result.verdict === "BUY") {
       bottomLine =
@@ -1417,9 +1421,9 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
     }
   }
 
-  if (verdict === "AVOID") {
+  if (verdict === "SKIP") {
     valueForMoney = poorValue || productScore < 45 ? "Poor" : valueForMoney;
-    if (normalizedLocaleCode(locale) === "en" && (result.verdict === "BUY" || result.verdict === "REVIEW FIRST")) {
+    if (normalizedLocaleCode(locale) === "en" && (result.verdict === "BUY" || result.verdict === "WAIT")) {
       bottomLine =
         "The final evidence score, buyer confidence, or complaint signals do not support a BUY verdict. Safer choice: compare alternatives before purchasing.";
     }
@@ -1429,15 +1433,15 @@ function enforceFinalResultConsistency(result: ReturnType<typeof normalizeVerdic
     ...result,
     verdict,
     productScore:
-      verdict === "AVOID"
+      verdict === "SKIP"
         ? Math.min(productScore, 49)
-        : verdict === "REVIEW FIRST"
+        : verdict === "WAIT"
           ? Math.min(productScore, 74)
           : productScore,
     buyingConfidence:
-      verdict === "AVOID"
+      verdict === "SKIP"
         ? Math.min(buyingConfidence, 55)
-        : verdict === "REVIEW FIRST"
+        : verdict === "WAIT"
           ? Math.min(buyingConfidence, 74)
           : buyingConfidence,
     valueForMoney,
@@ -2046,7 +2050,7 @@ function computeVerdictConfidenceAudit(input: {
     verdictRatificationScore = commentsAnalyzed > 0 ? 7 : 5;
   } else if (
     hasEnoughReviewCoverage &&
-    ["BUY", "DO NOT BUY YET", "REVIEW FIRST", "AVOID"].includes(verdict) &&
+    ["BUY", "DO NOT BUY YET", "WAIT", "SKIP"].includes(verdict) &&
     ["reviewEvidence", "deterministicAcceptedReviewCorpus"].includes(finalDecisionSource)
   ) {
     verdictRatificationScore = 10;
@@ -2422,7 +2426,7 @@ function buildReviewEvidenceShopperResult(input: {
         ? commentsAnalyzed / 50
         : 0;
 
-  // RI can give BUY / REVIEW FIRST / AVOID from exact-product review intelligence.
+  // RI can give BUY / WAIT / SKIP from exact-product review intelligence.
   // Direct written review bodies are best; OpenAI web-search review intelligence is allowed
   // when marketplaces block review bodies, with lower confidence shown in the audit.
   const hasUsableReviewEvidence = canonicalEvidenceEligible && hasReadableReviewEvidence;

@@ -113,7 +113,7 @@ test("Example 6: zero written reviews -> Provisional Marketplace Score 85, Leani
 test("provisional verdicts scale with the rating and the count", () => {
   const faced = (rating, count, store) => {
     const card = computeBuyingScore(sig({ rating, ratingCount: count, n: 0, meanSentiment: 0 }));
-    return { card, decision: bs.customerFacingDecision({ analyzedReviews: 0, buyingScore: card }), line: bs.shopperBottomLineForBuyingScore(card, "REVIEW FIRST", store) };
+    return { card, decision: bs.customerFacingDecision({ analyzedReviews: 0, buyingScore: card }), line: bs.shopperBottomLineForBuyingScore(card, "WAIT", store) };
   };
   const clear = faced(4.6, 46944, "Amazon");
   assert.equal(clear.card.score, 90);
@@ -131,7 +131,7 @@ test("provisional verdicts scale with the rating and the count", () => {
   const supported = faced(4.5, 4999);
   assert.equal(supported.card.verdict, null);
   assert.equal(supported.card.leaning, "Buy");
-  assert.equal(supported.decision.verdict, "REVIEW FIRST");
+  assert.equal(supported.decision.verdict, "WAIT");
   assert.equal(supported.card.confidence, "Medium");
 
   const supportedFloor = faced(4.3, 1000);

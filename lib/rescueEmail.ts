@@ -9,7 +9,7 @@ export const RESCUE_EMAIL_TYPE = "rescue_verdict";
 
 type RescueEmailInput = {
   productName: string;
-  verdict: "BUY" | "REVIEW FIRST" | "AVOID";
+  verdict: "BUY" | "WAIT" | "SKIP";
   buyingScore: number | null;
   confidence: "High" | "Medium" | "Low";
   quotes: string[];
@@ -18,8 +18,8 @@ type RescueEmailInput = {
 
 function verdictLine(verdict: RescueEmailInput["verdict"]): string {
   if (verdict === "BUY") return "our verdict is <strong>BUY</strong> — shoppers rate it well.";
-  if (verdict === "AVOID") return "our verdict is <strong>AVOID</strong> — shoppers report real problems.";
-  return "our verdict is <strong>REVIEW FIRST</strong> — read the reviews before deciding.";
+  if (verdict === "SKIP") return "our verdict is <strong>SKIP</strong> — shoppers report real problems.";
+  return "our verdict is <strong>WAIT</strong> — read the reviews before deciding.";
 }
 
 function esc(value: string): string {
@@ -76,9 +76,9 @@ export function buildRescueEmail(input: RescueEmailInput): { subject: string; ht
     ``,
     input.verdict === "BUY"
       ? `Our verdict is BUY - shoppers rate it well.`
-      : input.verdict === "AVOID"
-        ? `Our verdict is AVOID - shoppers report real problems.`
-        : `Our verdict is REVIEW FIRST - read the reviews before deciding.`,
+      : input.verdict === "SKIP"
+        ? `Our verdict is SKIP - shoppers report real problems.`
+        : `Our verdict is WAIT - read the reviews before deciding.`,
     ``,
     typeof input.buyingScore === "number"
       ? `Buying Score ${input.buyingScore}/100 (${input.confidence} confidence, from ${input.reviewCount} shopper reviews).`

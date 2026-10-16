@@ -44,6 +44,71 @@ export function sameDisplayedQuote(a: string, b: string): boolean {
 }
 
 /**
+ * A candidate "quote" that is mostly the theme heading's own words adds no
+ * buyer voice — it reads as the pipeline echoing itself (defect batch 2,
+ * round 2, R4). Such echoes are dropped; the theme renders without a quote
+ * (or with a more substantive sentence from the same review) instead.
+ *
+ * Asymmetric token overlap on significant tokens (>= 3 chars, not pure
+ * numbers): echo when >= 65% of the QUOTE's significant tokens already
+ * appear in the claim. A longer buyer sentence that merely contains the
+ * claim's words ("Got it for my niece's arrival and it stays cool in a
+ * bag") is substantive, not an echo.
+ */
+const ECHO_STOP = new Set([
+  "this", "that", "with", "from", "have", "has", "were", "been", "they",
+  "them", "their", "there", "about", "into", "over", "under", "after",
+  "very", "much", "more", "most", "such", "than", "then", "also", "just",
+  "will", "would", "could", "should",
+]);
+function significantTokens(text: string): string[] {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 3 && !ECHO_STOP.has(t) && !/^\d+$/.test(t));
+}
+export function isQuoteEchoOfClaim(quote: string, claim: string): boolean {
+  const q = significantTokens(quote);
+  const c = significantTokens(claim);
+  if (q.length < 3 || c.length < 3) return false;
+  const cSet = new Set(c);
+  const hits = q.filter((t) => cSet.has(t)).length;
+  return hits / q.length >= 0.65;
+}
+
+/**
+ * A display quote that names a DIFFERENT product model than the one scanned
+ * is misattributed evidence (defect batch 2, round 2, R4 — e.g. a "Genius
+ * 8000" review quoted on the Oral-B Pro 1000 page, from Amazon's own
+ * variant-pooled review set). The acceptance gate only catches same-family
+ * siblings, so the display layer re-checks: when the quote carries a
+ * model-like token that matches none of the scanned product's model tokens
+ * AND the quote never names the scanned product's model, the quote is
+ * skipped. A comparison quote that names both ("upgraded from X to <model>")
+ * is legitimate evidence and is kept.
+ */
+const MODEL_LIKE = /\b([A-Za-z]{2,}\s?\d{2,}[A-Za-z0-9]*)\b/g;
+function modelTokens(text: string): string[] {
+  const out = new Set<string>();
+  for (const m of String(text || "").matchAll(MODEL_LIKE)) {
+    const norm = m[1].toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (norm.length >= 4) out.add(norm);
+  }
+  return [...out];
+}
+export function quoteNamesDifferentModel(quote: string, productTitle: string): boolean {
+  const productModels = modelTokens(productTitle);
+  if (!productModels.length) return false;
+  const quoteModels = modelTokens(quote).filter((t) => !productModels.includes(t));
+  if (!quoteModels.length) return false;
+  // The quote names some other model — keep it only if it also names ours
+  // (a genuine comparison), otherwise it is evidence about another product.
+  const quoteNorm = String(quote || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return !productModels.some((m) => quoteNorm.includes(m));
+}
+
+/**
  * Page-level single assignment of quotes. Walk sections in priority order;
  * the first section keeps the quote, later sections lose it (they keep their
  * theme label, never a duplicate). Returns the filtered lists in order.
