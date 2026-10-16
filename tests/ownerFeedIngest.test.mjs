@@ -175,3 +175,26 @@ test("ingest: AirPods batch merges onto a scan-existing corpus without touching 
   assert.equal(entry.reviews.length, 74);
   assert.ok(ownerFeedBodyKey("  HELLO  World ") === ownerFeedBodyKey("hello world"));
 });
+
+test("ingest: sorter annotations are stamped on records; receipt carries the sorter block", async () => {
+  stub.__resetTable();
+  const receipt = await ingestOwnerFeedBatch(dreoText, {
+    loadCorpus: loadLibraryCorpus,
+    saveCorpus: (input) => saveLibraryCorpus({ ...input, scanIncrement: 0 }),
+  });
+  assert.equal(receipt.ok, true);
+  assert.equal(receipt.sorter.failed, false);
+  assert.equal(receipt.sorter.annotated, receipt.added);
+  assert.equal(receipt.sorter.rejected, 0);
+  const entry = await loadLibraryCorpus("amazon.ca:B097RG67QB");
+  assert.ok(entry.reviews.length > 0);
+  for (const r of entry.reviews) {
+    assert.ok(Array.isArray(r.themeTags), "themeTags must be stamped");
+    assert.ok(["for", "against", "mixed", "unknown"].includes(r.sortDirection), `direction: ${r.sortDirection}`);
+    assert.equal(typeof r.sortSentimentScore, "number");
+    assert.equal(typeof r.sortSerious, "boolean");
+    assert.ok(r.variantAttributes === null || typeof r.variantAttributes === "object");
+    assert.equal(r.provenance, OWNER_FEED_PROVENANCE); // provenance preserved verbatim
+    assert.ok(r.rating >= 1 && r.rating <= 5); // stars preserved
+  }
+});

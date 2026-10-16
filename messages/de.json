@@ -111,5 +111,44 @@
     "sellerPro": "Verkäufer Pro",
     "sellerPremium": "Verkäufer Premium",
     "trustSnapshot": "Vertrauensübersicht für {plan}"
+  },
+  "Brief": {
+    "shouldYouBuy": "Solltest du es kaufen?",
+    "buyingScore": "Kauf-Score",
+    "verdict": {
+      "buy": "Kaufen",
+      "wait": "Abwarten",
+      "skip": "Überspringen",
+      "lowConfidence": "Geringe Zuversicht",
+      "tryAgain": "Erneut versuchen",
+      "leaningBuy": "Eher kaufen",
+      "leaningSkip": "Eher überspringen"
+    },
+    "factTerms": {
+      "marketplaceRating": "Marktplatzbewertung",
+      "ratingsCounted": "Gezählte Bewertungen",
+      "howSureWeAre": "Wie sicher wir sind",
+      "valueForMoney": "Preis-Leistung",
+      "reviewAuthenticity": "Authentizität der Bewertungen"
+    },
+    "confidence": {
+      "high": "Hoch",
+      "medium": "Mittel",
+      "low": "Niedrig",
+      "unknown": "Unbekannt"
+    },
+    "value": {
+      "good": "Gut",
+      "fair": "Okay",
+      "poor": "Schlecht"
+    },
+    "authRows": {
+      "low": "Wenige KI-ähnliche Anzeichen",
+      "moderate": "Einige KI-ähnliche Anzeichen",
+      "high": "Starkes KI-ähnliches Muster"
+    },
+    "whyBuyIt": "Warum du es kaufen würdest",
+    "whyMightNot": "Warum vielleicht nicht",
+    "howWeChecked": "Wie wir geprüft haben"
   }
 }

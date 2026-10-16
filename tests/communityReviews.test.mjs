@@ -243,3 +243,36 @@ test("shopper-facing copy contains no forbidden strings", () => {
     }
   }
 });
+
+test("Tier A sorter seam: annotations stamped, gate never overruled, body dupes dropped", async () => {
+  const storedBody = "The battery life is excellent and lasts for days on a single charge.";
+  const reviewRows = [
+    { id: "a", stars: 5, body: "The sound quality is great and the battery life is excellent overall.", store: "Amazon.ca", verified_purchase: true, created_at: "2026-10-15T00:00:00Z" },
+    { id: "b", stars: 1, body: storedBody, store: null, verified_purchase: true, created_at: "2026-10-15T00:00:00Z" }, // body-duplicate of stored
+  ];
+  let savedCorpus = null;
+  const fakeDeps = {
+    select: async () => reviewRows,
+    update: async () => null,
+    upsert: async () => null,
+    loadCorpus: async () => ({
+      productKey: "amazon.ca:B0DGJDKHRQ",
+      reviews: [{ reviewId: "scan-1", body: storedBody, provenance: "scan" }],
+      scanCount: 3,
+    }),
+    saveCorpus: async (input) => {
+      savedCorpus = input;
+      return true;
+    },
+  };
+  const result = await community.feedTierAReviewsToLibrary("amazon.ca:B0DGJDKHRQ", fakeDeps);
+  assert.equal(result.fed, true);
+  assert.equal(result.fedCount, 1); // the duplicate is dropped by the sorter
+  const record = savedCorpus.corpus.find((r) => r.reviewId === "community-a");
+  assert.ok(record, "annotated record must be in the merged corpus");
+  assert.ok(Array.isArray(record.themeTags) && record.themeTags.includes("battery life"), `tags: ${JSON.stringify(record.themeTags)}`);
+  assert.equal(record.sortDirection, "for");
+  assert.equal(record.sortSerious, false);
+  assert.ok(!savedCorpus.corpus.some((r) => r.reviewId === "community-b"), "body-duplicate must not feed");
+  assert.equal(savedCorpus.previousScanCount, 3);
+});
