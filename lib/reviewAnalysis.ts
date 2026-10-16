@@ -5,6 +5,7 @@ import {
   isWrittenReviewBody,
 } from "@/lib/shopperAnswer";
 import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
+import { isQuoteEchoOfClaim } from "@/lib/evidenceConsistency";
 import {
   AGAINST_CAVEATS,
   AGAINST_LEAD_OTHER,
@@ -138,6 +139,32 @@ function joinList(items: string[]): string {
   if (items.length <= 1) return items.join("");
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+/**
+ * Round 4: guard the one-off {theme} frame fill. The fill must be a short
+ * theme label — never the review quote itself. When the scorer yields no
+ * grouped themes, quoteOnlyPoints (shopperAnswer) sets claim = quote text, and
+ * that used to flow straight into frames like "One buyer reported {theme}" —
+ * printing the same quote the ✓ title already shows, lowercased.
+ *
+ * Returns null when the only available fill is quote-length or echoes one of
+ * the signal's backing reviews (case-insensitive, ≥65% token overlap via the
+ * canonical isQuoteEchoOfClaim — note the guard is deliberately asymmetric:
+ * it measures the fraction of the REVIEW BODY's tokens, so a genuine short
+ * label against a long body is never rejected). The caller then renders the
+ * bare basis label ("One buyer reported this.") with no quote text appended:
+ * analysis, not copy-paste.
+ */
+const ONE_OFF_MAX_LABEL_WORDS = 10;
+export function oneOffThemeFill(lower: string, texts: string[]): string | null {
+  const label = String(lower || "").trim();
+  if (!label) return null;
+  if (label.split(/\s+/).length > ONE_OFF_MAX_LABEL_WORDS) return null;
+  for (const text of texts) {
+    if (isQuoteEchoOfClaim(text, label)) return null;
+  }
+  return label;
 }
 
 // ---------------------------------------------------------------------------
@@ -403,7 +430,16 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
   // One-off family: a single honest sentence.
   if (band === "single") {
     const template = pickFrame(ONE_OFF_LEADS, `${ctx.tallySig}|oneoff|${s.side}|${s.key}`, ctx.used);
-    return { title, summary: `${renderFrame(template, { theme: lower })}.`, basis, band, severity };
+    const fill = oneOffThemeFill(lower, s.texts);
+    if (!fill) {
+      // The only available fill is the quote itself (or nothing): never
+      // print an echo of the displayed review — fall back to the bare basis
+      // label. This covers both the FOR-side and AGAINST-side one-off frames
+      // (they share the ONE_OFF_LEADS family, incl. "A single report
+      // describes {theme}" and "One buyer's experience included {theme}").
+      return { title, summary: `${basis}.`, basis, band, severity };
+    }
+    return { title, summary: `${renderFrame(template, { theme: fill })}.`, basis, band, severity };
   }
 
   // Lead: collective judgment + how buyers land on it.
