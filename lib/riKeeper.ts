@@ -53,6 +53,19 @@ import { listRescueQueue, RESCUE_QUEUE_TABLE } from "@/lib/rescueQueue";
 import { sendReviewIntelEmail, SUPPORT_EMAIL } from "@/lib/emailDelivery";
 import { isSupabaseConfigured, supabaseCount, supabaseSelect } from "@/lib/supabaseServer";
 import {
+  qaDefectCheckId,
+  runQaInspectorLane,
+  type QaInspectorStore,
+  type QaLedgerWriter,
+} from "@/lib/qaInspectorLane";
+import {
+  prepareRescuePack,
+  type PrepareRescuePackResult,
+  type RescuePrepStore,
+  type RescueQueueItem,
+} from "@/lib/rescuePrep";
+import { rescuePrepStore } from "@/lib/rescuePrepStore";
+import {
   CHECK_BATCH_REGISTERED,
   CHECK_RUN_SUMMARY,
   keeperConsecutiveRepairFailures,
@@ -514,7 +527,549 @@ export async function checkRescueQueue(
   };
 }
 
-// ── Repairs (whitelisted only) ───────────────────────────────────────────
+// ── Library Guardian (v2 lane) ────────────────────────────────────────────
+
+/**
+ * (f) LIBRARY GUARDIAN — per-product_key corpus integrity.
+ *
+ * The Oct-16 shrink bug (DREO 54 → 7, AirPods 86 → 20) ran silently for a
+ * day because nothing compared stored review counts run over run. This lane
+ * keeps a per-key snapshot in the ops ledger metadata and compares it every
+ * run. DETECTION ONLY — there is no repair in v1: dedupe is the separate
+ * SQL lane and PR #55's union save already prevents new evictions.
+ *
+ * Findings:
+ *  - shrink: a key's stored review count is lower than last run (DOWN).
+ *  - vanished_key: a key that existed is gone (DOWN).
+ *  - duplicate_rows: >1 row shares one product_key (DEGRADED — cosmetic
+ *    under PR #55's freshest-first read, but still a finding).
+ */
+export const CHECK_LIBRARY_GUARDIAN_SNAPSHOT = "keeper.library_guardian_snapshot";
+
+export type LibraryGuardianKeySnapshot = {
+  rows: number;
+  reviewCount: number;
+  scanCount: number;
+  updatedAt: string;
+};
+
+export type LibraryGuardianSnapshot = {
+  takenAt: string;
+  keys: Record<string, LibraryGuardianKeySnapshot>;
+};
+
+export type LibraryGuardianFinding = {
+  kind: "shrink" | "duplicate_rows" | "vanished_key";
+  productKey: string;
+  before?: number;
+  after?: number;
+  rows?: number;
+};
+
+const LIBRARY_GUARDIAN_ROW_LIMIT = 2000;
+
+/** Latest per-key snapshot (null on first run). Fail-soft: never throws. */
+export async function readLibraryGuardianSnapshot(): Promise<LibraryGuardianSnapshot | null> {
+  try {
+    const rows = await keeperLatestEvidence(CHECK_LIBRARY_GUARDIAN_SNAPSHOT, 1);
+    const row = rows[0];
+    if (!row || !row.details) return null;
+    const snap = (row.details as Record<string, unknown>).snapshot as
+      | LibraryGuardianSnapshot
+      | undefined;
+    if (!snap || typeof snap.keys !== "object" || !snap.keys) return null;
+    return snap;
+  } catch {
+    return null;
+  }
+}
+
+export async function checkLibraryGuardian(
+  ledger: KeeperLedgerHandle | null = null
+): Promise<LaneReport> {
+  const failSoft = (message: string): LaneReport => ({
+    lane: "library_guardian",
+    status: "unknown",
+    message,
+    evidence: {},
+  });
+  if (!isSupabaseConfigured()) {
+    return failSoft("Store not configured; library guardian skipped (fail-soft).");
+  }
+  let rows: Array<Record<string, unknown>> | null = null;
+  try {
+    rows = await supabaseSelect<Record<string, unknown>>(
+      PRODUCT_REVIEW_LIBRARY_TABLE,
+      `select=product_key,review_count,scan_count,updated_at&limit=${LIBRARY_GUARDIAN_ROW_LIMIT}`
+    );
+  } catch {
+    rows = null;
+  }
+  if (!Array.isArray(rows)) {
+    return failSoft("Could not read the product review library; guardian skipped (fail-soft).");
+  }
+
+  // Aggregate per product_key. The freshest row is canonical — this matches
+  // loadLibraryCorpus (order=updated_at.desc&limit=1, PR #55), so the counts
+  // the guardian watches are the counts the scorer actually reads.
+  const perKey = new Map<string, { rows: number; snap: LibraryGuardianKeySnapshot }>();
+  for (const row of rows) {
+    const key = String(row.product_key || "");
+    if (!key) continue;
+    const entry = perKey.get(key) ?? {
+      rows: 0,
+      snap: { rows: 0, reviewCount: 0, scanCount: 0, updatedAt: "" },
+    };
+    entry.rows += 1;
+    const updatedAt = String(row.updated_at || "");
+    if (updatedAt >= entry.snap.updatedAt) {
+      entry.snap = {
+        rows: entry.rows,
+        reviewCount: Number(row.review_count) || 0,
+        scanCount: Number(row.scan_count) || 0,
+        updatedAt,
+      };
+    }
+    perKey.set(key, entry);
+  }
+  const now: LibraryGuardianSnapshot = {
+    takenAt: new Date().toISOString(),
+    keys: Object.fromEntries(
+      [...perKey.entries()].map(([key, entry]) => [key, { ...entry.snap, rows: entry.rows }])
+    ),
+  };
+
+  const previous = await readLibraryGuardianSnapshot();
+  const findings: LibraryGuardianFinding[] = [];
+  if (previous) {
+    for (const [key, prev] of Object.entries(previous.keys)) {
+      const cur = now.keys[key];
+      if (!cur) {
+        findings.push({ kind: "vanished_key", productKey: key, before: prev.reviewCount });
+        continue;
+      }
+      if (cur.reviewCount < prev.reviewCount) {
+        findings.push({
+          kind: "shrink",
+          productKey: key,
+          before: prev.reviewCount,
+          after: cur.reviewCount,
+        });
+      }
+    }
+  }
+  for (const [key, cur] of Object.entries(now.keys)) {
+    if (cur.rows > 1) {
+      findings.push({ kind: "duplicate_rows", productKey: key, rows: cur.rows });
+    }
+  }
+  const newKeys = previous
+    ? Object.keys(now.keys).filter((k) => !(k in previous.keys)).slice(0, 25)
+    : [];
+
+  // Persist the snapshot for the next run (ledger metadata; no schema change).
+  if (ledger) {
+    await keeperEvidence(
+      ledger,
+      CHECK_LIBRARY_GUARDIAN_SNAPSHOT,
+      "Library guardian snapshot",
+      "info",
+      `Snapshot: ${Object.keys(now.keys).length} product key(s), ${findings.length} finding(s).`,
+      { snapshot: now }
+    );
+  }
+
+  const evidence = {
+    keyCount: Object.keys(now.keys).length,
+    findings,
+    newKeys,
+    baseline: previous ? "compared" : "first run — baseline recorded",
+  };
+
+  if (findings.length === 0) {
+    return {
+      lane: "library_guardian",
+      status: "healthy",
+      message: previous
+        ? `Library integrity nominal: ${Object.keys(now.keys).length} product key(s) — no shrink, no duplicate rows, none vanished.`
+        : `Guardian baseline recorded: ${Object.keys(now.keys).length} product key(s). Integrity comparison starts on the next run.`,
+      evidence,
+    };
+  }
+
+  const describe = (f: LibraryGuardianFinding): string => {
+    if (f.kind === "shrink")
+      return `${f.productKey}: stored reviews shrank ${f.before} → ${f.after}`;
+    if (f.kind === "vanished_key")
+      return `${f.productKey}: was in the library (${f.before} reviews), now gone`;
+    return `${f.productKey}: ${f.rows} duplicate rows share this product key`;
+  };
+  const causeFor = (f: LibraryGuardianFinding): { likelyCause: string; humanAction: string } => {
+    if (f.kind === "shrink")
+      return {
+        likelyCause:
+          "A scan's library save rewrote this product's corpus with only the current run's reviews and evicted stored ones (the Oct-16 shrink failure mode), or the read flipped between duplicate rows for this key.",
+        humanAction: `Open the ${PRODUCT_REVIEW_LIBRARY_TABLE} rows for ${f.productKey}; if stored reviews were evicted, re-ingest the affected batches via /admin/owner-feed (or the community flow). If duplicate rows exist for the key, apply the idempotent dedupe migration so the unique constraint prevents recurrence.`,
+      };
+    if (f.kind === "vanished_key")
+      return {
+        likelyCause: "Every row for this product key was deleted outside the scan path.",
+        humanAction: `Check Supabase logs for who deleted the ${f.productKey} rows and when; re-ingest the product's reviews if the deletion was not deliberate.`,
+      };
+    return {
+      likelyCause:
+        "product_key has no unique constraint yet, so overlapping saves created extra rows; reads flip between rows.",
+      humanAction:
+        "Apply the idempotent dedupe migration supabase/migrations/20261016_product_review_library_dedupe_unique.sql — it merges duplicate rows per product key and adds the unique index. Until then the scorer reads the freshest row, so this is cosmetic, not a wrong verdict.",
+    };
+  };
+  const serious = findings.filter((f) => f.kind !== "duplicate_rows");
+  const worst = serious[0] ?? findings[0];
+  const cause = causeFor(worst);
+  return {
+    lane: "library_guardian",
+    status: serious.length > 0 ? "down" : "degraded",
+    message: `Library integrity: ${findings.map(describe).join("; ")}.`,
+    evidence,
+    escalation: cause,
+  };
+}
+
+// ── Deploy Doctor (v2 lane, both keepers) ───────────────────────────────────
+
+/**
+ * (g) DEPLOY DOCTOR — watches which build is live and whether it broke lanes.
+ *
+ * The Oct-16 Roamly deploy failure (two layers: TS null guard + 23 eslint
+ * errors) sat silent for hours until Dylan probed a route. This lane reads
+ * the build stamp the keeper itself is running inside
+ * (process.env.VERCEL_GIT_COMMIT_SHA — the same build serving production)
+ * and records it in the ledger every run:
+ *  - stamp CHANGES → ledger-log "new build live" old→new (info, not an alert).
+ *  - lanes that were healthy last run and are down/degraded now, right
+ *    after a stamp change → escalate "deploy suspect" (the Oct-16
+ *    "Review first" comeback was exactly this shape: a merged PR re-broke
+ *    a fixed lane).
+ *  - optional env RI_EXPECTED_BUILD_SHA: when set and the observed stamp
+ *    hasn't matched it for 2 consecutive runs → escalate "expected build
+ *    not live." WITHOUT the env var this lane is observation-only: it
+ *    records the stamp and watches for fresh failures, nothing more.
+ */
+export const CHECK_DEPLOY_STAMP = "keeper.deploy_stamp";
+const EXPECTED_BUILD_SHA_ENV = "RI_EXPECTED_BUILD_SHA";
+
+export function readDeployStamp(env: NodeJS.ProcessEnv): {
+  app: "reviewintel";
+  sha: string | null;
+} {
+  const sha = env.VERCEL_GIT_COMMIT_SHA;
+  return {
+    app: "reviewintel",
+    sha: typeof sha === "string" && sha.trim() ? sha.trim() : null,
+  };
+}
+
+/** Previous stamp observations, newest first. Fail-soft: never throws. */
+export async function readDeployStampHistory(
+  limit = 5
+): Promise<Array<{ sha: string | null; observedAt: string }>> {
+  try {
+    const rows = await keeperLatestEvidence(CHECK_DEPLOY_STAMP, limit);
+    return rows.map((row) => {
+      const d = (row.details || {}) as Record<string, unknown>;
+      return {
+        sha: typeof d.sha === "string" ? d.sha : null,
+        observedAt: String(row.created_at || ""),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+const shortSha = (s: string | null): string => (s ? s.slice(0, 12) : "none");
+
+export async function checkDeployDoctor(
+  env: NodeJS.ProcessEnv,
+  currentLanes: LaneReport[],
+  ledger: KeeperLedgerHandle | null = null
+): Promise<LaneReport> {
+  const failSoft = (message: string): LaneReport => ({
+    lane: "deploy_doctor",
+    status: "unknown",
+    message,
+    evidence: {},
+  });
+  const stamp = readDeployStamp(env);
+  if (!stamp.sha) {
+    return failSoft(
+      "Build stamp unavailable (VERCEL_GIT_COMMIT_SHA not set — local/dev). Deploy tracking is observation-only outside Vercel."
+    );
+  }
+  const history = await readDeployStampHistory(5);
+  const previousSha = history.length > 0 ? history[0].sha : null;
+  const changed = Boolean(previousSha) && previousSha !== stamp.sha;
+
+  // Persist this run's observation (ledger metadata; no schema change).
+  if (ledger) {
+    await keeperEvidence(
+      ledger,
+      CHECK_DEPLOY_STAMP,
+      "Deploy stamp observed",
+      "info",
+      `Observed build ${shortSha(stamp.sha)}${changed ? ` (new build live: ${shortSha(previousSha)} → ${shortSha(stamp.sha)})` : ""}.`,
+      {
+        app: stamp.app,
+        sha: stamp.sha,
+        observedAt: new Date().toISOString(),
+        previousSha: previousSha ?? null,
+      }
+    );
+  }
+
+  // Optional expected-build enforcement. Without the env var this whole
+  // branch never fires — observation-only, by design.
+  const expected = (env[EXPECTED_BUILD_SHA_ENV] || "").trim() || null;
+  let consecutiveMismatches = 0;
+  if (expected) {
+    if (stamp.sha !== expected) {
+      consecutiveMismatches = 1;
+      for (const h of history) {
+        if (h.sha && h.sha === expected) break;
+        consecutiveMismatches += 1;
+      }
+    }
+  }
+
+  // Fresh failures since the last run: lanes healthy before, down/degraded
+  // now — only meaningful right after a stamp change. The lane runs before
+  // this run's summary is written, so the latest summary is the PREVIOUS run's.
+  let freshFailures: string[] = [];
+  if (changed) {
+    try {
+      const summaries = await keeperLatestEvidence(CHECK_RUN_SUMMARY, 1);
+      const prevStatuses = ((summaries[0]?.details || {}) as Record<string, unknown>)
+        .laneStatuses as Record<string, string> | undefined;
+      if (prevStatuses) {
+        for (const lane of currentLanes) {
+          if (lane.lane === "deploy_doctor") continue;
+          if (
+            prevStatuses[lane.lane] === "healthy" &&
+            (lane.status === "down" || lane.status === "degraded")
+          ) {
+            freshFailures.push(lane.lane);
+          }
+        }
+      }
+    } catch {
+      freshFailures = [];
+    }
+  }
+
+  const evidence = {
+    sha: stamp.sha,
+    previousSha: previousSha ?? null,
+    changed,
+    expectedSha: expected,
+    consecutiveMismatches,
+    freshFailures,
+  };
+
+  if (expected && consecutiveMismatches >= 2) {
+    return {
+      lane: "deploy_doctor",
+      status: "down",
+      message: `Expected build ${shortSha(expected)} is not live after ${consecutiveMismatches} consecutive keeper runs (observed ${shortSha(stamp.sha)}).`,
+      evidence,
+      escalation: {
+        likelyCause:
+          "The deployment for the expected commit failed, or Vercel is still serving an older build.",
+        humanAction: `Check the Vercel deployment for commit ${expected} — read its build logs; if it failed, fix and redeploy, or roll back deliberately. Until it lands, set ${EXPECTED_BUILD_SHA_ENV} to the build you actually want live.`,
+      },
+    };
+  }
+  if (changed && freshFailures.length > 0) {
+    return {
+      lane: "deploy_doctor",
+      status: "down",
+      message: `Deploy suspect: new build ${shortSha(previousSha)} → ${shortSha(stamp.sha)} went live and ${freshFailures.length} lane(s) just started failing: ${freshFailures.slice(0, 8).join(", ")}.`,
+      evidence,
+      escalation: {
+        likelyCause:
+          "The new build introduced a regression (the Oct-16 'Review first' comeback was exactly this shape: a merged PR re-broke a fixed lane).",
+        humanAction: `Check the Vercel deployment logs for ${stamp.sha}; if the build is broken, roll back to the previous deployment in the Vercel dashboard and re-ship the round as one release.`,
+      },
+    };
+  }
+  if (expected && consecutiveMismatches === 1) {
+    return {
+      lane: "deploy_doctor",
+      status: "degraded",
+      message: `Observed build ${shortSha(stamp.sha)} does not match expected ${shortSha(expected)} (1st run — watching one more before escalating).`,
+      evidence,
+      escalation: {
+        likelyCause: "A deploy may still be propagating.",
+        humanAction: `If the next keeper run still shows ${shortSha(stamp.sha)}, check the Vercel deployment for ${expected}.`,
+      },
+    };
+  }
+  return {
+    lane: "deploy_doctor",
+    status: "healthy",
+    message: changed
+      ? `New build live: ${shortSha(previousSha)} → ${shortSha(stamp.sha)}; no fresh lane failures.`
+      : `Build ${shortSha(stamp.sha)} still live; no drift.`,
+    evidence,
+  };
+}
+
+// ── Social Postman (v2 lane) ───────────────────────────────────────────────
+
+/**
+ * (h) SOCIAL POSTMAN — surfaces REAL failed social posts.
+ *
+ * RI's social failures (the failed FB Reels that sat in the logs Oct 7–14)
+ * went unnoticed because nobody watched the publish outcomes. This lane
+ * reads admin_social_posts for rows with the EXPLICIT publish outcome
+ * "failed" and escalates ones it hasn't escalated before (tracked in the
+ * ops ledger metadata, so re-runs don't repeat).
+ *
+ * Standing correction honored in code: status labels such as
+ * "needs_attention" are NOT failures — this lane only matches
+ * status = "failed", never labels. DETECTION ONLY — the keeper never
+ * republishes; a human fixes the connector or media.
+ */
+export const SOCIAL_POSTS_TABLE = "admin_social_posts";
+export const CHECK_POSTMAN_ESCALATED = "keeper.postman_escalated";
+const POSTMAN_LOOKBACK_DAYS = 14;
+
+export type SocialPostFailure = {
+  id: string;
+  platform: string;
+  topic: string;
+  mode: string;
+  error: string;
+  createdAt: string;
+};
+
+/** Post ids the keeper already escalated (union across recent rows). */
+export async function readPostmanEscalatedIds(limit = 20): Promise<Set<string>> {
+  try {
+    const rows = await keeperLatestEvidence(CHECK_POSTMAN_ESCALATED, limit);
+    const ids = new Set<string>();
+    for (const row of rows) {
+      const d = (row.details || {}) as Record<string, unknown>;
+      const list = d.postIds;
+      if (Array.isArray(list)) {
+        for (const id of list) if (typeof id === "string") ids.add(id);
+      }
+    }
+    return ids;
+  } catch {
+    return new Set<string>();
+  }
+}
+
+export async function checkSocialPostman(
+  ledger: KeeperLedgerHandle | null = null,
+  nowMs?: number
+): Promise<LaneReport> {
+  const failSoft = (message: string): LaneReport => ({
+    lane: "social_postman",
+    status: "unknown",
+    message,
+    evidence: {},
+  });
+  if (!isSupabaseConfigured()) {
+    return failSoft("Store not configured; social postman skipped (fail-soft).");
+  }
+  let rows: Array<Record<string, unknown>> | null = null;
+  try {
+    rows = await supabaseSelect<Record<string, unknown>>(
+      SOCIAL_POSTS_TABLE,
+      "select=id,platform,mode,status,topic,caption,error,posted_at,created_at,updated_at&status=eq.failed&order=created_at.desc&limit=50"
+    );
+  } catch {
+    rows = null;
+  }
+  if (!Array.isArray(rows)) {
+    return failSoft(`Could not read ${SOCIAL_POSTS_TABLE}; social postman skipped (fail-soft).`);
+  }
+
+  const now = nowMs ?? Date.now();
+  const cutoff = now - POSTMAN_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+  const recent: SocialPostFailure[] = rows
+    .filter((r) => {
+      const t = new Date(String(r.created_at || 0)).getTime();
+      return Number.isFinite(t) && t >= cutoff;
+    })
+    .map((r) => ({
+      id: String(r.id),
+      platform: String(r.platform || "unknown"),
+      topic: String(r.topic || "untitled"),
+      mode: String(r.mode || ""),
+      error: String(r.error || "no failure text recorded"),
+      createdAt: String(r.created_at || ""),
+    }));
+
+  const alreadyEscalated = await readPostmanEscalatedIds();
+  const fresh = recent.filter((p) => !alreadyEscalated.has(p.id));
+
+  // Record the newly escalated ids so the next run doesn't repeat them.
+  if (fresh.length > 0 && ledger) {
+    await keeperEvidence(
+      ledger,
+      CHECK_POSTMAN_ESCALATED,
+      "Social postman escalations",
+      "fail",
+      `Escalated ${fresh.length} failed social post(s).`,
+      { postIds: fresh.map((p) => p.id), posts: fresh }
+    );
+  }
+
+  const evidence = {
+    failedPostsFound: recent.length,
+    newFailures: fresh.length,
+    failures: fresh.map((p) => ({
+      id: p.id,
+      platform: p.platform,
+      topic: p.topic,
+      error: p.error,
+    })),
+  };
+
+  if (fresh.length === 0) {
+    return {
+      lane: "social_postman",
+      status: "healthy",
+      message: recent.length
+        ? `No new failed social posts (all ${recent.length} recent failure(s) already escalated).`
+        : `No failed social posts in the last ${POSTMAN_LOOKBACK_DAYS} days.`,
+      evidence,
+    };
+  }
+  const named = fresh.slice(0, 5).map((p) => `${p.platform}/${p.topic}`);
+  const namedSuffix = fresh.length > 5 ? ` and ${fresh.length - 5} more` : "";
+  return {
+    lane: "social_postman",
+    status: "down",
+    message: `${fresh.length} social post(s) failed: ${named.join(", ")}${namedSuffix}.`,
+    evidence,
+    escalation: {
+      likelyCause:
+        "The social-autopost publish path failed — connector rejection, media generation/upload failure, or a platform-side error (the recorded failure text names it).",
+      humanAction: `Open the admin social view for ${fresh
+        .slice(0, 5)
+        .map((p) => `${p.platform} (${p.id})`)
+        .join(", ")}${fresh.length > 5 ? ` and ${fresh.length - 5} more` : ""}; recorded failure text: ${fresh
+        .slice(0, 5)
+        .map((p) => `"${p.error}"`)
+        .join("; ")}. Fix the connector or media and re-publish.`,
+    },
+  };
+}
+
+// ── Repairs (whitelisted only) ────────────────────────────────────────────
 
 export type RepairOutcome = {
   repairKey: string;
@@ -741,6 +1296,222 @@ function escapeHtml(value: string): string {
  * site: it only reads tables, writes ledger rows, and (if enabled) runs
  * whitelisted idempotent repairs).
  */
+/**
+ * QA Inspector lane (bot round 2): reads recent stored scan results from the
+ * `analyses` table's analysis_json — the same restore path as
+ * loadServerResult (stored.result ?? stored, server-only account scoping
+ * removed since the keeper reads as the service role) — and runs the
+ * banned-defect inspector over them. ESCALATE ONLY: this lane never names a
+ * repair key, so maybeRepair skips it; every defect class escalates via
+ * per-class ledger rows (qa_inspector.defect.<class>) plus the generic
+ * keeper.check.qa_inspector lane row.
+ */
+const qaObj = (v: unknown): Record<string, unknown> =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
+export async function checkQaInspector(ledger: KeeperLedgerHandle | null): Promise<LaneReport> {
+  const store: QaInspectorStore = {
+    loadRecentStoredResults: async (limit) => {
+      if (!isSupabaseConfigured()) return [];
+      const n = Math.max(1, Math.min(50, limit));
+      const rows = await supabaseSelect("analyses", `select=analysis_json,created_at&order=created_at.desc&limit=${n}`);
+      const out: unknown[] = [];
+      for (const row of rows) {
+        const stored = qaObj(row.analysis_json);
+        out.push(stored.result && typeof stored.result === "object" ? stored.result : stored);
+      }
+      return out;
+    },
+  };
+  const writer: QaLedgerWriter | null = ledger
+    ? {
+        writeDefectEscalation: async (finding) =>
+          keeperEvidence(
+            ledger,
+            qaDefectCheckId(finding.defectClass),
+            `QA defect: ${finding.defectClass}`,
+            "fail",
+            `QA inspector — scan ${finding.scanId}: ${finding.defectClass} — "${finding.offendingString}" (field: ${finding.field})`,
+            {
+              scanId: finding.scanId,
+              defectClass: finding.defectClass,
+              offendingString: finding.offendingString,
+              field: finding.field,
+            }
+          ),
+      }
+    : null;
+  const report = await runQaInspectorLane(store, writer);
+  return {
+    lane: report.lane,
+    status: report.status,
+    message: report.message,
+    evidence: {
+      scanned: report.scanned,
+      findings: report.findings,
+      escalationsWritten: report.escalationsWritten,
+      escalationFailures: report.escalationFailures,
+      recordErrors: report.recordErrors,
+    },
+    escalation:
+      report.findings.length > 0
+        ? {
+            likelyCause:
+              "Stored scan results contain banned copy defects (verdict outside Buy/Wait/Skip, internal placeholders, empty/dash rows, doubled aggregate, unbacked warnings).",
+            humanAction:
+              "Open the flagged result pages from the admin Operations view and fix the copy path; the inspector never edits results itself.",
+          }
+        : undefined,
+  };
+}
+
+// ── Rescue prep lane (bot round 2, release finisher) ───────────────────────
+
+/**
+ * Rescue Prep lane (bot round 2): for each pending rescue-queue item,
+ * build the one-page research pack via lib/rescuePrep — Junel's personal
+ * research page, in plain language. ESCALATE ONLY by construction: the lane
+ * never names a repair key (maybeRepair skips it), never changes queue
+ * status, never emails, never auto-rescues. Packs are capped at 3 per run;
+ * when the owner has not yet applied supabase/migrations/
+ * 20261016_rescue_prep_packs.sql the packs are built in memory and returned
+ * unstored — reported as honest evidence, never an error.
+ */
+export const RESCUE_PREP_MAX_PER_RUN = 3;
+export const RESCUE_PREP_MIGRATION_FILE = "supabase/migrations/20261016_rescue_prep_packs.sql";
+
+export type RescuePrepLaneDeps = {
+  /** Injected store (tests mock it). Defaults to the live Supabase adapter. */
+  store?: RescuePrepStore;
+  /** Injected pending-item enumeration (tests mock it). Defaults to the rescue queue. */
+  listPendingItems?: () => Promise<RescueQueueItem[]>;
+};
+
+const rescuePrepNotProvisionedMarker = "not provisioned";
+
+function rescueQueueRowToPrepItem(row: Record<string, unknown>): RescueQueueItem {
+  return {
+    id: String(row.id ?? ""),
+    scan_ref: String(row.scan_ref ?? ""),
+    account_email: row.account_email == null ? null : String(row.account_email),
+    product_key: row.product_key == null ? null : String(row.product_key),
+    product_name: row.product_name == null ? null : String(row.product_name),
+    product_url: row.product_url == null ? null : String(row.product_url),
+    reason: row.reason == null ? null : String(row.reason),
+    created_at: row.created_at == null ? null : String(row.created_at),
+  };
+}
+
+export async function checkRescuePrep(
+  ledger: KeeperLedgerHandle | null,
+  deps: RescuePrepLaneDeps = {}
+): Promise<LaneReport> {
+  const lane = "rescue_prep";
+  const unknown = (message: string): LaneReport => ({ lane, status: "unknown", message, evidence: {} });
+  const store = deps.store ?? rescuePrepStore;
+
+  let pending: RescueQueueItem[];
+  try {
+    if (!isSupabaseConfigured()) {
+      return unknown("Store not configured; rescue-prep check skipped (fail-soft).");
+    }
+    pending = deps.listPendingItems
+      ? await deps.listPendingItems()
+      : (await listRescueQueue("pending", 50)).map((r) =>
+          rescueQueueRowToPrepItem(r as unknown as Record<string, unknown>)
+        );
+  } catch {
+    return unknown("Could not read the rescue queue; rescue-prep check skipped (fail-soft).");
+  }
+
+  if (pending.length === 0) {
+    return {
+      lane,
+      status: "healthy",
+      message: "No pending rescue items; nothing to pre-research.",
+      evidence: { pending: 0 },
+    };
+  }
+
+  const worklist = pending.slice(0, RESCUE_PREP_MAX_PER_RUN);
+  const deferred = pending.length - worklist.length;
+  const prepared: string[] = [];
+  const alreadyHad: string[] = [];
+  const unstored: string[] = [];
+  const failed: string[] = [];
+  let storageAbsent = false;
+
+  for (const item of worklist) {
+    let result: PrepareRescuePackResult;
+    try {
+      result = await prepareRescuePack(item.scan_ref || item.id, store);
+    } catch {
+      failed.push(item.id);
+      continue;
+    }
+    if (!result.ok || !result.pack) {
+      failed.push(item.id);
+      continue;
+    }
+    if (result.alreadyStored) {
+      alreadyHad.push(item.id);
+    } else if (result.stored) {
+      prepared.push(item.id);
+    } else {
+      unstored.push(item.id);
+      if (result.notes.some((n) => n.toLowerCase().includes(rescuePrepNotProvisionedMarker))) {
+        storageAbsent = true;
+      }
+    }
+  }
+
+  const storagePresent =
+    prepared.length > 0 ? true : unstored.length > 0 && storageAbsent ? false : null;
+  const evidence = {
+    pending: pending.length,
+    capped: deferred,
+    prepared,
+    alreadyHadPacks: alreadyHad,
+    unstored,
+    failed,
+    storagePresent,
+  };
+
+  if (failed.length > 0) {
+    return {
+      lane,
+      status: "degraded",
+      message: `Rescue prep failed for ${failed.length} item(s); queue rows untouched.`,
+      evidence,
+      escalation: {
+        likelyCause: "prepareRescuePack errored on a malformed or unreadable queue row.",
+        humanAction:
+          "Open the admin rescue view and check the keeper logs; research the product manually — the pack is advisory, the queue is untouched.",
+      },
+    };
+  }
+  if (storagePresent === false) {
+    return {
+      lane,
+      status: "degraded",
+      message: `${unstored.length} research pack(s) built but not stored — the prep-pack table is not provisioned yet (owner has not run ${RESCUE_PREP_MIGRATION_FILE}).`,
+      evidence,
+      escalation: {
+        likelyCause: "The rescue_prep_packs table does not exist; the migration was never applied.",
+        humanAction: `Paste ${RESCUE_PREP_MIGRATION_FILE} into the Supabase SQL editor and run it once. Until then, packs are built in memory and returned unstored.`,
+      },
+    };
+  }
+  return {
+    lane,
+    status: "healthy",
+    message: `Rescue prep: ${prepared.length} pack(s) prepared this run, ${alreadyHad.length} already had packs${
+      deferred > 0 ? `, ${deferred} deferred to the next run (cap ${RESCUE_PREP_MAX_PER_RUN})` : ""
+    }.`,
+    evidence,
+  };
+}
+
 export async function runKeeper(runtime: Partial<KeeperRuntime> = {}): Promise<KeeperReport> {
   const env = runtime.env ?? process.env;
   const nowMs = runtime.now ? runtime.now() : Date.now();
@@ -797,6 +1568,13 @@ export async function runKeeper(runtime: Partial<KeeperRuntime> = {}): Promise<K
   }
   lanes.push(checkLibraryGrowth(totals, previous));
   await runOne("rescue_queue", () => checkRescueQueue(cfg, nowMs));
+  // Rescue prep: build research packs for pending items (escalate-only,
+  // cap 3/run; nothing changes queue status).
+  await runOne("rescue_prep", () => checkRescuePrep(ledger));
+  // Library guardian: per-key integrity vs the previous run's snapshot.
+  await runOne("library_guardian", () => checkLibraryGuardian(ledger));
+  // Social postman: real failed posts only (never status labels).
+  await runOne("social_postman", () => checkSocialPostman(ledger, nowMs));
   // Scan activity rides the same totals read (recentlySeen24h).
   lanes.push({
     lane: "scan_activity",
@@ -815,6 +1593,10 @@ export async function runKeeper(runtime: Partial<KeeperRuntime> = {}): Promise<K
           }
         : undefined,
   });
+  // Deploy doctor runs last: it compares this run's lanes against the
+  // previous run's summary and the observed build stamp.
+  await runOne("qa_inspector", () => checkQaInspector(ledger));
+  await runOne("deploy_doctor", () => checkDeployDoctor(env, lanes, ledger));
   empty.lanes = lanes;
 
   // Repairs (whitelisted only, capped, fail-twice stopped).
