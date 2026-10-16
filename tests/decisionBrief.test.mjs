@@ -190,6 +190,16 @@ test("factors capped at three per side, top counts first", () => {
 test("Phase 5: one-off warning becomes an against-factor with honest framing", () => {
   const r = airpodsFixture({
     complaints: [],
+    // Backing evidence in the accepted corpus (round-2 rule: unbacked warnings never print).
+    reviewEvidence: {
+      ...BASE.reviewEvidence,
+      evidenceAdjudication: {
+        acceptedRecords: [
+          ...BASE.reviewEvidence.evidenceAdjudication.acceptedRecords,
+          { id: "heat1", stableEvidenceHash: "heat1", body: "The case gets too hot to touch while charging, I have to set it down.", sourceUrl: "https://www.amazon.ca/dp/B0DGJDKHRQ" },
+        ],
+      },
+    },
     buyingScoreV2: {
       ...BASE.buyingScoreV2,
       warnings: [{ tier: "single_safety", text: "One customer reported overheating (single unverified report).", quotes: [] }],
@@ -207,6 +217,17 @@ test("Phase 5: one-off warning becomes an against-factor with honest framing", (
 test("Phase 5: repeated warning gets the repeated basis", () => {
   const r = airpodsFixture({
     complaints: [],
+    // Backing evidence in the accepted corpus (round-2 rule: unbacked warnings never print).
+    reviewEvidence: {
+      ...BASE.reviewEvidence,
+      evidenceAdjudication: {
+        acceptedRecords: [
+          ...BASE.reviewEvidence.evidenceAdjudication.acceptedRecords,
+          { id: "heat1", stableEvidenceHash: "heat1", body: "The case gets too hot to touch while charging, I have to set it down.", sourceUrl: "https://www.amazon.ca/dp/B0DGJDKHRQ" },
+          { id: "heat2", stableEvidenceHash: "heat2", body: "Mine overheated twice in the first week and the case started scorching the desk mat.", sourceUrl: "https://www.amazon.ca/dp/B0DGJDKHRQ" },
+        ],
+      },
+    },
     buyingScoreV2: {
       ...BASE.buyingScoreV2,
       warnings: [{ tier: "repeated_safety", text: "Several customers independently report overheating.", quotes: [] }],

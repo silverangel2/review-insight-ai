@@ -4,6 +4,7 @@ import {
   deriveShopperAnswer,
   isWrittenReviewBody,
 } from "@/lib/shopperAnswer";
+import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
 import {
   AGAINST_CAVEATS,
   AGAINST_LEAD_OTHER,
@@ -191,6 +192,38 @@ function matchDimension(text: string): string | null {
  * Deterministic, no model calls. Quote excerpts are keyword-mined only —
  * their text is never rendered.
  */
+const WARNING_NOISE_WORDS = new Set(
+  "the,a,an,and,or,of,to,in,on,for,with,is,it,this,that,from,are,was,were,be,been,as,at,by,several,customers,customer,one,single,unverified,report,reports,reported,independently,repeated,official,recall".split(",")
+);
+
+/**
+ * Round 2 defect 3: a mined warning must be backed by the accepted corpus. The
+ * warning text names the scorer's hazard label (e.g. "overheating"); the check
+ * runs the SAME hazard pattern the scorer used against the accepted
+ * written-review bodies — a paraphrase ("too hot to touch") still counts as
+ * backing, because the scorer counted it. If no hazard label matches the text,
+ * falls back to significant-word overlap. Zero backing bodies -> the warning is
+ * dropped at the source: an unbacked claim never prints (brief or Safety
+ * Report sections). Returns the number of backing bodies.
+ */
+function warningCorpusBacking(result: Rec, text: string): number {
+  const lower = text.toLowerCase();
+  const bodies: string[] = [];
+  for (const record of acceptedRecords(result)) {
+    const body = cleanQuoteText(String((record as unknown as Rec).body || "")).toLowerCase();
+    if (isWrittenReviewBody(body)) bodies.push(body);
+  }
+  if (!bodies.length) return 0;
+  const hazard = [...SAFETY_HAZARDS, ...RELIABILITY_FAILURES].find((h) =>
+    lower.includes(h.label.toLowerCase())
+  );
+  if (hazard) return bodies.filter((b) => hazard.pattern.test(b)).length;
+  const words = lower.split(/[^a-z0-9]+/).filter((w) => w.length > 3 && !WARNING_NOISE_WORDS.has(w));
+  if (!words.length) return 0;
+  const need = Math.min(2, words.length);
+  return bodies.filter((b) => words.filter((w) => b.includes(w)).length >= need).length;
+}
+
 export function mineScoreComplaints(input: unknown): MinedSignal[] {
   const result = obj(input);
   const card = scoreCardOf(result);
@@ -224,7 +257,11 @@ export function mineScoreComplaints(input: unknown): MinedSignal[] {
       claim = extracted || "safety report";
       key = `__warning_${index}`;
     }
-    const count = tier === "single_safety" ? 1 : 2;
+    // Round 2 defect 3: the warning prints only when the accepted corpus backs
+    // it. Official recalls are backed by the recall source itself, not reviews.
+    const backing = tier === "official_recall" ? 2 : warningCorpusBacking(result, text);
+    if (!backing) return;
+    const count = tier === "single_safety" ? 1 : Math.max(1, Math.min(2, backing));
     add(key, claim || key, count, [], text);
   });
 

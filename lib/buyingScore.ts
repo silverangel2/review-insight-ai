@@ -377,14 +377,21 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   if (s.recall?.queried && s.recall.succeeded && s.recall.recalled) {
     caps.push({ cap: CAP_RECALL, key: "official_recall", warning: { tier: "official_recall", text: "Official recall", quotes: [], sourceUrl: s.recall.sourceUrl || null } });
   }
+  // Round 2 defect 3: a warning CLAIM may only print when the accepted evidence
+  // actually backs it. The score cap still reflects the underlying signal (math
+  // untouched), but the warning text is withheld when no backing review quotes
+  // exist — an unbacked claim never prints, including in Safety Report sections.
   const hazard = s.safHazard || "a safety hazard";
+  const safetyQuotes = quotes.safety.slice(0, 3);
   if (s.safSameHazard >= 2) {
-    caps.push({ cap: CAP_REPEATED_SAFETY, key: "repeated_safety", warning: { tier: "repeated_safety", text: `Several customers independently report ${hazard}.`, quotes: quotes.safety.slice(0, 3) } });
+    caps.push({ cap: CAP_REPEATED_SAFETY, key: "repeated_safety", warning: safetyQuotes.length ? { tier: "repeated_safety", text: `Several customers independently report ${hazard}.`, quotes: safetyQuotes } : undefined });
   } else if (s.saf >= 1) {
-    caps.push({ cap: CAP_SINGLE_SAFETY, key: "single_safety", warning: { tier: "single_safety", text: `One customer reported ${hazard} (single unverified report).`, quotes: quotes.safety.slice(0, 1) } });
+    const singleQuote = quotes.safety.slice(0, 1);
+    caps.push({ cap: CAP_SINGLE_SAFETY, key: "single_safety", warning: singleQuote.length ? { tier: "single_safety", text: `One customer reported ${hazard} (single unverified report).`, quotes: singleQuote } : undefined });
   }
+  const relQuotes = quotes.reliability.slice(0, 3);
   if (s.relSameTheme >= 2) {
-    caps.push({ cap: CAP_REPEATED_RELIABILITY, key: "repeated_reliability", warning: { tier: "repeated_reliability", text: `Repeated reports of ${s.relTheme || "the product failing"}.`, quotes: quotes.reliability.slice(0, 3) } });
+    caps.push({ cap: CAP_REPEATED_RELIABILITY, key: "repeated_reliability", warning: relQuotes.length ? { tier: "repeated_reliability", text: `Repeated reports of ${s.relTheme || "the product failing"}.`, quotes: relQuotes } : undefined });
   }
   if ((count ?? 0) < 50 && n < 10) {
     caps.push({ cap: CAP_TOO_NEW, key: "too_new", warning: { tier: "too_new", text: hasRating

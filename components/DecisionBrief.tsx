@@ -1,6 +1,7 @@
 import { briefImageUrl, deriveReviewAnalysis } from "@/lib/reviewAnalysis";
 import {
   deriveShopperAnswer,
+  shopperVerdictWord,
   evidenceStrengthLabel,
   marketplaceAggregateNumbers,
 } from "@/lib/shopperAnswer";
@@ -56,11 +57,14 @@ export function DecisionBrief({
   const revealKey =
     [record.scanId, record.id, productName].map((v) => String(v || "").trim()).find(Boolean) || null;
 
+  // Round 2 defect 1: the headline verdict word comes from the same single
+  // derivation (shopperVerdictWord) as the cards and the page headline.
+  const verdictWord = shopperVerdictWord(result) ?? "Review first";
   const verdict =
-    answer.kind === "buy"
-      ? { word: "Buy", tone: "text-emerald-700 dark:text-emerald-300" }
-      : answer.kind === "skip"
-        ? { word: "Avoid", tone: "text-red-700 dark:text-red-300" }
+    verdictWord === "Avoid"
+      ? { word: verdictWord, tone: "text-red-700 dark:text-red-300" }
+      : verdictWord === "Buy"
+        ? { word: verdictWord, tone: "text-emerald-700 dark:text-emerald-300" }
         : { word: "Review first", tone: "text-amber-600 dark:text-amber-300" };
 
   const confidence = answer.confidenceWords === "Unknown" ? "—" : answer.confidenceWords;
@@ -235,10 +239,7 @@ export function DecisionBrief({
               <p>Single-source evidence; other sources did not corroborate these reviews.</p>
             ) : null}
             {authSentence ? <p>{authSentence}</p> : null}
-            <p>
-              Only real written reviews and the marketplace rating are used. The score never reads
-              more than the reviews behind this brief.
-            </p>
+            <p>Only real written reviews and the marketplace rating feed the score.</p>
           </div>
         </details>
 
