@@ -568,7 +568,12 @@ export function reviewMatchesExactModel(r: WrittenReview, requestedModel: string
 }
 
 // ---- Rule-based classification ----------------------------------------------
-const NEGATORS = /\b(?:no|not|never|without|zero|nothing|didn't|didnt|doesn't|doesnt|hasn't|hasnt|haven't|havent|wasn't|wasnt|isn't|isnt|won't|wont)\b(?:\W+\w+){0,3}\W*$/i;
+/**
+ * Exported for the intake sorter (lib/reviewSorter.ts): the same sentiment
+ * word lists and negation guard the scorer uses, so feed sorting can never
+ * drift from scoring vocabulary. Exports only — scoring math untouched.
+ */
+export const NEGATORS = /\b(?:no|not|never|without|zero|nothing|didn't|didnt|doesn't|doesnt|hasn't|hasnt|haven't|havent|wasn't|wasnt|isn't|isnt|won't|wont)\b(?:\W+\w+){0,3}\W*$/i;
 
 /**
  * Evidence-consistency guard (defect batch 2, rule 2): a warning's displayed
@@ -633,10 +638,10 @@ export const MINOR_THEMES: Array<{ key: string; label: string; pattern: RegExp }
   { key: "cleaning", label: "cleaning", pattern: /\b(?:hard to clean|difficult to clean|pain to clean)\b/i },
 ];
 
-const POSITIVE_WORDS = /\b(?:love|loved|great|excellent|amazing|perfect|works (?:great|well|perfectly)|recommend|happy|fantastic|reliable|sturdy|easy|best|awesome|impressed|worth it|good)\b/gi;
-const NEGATIVE_WORDS = /\b(?:hate|terrible|awful|worst|disappoint\w*|useless|junk|garbage|waste|poor|bad|broke|broken|defective|return(?:ed|ing)?|refund|problem|issue|stopped|cheap|flimsy|unhappy)\b/gi;
+export const POSITIVE_WORDS = /\b(?:love|loved|great|excellent|amazing|perfect|works (?:great|well|perfectly)|recommend|happy|fantastic|reliable|sturdy|easy|best|awesome|impressed|worth it|good)\b/gi;
+export const NEGATIVE_WORDS = /\b(?:hate|terrible|awful|worst|disappoint\w*|useless|junk|garbage|waste|poor|bad|broke|broken|defective|return(?:ed|ing)?|refund|problem|issue|stopped|cheap|flimsy|unhappy)\b/gi;
 
-function countUnnegated(text: string, re: RegExp) {
+export function countUnnegated(text: string, re: RegExp) {
   let c = 0; let m: RegExpExecArray | null; const g = new RegExp(re.source, "gi");
   while ((m = g.exec(text))) { if (!NEGATORS.test(text.slice(Math.max(0, m.index - 30), m.index))) c++; }
   return c;
