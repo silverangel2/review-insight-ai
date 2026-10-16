@@ -127,6 +127,11 @@ export async function saveLibraryCorpus(input: {
   aggregateCount?: number | null;
   corpus: LibraryReviewRecord[];
   previousScanCount: number;
+  /**
+   * Owner-feed ingestion passes 0: ingesting hand-fed reviews is not a scan.
+   * Defaults to 1 (unchanged behavior for the scan path).
+   */
+  scanIncrement?: number;
 }): Promise<boolean> {
   if (!input.productKey || !input.corpus.length) return false;
   try {
@@ -146,7 +151,7 @@ export async function saveLibraryCorpus(input: {
           aggregate_count: input.aggregateCount ?? null,
           corpus: input.corpus.slice(0, LIBRARY_CORPUS_CAP),
           review_count: Math.min(input.corpus.length, LIBRARY_CORPUS_CAP),
-          scan_count: Math.max(0, Math.floor(input.previousScanCount || 0)) + 1,
+          scan_count: Math.max(0, Math.floor(input.previousScanCount || 0)) + (input.scanIncrement ?? 1),
           last_seen_at: now,
           updated_at: now,
         },
