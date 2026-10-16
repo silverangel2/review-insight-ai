@@ -1,6 +1,7 @@
 import { provisionalShopperFacing } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim, quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
 import { claimRules, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
+import { fillFrame, resolveBriefDict } from "@/lib/briefI18n";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
 // No invented numbers: missing values stay null/"Unknown"; quotes are real
@@ -48,9 +49,9 @@ export function isAsinPlaceholder(value: unknown) {
 }
 
 /** Shopper-facing name. A raw ASIN placeholder becomes a neutral label. */
-export function neutralProductLabel(value: unknown) {
+export function neutralProductLabel(value: unknown, locale: string = "en") {
   const text = String(value || "").replace(/\s+/g, " ").trim();
-  if (isAsinPlaceholder(text)) return NEUTRAL_AMAZON_PRODUCT_LABEL;
+  if (isAsinPlaceholder(text)) return resolveBriefDict(locale).answer.neutralProduct;
   return text;
 }
 
@@ -58,10 +59,9 @@ export function neutralProductLabel(value: unknown) {
 export const THIN_EVIDENCE_NEXT_STEP = "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.";
 
 /** A release that did not succeed must not promise a free retry. */
-export function unreadableRetryPhrase(input: unknown): string {
-  return String(obj(obj(input).quota).code || "") === "released"
-    ? "Retrying is free."
-    : "Please try again in a moment.";
+export function unreadableRetryPhrase(input: unknown, locale: string = "en"): string {
+  const copy = resolveBriefDict(locale).answer;
+  return String(obj(obj(input).quota).code || "") === "released" ? copy.retryFree : copy.retryLater;
 }
 
 type Rec = Record<string, unknown>;
@@ -399,7 +399,7 @@ export function formatShopperConfidence(answer: Pick<ShopperAnswer, "kind" | "co
   return answer.confidenceWords === "Unknown" ? "Unknown" : answer.confidenceWords;
 }
 
-export function deriveShopperAnswer(input: unknown): ShopperAnswer {
+export function deriveShopperAnswer(input: unknown, locale: string = "en"): ShopperAnswer {
   const result = obj(input);
   const records = acceptedRecords(result);
   const attribution = canonicalQuoteAttribution(result);
@@ -505,41 +505,49 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     kind = cardVerdict === "buy" ? "buy" : cardVerdict === "skip" ? "skip" : "wait";
   }
   if (!provisional && card && thin) kind = "not_enough";
+  // TRANSLATOR (bot round): display strings resolve through the brief
+  // dictionary. Embedded buyer-mined vocabulary (claims, review text)
+  // stays in its source language by design — only RI's frames translate.
+  const briefAnswer = resolveBriefDict(locale).answer;
+  const briefVerdict = resolveBriefDict(locale).verdict;
   const label = provisional
-    ? (facing!.firmBuy ? "Buy" : facing!.leaning === "Buy" ? "Leaning Buy" : facing!.leaning === "Skip" ? "Skip" : "Wait")
+    ? (facing!.firmBuy ? briefVerdict.buy : facing!.leaning === "Buy" ? briefVerdict.leaningBuy : facing!.leaning === "Skip" ? briefVerdict.skip : briefVerdict.wait)
     // Round 3 (owner rule): the only shopper-facing verdict words are
     // Buy / Wait / Skip. "Review first", "Avoid", "Low confidence" and
     // every other legacy label are retired from the verdict slot.
-    : { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
+    : { buy: briefVerdict.buy, wait: briefVerdict.wait, skip: briefVerdict.skip, not_enough: briefVerdict.lowConfidence }[kind];
 
   const topLove = claimedLoves[0]?.claim;
   const topComplaint = claimedComplaints[0]?.claim;
   const hasListing = listingUrls(result).length > 0;
   const neutralSummary = kind === "buy"
-    ? "Buyers are mostly positive about this product."
+    ? briefAnswer.neutralBuy
     : kind === "skip"
-      ? "Buyers report enough problems to skip this."
-      : "Buyer feedback is mixed or still limited.";
+      ? briefAnswer.neutralSkip
+      : briefAnswer.neutralWait;
+  const whyBuyBase = fillFrame(briefAnswer.whyBuyBase, { love: topLove ? lower(topLove) : briefAnswer.whyBuyDefaultLove });
+  const whySkipBase = fillFrame(briefAnswer.whySkipBase, { complaint: topComplaint ? lower(topComplaint) : briefAnswer.whySkipDefaultComplaint });
+  const whyWaitBase = fillFrame(briefAnswer.whyWaitBase, { love: topLove ? lower(topLove) : briefAnswer.whyWaitDefaultLove });
   const why = provisional && facing
     ? facing.line
     : kind === "not_enough"
     ? (hasListing
-      ? "Low confidence. Add a review screenshot to read more real reviews."
-      : THIN_EVIDENCE_NEXT_STEP)
+      ? briefAnswer.whyNotEnoughListing
+      : briefAnswer.whyNotEnoughNoListing)
     : !topLove && !topComplaint
       ? neutralSummary
       : kind === "buy"
-        ? `Buyers consistently report ${topLove ? lower(topLove) : "good results"}${topComplaint ? `, and complaints like ${lower(topComplaint)} are rare` : ""}.`
+        ? `${whyBuyBase}${topComplaint ? fillFrame(briefAnswer.whyBuyComplaintTail, { complaint: lower(topComplaint) }) : ""}.`
         : kind === "skip"
-          ? `Too many buyers report ${topComplaint ? lower(topComplaint) : "serious problems"}${topLove ? `, which outweighs ${lower(topLove)}` : ""}.`
-          : `Buyers like ${topLove ? lower(topLove) : "parts of it"}${topComplaint ? `, but buyers also mention ${lower(topComplaint)}` : ""}. The reviews aren't strong enough yet for a clear Buy.`;
+          ? `${whySkipBase}${topLove ? fillFrame(briefAnswer.whySkipLoveTail, { love: lower(topLove) }) : ""}.`
+          : `${whyWaitBase}${topComplaint ? fillFrame(briefAnswer.whyWaitComplaintTail, { complaint: lower(topComplaint) }) : ""}. ${fillFrame(briefAnswer.whyWaitCloser, { buy: briefVerdict.buy })}`;
 
   const sourceText = sources.length ? sources.join(", ") : "the product listing";
   const trustLine = provisional && facing
     ? facing.line
     : kind === "not_enough"
-    ? "Low confidence."
-    : `Based on real buyer reviews from ${sourceText}.`;
+    ? briefAnswer.trustLow
+    : fillFrame(briefAnswer.trustBasedOn, { sources: sourceText });
 
   const storedScore = num(result.buyScore) ?? num(result.score) ?? num(result.productScore);
   const provisionalScore = obj(result.buyingScoreV2).mode === "provisional_marketplace" ? num(obj(result.buyingScoreV2).score) : null;
@@ -559,16 +567,17 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const listingUrl = amazonUrl || urls[0] || null;
   if (isUnreadableAmazonPage(result)) {
     const amazonPage = urls.some(isAmazonListing) || isAsinPlaceholder(productTitleOf(result)) || productTitleOf(result) === NEUTRAL_AMAZON_PRODUCT_LABEL;
-    const whyMessage = amazonPage ? UNREADABLE_AMAZON_MESSAGE : UNREADABLE_LISTING_MESSAGE;
+    const whyMessage = amazonPage ? briefAnswer.unreadableAmazon : briefAnswer.unreadableListing;
+    const retryPhrase = unreadableRetryPhrase(result, locale);
     return {
       kind: "not_enough",
-      label: "Try again",
+      label: briefVerdict.tryAgain,
       why: whyMessage,
       loves: [],
       complaints: [],
       reviewCount: 0,
       sources: [],
-      trustLine: `${unreadableRetryPhrase(result)} Add a screenshot of the product page and try the scan again.`,
+      trustLine: fillFrame(briefAnswer.trustUnreadable, { retry: retryPhrase }),
       confidenceWords: "Unknown",
       confidenceFromV2: false,
       confidencePercent: null,
@@ -578,14 +587,14 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
       nextSteps: [
         {
           id: "retry",
-          label: "Try again",
-          detail: `${whyMessage} ${unreadableRetryPhrase(result)}`,
+          label: briefAnswer.steps.retry.label,
+          detail: fillFrame(briefAnswer.steps.retry.detail, { unreadable: whyMessage, retry: retryPhrase }),
           href: listingUrl ? `/analyze?url=${encodeURIComponent(listingUrl)}` : "/analyze",
         },
         {
           id: "screenshots",
-          label: "Add a screenshot",
-          detail: "Add a screenshot of the product page so we can read the title, stars, and reviews.",
+          label: briefAnswer.steps.screenshots.label,
+          detail: briefAnswer.steps.screenshots.detail,
         },
       ],
     };
@@ -594,12 +603,12 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const nextSteps: ShopperAnswer["nextSteps"] = (kind === "not_enough" || writtenForSteps < 10) ? [
     ...(hasListing ? [] : [{
       id: "amazon_listing" as const,
-      label: "Scan the Amazon listing",
-      detail: "Scan the Amazon listing link so we can read more real reviews of this exact product.",
+      label: briefAnswer.steps.amazonListing.label,
+      detail: briefAnswer.steps.amazonListing.detail,
       href: listingUrl ? `/analyze?url=${encodeURIComponent(listingUrl)}` : "/analyze",
     }]),
-    { id: "screenshots", label: "Add a review screenshot", detail: "Upload a screenshot of reviews you can see. We read the text and only keep real reviews of this exact product." },
-    { id: "compare", label: "Compare with an alternative", detail: "Scan a similar product and compare what real buyers say." },
+    { id: "screenshots", label: briefAnswer.steps.reviewScreenshot.label, detail: briefAnswer.steps.reviewScreenshot.detail },
+    { id: "compare", label: briefAnswer.steps.compare.label, detail: briefAnswer.steps.compare.detail },
   ] : [];
 
   return { kind, label, why, loves, complaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };

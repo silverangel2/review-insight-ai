@@ -29,6 +29,13 @@ import {
   saveLibraryCorpus,
   type LibraryReviewRecord,
 } from "@/lib/productReviewLibrary";
+import {
+  adaptCommunityRow,
+  sortAnnotationsFor,
+  sortReviewBatch,
+  sorterBodyKey,
+  type SortedReviewAnnotations,
+} from "@/lib/reviewSorter";
 
 export const COMMUNITY_REVIEWS_TABLE = "community_reviews";
 export const COMMUNITY_REVIEW_ASKS_TABLE = "community_review_asks";
@@ -366,9 +373,13 @@ export async function recordReviewAsk(
   }
 }
 
-function communityRowToLibraryRecord(row: Record<string, unknown>): LibraryReviewRecord {
+function communityRowToLibraryRecord(
+  row: Record<string, unknown>,
+  /** Sorter-bot annotations (theme tags, direction, serious markers, variant). */
+  annotations?: SortedReviewAnnotations | null
+): LibraryReviewRecord {
   const id = String(row.id ?? "");
-  return {
+  const record: LibraryReviewRecord = {
     source: COMMUNITY_PROVENANCE,
     sourceUrl: `https://community.reviewintel.local/${id}`,
     reviewId: `community-${id}`,
@@ -380,6 +391,16 @@ function communityRowToLibraryRecord(row: Record<string, unknown>): LibraryRevie
     store: row.store ? String(row.store) : null,
     provenance: { source: COMMUNITY_PROVENANCE },
   };
+  if (annotations) {
+    record.themeTags = annotations.themeTags;
+    record.sortDirection = annotations.sortDirection;
+    record.sortSentimentScore = annotations.sortSentimentScore;
+    record.sortSerious = annotations.sortSerious;
+    record.sortSeriousKinds = annotations.sortSeriousKinds;
+    record.variantAttributes = annotations.variantAttributes;
+    record.sortFlags = annotations.sortFlags;
+  }
+  return record;
 }
 
 /**
@@ -410,9 +431,44 @@ export async function feedTierAReviewsToLibrary(
     const existingReviewIds = new Set(
       entry.reviews.map((record) => String((record as { reviewId?: unknown }).reviewId || ""))
     );
-    const fresh = eligible
-      .filter((row) => !existingReviewIds.has(`community-${String(row.id ?? "")}`))
-      .map(communityRowToLibraryRecord);
+    const freshRows = eligible.filter(
+      (row) => !existingReviewIds.has(`community-${String(row.id ?? "")}`)
+    );
+    if (!freshRows.length) return { fed: false, fedCount: 0 };
+
+    // SORTER BOT (additive, fail-soft): Tier-A rows are sorted (theme tags,
+    // direction, serious markers, variant attribution, body dedupe) before
+    // they join the library corpus. The sorter's duplicate rejection stands
+    // (it matches the library's body-identity union semantics); rows the
+    // sorter rejects for content reasons keep the exact pre-sorter mapping —
+    // the approval+verification gate, not the sorter, is the authority on
+    // what a Tier-A feed carries. Any sorter failure keeps the exact
+    // pre-sorter mapping.
+    let fresh: LibraryReviewRecord[];
+    try {
+      const existingBodyKeys = entry.reviews
+        .map((record) => sorterBodyKey((record as { body?: unknown }).body))
+        .filter((key): key is string => Boolean(key));
+      const sortResult = sortReviewBatch({
+        feed: "community",
+        records: freshRows.map(adaptCommunityRow),
+        productKey: key,
+        existingBodyKeys,
+      });
+      const sortedById = new Map(sortResult.sorted.map((s) => [s.id, s]));
+      const duplicateIds = new Set(
+        sortResult.rejected.filter((r) => r.reason === "duplicate").map((r) => r.id)
+      );
+      fresh = [];
+      for (const row of freshRows) {
+        const rid = `community-${String(row.id ?? "")}`;
+        if (duplicateIds.has(rid)) continue;
+        const sorted = sortedById.get(rid);
+        fresh.push(communityRowToLibraryRecord(row, sorted ? sortAnnotationsFor(sorted) : null));
+      }
+    } catch {
+      fresh = freshRows.map((row) => communityRowToLibraryRecord(row));
+    }
     if (!fresh.length) return { fed: false, fedCount: 0 };
 
     const seen = new Set<string>();
