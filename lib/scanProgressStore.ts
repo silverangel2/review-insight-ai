@@ -14,7 +14,7 @@
 // types now reference ./scanProgress so the two cannot diverge.
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { LiveScanProgress } from "./scanProgress";
+import type { LiveScanProgress } from "./scanStageModel";
 
 /** Legacy stage name; identical to the stage union in LiveScanProgress. */
 export type ScanProgressStage = LiveScanProgress["stage"];
