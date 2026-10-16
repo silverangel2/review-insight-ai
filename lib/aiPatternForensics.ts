@@ -36,10 +36,14 @@ import {
   AUTH_LOW,
   AUTH_MODERATE_BASE,
   AUTH_HIGH_BASE,
+  AUTH_HONESTY,
   AUTH_SIGNAL_CLAUSES,
 } from "@/lib/analysisCopy";
 
 export type AiPatternGrade = "low" | "moderate" | "high";
+/** Corpus size below which the specificity feature cannot fire (2026-10-16). */
+export const MIN_CORPUS_FOR_SPECIFICITY = 8;
+
 export type AiFeatureKey = "repetition" | "template" | "specificity" | "uniformity" | "lexical";
 
 export type AiFeature = {
@@ -198,16 +202,28 @@ export function analyzeAiPatterns(input: unknown): AiPatternProfile {
   });
 
   // 3. Specificity density: generic praise with no concrete detail.
+  // Satisfaction-pass guard: the share of detail-less reviews is not a
+  // stable signal on small corpora (a few short genuine reviews would all
+  // count as "generic"), so the feature cannot fire below MIN_CORPUS.
   const generic = texts.filter((t) => !hitsSpecific(t)).length;
   const genericShare = generic / n;
-  const specPoints: 0 | 1 | 2 = genericShare >= 0.8 ? 2 : genericShare >= 0.55 ? 1 : 0;
+  const specPoints: 0 | 1 | 2 =
+    n < MIN_CORPUS_FOR_SPECIFICITY
+      ? 0
+      : genericShare >= 0.8
+        ? 2
+        : genericShare >= 0.55
+          ? 1
+          : 0;
   features.push({
     key: "specificity",
     points: specPoints,
     detail:
-      specPoints === 0
-        ? "reviews mention concrete details"
-        : `${Math.round(genericShare * 100)}% of reviews mention no concrete detail`,
+      n < MIN_CORPUS_FOR_SPECIFICITY
+        ? "corpus too small to judge detail density"
+        : specPoints === 0
+          ? "reviews mention concrete details"
+          : `${Math.round(genericShare * 100)}% of reviews mention no concrete detail`,
   });
 
   // 4. Sentiment uniformity: unnatural extreme-praise clustering.
@@ -266,6 +282,12 @@ export function authSentenceFor(profile: AiPatternProfile): string | null {
   const frames = profile.grade === "high" ? AUTH_HIGH_BASE : AUTH_MODERATE_BASE;
   const template = pickFrame(frames, `${seedBase}|sent`, new Set());
   return template.replace("{signals}", signals);
+}
+
+/** Plain honesty note for the How-we-checked fold: pattern check only, never an authorship verdict. Null when the corpus is too small to judge (no faked line). */
+export function authHonestyLine(profile: AiPatternProfile): string | null {
+  if (profile.insufficient || !profile.grade) return null;
+  return pickFrame(AUTH_HONESTY, `auth|honesty|${profile.grade}|${profile.reviewCount}`, new Set());
 }
 
 /** Deterministic seed helper (exported for tests). */

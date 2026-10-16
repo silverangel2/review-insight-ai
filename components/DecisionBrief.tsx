@@ -2,10 +2,13 @@ import { briefImageUrl, deriveReviewAnalysis } from "@/lib/reviewAnalysis";
 import {
   deriveShopperAnswer,
   shopperVerdictWord,
-  evidenceStrengthLabel,
-  marketplaceAggregateNumbers,
 } from "@/lib/shopperAnswer";
-import { analyzeAiPatterns, authRowFor, authSentenceFor } from "@/lib/aiPatternForensics";
+import {
+  foldBasisLine,
+  foldLimitsLine,
+  foldAuthLines,
+  briefFactRows,
+} from "@/lib/briefNarration";
 import { BriefReveal } from "@/components/BriefReveal";
 import { ScoreCountUp } from "@/components/ScoreCountUp";
 
@@ -46,13 +49,17 @@ export function DecisionBrief({
 }) {
   const answer = deriveShopperAnswer(result);
   const analysis = deriveReviewAnalysis(result);
-  const agg = marketplaceAggregateNumbers(result);
   const record = obj(result);
   const store = String(obj(record.product).store || record.store || "").trim();
   const image = briefImageUrl(result, previewImage);
-  const aiProfile = analyzeAiPatterns(result);
-  const authRow = authRowFor(aiProfile);
-  const authSentence = authSentenceFor(aiProfile);
+
+  // Satisfaction pass (2026-10-16): fact rows are pre-filtered — any row
+  // whose value cannot be computed is OMITTED here (never a dash), and the
+  // fold tells one story (basis + limits + honesty), never three.
+  const facts = briefFactRows(result);
+  const basisLine = foldBasisLine(result);
+  const limitsLine = foldLimitsLine(result);
+  const authLines = foldAuthLines(result);
 
   const revealKey =
     [record.scanId, record.id, productName].map((v) => String(v || "").trim()).find(Boolean) || null;
@@ -67,9 +74,11 @@ export function DecisionBrief({
         ? { word: verdictWord, tone: "text-emerald-700 dark:text-emerald-300" }
         : { word: "Review first", tone: "text-amber-600 dark:text-amber-300" };
 
-  const confidence = answer.confidenceWords === "Unknown" ? "—" : answer.confidenceWords;
-  const value = answer.value === "Unknown" ? "—" : answer.value;
-  const filledStars = agg.rating !== null ? Math.max(0, Math.min(5, Math.round(agg.rating))) : 0;
+  const ratingFact = facts.find((f) => f.term === "Marketplace rating");
+  const filledStars =
+    ratingFact && "rating" in ratingFact
+      ? Math.max(0, Math.min(5, Math.round(ratingFact.rating)))
+      : 0;
 
   // Hard rule: the "no complaints" empty state renders ONLY when the entire
   // segregated corpus holds zero negative signals. Any negative anywhere ->
@@ -92,8 +101,6 @@ export function DecisionBrief({
     return "No buyer complaints in the reviews we read.";
   })();
 
-  const singleSource = answer.sources.length === 1;
-
   const factCell =
     "flex items-center justify-between gap-2 border-b border-slate-100 py-2.5 " +
     "dark:border-white/10 lg:flex-col lg:items-start lg:justify-start lg:gap-1 " +
@@ -101,10 +108,18 @@ export function DecisionBrief({
   const factTerm = "text-[15px] text-slate-500 dark:text-slate-400 lg:text-[13px]";
   const factValue = "text-[15px] font-semibold text-ink dark:text-white lg:text-[14px]";
 
+  // The fact grid shrinks to fit: rows with no computable value are omitted,
+  // so the column count follows the real row count (literal classes so the
+  // build picks them up).
+  const briefGridCols =
+    facts.length <= 2 ? "lg:grid-cols-2" : facts.length === 3 ? "lg:grid-cols-3" : facts.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-5";
+
   return (
     <BriefReveal revealKey={revealKey} className="mx-auto w-full max-w-[1040px]">
       <div className="space-y-3.5">
-        {/* 1. The answer */}
+        {/* 1. The answer. Fact rows (incl. "Review authenticity") come from
+            briefFactRows in lib/briefNarration.ts under the no-dash rule:
+            rows with no computable value are omitted, never rendered as a dash. */}
         <section className="ri-card ri-hairline ri-unlock p-5 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <p className="text-[15px] text-slate-500 dark:text-slate-400">
@@ -140,35 +155,27 @@ export function DecisionBrief({
               <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">Buying Score / 100</p>
             </div>
           </div>
-          <dl className="ri-unlock-child ri-d1 mt-4 grid grid-cols-1 border-t border-slate-100 dark:border-white/10 lg:grid-cols-5 lg:gap-3 lg:border-t-0">
-            <div className={factCell}>
-              <dt className={factTerm}>Marketplace rating</dt>
-              <dd className={factValue}>
-                <span className="mr-1.5 text-amber-500">
-                  {"★".repeat(filledStars)}
-                  <span className="text-slate-300 dark:text-slate-600">{"☆".repeat(5 - filledStars)}</span>
-                </span>
-                {agg.rating !== null ? `${agg.rating} / 5` : "—"}
-              </dd>
-            </div>
-            <div className={factCell}>
-              <dt className={factTerm}>Ratings counted</dt>
-              <dd className={factValue}>
-                {agg.count !== null ? agg.count.toLocaleString("en-US") : "—"}
-              </dd>
-            </div>
-            <div className={factCell}>
-              <dt className={factTerm}>How sure we are</dt>
-              <dd className={factValue}>{confidence}</dd>
-            </div>
-            <div className={factCell}>
-              <dt className={factTerm}>Value for money</dt>
-              <dd className={factValue}>{value}</dd>
-            </div>
-            <div className={factCell}>
-              <dt className={factTerm}>Review authenticity</dt>
-              <dd className={factValue}>{authRow}</dd>
-            </div>
+          <dl className={`ri-unlock-child ri-d1 mt-4 grid grid-cols-1 border-t border-slate-100 dark:border-white/10 ${briefGridCols} lg:gap-3 lg:border-t-0`}>
+            {facts.map((fact) => (
+              <div key={fact.term} className={factCell}>
+                <dt className={factTerm}>{fact.term}</dt>
+                <dd className={factValue}>
+                  {fact.term === "Marketplace rating" && "rating" in fact ? (
+                    <>
+                      <span className="mr-1.5 text-amber-500">
+                        {"★".repeat(filledStars)}
+                        <span className="text-slate-300 dark:text-slate-600">{"☆".repeat(5 - filledStars)}</span>
+                      </span>
+                      {fact.rating} / 5
+                    </>
+                  ) : fact.term === "Ratings counted" && "count" in fact ? (
+                    fact.count.toLocaleString("en-US")
+                  ) : (
+                    "text" in fact ? fact.text : ""
+                  )}
+                </dd>
+              </div>
+            ))}
           </dl>
           <p className="mt-3.5 text-[13.5px] leading-6 text-slate-500 dark:text-slate-400">
             We read the buyer reviews, grouped what buyers kept saying, and weighed the good against
@@ -231,14 +238,15 @@ export function DecisionBrief({
             </span>
           </summary>
           <div className="space-y-2 pb-5 text-[14px] leading-6 text-slate-600 dark:text-slate-300">
-            <p>
-              <span className="font-semibold text-slate-700 dark:text-slate-200">Evidence strength:</span>{" "}
-              {evidenceStrengthLabel(evidenceState)}
-            </p>
-            {singleSource ? (
-              <p>Single-source evidence; other sources did not corroborate these reviews.</p>
-            ) : null}
-            {authSentence ? <p>{authSentence}</p> : null}
+            {/* Satisfaction pass: one story, plain words. What backs the
+                verdict first, what limits it second, then the honesty notes.
+                The aggregate-backed verdict is never narrated as weak —
+                "evidence strength" no longer argues with the answer card. */}
+            {basisLine ? <p>{basisLine}</p> : null}
+            {limitsLine ? <p>{limitsLine}</p> : null}
+            {authLines.map((line, i) => (
+              <p key={`auth-${i}`}>{line}</p>
+            ))}
             <p>Only real written reviews and the marketplace rating feed the score.</p>
           </div>
         </details>
