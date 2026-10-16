@@ -490,6 +490,12 @@ export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
 
   const canonicalTag = html.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0] || html.match(/<link\b[^>]*href=["'][^"']+["'][^>]*rel=["']canonical["'][^>]*>/i)?.[0];
   const canonicalRaw = canonicalTag?.match(/href=["']([^"']+)["']/i)?.[1] || html.match(/<meta[^>]+property=["']og:url["'][^>]+content=["']([^"']+)["']/i)?.[1] || null;
+  // Main product image only: the og:image of the listing page itself.
+  // Never invented, never a placeholder — null when the page carries none.
+  const image =
+    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']{5,2000})["']/i)?.[1] ||
+    html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']{5,2000})["']/i)?.[1] ||
+    null;
   let canonicalUrl: string | null = null;
   if (canonicalRaw) {
     try { canonicalUrl = normalizeProductUrl(new URL(htmlDecodeLight(canonicalRaw), baseUrl).toString()); } catch { /* Invalid canonical metadata is not identity evidence. */ }
@@ -501,6 +507,7 @@ export function extractProductEvidenceFromHtml(html: string, baseUrl?: string) {
     model: model ? htmlDecodeLight(model) : null,
     rating: Number.isFinite(rating) && rating && rating > 0 ? rating : null,
     reviewCount: Number.isFinite(reviewCount) && reviewCount && reviewCount > 0 ? reviewCount : null,
+    image: image ? htmlDecodeLight(image.trim()) : null,
   };
 }
 
