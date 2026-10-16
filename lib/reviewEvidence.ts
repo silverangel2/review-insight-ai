@@ -71,6 +71,7 @@ import {
   libraryProductKeyFor,
   loadLibraryCorpus,
   saveLibraryCorpus,
+  unionLibraryCorpora,
 } from "@/lib/productReviewLibrary";
 import {
   runAdaptiveReviewResearch,
@@ -2823,9 +2824,16 @@ export async function collectAndAnalyzeReviewEvidence(
       })
     : null;
   let libraryPreviousScanCount = 0;
+  let libraryStoredReviews: Array<Record<string, unknown>> = [];
   if (libraryProductKey) {
     const libraryEntry = await loadLibraryCorpus(libraryProductKey);
     libraryPreviousScanCount = libraryEntry.scanCount;
+    // The stored corpus is kept for the post-adjudication save: persistence
+    // stores the UNION of what was already stored and what this run
+    // accepted, so a scan can never evict reviews it rejected. Rejected or
+    // deduped records stay in the library; adjudication governs per-scan
+    // evidence only, not storage retention.
+    libraryStoredReviews = libraryEntry.reviews;
     if (libraryEntry.reviews.length) {
       collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
         reviews: mergeUnknownArrays<ReviewCollectorResult["reviews"][number]>(
@@ -2866,8 +2874,14 @@ export async function collectAndAnalyzeReviewEvidence(
       : `${collectedWrittenReviews.coverageNote} Written-review candidates were collected, but canonical exact-product association is not yet established, so none are accepted evidence.`,
   });
 
-  // Persist the consolidated corpus so the next scan of this product starts
-  // from everything ReviewIntel has accepted so far. Fail-soft by design.
+  // Persist the union of the stored corpus and this run's accepted
+  // reviews: the library ACCUMULATES. Saving only the run's accepted
+  // records would evict stored reviews this run's adjudication rejected
+  // (exact-model filter, dedupe) — the opposite of the library strategy.
+  // Stored records rejected this run stay stored; genuinely new accepted
+  // records append (deduped by stable identity, stored order kept, capped
+  // at LIBRARY_CORPUS_CAP stored-first). Adjudication, scoring, and the
+  // current scan's evidence are untouched. Fail-soft by design.
   if (libraryProductKey && adjudicatedReviews.length) {
     await saveLibraryCorpus({
       productKey: libraryProductKey,
@@ -2877,7 +2891,10 @@ export async function collectAndAnalyzeReviewEvidence(
       store: listingEvidenceForCollection?.store || null,
       aggregateRating: collectedWrittenReviews.marketplaceAggregate?.rating ?? null,
       aggregateCount: collectedWrittenReviews.marketplaceAggregate?.count ?? null,
-      corpus: adjudicatedReviews as unknown as Array<Record<string, unknown>>,
+      corpus: unionLibraryCorpora(
+        libraryStoredReviews,
+        adjudicatedReviews as unknown as Array<Record<string, unknown>>
+      ),
       previousScanCount: libraryPreviousScanCount,
     });
   }
