@@ -243,9 +243,9 @@ export function analyzeAiPatterns(input: unknown): AiPatternProfile {
 /** Answer-card fact-row value, in plain words. Never a bare internal metric. */
 export function authRowFor(profile: AiPatternProfile): string {
   if (profile.insufficient || !profile.grade) return "—";
-  if (profile.grade === "low") return "High — few AI-like signs";
-  if (profile.grade === "moderate") return "Mixed — some AI-like signs";
-  return "Low — strong AI-like pattern";
+  if (profile.grade === "low") return "Few AI-like signs";
+  if (profile.grade === "moderate") return "Some AI-like signs";
+  return "Strong AI-like pattern";
 }
 
 /**
