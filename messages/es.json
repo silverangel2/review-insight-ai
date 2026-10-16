@@ -111,5 +111,162 @@
     "sellerPro": "Vendedor Pro",
     "sellerPremium": "Vendedor Premium",
     "trustSnapshot": "Resumen de confianza de {plan}"
+  },
+  "Brief": {
+    "shouldYouBuy": "¿Deberías comprarlo?",
+    "buyingScore": "Puntuación de compra",
+    "verdict": {
+      "buy": "Comprar",
+      "wait": "Esperar",
+      "skip": "Omitir",
+      "lowConfidence": "Poca confianza",
+      "tryAgain": "Inténtalo de nuevo",
+      "leaningBuy": "Tiende a comprar",
+      "leaningSkip": "Tiende a omitir"
+    },
+    "factTerms": {
+      "marketplaceRating": "Valoración del mercado",
+      "ratingsCounted": "Valoraciones contadas",
+      "howSureWeAre": "Qué tan seguros estamos",
+      "valueForMoney": "Relación calidad-precio",
+      "reviewAuthenticity": "Autenticidad de las reseñas"
+    },
+    "confidence": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja",
+      "unknown": "Desconocida"
+    },
+    "value": {
+      "good": "Buena",
+      "fair": "Aceptable",
+      "poor": "Mala"
+    },
+    "depth": {
+      "few": "unas pocas",
+      "solid": "un buen conjunto de",
+      "deep": "un amplio conjunto de"
+    },
+    "basisFrames": [
+      "Basado en {basis}.",
+      "Esto se basa en {basis}.",
+      "Basamos este veredicto en {basis}.",
+      "Esto es lo que lo respalda: {basis}."
+    ],
+    "basisParts": {
+      "marketplaceRating": "la valoración del mercado",
+      "writtenReviews": "{depth} reseñas escritas que leímos"
+    },
+    "limitsFrames": [
+      "Las reseñas escritas provienen de las páginas de {store}: las reseñas de otras tiendas no forman parte de este análisis.",
+      "Algo que debes saber: las reseñas escritas son solo de las páginas de {store}, así que las reseñas de otras tiendas no están incluidas.",
+      "Una advertencia: solo las reseñas escritas de {store} alimentaron este análisis; las de otras tiendas no.",
+      "Ten en cuenta que las reseñas escritas son de las páginas de {store}: esto no cubre otras tiendas."
+    ],
+    "authRows": {
+      "low": "Pocas señales de IA",
+      "moderate": "Algunas señales de IA",
+      "high": "Patrón fuerte de IA"
+    },
+    "authLow": [
+      "Las reseñas parecen de compradores reales: redacción variada, detalles concretos y una diversidad natural de opiniones.",
+      "Nada aquí activa nuestros controles de patrones: las reseñas suenan como personas distintas con experiencias distintas.",
+      "El corpus parece humano: redacción diversa, observaciones específicas, sin sensación de plantilla.",
+      "Estas reseñas pasan la prueba: variadas, específicas y redactadas de forma independiente.",
+      "Marcas de comprador real en todo el texto: palabras distintas, detalles concretos, entusiasmo matizado.",
+      "Ningún patrón de IA aquí. Las reseñas varían como lo hacen los compradores independientes."
+    ],
+    "authModerateBase": [
+      "Algunas reseñas {signals}: un patrón de IA que vigilamos.",
+      "Vemos señales leves de IA: algunas reseñas {signals}.",
+      "Algunas alertas aquí: algunas reseñas {signals}.",
+      "No es concluyente, pero algunas reseñas {signals}, lo cual es un patrón de IA.",
+      "Autenticidad mixta: algunas reseñas {signals}.",
+      "Tómalo con cautela: algunas reseñas {signals}."
+    ],
+    "authHighBase": [
+      "Las reseñas {signals}: un fuerte patrón de IA en todo el corpus.",
+      "Fuerte patrón de IA: las reseñas {signals}.",
+      "Estas reseñas {signals}, que es la forma clásica de la IA.",
+      "El patrón es difícil de pasar por alto: las reseñas {signals}.",
+      "Patrón de IA alto: las reseñas {signals}.",
+      "En todo el corpus, las reseñas {signals}: claramente de IA."
+    ],
+    "signalClauses": {
+      "repetition": "repiten las mismas frases",
+      "template": "siguen la misma plantilla",
+      "specificity": "elogian sin detalles concretos",
+      "uniformity": "suenan uniformemente entusiastas",
+      "lexical": "reutilizan un conjunto pequeño de palabras"
+    },
+    "honestyFrames": [
+      "Esto solo analiza el texto de las reseñas en busca de patrones: no puede probar quién escribió una reseña.",
+      "Es una comprobación de patrones de texto, no un veredicto sobre el autor: no puede probar quién escribió qué.",
+      "Piensa en ello como un escaneo de patrones de redacción: no puede decirte quién escribió realmente una reseña."
+    ],
+    "scoreFeedsLine": "Solo las reseñas escritas reales y la valoración del mercado alimentan la puntuación.",
+    "independenceLine": "Leímos las reseñas de los compradores, agrupamos lo que más repetían y sopesamos lo bueno frente a lo malo. Somos independientes: no estamos afiliados a ninguna marca ni respaldados por ella.",
+    "whyBuyIt": "Por qué lo comprarías",
+    "whyMightNot": "Por qué quizá no",
+    "howWeChecked": "Cómo lo verificamos",
+    "footerLine": "Análisis de reseñas escritas reales de compradores y la valoración del mercado.",
+    "complaintNotes": {
+      "oneOff": "Ninguna queja se repite entre compradores: son preocupaciones aisladas, mostradas porque importan.",
+      "repeated": "Estas preocupaciones aparecieron entre varios compradores.",
+      "isolated": "Los compradores plantearon preocupaciones aisladas{about}: cada una se sopesa frente a los elogios de arriba, donde se indica.",
+      "none": "No hay quejas de compradores en las reseñas que leímos."
+    },
+    "answer": {
+      "neutralBuy": "Los compradores son mayormente positivos sobre este producto.",
+      "neutralSkip": "Los compradores reportan suficientes problemas para omitirlo.",
+      "neutralWait": "La opinión de los compradores es mixta o aún limitada.",
+      "whyBuyBase": "Los compradores reportan constantemente {love}",
+      "whyBuyDefaultLove": "buenos resultados",
+      "whyBuyComplaintTail": ", y quejas como {complaint} son raras",
+      "whySkipBase": "Demasiados compradores reportan {complaint}",
+      "whySkipDefaultComplaint": "problemas serios",
+      "whySkipLoveTail": ", lo que supera {love}",
+      "whyWaitBase": "A los compradores les gusta {love}",
+      "whyWaitDefaultLove": "partes de él",
+      "whyWaitComplaintTail": ", pero los compradores también mencionan {complaint}",
+      "whyWaitCloser": "Las reseñas aún no son lo suficientemente sólidas para un {buy} claro.",
+      "whyNotEnoughListing": "Poca confianza. Añade una captura de reseñas para leer más reseñas reales.",
+      "whyNotEnoughNoListing": "Poca confianza. Escanea el enlace del anuncio de Amazon o añade una captura de reseñas para leer más reseñas reales.",
+      "trustBasedOn": "Basado en reseñas reales de compradores de {sources}.",
+      "trustLow": "Poca confianza.",
+      "trustUnreadable": "{retry} Añade una captura de la página del producto e intenta el análisis de nuevo.",
+      "retryFree": "Reintentarlo es gratis.",
+      "retryLater": "Inténtalo de nuevo en un momento.",
+      "unreadableAmazon": "No pudimos leer esta página de Amazon en este momento.",
+      "unreadableListing": "No pudimos leer esta página del producto en este momento.",
+      "neutralProduct": "Producto de Amazon",
+      "evidenceStrength": {
+        "strong": "Fuerte",
+        "moderate": "Moderada",
+        "low": "Baja"
+      },
+      "steps": {
+        "retry": {
+          "label": "Inténtalo de nuevo",
+          "detail": "{unreadable} {retry}"
+        },
+        "screenshots": {
+          "label": "Añadir una captura",
+          "detail": "Añade una captura de la página del producto para que podamos leer el título, las estrellas y las reseñas."
+        },
+        "amazonListing": {
+          "label": "Escanear el anuncio de Amazon",
+          "detail": "Escanea el enlace del anuncio de Amazon para leer más reseñas reales de este producto exacto."
+        },
+        "reviewScreenshot": {
+          "label": "Añadir una captura de reseñas",
+          "detail": "Sube una captura de las reseñas que ves. Leemos el texto y solo conservamos reseñas reales de este producto exacto."
+        },
+        "compare": {
+          "label": "Comparar con una alternativa",
+          "detail": "Escanea un producto similar y compara lo que dicen los compradores reales."
+        }
+      }
+    }
   }
 }

@@ -111,5 +111,16 @@
     "sellerPro": "विक्रेता प्रो",
     "sellerPremium": "विक्रेता प्रीमियम",
     "trustSnapshot": "{plan} विश्वास सारांश"
+  },
+  "Brief": {
+    "verdict": {
+      "buy": "खरीदें",
+      "wait": "रुकें",
+      "skip": "छोड़ें",
+      "lowConfidence": "कम आत्मविश्वास",
+      "tryAgain": "पुनः प्रयास करें",
+      "leaningBuy": "खरीदने की ओर",
+      "leaningSkip": "छोड़ने की ओर"
+    }
   }
 }

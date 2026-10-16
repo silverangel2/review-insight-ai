@@ -1,10 +1,16 @@
-// In-memory Supabase stand-in for keeper tests.
+// In-memory Supabase stand-in for tests (merged: keeper-lane tests +
+// sorter/owner-feed tests share this single stub).
 // Implements the small PostgREST surface the real modules use:
-//   select with eq filters + order + limit + column projection,
-//   insert, upsert (conflict column), update (id=eq.X), count.
-// Table state is resettable via __reset() and seedable via __seed().
+//   select with eq/neq/gte/lte filters + order + limit + column projection,
+//   insert, upsert (conflict column), update, delete, count.
+// Table state is resettable via __reset() / __resetTable() and seedable via
+// __seed(table, rows) / __seedRow(row). Every upsert payload is recorded in
+// upsertCalls for assertions. Table state is inspectable via __tables().
 const tables = new Map();
 let seq = 0;
+
+/** Every upsert payload, in call order (owner-feed test assertions). */
+export const upsertCalls = [];
 
 function rowsOf(table) {
   if (!tables.has(table)) tables.set(table, []);
@@ -32,6 +38,7 @@ function parseQuery(query) {
       continue;
     }
     if (value.startsWith("eq.")) filters.push({ col: key, op: "eq", value: value.slice(3) });
+    else if (value.startsWith("neq.")) filters.push({ col: key, op: "neq", value: value.slice(4) });
     else if (value.startsWith("gte.")) filters.push({ col: key, op: "gte", value: value.slice(4) });
     else if (value.startsWith("lte.")) filters.push({ col: key, op: "lte", value: value.slice(4) });
   }
@@ -44,6 +51,7 @@ function applyQuery(rows, query) {
     filters.every((f) => {
       const v = row[f.col];
       if (f.op === "eq") return String(v ?? "") === String(f.value);
+      if (f.op === "neq") return String(v ?? "") !== String(f.value);
       if (f.op === "gte") return Number(v) >= Number(f.value);
       if (f.op === "lte") return Number(v) <= Number(f.value);
       return true;
@@ -63,6 +71,7 @@ function applyQuery(rows, query) {
 
 export function __reset() {
   tables.clear();
+  upsertCalls.length = 0;
   seq = 0;
 }
 export function __seed(table, rows) {
@@ -70,6 +79,20 @@ export function __seed(table, rows) {
 }
 export function __tables() {
   return tables;
+}
+// Sorter/owner-feed test interface (product_review_library is keyed by
+// product_key; duplicate rows cannot exist in this stand-in, so PR #55's
+// duplicate-healing delete is a real no-op: the neq filter matches nothing).
+export function __resetTable() {
+  tables.delete("product_review_library");
+  upsertCalls.length = 0;
+}
+export function __seedRow(row) {
+  const store = rowsOf("product_review_library");
+  const idx = store.findIndex((x) => String(x.product_key ?? "") === String(row.product_key ?? ""));
+  const seeded = { ...row };
+  if (idx >= 0) store[idx] = seeded;
+  else store.push(seeded);
 }
 
 export function isSupabaseConfigured() {
@@ -101,6 +124,7 @@ export async function supabaseUpsert(table, rows, conflict = "email") {
   const out = [];
   for (const r of list) {
     seq += 1;
+    upsertCalls.push({ ...r });
     const idx = store.findIndex((x) => String(x[conflict] ?? "") === String(r[conflict] ?? "") && conflict in x);
     const row = { id: r.id || `stub-${seq}`, created_at: new Date().toISOString(), ...r };
     if (idx >= 0) store[idx] = { ...store[idx], ...row };

@@ -1,7 +1,6 @@
 import { briefImageUrl, deriveReviewAnalysis } from "@/lib/reviewAnalysis";
 import {
   deriveShopperAnswer,
-  sanitizeVerdictWord,
   shopperVerdictWord,
 } from "@/lib/shopperAnswer";
 import {
@@ -11,6 +10,12 @@ import {
   briefFactRows,
 } from "@/lib/briefNarration";
 import { sameSentence } from "@/lib/textDedupe";
+import {
+  fillFrame,
+  joinLocalized,
+  localizedVerdictWord,
+  resolveBriefDict,
+} from "@/lib/briefI18n";
 import { BriefReveal } from "@/components/BriefReveal";
 import { ScoreCountUp } from "@/components/ScoreCountUp";
 
@@ -32,36 +37,35 @@ const obj = (value: unknown): Rec =>
 
 type EvidenceState = "not_enough" | "limited" | "usable" | null;
 
-function joinList(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
-}
-
 export function DecisionBrief({
   result,
   productName,
   previewImage,
   evidenceState,
+  locale = "en",
 }: {
   result: unknown;
   productName: string;
   previewImage?: string;
   evidenceState: EvidenceState;
+  /** Shopper's language. The brief's frames resolve through the messages
+      dictionaries; buyer-mined vocabulary stays in its source language. */
+  locale?: string;
 }) {
-  const answer = deriveShopperAnswer(result);
+  const answer = deriveShopperAnswer(result, locale);
   const analysis = deriveReviewAnalysis(result);
   const record = obj(result);
   const store = String(obj(record.product).store || record.store || "").trim();
   const image = briefImageUrl(result, previewImage);
+  const copy = resolveBriefDict(locale);
 
   // Satisfaction pass (2026-10-16): fact rows are pre-filtered — any row
   // whose value cannot be computed is OMITTED here (never a dash), and the
   // fold tells one story (basis + limits + honesty), never three.
-  const facts = briefFactRows(result);
-  const basisLine = foldBasisLine(result);
-  const limitsLine = foldLimitsLine(result);
-  const authLines = foldAuthLines(result);
+  const facts = briefFactRows(result, locale);
+  const basisLine = foldBasisLine(result, locale);
+  const limitsLine = foldLimitsLine(result, locale);
+  const authLines = foldAuthLines(result, locale);
 
   const revealKey =
     [record.scanId, record.id, productName].map((v) => String(v || "").trim()).find(Boolean) || null;
@@ -79,15 +83,16 @@ export function DecisionBrief({
   const showBasisFor = (summary: string, basis: string): boolean =>
     !sameSentence(summary, basis);
 
-  const verdictWord = sanitizeVerdictWord(shopperVerdictWord(result));
+  // TRANSLATOR: the guard runs first, then the word localizes.
+  const verdictWord = localizedVerdictWord(locale, shopperVerdictWord(result));
   const verdict =
-    verdictWord === "Skip"
+    verdictWord === copy.verdict.skip
       ? { word: verdictWord, tone: "text-red-700 dark:text-red-300" }
-      : verdictWord === "Buy"
+      : verdictWord === copy.verdict.buy
         ? { word: verdictWord, tone: "text-emerald-700 dark:text-emerald-300" }
-        : { word: "Wait", tone: "text-amber-600 dark:text-amber-300" };
+        : { word: copy.verdict.wait, tone: "text-amber-600 dark:text-amber-300" };
 
-  const ratingFact = facts.find((f) => f.term === "Marketplace rating");
+  const ratingFact = facts.find((f) => f.key === "marketplaceRating");
   const filledStars =
     ratingFact && "rating" in ratingFact
       ? Math.max(0, Math.min(5, Math.round(ratingFact.rating)))
@@ -100,18 +105,16 @@ export function DecisionBrief({
   const complaintNote = (() => {
     if (analysis.againstFactors.length > 0) {
       return analysis.complaintsPattern === "one_off"
-        ? "No complaint repeats across buyers — these are one-off concerns, shown because they matter."
-        : "These concerns came up across multiple buyers.";
+        ? copy.complaintNotes.oneOff
+        : copy.complaintNotes.repeated;
     }
     if (analysis.hasNegatives) {
       const names = analysis.suppressedThemes.slice(0, 3);
-      const about = names.length ? ` about ${joinList(names)}` : "";
-      return (
-        `Buyers raised isolated concerns${about} — each is weighed against the praise ` +
-        `above, where it's noted.`
-      );
+      // Theme names are buyer-mined vocabulary: byte-exact, source language.
+      const about = names.length ? ` ${joinLocalized(locale, names)}` : "";
+      return fillFrame(copy.complaintNotes.isolated, { about });
     }
-    return "No buyer complaints in the reviews we read.";
+    return copy.complaintNotes.none;
   })();
 
   const factCell =
@@ -149,7 +152,7 @@ export function DecisionBrief({
             ) : null}
           </div>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-ink dark:text-white">
-            Should you buy it?
+            {copy.shouldYouBuy}
           </h1>
           <div className="mt-3 flex items-center gap-4">
             <p
@@ -165,15 +168,15 @@ export function DecisionBrief({
                   "—"
                 )}
               </p>
-              <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">Buying Score / 100</p>
+              <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">{copy.buyingScore} / 100</p>
             </div>
           </div>
           <dl className={`ri-unlock-child ri-d1 mt-4 grid grid-cols-1 border-t border-slate-100 dark:border-white/10 ${briefGridCols} lg:gap-3 lg:border-t-0`}>
             {facts.map((fact) => (
-              <div key={fact.term} className={factCell}>
+              <div key={fact.key} className={factCell}>
                 <dt className={factTerm}>{fact.term}</dt>
                 <dd className={factValue}>
-                  {fact.term === "Marketplace rating" && "rating" in fact ? (
+                  {fact.key === "marketplaceRating" && "rating" in fact ? (
                     <>
                       <span className="mr-1.5 text-amber-500">
                         {"★".repeat(filledStars)}
@@ -181,7 +184,7 @@ export function DecisionBrief({
                       </span>
                       {fact.rating} / 5
                     </>
-                  ) : fact.term === "Ratings counted" && "count" in fact ? (
+                  ) : fact.key === "ratingsCounted" && "count" in fact ? (
                     fact.count.toLocaleString("en-US")
                   ) : (
                     "text" in fact ? fact.text : ""
@@ -191,15 +194,14 @@ export function DecisionBrief({
             ))}
           </dl>
           <p className="mt-3.5 text-[13.5px] leading-6 text-slate-500 dark:text-slate-400">
-            We read the buyer reviews, grouped what buyers kept saying, and weighed the good against
-            the bad. We&apos;re independent — not affiliated with or endorsed by any brand.
+            {copy.independenceLine}
           </p>
         </section>
 
         {/* 2 + 3. The two factor columns: stacked on mobile, side by side on desktop */}
         <div className="grid gap-3.5 lg:grid-cols-2 lg:gap-4">
           <section className="ri-card ri-lift ri-unlock-child ri-d2 p-5">
-            <h2 className="text-[17px] font-bold text-ink dark:text-white">Why you&apos;d buy it</h2>
+            <h2 className="text-[17px] font-bold text-ink dark:text-white">{copy.whyBuyIt}</h2>
             <div className="mt-1">
               {analysis.forFactors.map((factor, index) => (
                 <div
@@ -224,7 +226,7 @@ export function DecisionBrief({
           </section>
 
           <section className="ri-card ri-lift ri-unlock-child ri-d3 p-5">
-            <h2 className="text-[17px] font-bold text-ink dark:text-white">Why you might not</h2>
+            <h2 className="text-[17px] font-bold text-ink dark:text-white">{copy.whyMightNot}</h2>
             <p className="mt-1 text-[13px] leading-5 text-slate-500 dark:text-slate-400">{complaintNote}</p>
             <div className="mt-1">
               {analysis.againstFactors.map((factor, index) => (
@@ -253,7 +255,7 @@ export function DecisionBrief({
         {/* 4. How we checked — quiet by default */}
         <details className="ri-card ri-unlock-child ri-d4 group px-5">
           <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-[15px] font-semibold text-slate-700 dark:text-slate-200">
-            How we checked
+            {copy.howWeChecked}
             <span className="text-slate-400 transition group-open:rotate-180" aria-hidden="true">
               ▾
             </span>
@@ -268,12 +270,12 @@ export function DecisionBrief({
             {authLines.map((line, i) => (
               <p key={`auth-${i}`}>{line}</p>
             ))}
-            <p>Only real written reviews and the marketplace rating feed the score.</p>
+            <p>{copy.scoreFeedsLine}</p>
           </div>
         </details>
 
         <p className="ri-unlock-child ri-d5 px-2 text-center text-[12px] leading-6 text-slate-400 dark:text-slate-500">
-          Analysis of real written buyer reviews and the marketplace rating.
+          {copy.footerLine}
         </p>
       </div>
     </BriefReveal>

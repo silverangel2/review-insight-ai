@@ -22,6 +22,12 @@ import {
   saveLibraryCorpus,
   type LibraryReviewRecord,
 } from "@/lib/productReviewLibrary";
+import {
+  adaptOwnerFeedReview,
+  sortReviewBatch,
+  sortAnnotationsFor,
+  type SortedReviewAnnotations,
+} from "@/lib/reviewSorter";
 
 /** Provenance for owner hand-fed reviews. Rescue-lane uses "owner_research" (a
  *  different intake: owner researched a failed scan). These are distinct. */
@@ -271,10 +277,12 @@ export function ownerFeedBodyKey(body: unknown): string | null {
  */
 export function ownerFeedReviewRecord(
   review: OwnerFeedReview,
-  batch: OwnerFeedBatch
+  batch: OwnerFeedBatch,
+  /** Sorter-bot annotations (theme tags, direction, serious markers, variant). */
+  annotations?: SortedReviewAnnotations | null
 ): LibraryReviewRecord {
   const id = `owner-fed-${batch.productId.toLowerCase()}-${review.index}`;
-  return {
+  const record: LibraryReviewRecord = {
     id,
     reviewId: id,
     body: review.body,
@@ -296,6 +304,16 @@ export function ownerFeedReviewRecord(
     batchReceivedAt: batch.receivedAt,
     ingestNote: review.ingestNote,
   };
+  if (annotations) {
+    record.themeTags = annotations.themeTags;
+    record.sortDirection = annotations.sortDirection;
+    record.sortSentimentScore = annotations.sortSentimentScore;
+    record.sortSerious = annotations.sortSerious;
+    record.sortSeriousKinds = annotations.sortSeriousKinds;
+    record.variantAttributes = annotations.variantAttributes;
+    record.sortFlags = annotations.sortFlags;
+  }
+  return record;
 }
 
 export type IngestReceipt = {
@@ -310,6 +328,8 @@ export type IngestReceipt = {
   duplicatesSkipped: number;
   storedTotal: number;
   scanCount: number;
+  /** Sorter-bot outcome (additive; never changes the ingest contract). */
+  sorter: { annotated: number; rejected: number; failed: boolean };
   error?: string;
 };
 
@@ -349,10 +369,37 @@ export async function ingestOwnerFeedBatch(
     const key = ownerFeedBodyKey(record.body);
     if (key) seen.add(key);
   }
+
+  // SORTER BOT (additive, fail-soft): annotate the batch's reviews with
+  // theme tags, direction, serious markers and variant attribution before
+  // the save. Any sorter failure returns the ingest to the exact
+  // pre-sorter path — parsing, dedupe and the save are unchanged.
+  let sortAnnotations = new Map<string, SortedReviewAnnotations>();
+  let sorterRejected = 0;
+  let sorterFailed = false;
+  try {
+    const adapted = batch.reviews.map((r) => adaptOwnerFeedReview(r, batch));
+    const sortResult = sortReviewBatch({
+      feed: "owner_feed",
+      records: adapted,
+      productKey,
+      productUrl: batch.productUrl,
+      existingBodyKeys: seen,
+    });
+    sorterRejected = sortResult.rejected.length;
+    for (const sorted of sortResult.sorted) {
+      sortAnnotations.set(sorted.id, sortAnnotationsFor(sorted));
+    }
+  } catch {
+    sorterFailed = true;
+    sortAnnotations = new Map();
+  }
+
   const fresh: LibraryReviewRecord[] = [];
   let duplicatesSkipped = 0;
   for (const review of batch.reviews) {
-    const record = ownerFeedReviewRecord(review, batch);
+    const id = `owner-fed-${batch.productId.toLowerCase()}-${review.index}`;
+    const record = ownerFeedReviewRecord(review, batch, sortAnnotations.get(id) ?? null);
     const key = ownerFeedBodyKey(record.body);
     if (key && seen.has(key)) {
       duplicatesSkipped += 1;
@@ -384,6 +431,11 @@ export async function ingestOwnerFeedBatch(
     duplicatesSkipped,
     storedTotal: corpus.length,
     scanCount: existing.scanCount,
+    sorter: {
+      annotated: sortAnnotations.size,
+      rejected: sorterRejected,
+      failed: sorterFailed,
+    },
   };
 }
 

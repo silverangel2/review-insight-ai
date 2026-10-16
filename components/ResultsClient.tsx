@@ -2817,7 +2817,7 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
         <ShopperCompareDetail result={result} />
       ) : (
         <>
-          {decisionBriefReady ? <DecisionBrief result={result} productName={productTitle} previewImage={preview} evidenceState={evidenceStateForBrief} /> : (<><ShopperAnswerCard result={result} productName={productTitle} />
+          {decisionBriefReady ? <DecisionBrief result={result} productName={productTitle} previewImage={preview} evidenceState={evidenceStateForBrief} locale={activeLocale} /> : (<><ShopperAnswerCard result={result} productName={productTitle} />
           <BetterPicksPanel result={result as unknown as Record<string, unknown>} productName={productTitle} />
           <UpgradeMoment placement="results" sellerIntent={String((result as unknown as Record<string, unknown>).mode || "") === "seller"} />
           <details className="group rounded-3xl bg-white ring-1 ring-slate-900/5 dark:bg-slate-900">

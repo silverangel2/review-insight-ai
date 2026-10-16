@@ -111,5 +111,162 @@
     "sellerPro": "Seller Pro",
     "sellerPremium": "Seller Premium",
     "trustSnapshot": "{plan} trust snapshot"
+  },
+  "Brief": {
+    "shouldYouBuy": "Should you buy it?",
+    "buyingScore": "Buying Score",
+    "verdict": {
+      "buy": "Buy",
+      "wait": "Wait",
+      "skip": "Skip",
+      "lowConfidence": "Low confidence",
+      "tryAgain": "Try again",
+      "leaningBuy": "Leaning Buy",
+      "leaningSkip": "Leaning Skip"
+    },
+    "factTerms": {
+      "marketplaceRating": "Marketplace rating",
+      "ratingsCounted": "Ratings counted",
+      "howSureWeAre": "How sure we are",
+      "valueForMoney": "Value for money",
+      "reviewAuthenticity": "Review authenticity"
+    },
+    "confidence": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "unknown": "Unknown"
+    },
+    "value": {
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Poor"
+    },
+    "depth": {
+      "few": "a few",
+      "solid": "a solid set of",
+      "deep": "a deep set of"
+    },
+    "basisFrames": [
+      "Based on {basis}.",
+      "This is based on {basis}.",
+      "We based this verdict on {basis}.",
+      "Here's what backs this: {basis}."
+    ],
+    "basisParts": {
+      "marketplaceRating": "the marketplace rating",
+      "writtenReviews": "{depth} written reviews we read"
+    },
+    "limitsFrames": [
+      "The written reviews come from {store}'s pages — reviews on other stores aren't part of this check.",
+      "One thing to know: the written reviews are from {store}'s pages only, so other stores' reviews aren't in this check.",
+      "A caveat: only {store}'s written reviews fed this check — other stores' reviews didn't.",
+      "Keep in mind the written reviews are from {store}'s pages — this doesn't cover other stores."
+    ],
+    "authRows": {
+      "low": "Few AI-like signs",
+      "moderate": "Some AI-like signs",
+      "high": "Strong AI-like pattern"
+    },
+    "authLow": [
+      "The reviews read like real buyers: varied wording, concrete details, and a natural spread of opinions.",
+      "Nothing here trips our pattern checks — the reviews sound like different people with different experiences.",
+      "The corpus looks human: diverse phrasing, specific observations, no template feel.",
+      "These reviews pass the smell test — varied, specific, and independently worded.",
+      "Real-buyer markers throughout: different words, concrete details, mixed enthusiasm.",
+      "No AI-like pattern here. The reviews vary the way independent buyers do."
+    ],
+    "authModerateBase": [
+      "Some reviews {signals} — an AI-like pattern we watch for.",
+      "We see mild AI-like signs: some reviews {signals}.",
+      "A few pattern flags here — some reviews {signals}.",
+      "Not conclusive, but some reviews {signals}, which is an AI-like pattern.",
+      "Mixed authenticity: some reviews {signals}.",
+      "Worth a grain of salt — some reviews {signals}."
+    ],
+    "authHighBase": [
+      "The reviews {signals} — a strong AI-like pattern across the corpus.",
+      "Strong AI-like pattern: the reviews {signals}.",
+      "These reviews {signals}, which is the classic AI-like shape.",
+      "The pattern is hard to miss — the reviews {signals}.",
+      "High AI-like pattern: reviews {signals}.",
+      "Across the corpus, the reviews {signals} — strongly AI-like."
+    ],
+    "signalClauses": {
+      "repetition": "repeat the same phrasing",
+      "template": "follow the same template",
+      "specificity": "praise without concrete details",
+      "uniformity": "sound uniformly enthusiastic",
+      "lexical": "reuse a small set of words"
+    },
+    "honestyFrames": [
+      "This checks review text for patterns only — it can't prove who wrote a review.",
+      "It's a text-pattern check, not a verdict on the reviewer — it can't prove who wrote what.",
+      "Think of it as a pattern scan of the wording: it can't tell you who actually wrote a review."
+    ],
+    "scoreFeedsLine": "Only real written reviews and the marketplace rating feed the score.",
+    "independenceLine": "We read the buyer reviews, grouped what buyers kept saying, and weighed the good against the bad. We're independent — not affiliated with or endorsed by any brand.",
+    "whyBuyIt": "Why you'd buy it",
+    "whyMightNot": "Why you might not",
+    "howWeChecked": "How we checked",
+    "footerLine": "Analysis of real written buyer reviews and the marketplace rating.",
+    "complaintNotes": {
+      "oneOff": "No complaint repeats across buyers — these are one-off concerns, shown because they matter.",
+      "repeated": "These concerns came up across multiple buyers.",
+      "isolated": "Buyers raised isolated concerns{about} — each is weighed against the praise above, where it's noted.",
+      "none": "No buyer complaints in the reviews we read."
+    },
+    "answer": {
+      "neutralBuy": "Buyers are mostly positive about this product.",
+      "neutralSkip": "Buyers report enough problems to skip this.",
+      "neutralWait": "Buyer feedback is mixed or still limited.",
+      "whyBuyBase": "Buyers consistently report {love}",
+      "whyBuyDefaultLove": "good results",
+      "whyBuyComplaintTail": ", and complaints like {complaint} are rare",
+      "whySkipBase": "Too many buyers report {complaint}",
+      "whySkipDefaultComplaint": "serious problems",
+      "whySkipLoveTail": ", which outweighs {love}",
+      "whyWaitBase": "Buyers like {love}",
+      "whyWaitDefaultLove": "parts of it",
+      "whyWaitComplaintTail": ", but buyers also mention {complaint}",
+      "whyWaitCloser": "The reviews aren't strong enough yet for a clear {buy}.",
+      "whyNotEnoughListing": "Low confidence. Add a review screenshot to read more real reviews.",
+      "whyNotEnoughNoListing": "Low confidence. Scan the Amazon listing link or add a review screenshot to read more real reviews.",
+      "trustBasedOn": "Based on real buyer reviews from {sources}.",
+      "trustLow": "Low confidence.",
+      "trustUnreadable": "{retry} Add a screenshot of the product page and try the scan again.",
+      "retryFree": "Retrying is free.",
+      "retryLater": "Please try again in a moment.",
+      "unreadableAmazon": "We couldn't read this Amazon page right now.",
+      "unreadableListing": "We couldn't read this product page right now.",
+      "neutralProduct": "Amazon product",
+      "evidenceStrength": {
+        "strong": "Strong",
+        "moderate": "Moderate",
+        "low": "Low"
+      },
+      "steps": {
+        "retry": {
+          "label": "Try again",
+          "detail": "{unreadable} {retry}"
+        },
+        "screenshots": {
+          "label": "Add a screenshot",
+          "detail": "Add a screenshot of the product page so we can read the title, stars, and reviews."
+        },
+        "amazonListing": {
+          "label": "Scan the Amazon listing",
+          "detail": "Scan the Amazon listing link so we can read more real reviews of this exact product."
+        },
+        "reviewScreenshot": {
+          "label": "Add a review screenshot",
+          "detail": "Upload a screenshot of reviews you can see. We read the text and only keep real reviews of this exact product."
+        },
+        "compare": {
+          "label": "Compare with an alternative",
+          "detail": "Scan a similar product and compare what real buyers say."
+        }
+      }
+    }
   }
 }

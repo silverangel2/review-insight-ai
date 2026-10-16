@@ -144,15 +144,21 @@ test("DecisionBrief: desktop layout classes + mobile order untouched", () => {
   assert.ok(tsx.includes("max-w-[1040px]"), "desktop container width");
   assert.ok(tsx.includes("lg:grid-cols-5"), "fact cells go horizontal on desktop");
   assert.ok(tsx.includes("lg:grid-cols-2"), "factor columns side by side on desktop");
-  assert.ok(tsx.includes("Review authenticity"), "Phase 10 fact row");
+  // Phase 10 fact row: the stable key is wired in briefNarration (the term
+  // now localizes through the Brief dictionary).
+  const narration = src("lib/briefNarration.ts");
+  assert.ok(narration.includes('"reviewAuthenticity"'), "Phase 10 fact row (stable key)");
   assert.ok(tsx.includes("BriefReveal"), "Phase 7 reveal wrapper");
   assert.ok(tsx.includes("ScoreCountUp"), "Phase 7 count-up");
   assert.ok(tsx.includes("ri-glimmer"), "verdict glimmer");
-  // mobile order: answer -> for -> against -> fold
-  const iAnswer = tsx.indexOf("Should you buy it?");
-  const iFor = tsx.indexOf("Why you&apos;d buy it");
-  const iAgainst = tsx.indexOf("Why you might not");
-  const iFold = tsx.indexOf("How we checked");
+  // mobile order: answer -> for -> against -> fold. Section headings now
+  // resolve through the brief dictionary (TRANSLATOR bot), so the order
+  // check follows the copy references instead of the English literals.
+  const iAnswer = tsx.indexOf("copy.shouldYouBuy");
+  const iFor = tsx.indexOf("copy.whyBuyIt");
+  const iAgainst = tsx.indexOf("copy.whyMightNot");
+  const iFold = tsx.indexOf("copy.howWeChecked");
+  assert.ok(iAnswer > 0 && iFor > 0 && iAgainst > 0 && iFold > 0, "localized section markers present");
   assert.ok(iAnswer < iFor && iFor < iAgainst && iAgainst < iFold, "mobile section order preserved");
   // hard rule: empty state gated on hasNegatives
   assert.ok(tsx.includes("hasNegatives"), "empty-against gated on hasNegatives");

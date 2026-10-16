@@ -111,5 +111,16 @@
     "sellerPro": "专业卖家",
     "sellerPremium": "高级卖家",
     "trustSnapshot": "{plan} 信任概览"
+  },
+  "Brief": {
+    "verdict": {
+      "buy": "购买",
+      "wait": "等等",
+      "skip": "跳过",
+      "lowConfidence": "信心不足",
+      "tryAgain": "重试",
+      "leaningBuy": "倾向购买",
+      "leaningSkip": "倾向跳过"
+    }
   }
 }
