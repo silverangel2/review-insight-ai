@@ -103,7 +103,7 @@ test("revealOnce: mount-once semantics", () => {
 });
 
 test("scan overlay: honest stage-based progress", () => {
-  const sp = jiti(root + "lib/scanProgress.ts");
+  const sp = jiti(root + "lib/scanStageModel.ts");
   const { progressFraction, SCAN_STEPS } = sp;
   const live = (stage) => ({ stage, productIdentified: false, productName: null, sourcesChecked: 0, sourceHosts: [], reviewsFound: null, reviewsAccepted: null, snippets: [] });
   assert.equal(progressFraction("done", 0, null), 1);
