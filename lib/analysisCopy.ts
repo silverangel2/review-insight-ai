@@ -730,3 +730,32 @@ export const AUTH_SIGNAL_CLAUSES: Record<string, string> = {
   uniformity: "sound uniformly enthusiastic",
   lexical: "reuse a small set of words",
 };
+
+// ---------------------------------------------------------------------------
+// Result-brief satisfaction pass (2026-10-16). Plain-words frames for the
+// How-we-checked fold. Facts are filled only from tallies present in the
+// result — the frames carry grammar, never facts.
+// ---------------------------------------------------------------------------
+
+/** The one basis sentence: what actually backs this verdict. {basis} is filled in. */
+export const BASIS_FRAMES: string[] = [
+  "Based on {basis}.",
+  "This is based on {basis}.",
+  "We based this verdict on {basis}.",
+  "Here's what backs this: {basis}.",
+];
+
+/** The one limits sentence: the written reviews come from one store's pages. {store} is filled in. */
+export const LIMITS_SINGLE_SOURCE_FRAMES: string[] = [
+  "The written reviews come from {store}'s pages — reviews on other stores aren't part of this check.",
+  "One thing to know: the written reviews are from {store}'s pages only, so other stores' reviews aren't in this check.",
+  "A caveat: only {store}'s written reviews fed this check — other stores' reviews didn't.",
+  "Keep in mind the written reviews are from {store}'s pages — this doesn't cover other stores.",
+];
+
+/** The plain honesty note for the authenticity fold: a pattern check, never an authorship verdict. */
+export const AUTH_HONESTY: string[] = [
+  "This checks review text for patterns only — it can't prove who wrote a review.",
+  "It's a text-pattern check, not a verdict on the reviewer — it can't prove who wrote what.",
+  "Think of it as a pattern scan of the wording: it can't tell you who actually wrote a review.",
+];
