@@ -86,21 +86,30 @@ test("review evidence has no premature metadata-only race", () => {
   assert.match(analyzerRoute, /reviewEvidenceRecoveryFailed/);
 });
 
-test("shopper verdict paths use review first instead of obsolete middle verdict output", () => {
+test("shopper verdict paths use Buy/Wait/Skip instead of obsolete verdict words", () => {
   const analyzerRoute = source("app/api/analyze/route.ts");
   const results = source("components/ResultsClient.tsx");
   const betterPicks = source("components/BetterPicksPanel.tsx");
   const productStability = source("lib/productStability.ts");
   const obsoleteMiddleVerdict = "CONSIDER";
-
-  assert.match(analyzerRoute, /type Verdict = "BUY" \| "REVIEW FIRST" \| "AVOID"/);
-  assert.match(analyzerRoute, /verdict = "REVIEW FIRST"/);
+  // The retired words may appear ONLY in the legacy bridge that normalizes
+  // old stored rows (normalizeOptionalShopperVerdict) — nowhere else.
+  const retiredUses = (analyzerRoute.match(/["']REVIEW FIRST["']/g) || []).length;
+  assert.equal(retiredUses, 1, "REVIEW FIRST lives only in the legacy bridge");
+  assert.ok(
+    /normalizeOptionalShopperVerdict[\s\S]*?["']REVIEW FIRST["']/.test(analyzerRoute),
+    "the single legacy reference is inside normalizeOptionalShopperVerdict"
+  );
+  assert.doesNotMatch(analyzerRoute, /["']Review first["']/);
+  assert.match(analyzerRoute, /type Verdict = "BUY" \| "WAIT" \| "SKIP"/);
+  assert.match(analyzerRoute, /verdict = "WAIT"/);
   assert.match(analyzerRoute, /normalizeOptionalShopperVerdict/);
   assert.doesNotMatch(analyzerRoute, new RegExp(`verdict\\s*[:=]\\s*["']${obsoleteMiddleVerdict}`));
   assert.doesNotMatch(analyzerRoute, new RegExp(`return\\s+["']${obsoleteMiddleVerdict}`));
 
   assert.match(results, /type ShopperVerdict = "BUY" \| "REVIEW FIRST" \| "AVOID" \| "NOT_ENOUGH"/);
   assert.match(results, /displayShopperVerdict/);
+  assert.match(results, /sanitizeVerdictWord/);
   assert.doesNotMatch(results, new RegExp(`return\\s+["']${obsoleteMiddleVerdict}`));
   assert.doesNotMatch(results, new RegExp(`verdict:\\s*["']${obsoleteMiddleVerdict}`));
 
@@ -441,7 +450,7 @@ test("confidence ratification recognizes DO NOT BUY YET as a real evidence verdi
 
   assert.match(
     source,
-    /\["BUY",\s*"DO NOT BUY YET",\s*"REVIEW FIRST",\s*"AVOID"\]\.includes\(verdict\)/,
+    /\["BUY",\s*"DO NOT BUY YET",\s*"WAIT",\s*"SKIP"\]\.includes\(verdict\)/,
   );
 });
 

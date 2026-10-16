@@ -193,7 +193,7 @@ test("rescore: verdict from a fixture corpus (no OpenAI, deterministic)", async 
     loadCorpus: async () => ({ reviews: corpus, scanCount: 1 }),
   });
   assert.ok(first && second);
-  assert.ok(["BUY", "REVIEW FIRST", "AVOID"].includes(first.verdict));
+  assert.ok(["BUY", "WAIT", "SKIP"].includes(first.verdict));
   assert.equal(first.verdict, second.verdict);
   assert.equal(first.buyingScore, second.buyingScore);
   assert.equal(first.reviewCount, second.reviewCount);

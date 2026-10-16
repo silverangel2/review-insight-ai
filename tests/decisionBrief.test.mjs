@@ -27,6 +27,8 @@ const bodies = [
   "Good value compared to the Pro model, does everything I need.",
   "They're great for everyday use, but I found them a little uncomfortable and not secure enough in my ears.",
   "Extremement decue de cet achat. Je croyais acheter de veritables AirPods Apple.",
+  "Shipping took almost three weeks to arrive, far too slow for the price I paid.",
+  "Battery drains fast, I have to charge them twice a day with normal use.",
 ];
 
 function airpodsFixture(overrides = {}) {
@@ -50,8 +52,11 @@ function airpodsFixture(overrides = {}) {
       { claim: "works well or performs as expected (one-off report)", supportCount: 1, sourceIds: [], sourceHashes: [] },
     ],
     complaints: [
-      { claim: "fit not secure (one-off report)", supportCount: 1, sourceIds: [], sourceHashes: [] },
-      { claim: "suspected counterfeit (one-off report)", supportCount: 1, sourceIds: [], sourceHashes: [] },
+      // R3 (round 2): a complaint claim renders only when an accepted written
+      // review evidences it — r11 evidences the fit complaint, r12 the
+      // counterfeit one. Unevidenced complaints are suppressed entirely.
+      { claim: "fit not secure (one-off report)", supportCount: 1, sourceIds: ["r11"], sourceHashes: [] },
+      { claim: "suspected counterfeit (one-off report)", supportCount: 1, sourceIds: ["r12"], sourceHashes: [] },
     ],
     product: { title: "Apple AirPods 4 Wireless", store: "amazon.ca" },
     buyingScoreV2: {
@@ -98,9 +103,9 @@ test("against factors: RED FLAGS FIRST, then ordinary one-offs", () => {
 test("against ordering: red flags, then recurring, then ordinary one-offs", () => {
   const r = airpodsFixture({
     complaints: [
-      { claim: "slow shipping", supportCount: 1, sourceIds: [], sourceHashes: [] },
-      { claim: "battery life", supportCount: 4, sourceIds: [], sourceHashes: [] },
-      { claim: "suspected counterfeit", supportCount: 1, sourceIds: [], sourceHashes: [] },
+      { claim: "slow shipping", supportCount: 1, sourceIds: ["r13"], sourceHashes: [] },
+      { claim: "battery life", supportCount: 4, sourceIds: ["r14"], sourceHashes: [] },
+      { claim: "suspected counterfeit", supportCount: 1, sourceIds: ["r12"], sourceHashes: [] },
     ],
   });
   const a = ra.deriveReviewAnalysis(r);
@@ -142,8 +147,8 @@ test("NO quote text leakage: no summary contains any review sentence", () => {
 
 test("split theme: higher support count wins, theme appears once", () => {
   const r = airpodsFixture({
-    strengths: [{ claim: "battery life", supportCount: 5, sourceIds: [], sourceHashes: [] }],
-    complaints: [{ claim: "battery life", supportCount: 1, sourceIds: [], sourceHashes: [] }],
+    strengths: [{ claim: "battery life", supportCount: 5, sourceIds: ["r5"], sourceHashes: [] }],
+    complaints: [{ claim: "battery life", supportCount: 1, sourceIds: ["r14"], sourceHashes: [] }],
   });
   const a = ra.deriveReviewAnalysis(r);
   assert.ok(a.forFactors.some((f) => f.title === "Strong battery life"));
@@ -157,8 +162,8 @@ test("split theme: higher support count wins, theme appears once", () => {
 
 test("split theme: complaints win when they dominate", () => {
   const r = airpodsFixture({
-    strengths: [{ claim: "battery life", supportCount: 1, sourceIds: [], sourceHashes: [] }],
-    complaints: [{ claim: "battery life", supportCount: 6, sourceIds: [], sourceHashes: [] }],
+    strengths: [{ claim: "battery life", supportCount: 1, sourceIds: ["r5"], sourceHashes: [] }],
+    complaints: [{ claim: "battery life", supportCount: 6, sourceIds: ["r14"], sourceHashes: [] }],
   });
   const a = ra.deriveReviewAnalysis(r);
   assert.ok(!a.forFactors.some((f) => f.title === "Strong battery life"));
@@ -187,19 +192,30 @@ test("factors capped at three per side, top counts first", () => {
 
 // ---------- PHASE 5: widen the analysis input ----------
 
-test("Phase 5: one-off warning becomes an against-factor with honest framing", () => {
+test("Phase 5: one-off warning with an evidencing review becomes an against-factor with honest framing", () => {
   const r = airpodsFixture({
     complaints: [],
-    // Backing evidence in the accepted corpus (round-2 rule: unbacked warnings never print).
-    reviewEvidence: {
-      ...BASE.reviewEvidence,
-      evidenceAdjudication: {
-        acceptedRecords: [
-          ...BASE.reviewEvidence.evidenceAdjudication.acceptedRecords,
-          { id: "heat1", stableEvidenceHash: "heat1", body: "The case gets too hot to touch while charging, I have to set it down.", sourceUrl: "https://www.amazon.ca/dp/B0DGJDKHRQ" },
-        ],
-      },
+    buyingScoreV2: {
+      ...BASE.buyingScoreV2,
+      warnings: [{ tier: "single_safety", text: "One customer reported overheating (single unverified report).", quotes: [] }],
+      quotes: { safety: [], reliability: [], positive: [], negative: ["The charging case gets too hot, I worry about overheating."] },
     },
+  });
+  const a = ra.deriveReviewAnalysis(r);
+  assert.equal(a.againstFactors.length, 1);
+  assert.equal(a.againstFactors[0].title, "Overheating reports");
+  // Round 3: the warning text itself is unbacked by the accepted corpus, so
+  // it never prints verbatim; the evidencing excerpt renders through the
+  // red-flag frame with its named detail (owner's red-flag rule).
+  assert.match(a.againstFactors[0].summary, /red flag/i);
+  assert.match(a.againstFactors[0].summary, /overheating/);
+  assert.equal(a.againstFactors[0].basis, "One buyer reported this");
+  assert.equal(a.hasNegatives, true);
+});
+
+test("Phase 5: a warning with NO evidencing review is suppressed, not printed (R3)", () => {
+  const r = airpodsFixture({
+    complaints: [],
     buyingScoreV2: {
       ...BASE.buyingScoreV2,
       warnings: [{ tier: "single_safety", text: "One customer reported overheating (single unverified report).", quotes: [] }],
@@ -207,31 +223,17 @@ test("Phase 5: one-off warning becomes an against-factor with honest framing", (
     },
   });
   const a = ra.deriveReviewAnalysis(r);
-  assert.equal(a.againstFactors.length, 1);
-  assert.equal(a.againstFactors[0].title, "Overheating reports");
-  assert.equal(a.againstFactors[0].summary, "One customer reported overheating (single unverified report).");
-  assert.equal(a.againstFactors[0].basis, "One buyer reported this");
-  assert.equal(a.hasNegatives, true);
+  assert.equal(a.againstFactors.length, 0, "unevidenced warnings must not render as claims");
+  assert.equal(a.hasNegatives, false);
 });
 
-test("Phase 5: repeated warning gets the repeated basis", () => {
+test("Phase 5: repeated warning with evidencing reviews gets the repeated basis", () => {
   const r = airpodsFixture({
     complaints: [],
-    // Backing evidence in the accepted corpus (round-2 rule: unbacked warnings never print).
-    reviewEvidence: {
-      ...BASE.reviewEvidence,
-      evidenceAdjudication: {
-        acceptedRecords: [
-          ...BASE.reviewEvidence.evidenceAdjudication.acceptedRecords,
-          { id: "heat1", stableEvidenceHash: "heat1", body: "The case gets too hot to touch while charging, I have to set it down.", sourceUrl: "https://www.amazon.ca/dp/B0DGJDKHRQ" },
-          { id: "heat2", stableEvidenceHash: "heat2", body: "Mine overheated twice in the first week and the case started scorching the desk mat.", sourceUrl: "https://www.amazon.ca/dp/B0DGJDKHRQ" },
-        ],
-      },
-    },
     buyingScoreV2: {
       ...BASE.buyingScoreV2,
       warnings: [{ tier: "repeated_safety", text: "Several customers independently report overheating.", quotes: [] }],
-      quotes: { safety: [], reliability: [], positive: [], negative: [] },
+      quotes: { safety: [], reliability: [], positive: [], negative: ["The case gets too hot, worried about overheating.", "It overheated twice while charging."] },
     },
   });
   const a = ra.deriveReviewAnalysis(r);
@@ -268,9 +270,14 @@ test("Phase 5: unmatched excerpts become one honest generic factor", () => {
     },
   });
   const a = ra.deriveReviewAnalysis(r);
-  assert.equal(a.againstFactors.length, 1);
-  assert.equal(a.againstFactors[0].title, "A concern raised by one buyer");
-  assert.equal(a.againstFactors[0].basis, "One buyer reported this");
+  // Round 3: __generic_concern rows carry no analyzable content (the actual
+  // claim was discarded for a generic bandTitle), so they are dropped as
+  // rows. The real excerpt still counts as evidence that buyers raised a
+  // concern — it is never hidden, only the vacuous row is gone.
+  const titles = a.againstFactors.map((f) => f.title);
+  assert.ok(!titles.includes("A concern raised by one buyer"), "generic row suppressed");
+  assert.ok(!titles.includes("A complaint several buyers raise"), "generic row suppressed");
+  assert.equal(a.hasNegatives, true, "evidenced complaints still register");
 });
 
 test("HARD RULE: empty grouped complaints + one-off counterfeit in the wider source -> against NOT empty", () => {
@@ -397,14 +404,14 @@ test("Phase 9: thin corpora get lead + strength only, never padded", () => {
 
 test("Phase 9: unanimity caveat names the opposing signal", () => {
   const r = airpodsFixture({
-    strengths: [{ claim: "comfortable fit", supportCount: 8, sourceIds: [], sourceHashes: [] }],
-    complaints: [{ claim: "comfortable fit", supportCount: 2, sourceIds: [], sourceHashes: [] }],
+    strengths: [{ claim: "comfortable fit", supportCount: 8, sourceIds: ["r1", "r6"], sourceHashes: [] }],
+    complaints: [{ claim: "comfortable fit", supportCount: 2, sourceIds: ["r11"], sourceHashes: [] }],
   });
   const a = ra.deriveReviewAnalysis(r);
   const fit = a.forFactors.find((f) => f.title === "Comfortable, lightweight fit");
   assert.ok(fit);
   assert.ok(
-    fit.summary.includes("the fit feels less secure for some ears"),
+    fit.summary.includes("the fit feels less secure for some people"),
     `expected caveat clause in: ${fit.summary}`
   );
 });
@@ -533,42 +540,4 @@ test("marketplaceAggregateNumbers: same precedence as the display helper", () =>
   assert.equal(fallback.rating, 3.5);
   assert.equal(fallback.count, 100);
   assert.deepEqual(sa.marketplaceAggregateNumbers({}), { rating: null, count: null });
-});
-
-test("generic concern: title and body come from the SAME band (regression: 'one buyer' title over 'most repeated' body)", () => {
-  const odour = [
-    "Mine had a strong chemical odour right out of the box and it never faded.",
-    "The odour from the plastic was so strong my whole closet smelled like it.",
-    "Gave me a headache from the chemical smell, had to air it out for a week.",
-    "Smells like a tire factory, the odour is unbearable indoors.",
-    "The chemical odour clings to everything it touches in the drawer.",
-    "Two weeks later the smell is still there, windows open or not.",
-  ];
-  const r = airpodsFixture({
-    complaints: [],
-    buyingScoreV2: {
-      ...BASE.buyingScoreV2,
-      quotes: { positive: [], negative: odour, reliability: [], safety: [] },
-    },
-  });
-  const a = ra.deriveReviewAnalysis(r);
-  const g = a.againstFactors.find((f) => f.band === "dominant");
-  assert.ok(g, "expected a dominant generic-concern factor");
-  assert.equal(g.title, "The complaint buyers repeat most");
-  assert.ok(!/one buyer/i.test(g.title), "dominant factor must not carry a one-buyer title");
-  assert.equal(g.basis, "Pattern across most reviews");
-});
-
-test("generic concern: a single unmapped complaint keeps the one-buyer title", () => {
-  const r = airpodsFixture({
-    complaints: [],
-    buyingScoreV2: {
-      ...BASE.buyingScoreV2,
-      quotes: { positive: [], negative: ["Mine had a strong chemical odour right out of the box and it never faded."], reliability: [], safety: [] },
-    },
-  });
-  const a = ra.deriveReviewAnalysis(r);
-  const g = a.againstFactors.find((f) => f.title === "A concern raised by one buyer");
-  assert.ok(g, "expected the one-buyer generic title at single support");
-  assert.equal(g.basis, "One buyer reported this");
 });
