@@ -51,10 +51,13 @@ function envelopeAccountEmail(result: AnalyzeResponse | null) {
 function displayShopperVerdict(value: unknown) {
   const verdict = String(value || "").trim().toUpperCase();
 
-  if (verdict === "BUY" || verdict === "VERIFIED BUY") return "Buy";
-  if (verdict === "REVIEW FIRST" || verdict === "CONSIDER" || verdict === "MAYBE" || verdict === "DO NOT BUY YET") return "Wait";
+  // Round 2 defect 1: the only shopper-facing verdict words anywhere on the
+  // results page are Buy / Review first / Avoid — the same words the brief uses
+  // (via shopperVerdictWord). No parallel verdict vocabulary.
+  if (verdict === "BUY" || verdict === "VERIFIED BUY" || verdict === "LEANING BUY") return "Buy";
+  if (verdict === "REVIEW FIRST" || verdict === "WAIT" || verdict === "LEANING WAIT" || verdict === "CONSIDER" || verdict === "MAYBE" || verdict === "DO NOT BUY YET") return "Review first";
 
-  if (verdict === "AVOID" || verdict === "SKIP") return "Skip";
+  if (verdict === "AVOID" || verdict === "SKIP" || verdict === "LEANING SKIP") return "Avoid";
   if (
     !verdict ||
     verdict === "NOT_ENOUGH" ||
@@ -1315,9 +1318,9 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const v2Answer = pageUnreadable
     ? "Try again"
     : facing
-      ? facing.answer
+      ? displayShopperVerdict(facing.answer)
       : buyingScoreV2
-        ? buyingScoreV2.verdict ? buyingScoreV2.verdict.toUpperCase() : "ADD LINK"
+        ? buyingScoreV2.verdict ? displayShopperVerdict(buyingScoreV2.verdict) : "ADD LINK"
         : null;
   const firmVerdict = facing?.firmBuy ? "BUY" as const : firmV2Verdict(buyingScoreV2);
   const shownVerdict = firmVerdict
