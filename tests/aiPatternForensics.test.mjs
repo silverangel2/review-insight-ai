@@ -47,7 +47,7 @@ test("synthetic templated corpus grades High with every feature recorded", () =>
   assert.equal(p.features.length, 5);
   assert.ok(p.features.every((f) => f.points > 0), "every feature should fire on the templated corpus");
   assert.ok(p.features.every((f) => f.detail.length > 0), "every grade must be explainable");
-  assert.equal(ai.authRowFor(p), "Low — strong AI-like pattern");
+  assert.equal(ai.authRowFor(p), "Strong AI-like pattern");
 });
 
 test("varied natural corpus grades Low", () => {
@@ -55,7 +55,7 @@ test("varied natural corpus grades Low", () => {
   assert.equal(p.insufficient, false);
   assert.equal(p.grade, "low");
   assert.ok(p.points <= 1, `expected <=1 point, got ${p.points}`);
-  assert.equal(ai.authRowFor(p), "High — few AI-like signs");
+  assert.equal(ai.authRowFor(p), "Few AI-like signs");
   const sentence = ai.authSentenceFor(p);
   assert.ok(sentence && sentence.length > 20);
 });
