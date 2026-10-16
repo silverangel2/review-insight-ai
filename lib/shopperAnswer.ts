@@ -1,6 +1,6 @@
 import { provisionalShopperFacing } from "@/lib/buyingScore";
 import { quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
-import { supportingClauseForClaim } from "@/lib/claimClauseEvidence";
+import { claimRules, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
 // No invented numbers: missing values stay null/"Unknown"; quotes are real
@@ -204,6 +204,8 @@ export function isWrittenReviewBody(body: string): boolean {
 export function realReviewQuotes(input: unknown, limit = 4): string[] {
   const quotes: string[] = [];
   for (const record of acceptedRecords(obj(input))) {
+    // Round 2 defect 4b: never surface review text that failed the exact-product match.
+    if ((record as unknown as Rec).exactProductAccepted === false) continue;
     const body = String(record.body || "");
     if (!isWrittenReviewBody(body)) continue;
     const quote = shortQuote(body);
@@ -413,6 +415,37 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     ? cardCount === 0 || String(card.mode || "") === "no_score"
     : state === "NOT_ENOUGH" || reviewCount === 0 || /NOT[_ ]ENOUGH|NOT SCORED/.test(verdict);
 
+  // Round 2 defect 4: evidence hygiene for theme points.
+  // - 4b: a candidate record that failed the exact-product match is never quoted.
+  // - 4c: a quote rendered under a theme must actually support that theme. A
+  //   rule-matched clause supports it by construction; a whole-body fallback
+  //   quote is used only when no claim rule exists for the theme (the engine's
+  //   attribution is then the evidence). A body that matches no clause of an
+  //   existing rule is never quoted as evidence for that theme.
+  // - 4a: a "quote" that merely echoes the theme heading is not review evidence —
+  //   the next candidate record is tried instead.
+  // Claims themselves are never dropped here: the red-flag rule forbids hiding
+  // negatives, and the engine's normalized labels (e.g. a French review mined
+  // as "suspected counterfeit") are authoritative for what the corpus says.
+  const STOP_WORDS = new Set(
+    "a,an,the,and,or,of,to,in,on,for,with,is,it,this,that,these,those,are,was,were,be,been,as,at,by,from,very,really,just,quite,so,too,not,no,do,does,did,will,would,can,could,should,has,have,had,but,its,their,them,they,we,you,your,our".split(",")
+  );
+  const significantTerms = (text: string): string[] =>
+    String(text)
+      .replace(/\s*\([^)]*\)\s*/g, " ")
+      .toLowerCase()
+      .split(/[^a-z0-9\u00c0-\u024f\u4e00-\u9fff]+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+  const isEchoOfClaim = (clauseText: string, claimText: string): boolean => {
+    const claimSet = new Set(significantTerms(claimText));
+    const clauseWords = String(clauseText)
+      .toLowerCase()
+      .split(/[^a-z0-9\u00c0-\u024f\u4e00-\u9fff]+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+    if (!clauseWords.length) return true;
+    return clauseWords.every((w) => claimSet.has(w));
+  };
+
   // Page-level single assignment: a quote shown under one theme is never
   // repeated under another (defect batch 2, rule 1).
   const usedQuoteKeys = new Set<string>();
@@ -433,7 +466,9 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
     .sort((a, b) => b.supportCount - a.supportCount)
     .slice(0, 3)
     .map(claim => {
-      const candidates = records.filter(item => (item.id && claim.sourceIds.includes(item.id)) || (item.stableEvidenceHash && claim.sourceHashes.includes(item.stableEvidenceHash)));
+      const candidates = records.filter(item =>
+        (item as unknown as Rec).exactProductAccepted !== false &&
+        ((item.id && claim.sourceIds.includes(item.id)) || (item.stableEvidenceHash && claim.sourceHashes.includes(item.stableEvidenceHash))));
       // Defect batch 2, rule 2: the displayed quote is the clause that matched
       // the theme's rule (same guards provenance used) — a positive quote can
       // never sit under a complaint theme. Each displayed quote is used once
@@ -445,7 +480,16 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
         const body = record?.body && isWrittenReviewBody(String(record.body)) ? String(record.body) : "";
         if (!body) continue;
         const clause = supportingClauseForClaim(body, claim.claim);
+        if (!clause && claimRules.some((rule) => rule.claim === claim.claim)) {
+          // Round 2 defect 4c: a rule exists for this theme but this review's
+          // text contains no supporting clause — quoting the whole body would
+          // misattribute it. Try the next record instead.
+          continue;
+        }
         const candidate = clause ? shortQuote(clause) : shortQuote(body);
+        // Round 2 defect 4a: a clause that merely echoes the theme heading is
+        // not evidence — try the next record's text instead.
+        if (isEchoOfClaim(candidate, claim.claim)) continue;
         if (claimUsedKey(candidate)) continue;
         quote = candidate;
         usedQuoteKeys.add(quoteIdentityKey(quote));
@@ -477,7 +521,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   if (!provisional && card && thin) kind = "not_enough";
   const label = provisional
     ? (facing!.firmBuy ? "Buy" : facing!.leaning === "Buy" ? "Leaning Buy" : facing!.leaning === "Skip" ? "Skip" : "Wait")
-    : { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
+    : { buy: "Buy", wait: "Review first", skip: "Avoid", not_enough: "Low confidence" }[kind];
 
   const topLove = claimedLoves[0]?.claim;
   const topComplaint = claimedComplaints[0]?.claim;
@@ -570,4 +614,19 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   ] : [];
 
   return { kind, label, why, loves, complaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
+}
+
+/**
+ * The single shopper-facing verdict word for a result: Buy / Review first / Avoid.
+ * Round 2 defect 1: ONE derivation (deriveShopperAnswer kind) feeds the brief
+ * headline, the results-page headline, the cards, and the compare view — no
+ * parallel verdict sources. Returns null when there is no verdict to show
+ * (insufficient evidence / unreadable), so surfaces can render their empty state.
+ */
+export function shopperVerdictWord(input: unknown): "Buy" | "Review first" | "Avoid" | null {
+  const kind = deriveShopperAnswer(input).kind;
+  if (kind === "buy") return "Buy";
+  if (kind === "skip") return "Avoid";
+  if (kind === "wait") return "Review first";
+  return null;
 }
