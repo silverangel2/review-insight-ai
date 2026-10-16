@@ -8,7 +8,7 @@ import {
   progressFraction,
   type LiveScanProgress,
   type ScanStage,
-} from "@/lib/scanProgress";
+} from "@/lib/scanStageModel";
 
 export type { LiveScanProgress, ScanStage };
 export { progressFraction };
