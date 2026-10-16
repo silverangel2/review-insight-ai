@@ -111,5 +111,162 @@
     "sellerPro": "Vendeur Pro",
     "sellerPremium": "Vendeur Premium",
     "trustSnapshot": "Aperçu de confiance — {plan}"
+  },
+  "Brief": {
+    "shouldYouBuy": "Faut-il l'acheter ?",
+    "buyingScore": "Score d'achat",
+    "verdict": {
+      "buy": "Acheter",
+      "wait": "Attendre",
+      "skip": "Passer",
+      "lowConfidence": "Confiance faible",
+      "tryAgain": "Réessayer",
+      "leaningBuy": "Plutôt acheter",
+      "leaningSkip": "Plutôt passer"
+    },
+    "factTerms": {
+      "marketplaceRating": "Note du marché",
+      "ratingsCounted": "Avis comptés",
+      "howSureWeAre": "Notre niveau de certitude",
+      "valueForMoney": "Rapport qualité-prix",
+      "reviewAuthenticity": "Authenticité des avis"
+    },
+    "confidence": {
+      "high": "Élevée",
+      "medium": "Moyenne",
+      "low": "Faible",
+      "unknown": "Inconnue"
+    },
+    "value": {
+      "good": "Bon",
+      "fair": "Correct",
+      "poor": "Mauvais"
+    },
+    "depth": {
+      "few": "quelques ",
+      "solid": "un bon nombre d'",
+      "deep": "un grand nombre d'"
+    },
+    "basisFrames": [
+      "D'après {basis}.",
+      "Ceci est basé sur {basis}.",
+      "Nous avons basé ce verdict sur {basis}.",
+      "Voici ce qui l'étaye : {basis}."
+    ],
+    "basisParts": {
+      "marketplaceRating": "la note du marché",
+      "writtenReviews": "{depth}avis écrits que nous avons lus"
+    },
+    "limitsFrames": [
+      "Les avis écrits proviennent des pages de {store} — les avis d'autres boutiques ne font pas partie de cette vérification.",
+      "Bon à savoir : les avis écrits viennent uniquement des pages de {store}, donc les avis d'autres boutiques n'y figurent pas.",
+      "Petite réserve : seuls les avis écrits de {store} ont alimenté cette vérification — pas ceux d'autres boutiques.",
+      "Gardez à l'esprit que les avis écrits viennent des pages de {store} — cela ne couvre pas les autres boutiques."
+    ],
+    "authRows": {
+      "low": "Peu de signes d'IA",
+      "moderate": "Quelques signes d'IA",
+      "high": "Fort motif de type IA"
+    },
+    "authLow": [
+      "Les avis ressemblent à de vrais acheteurs : formulations variées, détails concrets et un éventail naturel d'opinions.",
+      "Rien ici ne déclenche nos contrôles de motifs — les avis sonnent comme des personnes différentes avec des expériences différentes.",
+      "Le corpus a l'air humain : formulations diverses, observations précises, aucun effet de modèle.",
+      "Ces avis passent le test — variés, précis et rédigés de façon indépendante.",
+      "Des marqueurs de vrais acheteurs partout : des mots différents, des détails concrets, un enthousiasme nuancé.",
+      "Aucun motif de type IA ici. Les avis varient comme le font des acheteurs indépendants."
+    ],
+    "authModerateBase": [
+      "Certains avis {signals} — un motif de type IA que nous surveillons.",
+      "Nous voyons de légers signes de type IA : certains avis {signals}.",
+      "Quelques drapeaux ici — certains avis {signals}.",
+      "Ce n'est pas concluant, mais certains avis {signals}, ce qui est un motif de type IA.",
+      "Authenticité mitigée : certains avis {signals}.",
+      "À prendre avec des pincettes — certains avis {signals}."
+    ],
+    "authHighBase": [
+      "Les avis {signals} — un fort motif de type IA dans tout le corpus.",
+      "Fort motif de type IA : les avis {signals}.",
+      "Ces avis {signals}, ce qui est la forme classique de type IA.",
+      "Le motif est difficile à manquer — les avis {signals}.",
+      "Motif de type IA élevé : les avis {signals}.",
+      "Dans tout le corpus, les avis {signals} — fortement de type IA."
+    ],
+    "signalClauses": {
+      "repetition": "répètent les mêmes formulations",
+      "template": "suivent le même modèle",
+      "specificity": "louent sans détails concrets",
+      "uniformity": "sonnent uniformément enthousiastes",
+      "lexical": "réutilisent un petit nombre de mots"
+    },
+    "honestyFrames": [
+      "Ceci ne vérifie le texte des avis que pour y déceler des motifs — cela ne peut pas prouver qui a écrit un avis.",
+      "C'est une vérification de motifs textuels, pas un verdict sur l'auteur — cela ne peut pas prouver qui a écrit quoi.",
+      "Voyez-le comme une analyse des motifs de formulation : cela ne peut pas dire qui a réellement écrit un avis."
+    ],
+    "scoreFeedsLine": "Seuls les vrais avis écrits et la note du marché alimentent le score.",
+    "independenceLine": "Nous avons lu les avis des acheteurs, regroupé ce qu'ils répétaient et pesé le bon contre le mauvais. Nous sommes indépendants — ni affiliés à une marque ni approuvés par elle.",
+    "whyBuyIt": "Pourquoi l'acheter",
+    "whyMightNot": "Pourquoi hésiter",
+    "howWeChecked": "Comment nous avons vérifié",
+    "footerLine": "Analyse de vrais avis écrits d'acheteurs et de la note du marché.",
+    "complaintNotes": {
+      "oneOff": "Aucune plainte ne se répète d'un acheteur à l'autre — ce sont des préoccupations isolées, affichées parce qu'elles comptent.",
+      "repeated": "Ces préoccupations sont revenues chez plusieurs acheteurs.",
+      "isolated": "Les acheteurs ont soulevé des préoccupations isolées{about} — chacune est pesée face aux éloges ci-dessus, où c'est indiqué.",
+      "none": "Aucune plainte d'acheteur dans les avis que nous avons lus."
+    },
+    "answer": {
+      "neutralBuy": "Les acheteurs sont plutôt positifs à propos de ce produit.",
+      "neutralSkip": "Les acheteurs signalent assez de problèmes pour le passer.",
+      "neutralWait": "Les retours des acheteurs sont mitigés ou encore limités.",
+      "whyBuyBase": "Les acheteurs signalent régulièrement {love}",
+      "whyBuyDefaultLove": "de bons résultats",
+      "whyBuyComplaintTail": ", et les plaintes comme {complaint} sont rares",
+      "whySkipBase": "Trop d'acheteurs signalent {complaint}",
+      "whySkipDefaultComplaint": "de sérieux problèmes",
+      "whySkipLoveTail": ", ce qui l'emporte sur {love}",
+      "whyWaitBase": "Les acheteurs aiment {love}",
+      "whyWaitDefaultLove": "certains aspects",
+      "whyWaitComplaintTail": ", mais les acheteurs mentionnent aussi {complaint}",
+      "whyWaitCloser": "Les avis ne sont pas encore assez solides pour un {buy} clair.",
+      "whyNotEnoughListing": "Confiance faible. Ajoutez une capture d'avis pour lire plus de vrais avis.",
+      "whyNotEnoughNoListing": "Confiance faible. Scannez le lien de l'annonce Amazon ou ajoutez une capture d'avis pour lire plus de vrais avis.",
+      "trustBasedOn": "D'après de vrais avis d'acheteurs de {sources}.",
+      "trustLow": "Confiance faible.",
+      "trustUnreadable": "{retry} Ajoutez une capture de la page produit et relancez l'analyse.",
+      "retryFree": "Relancer est gratuit.",
+      "retryLater": "Veuillez réessayer dans un instant.",
+      "unreadableAmazon": "Nous n'avons pas pu lire cette page Amazon pour le moment.",
+      "unreadableListing": "Nous n'avons pas pu lire cette page produit pour le moment.",
+      "neutralProduct": "Produit Amazon",
+      "evidenceStrength": {
+        "strong": "Fort",
+        "moderate": "Modéré",
+        "low": "Faible"
+      },
+      "steps": {
+        "retry": {
+          "label": "Réessayer",
+          "detail": "{unreadable} {retry}"
+        },
+        "screenshots": {
+          "label": "Ajouter une capture",
+          "detail": "Ajoutez une capture de la page produit pour que nous puissions lire le titre, les étoiles et les avis."
+        },
+        "amazonListing": {
+          "label": "Scanner l'annonce Amazon",
+          "detail": "Scannez le lien de l'annonce Amazon pour lire plus de vrais avis sur ce produit exact."
+        },
+        "reviewScreenshot": {
+          "label": "Ajouter une capture d'avis",
+          "detail": "Téléversez une capture des avis que vous voyez. Nous lisons le texte et ne gardons que les vrais avis sur ce produit exact."
+        },
+        "compare": {
+          "label": "Comparer avec une alternative",
+          "detail": "Scannez un produit similaire et comparez ce que disent les vrais acheteurs."
+        }
+      }
+    }
   }
 }
