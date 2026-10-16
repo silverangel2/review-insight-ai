@@ -49,6 +49,22 @@ export type NativeReviewRetrievalResult = {
   reviews: CollectedReview[];
   reviewsCollected: number;
   usableSnippetsExtracted: boolean;
+  /**
+   * Verified identity of the primary listing page the collector itself read:
+   * same stable product id (ASIN) and host as the requested listing, identity
+   * accepted, title parsed from that page's own HTML. Lets the result name
+   * the product it actually scanned instead of falling back to "Amazon product".
+   * Never invented, never from a search-result card.
+   */
+  primaryPageIdentity: {
+    title: string | null;
+    brand: string | null;
+    model: string | null;
+    rating: number | null;
+    reviewCount: number | null;
+    image: string | null;
+    url: string | null;
+  } | null;
   normalFetchAttempted: boolean;
   normalFetchFailed: boolean;
   playwrightAttempted: boolean;
@@ -723,6 +739,12 @@ export async function runNativeReviewRetrieval(
   const fetchedPageUrls: string[] = [];
   const attemptedPageUrls = new Set<string>();
   const verifiedRetailerPages = new Map<string, { title: string; brand: string | null }>();
+  // Primary-page identity for the result: captured once, from the first
+  // identity-accepted listing page with the same stable product id as the
+  // requested URL. A non-pagination (listing) page is preferred; a review
+  // pagination page serves only as fallback.
+  let primaryPageIdentity: NonNullable<NativeReviewRetrievalResult["primaryPageIdentity"]> | null = null;
+  let primaryPageIdentityFallback: NonNullable<NativeReviewRetrievalResult["primaryPageIdentity"]> | null = null;
   const failedFetchUrls: string[] = [];
   let rejectedCandidates = 0;
   let blockedProductPages = 0;
@@ -789,6 +811,22 @@ export async function runNativeReviewRetrieval(
     if (!blocked && fetchedIdentityAccepted) {
       if (retailerId && pageIdentity.title && !verifiedRetailerPages.has(retailerId)) verifiedRetailerPages.set(retailerId, { title: pageIdentity.title, brand: pageIdentity.brand || null });
       if (inheritedIdentity && !pageIdentity.title) { pageIdentity.title = inheritedIdentity.title; if (!pageIdentity.brand) pageIdentity.brand = inheritedIdentity.brand as typeof pageIdentity.brand; }
+      // Adopt this page's identity for the result when it is the very product
+      // asked for (same stable id + host, identity accepted, real title).
+      // Only the already-fetched HTML is read; nothing new is fetched.
+      if (sameStableListing && pageIdentity.title) {
+        const captured = {
+          title: pageIdentity.title,
+          brand: pageIdentity.brand || null,
+          model: pageIdentity.model || null,
+          rating: pageIdentity.rating,
+          reviewCount: pageIdentity.reviewCount,
+          image: pageIdentity.image || null,
+          url: page.finalUrl || link.url,
+        };
+        if (!isPagination && !primaryPageIdentity) primaryPageIdentity = captured;
+        else if (!primaryPageIdentityFallback) primaryPageIdentityFallback = captured;
+      }
       normalFetchSuccesses += 1;
       fetchedPageUrls.push(link.url);
       const before = dedupeReviews(reviews, maxSnippets).length;
@@ -1022,6 +1060,7 @@ export async function runNativeReviewRetrieval(
     stopReason,
     nativeScraperBlocked: stopReason === "access_restricted",
     layeredCollection: layeredScan,
+    primaryPageIdentity: primaryPageIdentity || primaryPageIdentityFallback,
   };
 }
 
