@@ -23,7 +23,7 @@ import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
-import { canonicalQuoteAttribution, cleanQuoteText, deriveShopperAnswer, evidenceStrengthLabel, isUnreadableAmazonPage, neutralProductLabel, normalizeQuoteKey, realReviewQuotes, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE, unreadableRetryPhrase } from "@/lib/shopperAnswer";
+import { canonicalQuoteAttribution, cleanQuoteText, deriveShopperAnswer, evidenceStrengthLabel, isUnreadableAmazonPage, neutralProductLabel, normalizeQuoteKey, realReviewQuotes, sanitizeVerdictWord, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE, unreadableRetryPhrase } from "@/lib/shopperAnswer";
 import { provisionalShopperFacing } from "@/lib/buyingScore"; import { deriveBestForNotIdeal } from "@/lib/bestForFit"; import { stripAggregateRestatement } from "@/lib/evidenceConsistency";
 import { isBuyingScoreV2Result, buyingScoreWrittenCount, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
 import { linkOnlyScanWasBlocked } from "@/lib/linkScanBlocked";
@@ -48,32 +48,19 @@ function envelopeAccountEmail(result: AnalyzeResponse | null) {
   return String(record?.accountEmail || "").trim();
 }
 
+
+
+
+
 function displayShopperVerdict(value: unknown) {
-  const verdict = String(value || "").trim().toUpperCase();
-
-  // Round 2 defect 1: the only shopper-facing verdict words anywhere on the
-  // results page are Buy / Review first / Avoid — the same words the brief uses
-  // (via shopperVerdictWord). No parallel verdict vocabulary.
-  if (verdict === "BUY" || verdict === "VERIFIED BUY" || verdict === "LEANING BUY") return "Buy";
-  if (verdict === "REVIEW FIRST" || verdict === "WAIT" || verdict === "LEANING WAIT" || verdict === "CONSIDER" || verdict === "MAYBE" || verdict === "DO NOT BUY YET") return "Review first";
-
-  if (verdict === "AVOID" || verdict === "SKIP" || verdict === "LEANING SKIP") return "Avoid";
-  if (
-    !verdict ||
-    verdict === "NOT_ENOUGH" ||
-    verdict === "NOT SCORED" ||
-    verdict === "NOT ENOUGH EVIDENCE" ||
-    verdict.includes("NOT ENOUGH") ||
-    verdict.includes("REVIEW EVIDENCE")
-  ) {
-    return "Low confidence";
-  }
-
-  return "Low confidence";
+  // Round 3: the only shopper-facing verdict words anywhere on the results
+  // page are Buy / Wait / Skip — delegated to the canonical render-boundary
+  // guard in lib/shopperAnswer so this parallel mapping can never drift
+  // back into legacy words ("Review first", "Avoid", "Low confidence").
+  return sanitizeVerdictWord(value);
 }
-
-
 type ProductLike = {
+
   title?: string;
   name?: string;
   brand?: string;
