@@ -295,6 +295,10 @@ export type AspectDef = {
 
 export type DimensionDepth = {
   title: string;
+  /** Band-aware titles: when a title would otherwise embed a quantity claim
+   * ("one buyer"), the title must agree with the factor's actual support
+   * band — title and body are always chosen from the same shelf. */
+  bandTitles?: Partial<Record<"dominant" | "repeated" | "single", string>>;
   /** Noun for the co-occurrence bridge, e.g. "comfort". */
   pairNoun?: string;
   /** {note} content when the same theme has opposing signals, e.g. "the fit feels less secure for some ears". */
@@ -620,6 +624,11 @@ export const DIMENSION_DEPTH: Record<string, DimensionDepth> = {
   },
   "__generic_concern": {
     title: "A concern raised by one buyer",
+    bandTitles: {
+      dominant: "The complaint buyers repeat most",
+      repeated: "A complaint several buyers raise",
+      single: "A concern raised by one buyer",
+    },
   },
 };
 
