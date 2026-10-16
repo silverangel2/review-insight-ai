@@ -210,6 +210,8 @@ export type ExactProductSearchResult = {
   confidence: "none" | "low" | "medium" | "high";
   sourcesChecked: string[];
   sourceLinks?: Array<{ label: string; url: string; domain?: string }>;
+  /** Main product image read from the listing page itself (og:image). Real image only; null otherwise. */
+  imageUrl?: string | null;
   notes: string[];
 };
 
