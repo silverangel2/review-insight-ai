@@ -47,6 +47,15 @@ export interface WordsmithSignalInput {
    * sentence never says the same thing twice.
    */
   existingPhrases?: string[];
+  /**
+   * Product title from the listing (e.g. "Instant Pot Duo 7-in-1 Electric
+   * Pressure Cooker, ..."). Mined specifics that consist solely of title
+   * tokens are dropped ("instant pot" on an Instant Pot page is category
+   * echo, not buyer vocabulary). Enrichment is skipped entirely when the
+   * title is unavailable — enriching blindly is how category filler ends up
+   * on the page.
+   */
+  productTitle?: string;
 }
 
 export interface WordsmithEnrichment {
@@ -63,19 +72,26 @@ export interface WordsmithEnrichment {
 // mined buyer vocabulary; {report} only with a mined red-detail phrase.
 // ---------------------------------------------------------------------------
 
+// Hotfix 2026-10-16 (voice): the frames are SPECIFICS-FIRST. The mined
+// buyer vocabulary leads the sentence; the attribution is a short tail.
+// "The specifics buyers cite: multipoint connection and windy street
+// calls" became "multipoint connection and windy street calls — that's
+// what buyers keep naming." Junel's bar is the Takki register: every line
+// a concrete paraphrase carrying a fact (uses, weights, hours,
+// accessories), zero filler frames. The miner never invents — it prints
+// only phrases the corpus actually repeated (hard limit).
 const BUYER_WORDS_FRAMES: string[] = [
-  "The details buyers keep naming: {words}.",
-  "Buyers get concrete about this — {words}.",
-  "In the reviews' own specifics: {words}.",
-  "Named specifically, again and again: {words}.",
-  "The specifics buyers cite: {words}.",
-  "Buyers name the particulars — {words}.",
+  "{words} — that's what buyers keep naming.",
+  "{words}, in the reviewers' own specifics.",
+  "{words}: the detail that keeps coming up.",
+  "What buyers name, again and again: {words}.",
+  "{words} — the recurring detail across reviews.",
 ];
 
 const BUYER_WORDS_SINGLE_FRAMES: string[] = [
-  "The one buyer who raised this named {words}.",
+  "{words} — that's what the one buyer named.",
   "Described in that review as {words}.",
-  "That buyer got specific — {words}.",
+  "That buyer got specific: {words}.",
 ];
 
 /** Red-detail clause: grammatically continues a redDetail sentence. */
@@ -392,16 +408,28 @@ function rankPhrases(texts: string[], side: WordsmithSide): RankedPhrase[] {
  * Mine repeated specific phrases from a theme's evidenced texts.
  * Up to MAX_WORDS_PER_LINE phrases. `excludeKey` drops theme-echo phrases
  * (the theme's own name is never a "specific") before the top-N cut.
+ * `titleTokens` (hotfix 2026-10-16) drops phrases that consist solely of
+ * the product's own title/category words before the top-N cut, so a weak
+ * top phrase never consumes a slot — a corpus with no real specifics
+ * honestly yields nothing instead of category filler.
  */
-export function mineBuyerWords(texts: string[], side: WordsmithSide, excludeKey?: string): string[] {
+export function mineBuyerWords(
+  texts: string[],
+  side: WordsmithSide,
+  excludeKey?: string,
+  titleTokens?: Set<string>
+): string[] {
   const nkey = norm(excludeKey || "");
   const ranked = rankPhrases(texts, side);
-  const filtered = nkey
-    ? ranked.filter((r) => {
-        const nw = norm(r.phrase);
-        return nw && nw !== nkey && !nkey.includes(nw);
-      })
-    : ranked;
+  let filtered =
+    nkey && ranked.length
+      ? ranked.filter((r) => {
+          const nw = norm(r.phrase);
+          return nw && nw !== nkey && !nkey.includes(nw);
+        })
+      : ranked;
+  if (titleTokens && titleTokens.size && filtered.length)
+    filtered = filtered.filter((r) => !titleOnlyPhrase(r.phrase, titleTokens));
   return filtered.slice(0, MAX_WORDS_PER_LINE).map((r) => r.phrase);
 }
 
@@ -412,13 +440,21 @@ export function mineBuyerWords(texts: string[], side: WordsmithSide, excludeKey?
  * so the detail names the thing, not the action ("serial number sticker",
  * not "serial number sticker looked"). One phrase, or null.
  */
-export function mineRedDetail(texts: string[]): string | null {
+export function mineRedDetail(texts: string[], titleTokens?: Set<string>): string | null {
   const ranked = rankPhrases(texts, "against");
   if (!ranked.length) return null;
   const severe = ranked.filter((r) =>
     r.phrase.split(" ").some((t) => SEVERITY_WORD.test(t.replace(/'/g, "")) || NEGATOR_WORD.test(t))
   );
-  const pool = (severe.length ? severe : ranked).slice(0, 6);
+  // Hotfix 2026-10-16: same title-token rule as the buyer-words line — the
+  // evidence clause must never name the product's own category as the report.
+  // A title-emptied pool honestly yields null; it never falls back to
+  // unfiltered category echo.
+  const base = severe.length ? severe : ranked;
+  const pool =
+    titleTokens && titleTokens.size
+      ? base.filter((r) => !titleOnlyPhrase(r.phrase, titleTokens)).slice(0, 6)
+      : base.slice(0, 6);
   for (const r of pool) {
     const toks = r.phrase.split(" ");
     // Trim trailing past-tense verbs ("looked", "photocopied").
@@ -442,19 +478,63 @@ function joinList(items: string[]): string {
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
+/**
+ * Title tokens: lowercase alphanumeric words of the product title, of
+ * length >= 3, minus stopwords and pure numbers. Used to keep category
+ * echo out of the mined "specifics" — a hotfix (2026-10-16) after the
+ * live Instant Pot page printed "instant pot and electric pressure cooker"
+ * as buyers' own vocabulary.
+ */
+export function titleTokensOf(title: string): Set<string> {
+  const set = new Set<string>();
+  for (const t of String(title || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((t) => t.replace(/'/g, ""))) {
+    if (t.length < 3 || STOP.has(t) || /^\d+$/.test(t)) continue;
+    set.add(t);
+  }
+  return set;
+}
+
+/**
+ * True when the phrase's content words are ALL title tokens — i.e. the
+ * phrase carries no buyer vocabulary beyond the product's own name/category.
+ * "instant pot" on an Instant Pot page is category echo; "quick pairing"
+ * on an earbuds page is a real specific and survives.
+ */
+function titleOnlyPhrase(phrase: string, titleTokens: Set<string>): boolean {
+  if (!titleTokens.size) return false;
+  const words = phrase
+    .toLowerCase()
+    .split(" ")
+    .map((t) => t.replace(/'/g, ""));
+  const content = words.filter((t) => t.length >= 3 && !STOP.has(t));
+  if (!content.length) return true;
+  return content.every((t) => titleTokens.has(t));
+}
+
 const norm = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 
 /**
  * The enrichment entry point. Additive + fail-soft by contract: callers wrap
  * this in try/catch and fall back to today's copy on any throw.
+ *
+ * Hotfix 2026-10-16: the product title is REQUIRED. Without it, the miner
+ * cannot tell buyer vocabulary from category echo ("instant pot" on an
+ * Instant Pot page) — so it enriches nothing rather than dressing up
+ * filler. Weak corpora honestly return specificLine: null and the caller
+ * prints the plain basis sentence.
  */
 export function wordsmithEnrich(input: WordsmithSignalInput, used: Set<string>): WordsmithEnrichment {
   const empty: WordsmithEnrichment = { specificLine: null, redClause: null, buyerWords: [] };
   const texts = (input.texts || []).map((t) => String(t || "").trim()).filter((t) => t.length >= 8);
   if (!texts.length) return empty;
+  const titleTokens = titleTokensOf(input.productTitle || "");
+  if (!titleTokens.size) return empty;
 
-  let buyerWords = mineBuyerWords(texts, input.side, input.key);
+  let buyerWords = mineBuyerWords(texts, input.side, input.key, titleTokens);
   const existing = (input.existingPhrases || []).map(norm).filter(Boolean);
   if (existing.length && buyerWords.length) {
     buyerWords = buyerWords.filter((w) => {
@@ -473,7 +553,7 @@ export function wordsmithEnrich(input: WordsmithSignalInput, used: Set<string>):
   const specificLine = template.replace("{words}", joinList(buyerWords));
 
   let redClause: string | null = null;
-  const detail = mineRedDetail(texts);
+  const detail = mineRedDetail(texts, titleTokens);
   if (detail) {
     const clause = pickFrame(RED_CLAUSE_FRAMES, `${input.tallySig}|wordsmith|red|${input.key}`, used);
     redClause = clause.replace("{report}", detail);
