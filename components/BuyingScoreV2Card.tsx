@@ -1,7 +1,7 @@
 import type React from "react";
 import Link from "next/link";
 import { provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
-import { cleanQuoteText } from "@/lib/shopperAnswer";
+import { cleanQuoteText, sanitizeVerdictWord } from "@/lib/shopperAnswer";
 import { sameDisplayedQuote } from "@/lib/evidenceConsistency";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
@@ -51,9 +51,14 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
   const isProvisional = score.mode === "provisional_marketplace";
   const isNoScore = score.mode === "no_score";
   const facing = isProvisional ? provisionalShopperFacing(score, store) : null;
+  // Round 3: render-boundary guard — the stored card verdict is
+  // canonicalized so only Buy / Wait / Skip can ever display, no matter
+  // which pipeline wrote the record.
   const verdictText = facing
-    ? (facing.firmBuy ? "Buy" : `Leaning ${facing.leaning}`)
-    : isProvisional && score.leaning ? `Leaning ${score.leaning}` : score.verdict || "";
+    ? (facing.firmBuy ? "Buy" : sanitizeVerdictWord(`Leaning ${facing.leaning}`))
+    : isProvisional && score.leaning
+      ? sanitizeVerdictWord(`Leaning ${score.leaning}`)
+      : sanitizeVerdictWord(score.verdict || "");
   const toneKey = facing?.verdict || facing?.leaning || score.verdict || score.leaning || "Wait";
   const quotes = score.quotes;
   // Display-layer quote hygiene (defect batches 1+2): clean markdown artifacts,

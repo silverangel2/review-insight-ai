@@ -20,7 +20,7 @@ import { loadLibraryCorpus } from "@/lib/productReviewLibrary";
 type LibraryScoredReview = WrittenReview & { verified: boolean; provenance?: unknown };
 
 export type RescueRescoreResult = {
-  verdict: "BUY" | "REVIEW FIRST" | "AVOID";
+  verdict: "BUY" | "WAIT" | "SKIP";
   buyingScore: number | null;
   confidence: "High" | "Medium" | "Low";
   quotes: string[];

@@ -1,5 +1,5 @@
 import { provisionalShopperFacing } from "@/lib/buyingScore";
-import { quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
+import { isQuoteEchoOfClaim, quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
 import { claimRules, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
@@ -427,24 +427,8 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   // Claims themselves are never dropped here: the red-flag rule forbids hiding
   // negatives, and the engine's normalized labels (e.g. a French review mined
   // as "suspected counterfeit") are authoritative for what the corpus says.
-  const STOP_WORDS = new Set(
-    "a,an,the,and,or,of,to,in,on,for,with,is,it,this,that,these,those,are,was,were,be,been,as,at,by,from,very,really,just,quite,so,too,not,no,do,does,did,will,would,can,could,should,has,have,had,but,its,their,them,they,we,you,your,our".split(",")
-  );
-  const significantTerms = (text: string): string[] =>
-    String(text)
-      .replace(/\s*\([^)]*\)\s*/g, " ")
-      .toLowerCase()
-      .split(/[^a-z0-9\u00c0-\u024f\u4e00-\u9fff]+/)
-      .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
-  const isEchoOfClaim = (clauseText: string, claimText: string): boolean => {
-    const claimSet = new Set(significantTerms(claimText));
-    const clauseWords = String(clauseText)
-      .toLowerCase()
-      .split(/[^a-z0-9\u00c0-\u024f\u4e00-\u9fff]+/)
-      .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
-    if (!clauseWords.length) return true;
-    return clauseWords.every((w) => claimSet.has(w));
-  };
+  // Note: echo detection uses the canonical isQuoteEchoOfClaim from
+  // lib/evidenceConsistency (single source of truth).
 
   // Page-level single assignment: a quote shown under one theme is never
   // repeated under another (defect batch 2, rule 1).
@@ -489,7 +473,7 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
         const candidate = clause ? shortQuote(clause) : shortQuote(body);
         // Round 2 defect 4a: a clause that merely echoes the theme heading is
         // not evidence — try the next record's text instead.
-        if (isEchoOfClaim(candidate, claim.claim)) continue;
+        if (isQuoteEchoOfClaim(candidate, claim.claim)) continue;
         if (claimUsedKey(candidate)) continue;
         quote = candidate;
         usedQuoteKeys.add(quoteIdentityKey(quote));
@@ -510,10 +494,12 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   const loves = provisional ? [] : (claimedLoves.length || claimedComplaints.length ? claimedLoves : quoteOnlyPoints(records, attribution));
   const complaints = provisional ? [] : claimedComplaints;
 
+  // Round 3: canonical producer vocabulary is BUY / WAIT / SKIP
+  // ("AVOID" still accepted for legacy stored records).
   let kind: ShopperAnswerKind = provisional
     ? (facing!.firmBuy || facing!.leaning === "Buy" ? "buy" : facing!.leaning === "Skip" ? "skip" : "wait")
-    : thin ? "not_enough" : verdict === "BUY" ? "buy" : verdict === "AVOID" ? "skip" : "wait";
-  if (!provisional && !thin && !["BUY", "AVOID", "DO NOT BUY YET"].includes(verdict)) kind = "wait";
+    : thin ? "not_enough" : verdict === "BUY" ? "buy" : verdict === "SKIP" || verdict === "AVOID" ? "skip" : "wait";
+  if (!provisional && !thin && !["BUY", "SKIP", "AVOID", "DO NOT BUY YET"].includes(verdict)) kind = "wait";
   if (!provisional && card && !thin) {
     const cardVerdict = String(card.verdict || "").toLowerCase();
     kind = cardVerdict === "buy" ? "buy" : cardVerdict === "skip" ? "skip" : "wait";
@@ -521,7 +507,10 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
   if (!provisional && card && thin) kind = "not_enough";
   const label = provisional
     ? (facing!.firmBuy ? "Buy" : facing!.leaning === "Buy" ? "Leaning Buy" : facing!.leaning === "Skip" ? "Skip" : "Wait")
-    : { buy: "Buy", wait: "Review first", skip: "Avoid", not_enough: "Low confidence" }[kind];
+    // Round 3 (owner rule): the only shopper-facing verdict words are
+    // Buy / Wait / Skip. "Review first", "Avoid", "Low confidence" and
+    // every other legacy label are retired from the verdict slot.
+    : { buy: "Buy", wait: "Wait", skip: "Skip", not_enough: "Low confidence" }[kind];
 
   const topLove = claimedLoves[0]?.claim;
   const topComplaint = claimedComplaints[0]?.claim;
@@ -617,16 +606,28 @@ export function deriveShopperAnswer(input: unknown): ShopperAnswer {
 }
 
 /**
- * The single shopper-facing verdict word for a result: Buy / Review first / Avoid.
+ * The single shopper-facing verdict word for a result: Buy / Wait / Skip.
  * Round 2 defect 1: ONE derivation (deriveShopperAnswer kind) feeds the brief
  * headline, the results-page headline, the cards, and the compare view — no
- * parallel verdict sources. Returns null when there is no verdict to show
- * (insufficient evidence / unreadable), so surfaces can render their empty state.
+ * parallel verdict sources. Round 3: the owner retired every other verdict
+ * word, so "Review first" -> "Wait" and "Avoid" -> "Skip" here at the source.
+ * Returns null when there is no verdict to show (insufficient evidence /
+ * unreadable), so surfaces can render their empty state.
  */
-export function shopperVerdictWord(input: unknown): "Buy" | "Review first" | "Avoid" | null {
+export function shopperVerdictWord(input: unknown): "Buy" | "Wait" | "Skip" | null {
   const kind = deriveShopperAnswer(input).kind;
   if (kind === "buy") return "Buy";
-  if (kind === "skip") return "Avoid";
-  if (kind === "wait") return "Review first";
+  if (kind === "skip") return "Skip";
+  if (kind === "wait") return "Wait";
   return null;
 }
+
+/**
+ * Render-boundary guard for the verdict word. Whatever value is stored or
+ * generated — legacy labels ("Review first", "VERIFIED BUY", "Avoid"),
+ * engine strings, null, empty — the result page can only ever display
+ * Buy / Wait / Skip. Canonical implementation lives in lib/shopperVerdictWord
+ * (single source of truth); re-exported here so existing import sites keep
+ * working.
+ */
+export { sanitizeVerdictWord } from "./shopperVerdictWord";

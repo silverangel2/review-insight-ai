@@ -1,6 +1,7 @@
 import { briefImageUrl, deriveReviewAnalysis } from "@/lib/reviewAnalysis";
 import {
   deriveShopperAnswer,
+  sanitizeVerdictWord,
   shopperVerdictWord,
 } from "@/lib/shopperAnswer";
 import {
@@ -64,15 +65,16 @@ export function DecisionBrief({
   const revealKey =
     [record.scanId, record.id, productName].map((v) => String(v || "").trim()).find(Boolean) || null;
 
-  // Round 2 defect 1: the headline verdict word comes from the same single
-  // derivation (shopperVerdictWord) as the cards and the page headline.
-  const verdictWord = shopperVerdictWord(result) ?? "Review first";
+  // Round 3: render-boundary guard — the verdict word can only ever be
+  // Buy / Wait / Skip, no matter what is stored or generated. The old
+  // "Review first" fallback and the "Avoid" branch are retired.
+  const verdictWord = sanitizeVerdictWord(shopperVerdictWord(result));
   const verdict =
-    verdictWord === "Avoid"
+    verdictWord === "Skip"
       ? { word: verdictWord, tone: "text-red-700 dark:text-red-300" }
       : verdictWord === "Buy"
         ? { word: verdictWord, tone: "text-emerald-700 dark:text-emerald-300" }
-        : { word: "Review first", tone: "text-amber-600 dark:text-amber-300" };
+        : { word: "Wait", tone: "text-amber-600 dark:text-amber-300" };
 
   const ratingFact = facts.find((f) => f.term === "Marketplace rating");
   const filledStars =
