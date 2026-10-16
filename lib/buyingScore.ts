@@ -848,7 +848,7 @@ export function wordingWhenListingAlreadySupplied<T extends { mode: string; audi
 /** Shopper sentence for a v2 decision. A firm Buy never carries a "couldn't verify" line. */
 export function shopperBottomLineForBuyingScore(
   card: ReturnType<typeof buyingScoreFromReviews>,
-  verdict: "BUY" | "REVIEW FIRST" | "AVOID",
+  verdict: "BUY" | "WAIT" | "SKIP",
   store?: string | null,
 ): string {
   const evidence = String(card.evidenceLine || "").trim();
@@ -869,14 +869,17 @@ export function shopperBottomLineForBuyingScore(
     return "Add the exact product link or a screenshot of the product page to score this.";
   }
   if (verdict === "BUY") return `Buying Score supports buying this.${tail}`;
-  if (verdict === "AVOID") return `Buying Score supports skipping this.${tail}`;
+  if (verdict === "SKIP") return `Buying Score supports skipping this.${tail}`;
   return `Review this before buying.${tail}`;
 }
 
 export function customerFacingDecision(input: {
   analyzedReviews: number;
   buyingScore: ReturnType<typeof buyingScoreFromReviews>;
-}): { verdict: "BUY" | "REVIEW FIRST" | "AVOID"; buyScore: number | null; finalDecisionSource: "buyingScoreV2"; buyingScore: ReturnType<typeof buyingScoreFromReviews> } {
+  // Round 3: canonical producer vocabulary BUY / WAIT / SKIP (owner rule).
+  // The scorer's Verdict type and thresholds are untouched; only the
+  // customer-facing label is normalized here.
+}): { verdict: "BUY" | "WAIT" | "SKIP"; buyScore: number | null; finalDecisionSource: "buyingScoreV2"; buyingScore: ReturnType<typeof buyingScoreFromReviews> } {
   const analyzed = Math.max(0, Math.floor(input.analyzedReviews || 0));
   // A card built from written reviews must not stay in force when none of those reviews are the customer-facing evidence.
   const card = analyzed > 0 || input.buyingScore.audit.n === 0
@@ -891,10 +894,10 @@ export function customerFacingDecision(input: {
     return { verdict: "BUY", buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
   }
   if (!firm) {
-    return { verdict: "REVIEW FIRST", buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
+    return { verdict: "WAIT", buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
   }
   // Leaning is not a firm Buy or Skip. Only the v2 verdict word is.
-  const verdict = card.verdict === "Buy" ? "BUY" : card.verdict === "Skip" ? "AVOID" : "REVIEW FIRST";
+  const verdict = card.verdict === "Buy" ? "BUY" : card.verdict === "Skip" ? "SKIP" : "WAIT";
   return { verdict, buyScore: card.score, finalDecisionSource: "buyingScoreV2", buyingScore: card };
 }
 
