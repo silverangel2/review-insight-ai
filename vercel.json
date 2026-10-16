@@ -1,1 +1,28 @@
-{"crons":[{"path":"/api/cron/social-autopost","schedule":"0 13 * * *"},{"path":"/api/cron/health-snapshot","schedule":"30 11 * * *"},{"path":"/api/cron/review-ask-email","schedule":"0 12 * * *"},{"path":"/api/cron/ri-ops-worker","schedule":"*/15 * * * *"},{"path":"/api/cron/ri-watchlist-alerts","schedule":"0 14 * * *"}]}
+{
+  "crons": [
+    {
+      "path": "/api/cron/social-autopost",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/health-snapshot",
+      "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/cron/review-ask-email",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/ri-ops-worker",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/ri-watchlist-alerts",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/ri-keeper",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}
