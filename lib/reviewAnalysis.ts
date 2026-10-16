@@ -6,6 +6,7 @@ import {
 } from "@/lib/shopperAnswer";
 import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim } from "@/lib/evidenceConsistency";
+import { wordsmithEnrich } from "@/lib/wordsmith";
 import {
   AGAINST_CAVEATS,
   AGAINST_LEAD_OTHER,
@@ -424,7 +425,23 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
     const frames = single ? RED_FLAG_FRAMES : RED_FLAG_PLURAL_FRAMES;
     const detail = single ? depth.redDetail.single : depth.redDetail.plural;
     const template = pickFrame(frames, `${ctx.tallySig}|redflag|${s.key}|${s.count}`, ctx.used);
-    return { title, summary: renderFrame(template, { detail }), basis, band, severity };
+    const core = renderFrame(template, { detail }).replace(/\.\s*$/, "");
+    // Wordsmith (bot round 2): mine the buyers' own vocabulary for the
+    // red-flag evidence clause. Additive + fail-soft — today's sentence is
+    // the fallback when mining earns nothing or throws.
+    let extra = "";
+    if (!ctx.thin) {
+      try {
+        const wm = wordsmithEnrich(
+          { key: s.key, side: s.side, texts: s.texts, tallySig: ctx.tallySig, band },
+          ctx.used
+        );
+        if (wm.redClause) extra = wm.redClause;
+      } catch {
+        extra = "";
+      }
+    }
+    return { title, summary: extra ? `${core}${extra}` : `${core}.`, basis, band, severity };
   }
 
   // One-off family: a single honest sentence.
@@ -439,7 +456,22 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
       // describes {theme}" and "One buyer's experience included {theme}").
       return { title, summary: `${basis}.`, basis, band, severity };
     }
-    return { title, summary: `${renderFrame(template, { theme: fill })}.`, basis, band, severity };
+    // Wordsmith (bot round 2): the single buyer's own vocabulary, when it
+    // earned a phrase. Additive + fail-soft — the echo-guard fallback above
+    // keeps its bare basis label untouched.
+    let line = "";
+    if (!ctx.thin) {
+      try {
+        const wm = wordsmithEnrich(
+          { key: s.key, side: s.side, texts: s.texts, tallySig: ctx.tallySig, band },
+          ctx.used
+        );
+        if (wm.specificLine) line = ` ${wm.specificLine}`;
+      } catch {
+        line = "";
+      }
+    }
+    return { title, summary: `${renderFrame(template, { theme: fill })}.${line}`, basis, band, severity };
   }
 
   // Lead: collective judgment + how buyers land on it.
@@ -459,11 +491,15 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
 
   // Specifics: only mined sub-aspects, woven in. Thin corpora skip this.
   let specifics = "";
+  let curatedPhrases: string[] = [];
   if (!ctx.thin && s.aspectHitIds.length > 0) {
     const phrases = s.aspectHitIds
       .map((id) => aspectPhrase(s.key, id, s.side, ctx.tallySig))
       .filter((p): p is string => Boolean(p));
-    if (phrases.length > 0) specifics = `they ${joinList(phrases)}`;
+    if (phrases.length > 0) {
+      specifics = `they ${joinList(phrases)}`;
+      curatedPhrases = phrases;
+    }
   }
   let pairClause = "";
   if (!ctx.thin && s.side === "for" && s.rank === 0 && ctx.coPairForKey === s.key && ctx.coPairNoun && depth?.pairNoun) {
@@ -519,7 +555,36 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
       ? pickFrame(CLOSERS, `${ctx.tallySig}|closer|${s.side}|${s.key}`, ctx.used)
       : "";
 
-  const summary = closer ? `${sentence1} ${sentence2} ${closer}` : `${sentence1} ${sentence2}`;
+  // Wordsmith (bot round 2): the buyers' own vocabulary for this theme, woven
+  // in as a second specifics sentence. Additive + fail-soft: any throw keeps
+  // today's composition. Thin corpora keep honest tally-only forms.
+  let wordsmithLine = "";
+  if (!ctx.thin) {
+    try {
+      const wm = wordsmithEnrich(
+        {
+          key: s.key,
+          side: s.side,
+          texts: s.texts,
+          tallySig: ctx.tallySig,
+          band,
+          existingPhrases: curatedPhrases,
+        },
+        ctx.used
+      );
+      if (wm.specificLine) wordsmithLine = wm.specificLine;
+    } catch {
+      wordsmithLine = "";
+    }
+  }
+
+  const summary = closer
+    ? wordsmithLine
+      ? `${sentence1} ${wordsmithLine} ${sentence2} ${closer}`
+      : `${sentence1} ${sentence2} ${closer}`
+    : wordsmithLine
+      ? `${sentence1} ${wordsmithLine} ${sentence2}`
+      : `${sentence1} ${sentence2}`;
   return { title, summary, basis, band, severity };
 }
 
