@@ -134,6 +134,8 @@ export type ReviewEvidenceResult = {
     extractor?: string;
     reviewsCollected: number;
     collectorHasWrittenReviews?: boolean;
+    /** Machine-readable fetch outcome — "ok" | "blocked" | "empty" | "error" | "unattempted". */
+    fetchStatus?: import("./reviewCollector").ReviewFetchStatus;
     collectorSourceAccepted?: boolean;
     collectorSourceRejectedReason?: string | null;
     coverageNote: string;
@@ -399,6 +401,7 @@ function emptyEvidence(reason = "No review evidence collected."): ReviewEvidence
       extractor: "none",
       reviewsCollected: 0,
       collectorHasWrittenReviews: false,
+      fetchStatus: "unattempted",
       coverageNote: reason,
     },
     reviewsCollected: 0,
@@ -1498,6 +1501,9 @@ function collectorFromNative(result: NativeReviewRetrievalResult, listingUrl: st
     reviews: result.reviews,
     reviewsCollected: result.reviewsCollected,
     collectorHasWrittenReviews: result.reviewsCollected > 0,
+    // Native retrieval carries no machine-readable fetch status; derive it
+    // from the collected count. The coverageNote keeps the detail.
+    fetchStatus: result.reviewsCollected > 0 ? "ok" : "empty",
     coverageNote: result.coverageNote,
     fallbackUrlsTried: result.sourcesChecked,
   };
@@ -2446,6 +2452,7 @@ export async function collectAndAnalyzeReviewEvidence(
         extractor: "none" as const,
         reviewsCollected: 0,
         collectorHasWrittenReviews: false,
+        fetchStatus: "unattempted" as const,
         reviews: [],
         coverageNote: collectorSourceRejectedReason || "No exact listing URL was available for written review collection.",
         fallbackUrlsTried: [],
@@ -3064,6 +3071,7 @@ export async function collectAndAnalyzeReviewEvidence(
         extractor: collectedWrittenReviews.extractor,
         reviewsCollected: commentsAnalyzed,
         collectorHasWrittenReviews: commentsAnalyzed > 0,
+        fetchStatus: collectedWrittenReviews.fetchStatus,
         collectorSourceAccepted,
         collectorSourceRejectedReason,
         coverageNote: collectedWrittenReviews.coverageNote,
@@ -3806,6 +3814,7 @@ Scoring rules:
         extractor: collectedWrittenReviews.extractor,
         reviewsCollected: Math.max(collectorReviewsCollected, reviewSnippets.length),
         collectorHasWrittenReviews,
+        fetchStatus: collectedWrittenReviews.fetchStatus,
         collectorSourceAccepted,
         collectorSourceRejectedReason,
         coverageNote: collectedWrittenReviews.coverageNote,
@@ -3948,6 +3957,7 @@ Scoring rules:
         extractor: finalEvidence.reviewCollector?.extractor,
         reviewsCollected: preservedCollectedReviewCount,
         collectorHasWrittenReviews: true,
+        fetchStatus: finalEvidence.reviewCollector?.fetchStatus ?? "ok",
         collectorSourceAccepted:
           finalEvidence.reviewCollector?.collectorSourceAccepted ??
           preservedCollectedReviewCount > 0,
