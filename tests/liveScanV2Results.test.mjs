@@ -444,7 +444,7 @@ test("a missing release function does not throw or log", async () => {
   }
 });
 
-test("a strong rating with no written reviews renders BUY, Medium, and one rating sentence", () => {
+test("a strong rating with no written reviews renders Buy, Medium, and one rating sentence", () => {
   const ts = require("typescript");
   const { readFileSync } = require("node:fs");
   const { resolve } = require("node:path");
@@ -489,7 +489,7 @@ test("a strong rating with no written reviews renders BUY, Medium, and one ratin
   };
   const html = renderToStaticMarkup(React.createElement(ShopperProductDetail, { result, preview: "" }));
   assert.match(html, /Based on 46,944 Amazon ratings averaging 4\.6★/);
-  assert.match(html, />BUY</);
+  assert.match(html, />Buy</);
   assert.match(html, /Medium/);
   assert.doesNotMatch(html, /mixed signals|No clear strengths|No repeated praise|could not access enough|Low confidence|LEANING BUY/i);
   const answerHtml = renderToStaticMarkup(React.createElement(ShopperAnswerCard, { result, productName: "AirPods Pro 2" }));

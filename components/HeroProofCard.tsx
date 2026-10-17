@@ -1,41 +1,38 @@
 /**
  * HeroProofCard — the homepage's proof card: a REAL result, rendered from the
  * verified live numbers (AirPods 4 guest scan: Buy, 87/100, 4.4/5 from 2,345
- * ratings) and the Junel-approved decision-brief factor language.
+ * ratings) and the findings-engine factor language (regenerated 2026-10-17
+ * from the AirPods corpus in findings-bullet format).
  * Static-but-real: no fetching, no invented stats, no placeholders.
  */
 const FOR = [
   {
-    title: "Comfortable, lightweight fit",
-    summary:
-      "Buyers return to this more than any other point: they stay light and comfortable through everyday wear. It's the strongest pattern in the reviews, with only isolated notes that the fit feels less secure for some ears.",
-    basis: "Pattern across most reviews",
+    title: "Clear sound quality",
+    summary: "Buyers praise it — mentioned in 19 of 62 reviews.",
+    basis: "19 of 62 reviews",
   },
   {
-    title: "Clear sound, instant pairing",
-    summary:
-      "Buyer after buyer mentions this as well: the sound comes through clear, and iPhone owners say they connect almost immediately, every time. It's one of the strongest patterns in the reviews.",
-    basis: "Pattern across most reviews",
+    title: "Strong battery life",
+    summary: "Buyers praise it — up to 30 hours, mentioned in 8 of 62 reviews.",
+    basis: "8 of 62 reviews",
   },
   {
-    title: "Worth the price",
-    summary:
-      "This comes through as well: buyers feel the quality matches the cost. It's mentioned by buyer after buyer.",
-    basis: "Repeated across reviews",
+    title: "Pairing and connectivity",
+    summary: "Buyers praise it — mentioned in 8 of 62 reviews.",
+    basis: "8 of 62 reviews",
   },
 ];
 
 const AGAINST = [
   {
-    title: "Fit isn't secure for everyone",
-    summary: "One buyer flagged the fit as not secure enough in the ear — fit varies by ear shape.",
-    basis: "One buyer reported this",
+    title: "Fit problems",
+    summary: "Buyers flag it — mentioned in 6 of 62 reviews.",
+    basis: "6 of 62 reviews",
   },
   {
-    title: "Watch the seller, not just the product",
-    summary:
-      "There is one red flag: one buyer believed the unit received wasn't genuine. The product reviews are strong — but buy from a seller you trust.",
-    basis: "One buyer reported this",
+    title: "Fit isn't secure for everyone",
+    summary: "Buyers flag it — mentioned in 2 of 62 reviews.",
+    basis: "2 of 62 reviews",
   },
 ];
 

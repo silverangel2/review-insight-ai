@@ -6,27 +6,28 @@ import {
 } from "@/lib/shopperAnswer";
 import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim } from "@/lib/evidenceConsistency";
+import { themeFinding } from "@/lib/themeFindings";
+import { severityRank } from "@/lib/themeSpecifics";
 import {
-  AGAINST_CAVEATS,
-  AGAINST_LEAD_OTHER,
-  AGAINST_LEAD_TOP,
-  CAVEATS,
-  CLOSERS,
-  CO_PAIR_BRIDGES,
+  BUY_THRESHOLD,
+  WAIT_THRESHOLD,
+} from "@/lib/buyingScore";
+import {
+  applyVerdictSlots,
+  buildWaitLine,
+  compositionVerdict,
+  dedupeTitleCollision,
+  type SlotTheme,
+  type VerdictKind,
+} from "@/lib/verdictComposition";
+import {
   DIMENSION_ALIASES,
   DIMENSION_DEPTH,
-  FOR_LEAD_REST,
-  FOR_LEAD_SECOND,
-  FOR_LEAD_STRONGEST,
   ONE_OFF_LEADS,
   RED_FLAG_FRAMES,
   RED_FLAG_PLURAL_FRAMES,
-  STRENGTH_DOMINANT,
-  STRENGTH_DOMINANT_FIRST,
-  STRENGTH_FEW,
-  STRENGTH_HALF,
-  STRENGTH_REPEATED,
-  VALUE_LEADS,
+  STANDALONE_CAVEATS_AGAINST,
+  STANDALONE_CAVEATS_FOR,
   depthFor,
   hashSignature,
   pickFrame,
@@ -89,6 +90,12 @@ export type ReviewAnalysis = {
    * no against-factor won a side. Named so the page still says them.
    */
   suppressedThemes: string[];
+  /**
+   * Iteration 4: the wait line (WAIT verdicts only, null otherwise). One
+   * short plain-language block: WHY wait + WHAT the wait is for, derived
+   * only from real signals in the scan. Never a prediction, never generic.
+   */
+  waitLine: string | null;
 };
 
 type Rec = Record<string, unknown>;
@@ -133,12 +140,6 @@ function sentenceCaseTheme(theme: string): string {
 function lowerTheme(theme: string): string {
   const t = theme.trim();
   return t ? t.charAt(0).toLowerCase() + t.slice(1) : t;
-}
-
-function joinList(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
 /**
@@ -332,6 +333,10 @@ type ThemeSignal = {
   side: "for" | "against";
   rank: number;
   texts: string[];
+  /** Iteration 3: per-review star ratings aligned with `texts`, or null
+   *  when the seam didn't provide them. Optional — the engine skips star
+   *  context silently when absent. */
+  stars: (number | null)[];
   recordKeys: string[];
   severityRed: boolean;
   fixedSummary: string | null;
@@ -402,6 +407,9 @@ type ComposeCtx = {
   used: Set<string>;
   coPairNoun: string | null;
   coPairForKey: string | null;
+  /** Listing title: the findings engine excludes clauses carrying the
+   *  product's own brand/model words (they are not buyer findings). */
+  productTitle: string;
 };
 
 function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
@@ -410,10 +418,20 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
   const depth = depthFor(s.key);
   const title = depth?.bandTitles?.[band] ?? depth?.title ?? sentenceCaseTheme(s.claim);
   const severity = s.severityRed ? ("red" as const) : undefined;
+  // Iteration 4: wart fix — when a bullet opens with the theme title's own
+  // word(s) ("Leak-proof — leak-proof — toss it in a bag"), the title
+  // already carries it; strip the duplicate from the bullet.
+  const done = (summary: string): AnalysisFactor => ({
+    title,
+    summary: dedupeTitleCollision(summary, title),
+    basis,
+    band,
+    severity,
+  });
 
   // Phase-5 warnings: authoritative deterministic analysis language, verbatim.
   if (s.fixedSummary) {
-    return { title, summary: s.fixedSummary, basis, band, severity };
+    return done(s.fixedSummary);
   }
 
   const lower = lowerTheme(s.claim);
@@ -428,7 +446,7 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
     // Hotfix 2 2026-10-16: the wordsmith enrichment is switched OFF at the
     // compose seam — the miner produced ungrammatical n-gram fragments live.
     // The red-flag sentence is the sentence-library core, unchanged.
-    return { title, summary: `${core}.`, basis, band, severity };
+    return done(`${core}.`);
   }
 
   // One-off family: a single honest sentence.
@@ -441,106 +459,56 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
       // label. This covers both the FOR-side and AGAINST-side one-off frames
       // (they share the ONE_OFF_LEADS family, incl. "A single report
       // describes {theme}" and "One buyer's experience included {theme}").
-      return { title, summary: `${basis}.`, basis, band, severity };
+      return done(`${basis}.`);
     }
     // Hotfix 2 2026-10-16: the wordsmith enrichment is switched OFF at the
     // compose seam. The one-off sentence is the sentence-library frame,
     // unchanged.
-    return { title, summary: `${renderFrame(template, { theme: fill })}.`, basis, band, severity };
+    return done(`${renderFrame(template, { theme: fill })}.`);
   }
 
-  // Lead: collective judgment + how buyers land on it.
-  const leadFamily =
-    depth?.leadFamily === "value"
-      ? VALUE_LEADS
-      : s.side === "for"
-        ? s.rank === 0
-          ? FOR_LEAD_STRONGEST
-          : s.rank === 1
-            ? FOR_LEAD_SECOND
-            : FOR_LEAD_REST
-        : s.rank === 0
-          ? AGAINST_LEAD_TOP
-          : AGAINST_LEAD_OTHER;
-  // Specifics: only mined sub-aspects, woven in. Thin corpora skip this.
-  let specifics = "";
-  if (!ctx.thin && s.aspectHitIds.length > 0) {
-    const phrases = s.aspectHitIds
-      .map((id) => aspectPhrase(s.key, id, s.side, ctx.tallySig))
-      .filter((p): p is string => Boolean(p));
-    if (phrases.length > 0) {
-      specifics = `they ${joinList(phrases)}`;
-    }
-  }
-  let pairClause = "";
-  if (!ctx.thin && s.side === "for" && s.rank === 0 && ctx.coPairForKey === s.key && ctx.coPairNoun && depth?.pairNoun) {
-    const template = pickFrame(CO_PAIR_BRIDGES, `${ctx.tallySig}|copair|${s.key}`, ctx.used);
-    pairClause = renderFrame(template, { a: depth.pairNoun, b: ctx.coPairNoun });
-  }
-
-  // Hotfix 2 2026-10-16: the wordsmith enrichment is switched OFF at the
-  // compose seam — the miner produced ungrammatical n-gram fragments live
-  // (scan_41a15295: "anyone looking and build quality — that's what buyers
-  // keep naming." / "What buyers name, again and again: doesn't require a
-  // separate and interior unlike most electric."). lib/wordsmith.ts stays in
-  // the repo, dormant, for the future rebuild; no production path calls it
-  // anymore. The composition below is the plain sentence-library basis that
-  // predates the Wordsmith — the style that passed Junel's checks on the
-  // Shark / Keurig / Sony live proofs.
-
-  const lead = pickFrame(leadFamily, `${ctx.tallySig}|lead|${s.side}|${s.rank}|${s.key}`, ctx.used);
-  const sentence1 =
-    specifics && pairClause
-      ? `${lead}: ${specifics}${pairClause}.`
-      : specifics
-        ? `${lead}: ${specifics}.`
-        : pairClause
-          ? `${lead}${pairClause}.`
-          : `${lead}.`;
-
-  // Strength in plain words, from real tallies.
-  const share = ctx.reviewCount > 0 ? s.count / ctx.reviewCount : 0;
-  const strengthFamily =
-    band === "dominant"
-      ? s.rank === 0
-        ? STRENGTH_DOMINANT_FIRST
-        : STRENGTH_DOMINANT
-      : share >= 0.4
-        ? STRENGTH_HALF
-        : share >= 0.15
-          ? STRENGTH_REPEATED
-          : STRENGTH_FEW;
-  let sentence2 = pickFrame(
-    strengthFamily,
-    `${ctx.tallySig}|strength|${band}|${s.side}|${s.rank}|${s.key}`,
-    ctx.used
-  );
-
-  // Caveat: the same theme has signals on the other side — never pretend
-  // unanimity. R3: the caveat voices the loser, so it renders only when the
-  // loser was evidenced by a written review (hard rule: never hide an
-  // EVIDENCED negative signal; never print an unevidenced one).
+  // Findings engine 2026-10-16 (Junel: "build a native ai" — zero external AI
+  // anywhere in RI). The regular theme path prints ONE finding bullet:
+  // RI's own sentence frame built around a concrete specific the theme's
+  // reviews actually carry (traced to >= 2 distinct reviews), with the
+  // tally woven in. No pattern sentences, no mid-sentence fragments.
+  // The ONLY other line that can print here is an evidenced
+  // opposing-signal caveat (hard rule: never hide an EVIDENCED negative
+  // signal) — appended as a second standalone sentence. One-off and
+  // red-flag paths above are untouched: their sentences carry real
+  // {theme}/{detail} content.
+  let summary =
+    themeFinding({
+      key: s.key,
+      title,
+      claim: s.claim,
+      side: s.side,
+      count: s.count,
+      reviewCount: ctx.reviewCount,
+      texts: s.texts,
+      stars: s.stars,
+      productTitle: ctx.productTitle,
+    }) ?? "";
   if (s.opposingCount >= 1 && s.opposingEvident) {
-    const base = sentence2.replace(/\.\s*$/, "");
     if (s.side === "for") {
       const note = depth?.againstNote ?? "some buyers had the opposite experience";
-      const template = pickFrame(CAVEATS, `${ctx.tallySig}|caveat|${s.key}`, ctx.used);
-      sentence2 = `${base}${renderFrame(template, { note })}.`;
+      const template = pickFrame(
+        STANDALONE_CAVEATS_FOR,
+        `${ctx.tallySig}|caveat|${s.side}|${s.key}`,
+        ctx.used
+      );
+      const caveat = renderFrame(template, { note });
+      summary = summary ? `${summary} ${caveat}` : caveat;
     } else {
-      const template = pickFrame(AGAINST_CAVEATS, `${ctx.tallySig}|caveat|${s.key}`, ctx.used);
-      sentence2 = `${base}${template}`;
+      const template = pickFrame(
+        STANDALONE_CAVEATS_AGAINST,
+        `${ctx.tallySig}|caveat|${s.side}|${s.key}`,
+        ctx.used
+      );
+      summary = summary ? `${summary} ${template}` : template;
     }
   }
-
-  // Closer: earned only by dominant-band factors, never on thin corpora.
-  const closer =
-    !ctx.thin && band === "dominant"
-      ? pickFrame(CLOSERS, `${ctx.tallySig}|closer|${s.side}|${s.key}`, ctx.used)
-      : "";
-
-  // Today's honest composition — lead + strength (+ closer).
-  const summary = closer ? `${sentence1} ${sentence2} ${closer}` : `${sentence1} ${sentence2}`;
-  return { title, summary, basis, band, severity };
+  return done(summary);
 }
 
 /**
@@ -627,11 +595,23 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   const suppressedThemes: string[] = [];
   const records = acceptedRecords(result);
   const bodyByKey = new Map<string, string>();
+  // Iteration 3: per-record star ratings for the engine's star-profile
+  // context. The typed record shape omits `rating`, so read it defensively;
+  // records without one map to null and the engine stays silent.
+  const ratingByKey = new Map<string, number>();
   for (const record of records) {
     const body = cleanQuoteText(String(record.body || ""));
     if (!isWrittenReviewBody(body)) continue;
-    if (record.id) bodyByKey.set(String(record.id), body);
-    if (record.stableEvidenceHash) bodyByKey.set(String(record.stableEvidenceHash), body);
+    const raw = (record as unknown as Record<string, unknown>).rating;
+    const rating = typeof raw === "number" && raw >= 1 && raw <= 5 ? raw : null;
+    if (record.id) {
+      bodyByKey.set(String(record.id), body);
+      if (rating !== null) ratingByKey.set(String(record.id), rating);
+    }
+    if (record.stableEvidenceHash) {
+      bodyByKey.set(String(record.stableEvidenceHash), body);
+      if (rating !== null) ratingByKey.set(String(record.stableEvidenceHash), rating);
+    }
   }
 
   const allKeys = new Set([...forAgg.keys(), ...againstAgg.keys()]);
@@ -673,18 +653,24 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
     const recordKeys = [...(winner.sourceIds ?? []), ...(winner.sourceHashes ?? [])].map(String);
     const seen = new Set<string>();
     const texts: string[] = [];
+    // Iteration 3: star ratings aligned with `texts` (same order, same
+    // dedup) so the engine can add honest star-profile context. Read
+    // defensively — the typed record shape doesn't carry `rating`, but the
+    // runtime objects do when the caller supplied them. Absent -> null.
+    const stars: (number | null)[] = [];
+    const pushText = (rk: string, body: string) => {
+      if (seen.has(body)) return;
+      seen.add(body);
+      texts.push(body);
+      const rec = ratingByKey.get(rk);
+      stars.push(typeof rec === "number" && rec >= 1 && rec <= 5 ? rec : null);
+    };
     for (const rk of recordKeys) {
       const body = bodyByKey.get(rk);
-      if (body && !seen.has(body)) {
-        seen.add(body);
-        texts.push(body);
-      }
+      if (body) pushText(rk, body);
     }
     for (const extra of winner.extraTexts ?? []) {
-      if (!seen.has(extra)) {
-        seen.add(extra);
-        texts.push(extra);
-      }
+      pushText(`extra:${extra.slice(0, 24)}`, extra);
     }
     // R3 (round 2, restored): a warning/complaint claim may only render when
     // at least one accepted written review actually evidences it. Unevidenced
@@ -723,6 +709,7 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
       side,
       rank: 0,
       texts: texts.slice(0, 12),
+      stars: stars.slice(0, 12),
       recordKeys,
       severityRed: depth?.severity === "red",
       fixedSummary: winner.fixedSummary,
@@ -730,24 +717,37 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
     });
   }
 
-  const forSignals = signals
+  // Iteration 4: VERDICT-WEIGHTED SLOTS (Junel 2026-10-17 — the page must
+  // argue the verdict's case). BUY renders up to 5 strengths / 2 complaints;
+  // SKIP up to 2 strengths / 5 complaints; WAIT up to 3 per side. Safety
+  // findings and curated red-flags always render (never-hide rule outranks
+  // the caps). Never padded: fewer earned themes render fewer. Scoring and
+  // verdict computation are untouched — the verdict is only READ here.
+  const verdictKind: VerdictKind = compositionVerdict(result);
+  const sortedFor = signals
     .filter((s) => s.side === "for")
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
+    .sort((a, b) => b.count - a.count);
   // Against-side ordering: red flags first, then recurring complaints, then ordinary one-offs.
+  // Iteration 3: complaint SEVERITY slots in after red flags — safety >
+  // outright failure > durability > annoyance, safety first regardless of
+  // tally size. The curated red-flag path above is untouched and never
+  // duplicated by this ordering.
   const bandRank = (s: ThemeSignal) => {
     const band = bandFor(s.count, reviewCount);
     return band === "dominant" ? 0 : band === "repeated" ? 1 : 2;
   };
-  const againstSignals = signals
+  const sortedAgainst = signals
     .filter((s) => s.side === "against")
     .sort(
       (a, b) =>
         (a.severityRed ? 0 : 1) - (b.severityRed ? 0 : 1) ||
+        severityRank(a.key) - severityRank(b.key) ||
         bandRank(a) - bandRank(b) ||
         b.count - a.count
-    )
-    .slice(0, 3);
+    );
+  const slotted = applyVerdictSlots(verdictKind, sortedFor, sortedAgainst);
+  const forSignals = slotted.forThemes;
+  const againstSignals = slotted.againstThemes;
   forSignals.forEach((s, i) => (s.rank = i));
   againstSignals.forEach((s, i) => (s.rank = i));
 
@@ -785,9 +785,43 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   }
 
   const used = new Set<string>();
-  const ctx: ComposeCtx = { reviewCount, thin, tallySig, used, coPairNoun, coPairForKey };
+  const productTitle = String(obj(obj(result).product).title ?? "").trim();
+  const ctx: ComposeCtx = { reviewCount, thin, tallySig, used, coPairNoun, coPairForKey, productTitle };
   const forFactors = forSignals.map((s) => composeSignal(s, ctx));
   const againstFactors = againstSignals.map((s) => composeSignal(s, ctx));
+
+  // Iteration 4: the wait line (WAIT verdicts only). Score read defensively —
+  // the proof fixture carries `score`; production carries the score card.
+  const scoreNum = [obj(result).score, obj(obj(result).buyingScoreV2).score, obj(obj(result).buyingScore).score]
+    .map(Number)
+    .find((n) => Number.isFinite(n)) ?? null;
+  const titleForWait = (s: ThemeSignal): string => {
+    const depth = depthFor(s.key);
+    const band = bandFor(s.count, reviewCount);
+    return depth?.bandTitles?.[band] ?? depth?.title ?? sentenceCaseTheme(s.claim);
+  };
+  const toSlotTheme = (s: ThemeSignal): SlotTheme => ({
+    key: s.key,
+    title: titleForWait(s),
+    claim: s.claim,
+    side: s.side,
+    count: s.count,
+    reviewCount,
+    texts: s.texts,
+    stars: s.stars,
+    productTitle,
+    severityRed: s.severityRed,
+    opposingCount: s.opposingCount,
+    opposingEvident: s.opposingEvident,
+  });
+  const waitLine = buildWaitLine(verdictKind, {
+    score: scoreNum,
+    reviewCount,
+    buyThreshold: BUY_THRESHOLD,
+    waitThreshold: WAIT_THRESHOLD,
+    forThemes: forSignals.map(toSlotTheme),
+    againstThemes: againstSignals.map(toSlotTheme),
+  });
 
   const complaintsPattern: ReviewAnalysis["complaintsPattern"] =
     againstFactors.length === 0 ? "none" : againstFactors.every((f) => f.band === "single") ? "one_off" : "recurring";
@@ -798,7 +832,7 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   // evidence. Unevidenced warnings never count, so the "no buyer complaints"
   // empty state stays honest.
   hadNegatives = againstFactors.length > 0 || evidencedSuppressedNegatives || droppedEvidentNegatives;
-  return { forFactors, againstFactors, complaintsPattern, reviewCount, hasNegatives: hadNegatives, suppressedThemes };
+  return { forFactors, againstFactors, complaintsPattern, reviewCount, hasNegatives: hadNegatives, suppressedThemes, waitLine };
 }
 
 /** The small product thumbnail: a real captured/listing image only. Never a placeholder, never generated. */

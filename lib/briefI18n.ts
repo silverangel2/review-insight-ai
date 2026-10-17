@@ -108,6 +108,8 @@ export type BriefDict = {
   independenceLine: string;
   whyBuyIt: string;
   whyMightNot: string;
+  /** Iteration 4: wait-line section heading (Wait verdicts only). */
+  whyWait: string;
   howWeChecked: string;
   footerLine: string;
   complaintNotes: BriefComplaintNotes;
@@ -221,6 +223,7 @@ export function resolveBriefDict(locale: string | undefined): BriefDict {
     independenceLine: pickString(rec.independenceLine, EN.independenceLine),
     whyBuyIt: pickString(rec.whyBuyIt, EN.whyBuyIt),
     whyMightNot: pickString(rec.whyMightNot, EN.whyMightNot),
+    whyWait: pickString(rec.whyWait, EN.whyWait),
     howWeChecked: pickString(rec.howWeChecked, EN.howWeChecked),
     footerLine: pickString(rec.footerLine, EN.footerLine),
     complaintNotes: {

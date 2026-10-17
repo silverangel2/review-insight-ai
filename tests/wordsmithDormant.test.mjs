@@ -13,6 +13,12 @@
 // Shark / Keurig / Sony live proofs). The miner cannot yet produce
 // clause-complete paraphrase; until a future round proves that on multiple
 // real corpora, it does not print.
+//
+// Frame strip 2026-10-16 (Junel: the sentence-library pattern metaphors are
+// unintelligible to shoppers — "Fucking cement it"): the plain composition
+// itself is now reduced to heading + tag only. No pattern sentences print in
+// the regular theme path; an evidenced opposing signal still voices a
+// standalone caveat, and one-off / red-flag factual lines are untouched.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -89,12 +95,12 @@ test("composed basis carries no wordsmith frames and no mined fragments", () => 
   }
 });
 
-test("composed basis is a plain grammatical sentence-library sentence", () => {
+test("composed basis prints findings bullets, never pattern sentences (findings 2026-10-16)", () => {
   const a = ra.deriveReviewAnalysis(fixture());
   const factor = a.forFactors.find((f) => /fast cooking/i.test(f.title));
   assert(factor, "fast-cooking factor exists");
-  assert(factor.summary.length > 20, `a real sentence renders, got: ${factor.summary}`);
-  assert(factor.summary.trim().endsWith("."), `complete sentence: ${factor.summary}`);
+  // Findings bullet in RI's own frame — never a pattern sentence.
+  assert.match(factor.summary, /^\d+ of \d+ buyers mention it\.$/);
   // The basis label is the plain tallied basis, never a mined clause.
   assert(
     ["Pattern across most reviews", "Repeated across reviews", "One buyer reported this"].includes(
@@ -102,8 +108,11 @@ test("composed basis is a plain grammatical sentence-library sentence", () => {
     ),
     `plain tallied basis: ${factor.basis}`
   );
-  // No em-dash-stitched fragments (the live failure's signature shape).
-  assert(!/—\s*[a-z]/.test(factor.summary) || !WORDSMITH_FRAMES.test(factor.summary), "no stitched fragments");
+  // No dead-frame fragment may print inside a bullet.
+  const low = factor.summary.toLowerCase();
+  for (const frag of ["circling back", "steady drumbeat", "get concrete", "keeps coming up", "buyer after buyer"]) {
+    assert(!low.includes(frag), `dead-frame fragment in bullet: ${frag}`);
+  }
 });
 
 test("dormancy is proven at the source: no production path calls wordsmithEnrich", () => {
