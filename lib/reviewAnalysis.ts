@@ -91,6 +91,12 @@ export type ReviewAnalysis = {
    */
   suppressedThemes: string[];
   /**
+   * Written reviews actually read and accepted as evidence for this scan —
+   * the exact corpus the factor lists are built from. 0 means the verdict
+   * leans on the listing's rating summary alone (aggregate-only scan).
+   */
+  writtenReviewsRead: number;
+  /**
    * Iteration 4: the wait line (WAIT verdicts only, null otherwise). One
    * short plain-language block: WHY wait + WHAT the wait is for, derived
    * only from real signals in the scan. Never a prediction, never generic.
@@ -410,7 +416,7 @@ type ComposeCtx = {
   /** Listing title: the findings engine excludes clauses carrying the
    *  product's own brand/model words (they are not buyer findings). */
   productTitle: string;
-};
+}
 
 function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
   const band = bandFor(s.count, ctx.reviewCount);
@@ -615,6 +621,15 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   }
 
   const allKeys = new Set([...forAgg.keys(), ...againstAgg.keys()]);
+  // Written reviews actually read: the exact corpus the factor lists are
+  // built from. Counted here (not from the verdict's aggregate counts) so
+  // the result page can tell a shopper when it read zero written reviews —
+  // a silent zero is never acceptable. Deterministic: same records, same
+  // number.
+  let writtenReviewsRead = 0;
+  for (const record of acceptedRecords(result)) {
+    if (isWrittenReviewBody(cleanQuoteText(String(record.body || "")))) writtenReviewsRead++;
+  }
   // R3: tracks whether any evidenced negative was voiced only as a suppressed
   // theme / caveat (no standalone against-factor won its side). Also tracks
   // dropped signals that still had real excerpt evidence (__generic_concern
@@ -832,7 +847,7 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   // evidence. Unevidenced warnings never count, so the "no buyer complaints"
   // empty state stays honest.
   hadNegatives = againstFactors.length > 0 || evidencedSuppressedNegatives || droppedEvidentNegatives;
-  return { forFactors, againstFactors, complaintsPattern, reviewCount, hasNegatives: hadNegatives, suppressedThemes, waitLine };
+  return { forFactors, againstFactors, complaintsPattern, reviewCount, hasNegatives: hadNegatives, suppressedThemes, waitLine, writtenReviewsRead };
 }
 
 /** The small product thumbnail: a real captured/listing image only. Never a placeholder, never generated. */

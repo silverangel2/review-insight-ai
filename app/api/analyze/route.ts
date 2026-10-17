@@ -2357,6 +2357,13 @@ function buildReviewEvidenceShopperResult(input: {
       : collectorSourceAccepted && typeof evidence.collectorHasWrittenReviews === "boolean"
         ? evidence.collectorHasWrittenReviews
         : collectorSourceAccepted && collectorReviewsCollected > 0;
+  // Machine-readable written-review fetch outcome, always set — a zero
+  // written-review count is never silent. Falls back to "unattempted".
+  const reviewFetchStatus =
+    typeof reviewCollector?.fetchStatus === "string" &&
+    ["ok", "blocked", "empty", "error", "unattempted"].includes(reviewCollector.fetchStatus)
+      ? reviewCollector.fetchStatus
+      : "unattempted";
 
   // commentsAnalyzed must be grounded in actual written review text.
   // Never allow the AI to copy marketplaceReviewCount/reviewsFound and pretend all reviews were analyzed.
@@ -2901,6 +2908,7 @@ function buildReviewEvidenceShopperResult(input: {
         marketplaceReviewCount,
         reviewsFound,
         reviewsCollected: collectorReviewsCollected,
+        reviewFetchStatus,
         commentsAnalyzed,
         reviewCoverageRatio,
         collectorHasWrittenReviews,
@@ -2941,6 +2949,7 @@ function buildReviewEvidenceShopperResult(input: {
     reviewsFound,
     marketplaceReviewCount,
     reviewsCollected: collectorReviewsCollected,
+    reviewFetchStatus,
     commentsAnalyzed,
     reviewCoverageRatio,
     collectorHasWrittenReviews,

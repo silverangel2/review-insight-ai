@@ -85,6 +85,15 @@ export type CollectedReview = {
 
 export type ReviewExtractorName = "amazon" | "walmart" | "generic" | "none";
 
+/**
+ * How the written-review fetch ended — a machine-readable fetch status so a
+ * zero written-review count is never silent. "ok" = at least one review body
+ * collected; "blocked" = marketplace served a sign-in/challenge page;
+ * "empty" = pages fetched but no review bodies extracted; "error" = HTTP or
+ * transport failure; "unattempted" = no listing URL / budget ceiling reached.
+ */
+export type ReviewFetchStatus = "ok" | "blocked" | "empty" | "error" | "unattempted";
+
 export type ReviewCollectorResult = {
   sourceUrl: string | null;
   attempted: boolean;
@@ -92,6 +101,8 @@ export type ReviewCollectorResult = {
   reviews: CollectedReview[];
   reviewsCollected: number;
   collectorHasWrittenReviews: boolean;
+  /** Machine-readable fetch outcome — always set, even when reviewsCollected is 0. */
+  fetchStatus: ReviewFetchStatus;
   coverageNote: string;
   fallbackUrlsTried?: string[];
   /** Real rating / count / star histogram read from the listing page (never filled in). */
@@ -744,6 +755,7 @@ export async function collectWrittenReviewsFromUrls(input: {
       reviews: [],
       reviewsCollected: 0,
       collectorHasWrittenReviews: false,
+      fetchStatus: "unattempted",
       coverageNote: "No OpenAI-discovered review URLs were available for ReviewIntel scraping.",
       fallbackUrlsTried: [],
     };
@@ -759,6 +771,7 @@ export async function collectWrittenReviewsFromUrls(input: {
     reviews,
     reviewsCollected: reviews.length,
     collectorHasWrittenReviews: reviews.length > 0,
+    fetchStatus: reviews.length > 0 ? "ok" : "empty",
     coverageNote: reviews.length
       ? "ReviewIntel scraped written review texts from OpenAI-discovered candidate review URLs."
       : `ReviewIntel fetched ${urls.length} OpenAI-discovered candidate review URL(s), but did not extract usable written review text.`,
@@ -835,6 +848,7 @@ export async function collectWrittenReviewsFromListing(input: {
       reviews: [],
       reviewsCollected: 0,
       collectorHasWrittenReviews: false,
+      fetchStatus: "unattempted",
       coverageNote: "No exact listing URL was available; search discovery cannot be counted as written review evidence.",
       fallbackUrlsTried: [],
     };
@@ -849,6 +863,7 @@ export async function collectWrittenReviewsFromListing(input: {
         reviews: [],
         reviewsCollected: 0,
         collectorHasWrittenReviews: false,
+        fetchStatus: "unattempted",
         coverageNote: "Per-scan retrieval ceiling reached before the listing request.",
       };
     }
@@ -874,6 +889,7 @@ export async function collectWrittenReviewsFromListing(input: {
         reviews: [],
         reviewsCollected: 0,
         collectorHasWrittenReviews: false,
+        fetchStatus: "error",
         coverageNote: `Listing page was reachable but returned HTTP ${response.status}; written review text could not be collected.`,
       };
     }
@@ -916,6 +932,7 @@ export async function collectWrittenReviewsFromListing(input: {
         reviews: [],
         reviewsCollected: 0,
         collectorHasWrittenReviews: false,
+        fetchStatus: "blocked",
         coverageNote:
           "The marketplace redirected the public review request to a sign-in or challenge page, so no review text from that response was accepted.",
       };
@@ -981,6 +998,7 @@ export async function collectWrittenReviewsFromListing(input: {
       reviews,
       reviewsCollected: reviews.length,
       collectorHasWrittenReviews: reviews.length > 0,
+      fetchStatus: reviews.length > 0 ? "ok" : "empty",
       coverageNote: coverage,
       fallbackUrlsTried: discoveredReviewUrls.slice(0, 12),
       marketplaceAggregate,
@@ -993,6 +1011,7 @@ export async function collectWrittenReviewsFromListing(input: {
       reviews: [],
       reviewsCollected: 0,
       collectorHasWrittenReviews: false,
+      fetchStatus: "error",
       coverageNote: `Written review collection failed: ${
         error instanceof Error ? error.message : "unknown error"
       }`,
