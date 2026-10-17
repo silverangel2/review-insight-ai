@@ -214,8 +214,9 @@ export function DecisionBrief({
         <div className="grid gap-3.5 lg:grid-cols-2 lg:gap-4">
           <section className="ri-card ri-lift ri-unlock-child ri-d2 p-5">
             <h2 className="text-[17px] font-bold text-ink dark:text-white">{copy.whyBuyIt}</h2>
-            <div className="mt-1">
-              {analysis.forFactors.map((factor, index) => (
+            {analysis.forFactors.length > 0 ? (
+              <div className="mt-1">
+                {analysis.forFactors.map((factor, index) => (
                 <div
                   key={`for-${index}`}
                   className="border-b border-slate-100 py-3 last:border-0 last:pb-0 dark:border-white/10"
@@ -240,6 +241,15 @@ export function DecisionBrief({
                 </div>
               ))}
             </div>
+            ) : (
+              /* Fix batch 2026-10-17: an empty "why you'd buy it" must never
+                 render as a bare heading over nothing. When no written
+                 reviews could be read, the verdict leans on the rating
+                 summary — say so plainly, in a shopper's words. */
+              <p className="mt-1 text-[13px] leading-5 text-slate-500 dark:text-slate-400">
+                {analysis.writtenReviewsRead === 0 ? copy.whyBuyEmpty : copy.whyBuyThin}
+              </p>
+            )}
           </section>
 
           <section className="ri-card ri-lift ri-unlock-child ri-d3 p-5">

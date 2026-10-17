@@ -108,6 +108,11 @@ export type BriefDict = {
   independenceLine: string;
   whyBuyIt: string;
   whyMightNot: string;
+  /** Honest note when the verdict leans on the rating summary because no
+      written reviews could be read — never a bare heading over nothing. */
+  whyBuyEmpty: string;
+  /** Honest note when written reviews exist but yielded no stand-behind strengths. */
+  whyBuyThin: string;
   /** Iteration 4: wait-line section heading (Wait verdicts only). */
   whyWait: string;
   howWeChecked: string;
@@ -223,6 +228,8 @@ export function resolveBriefDict(locale: string | undefined): BriefDict {
     independenceLine: pickString(rec.independenceLine, EN.independenceLine),
     whyBuyIt: pickString(rec.whyBuyIt, EN.whyBuyIt),
     whyMightNot: pickString(rec.whyMightNot, EN.whyMightNot),
+    whyBuyEmpty: pickString(rec.whyBuyEmpty, EN.whyBuyEmpty),
+    whyBuyThin: pickString(rec.whyBuyThin, EN.whyBuyThin),
     whyWait: pickString(rec.whyWait, EN.whyWait),
     howWeChecked: pickString(rec.howWeChecked, EN.howWeChecked),
     footerLine: pickString(rec.footerLine, EN.footerLine),
