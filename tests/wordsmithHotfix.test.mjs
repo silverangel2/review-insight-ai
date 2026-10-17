@@ -119,27 +119,31 @@ function strongFixture() {
   };
 }
 
-test("strong corpus: the concrete sentence still prints with real specifics", () => {
+// Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): these assertions
+// were flipped from the hotfix-1 model. The enrichment is disconnected —
+// even a strong corpus gets the plain sentence-library basis, never a
+// buyer-words sentence.
+test("strong corpus: no buyer-words sentence — the wordsmith is off, plain basis renders", () => {
   const a = ra.deriveReviewAnalysis(strongFixture());
   const factor = a.forFactors.find((f) => /call quality/i.test(f.title));
   assert(factor, "call-quality factor exists");
-  assert.match(factor.summary, BUYER_WORDS_SENTENCE, `concrete sentence renders: ${factor.summary}`);
-  assert.match(factor.summary, /multipoint connection/, "real specific 1 woven in");
-  assert.match(factor.summary, /windy street calls/, "real specific 2 woven in");
+  assert(
+    !BUYER_WORDS_SENTENCE.test(factor.summary),
+    `no buyer-words sentence on strong corpus: ${factor.summary}`
+  );
+  // The plain grammatical composition still renders: lead + strength (+ closer).
+  assert(factor.summary.length > 20, "a plain basis sentence still renders");
+  assert(factor.summary.trim().endsWith("."), "summary is a complete sentence");
 });
 
-test("de-stack: the concrete sentence replaces the generic frames, never joins them", () => {
+test("dormancy: the wordsmith path leaves no trace in composed output", () => {
   const a = ra.deriveReviewAnalysis(strongFixture());
   const factor = a.forFactors.find((f) => /call quality/i.test(f.title));
   assert(factor, "call-quality factor exists");
-  assert.match(factor.summary, BUYER_WORDS_SENTENCE, "concrete sentence present");
   assert(
-    !/keep circling back|steady drumbeat/i.test(factor.summary),
-    `no stacked generic frames: ${factor.summary}`
+    !/keep circling back|steady drumbeat|buyers get concrete|get specific|got specific|own specifics|detail that keeps coming up|again and again|keep naming/i.test(factor.summary),
+    `no wordsmith frames or fragments: ${factor.summary}`
   );
-  // At most one framing sentence (the dominant closer) plus the specifics.
-  const sentences = factor.summary.split(/\.\s*/).filter((s) => s.trim().length);
-  assert(sentences.length <= 2, `at most 2 sentences, got ${sentences.length}: ${factor.summary}`);
 });
 
 // ---------- unit: title gate ----------
@@ -219,25 +223,21 @@ function takkiFixture() {
   };
 }
 
-test("Takki register: theme lines carry review-supported specifics in plain words", () => {
+// Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): this assertion
+// was flipped from the hotfix-1 model. The Takki register stays Junel's
+// acceptance bar for a future rebuild; tonight's bar is a plain,
+// grammatical sentence-library basis with no wordsmith trace.
+test("Takki register: plain grammatical basis, no wordsmith trace anywhere", () => {
   const a = ra.deriveReviewAnalysis(takkiFixture());
   const portable = a.forFactors.find((f) => /lightweight|portable/i.test(f.title));
   assert(portable, "portability factor exists");
-  assert.match(portable.summary, BUYER_WORDS_SENTENCE, "concrete line renders");
-  assert.match(portable.summary, /emergency kit/, "review-supported specific 1 in plain words");
-  assert.match(portable.summary, /camping kit/, "review-supported specific 2 in plain words");
-  // Specifics lead the sentence — the Takki register, not frame + tokens.
-  assert.match(portable.summary, /^(emergency kit|camping kit)/i, "specifics come first");
-  // No category echo: "power station" is the product's own title, never a specific.
-  assert(!/power station/i.test(portable.summary), `no title echo: ${portable.summary}`);
+  assert(!BUYER_WORDS_SENTENCE.test(portable.summary), `no buyer-words sentence: ${portable.summary}`);
+  assert(portable.summary.trim().endsWith("."), "plain complete sentence");
 
   const charging = a.againstFactors.find((f) => /charg|cable/i.test(f.title));
   assert(charging, "charging factor exists");
-  assert.match(charging.summary, BUYER_WORDS_SENTENCE, "concrete line renders on complaints");
-  assert(
-    /solar charging|separate mc4 cable|wall charging is slow/.test(charging.summary),
-    `complaint specifics in plain words: ${charging.summary}`
-  );
+  assert(!BUYER_WORDS_SENTENCE.test(charging.summary), `no buyer-words sentence: ${charging.summary}`);
+  assert(charging.summary.trim().endsWith("."), "plain complete sentence");
 });
 
 test("Takki register: zero filler frames anywhere on the page", () => {
