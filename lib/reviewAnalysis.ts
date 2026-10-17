@@ -3,11 +3,9 @@ import {
   cleanQuoteText,
   deriveShopperAnswer,
   isWrittenReviewBody,
-  productTitleOf,
 } from "@/lib/shopperAnswer";
 import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim } from "@/lib/evidenceConsistency";
-import { wordsmithEnrich } from "@/lib/wordsmith";
 import {
   AGAINST_CAVEATS,
   AGAINST_LEAD_OTHER,
@@ -404,8 +402,6 @@ type ComposeCtx = {
   used: Set<string>;
   coPairNoun: string | null;
   coPairForKey: string | null;
-  /** Product title from the listing; null when the listing was not read. */
-  productTitle: string | null;
 };
 
 function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
@@ -429,29 +425,10 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
     const detail = single ? depth.redDetail.single : depth.redDetail.plural;
     const template = pickFrame(frames, `${ctx.tallySig}|redflag|${s.key}|${s.count}`, ctx.used);
     const core = renderFrame(template, { detail }).replace(/\.\s*$/, "");
-    // Wordsmith (bot round 2): mine the buyers' own vocabulary for the
-    // red-flag evidence clause. Additive + fail-soft — today's sentence is
-    // the fallback when mining earns nothing or throws.
-    let extra = "";
-    if (!ctx.thin) {
-      try {
-        const wm = wordsmithEnrich(
-          {
-            key: s.key,
-            side: s.side,
-            texts: s.texts,
-            tallySig: ctx.tallySig,
-            band,
-            productTitle: ctx.productTitle ?? undefined,
-          },
-          ctx.used
-        );
-        if (wm.redClause) extra = wm.redClause;
-      } catch {
-        extra = "";
-      }
-    }
-    return { title, summary: extra ? `${core}${extra}` : `${core}.`, basis, band, severity };
+    // Hotfix 2 2026-10-16: the wordsmith enrichment is switched OFF at the
+    // compose seam — the miner produced ungrammatical n-gram fragments live.
+    // The red-flag sentence is the sentence-library core, unchanged.
+    return { title, summary: `${core}.`, basis, band, severity };
   }
 
   // One-off family: a single honest sentence.
@@ -466,29 +443,10 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
       // describes {theme}" and "One buyer's experience included {theme}").
       return { title, summary: `${basis}.`, basis, band, severity };
     }
-    // Wordsmith (bot round 2): the single buyer's own vocabulary, when it
-    // earned a phrase. Additive + fail-soft — the echo-guard fallback above
-    // keeps its bare basis label untouched.
-    let line = "";
-    if (!ctx.thin) {
-      try {
-        const wm = wordsmithEnrich(
-          {
-            key: s.key,
-            side: s.side,
-            texts: s.texts,
-            tallySig: ctx.tallySig,
-            band,
-            productTitle: ctx.productTitle ?? undefined,
-          },
-          ctx.used
-        );
-        if (wm.specificLine) line = ` ${wm.specificLine}`;
-      } catch {
-        line = "";
-      }
-    }
-    return { title, summary: `${renderFrame(template, { theme: fill })}.${line}`, basis, band, severity };
+    // Hotfix 2 2026-10-16: the wordsmith enrichment is switched OFF at the
+    // compose seam. The one-off sentence is the sentence-library frame,
+    // unchanged.
+    return { title, summary: `${renderFrame(template, { theme: fill })}.`, basis, band, severity };
   }
 
   // Lead: collective judgment + how buyers land on it.
@@ -506,14 +464,12 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
           : AGAINST_LEAD_OTHER;
   // Specifics: only mined sub-aspects, woven in. Thin corpora skip this.
   let specifics = "";
-  let curatedPhrases: string[] = [];
   if (!ctx.thin && s.aspectHitIds.length > 0) {
     const phrases = s.aspectHitIds
       .map((id) => aspectPhrase(s.key, id, s.side, ctx.tallySig))
       .filter((p): p is string => Boolean(p));
     if (phrases.length > 0) {
       specifics = `they ${joinList(phrases)}`;
-      curatedPhrases = phrases;
     }
   }
   let pairClause = "";
@@ -522,75 +478,15 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
     pairClause = renderFrame(template, { a: depth.pairNoun, b: ctx.coPairNoun });
   }
 
-  // Wordsmith (bot round 2, hotfixed 2026-10-16): the buyers' own vocabulary
-  // for this theme, as the specifics sentence. Hotfix rule: when mining
-  // earned a line, that line REPLACES the generic review-pattern framing
-  // (lead + strength) — the enrichment never stacks on top of it. The live
-  // failure was "The reviews keep circling back to this. Buyers get concrete
-  // about this — instant pot and electric pressure cooker. This is a steady
-  // drumbeat in the reviews." — three stacked filler frames around category
-  // echo. Additive + fail-soft: any throw, no earned phrases, or no product
-  // title keeps today's composition. Thin corpora keep honest tally-only forms.
-  let wordsmithLine = "";
-  if (!ctx.thin) {
-    try {
-      const wm = wordsmithEnrich(
-        {
-          key: s.key,
-          side: s.side,
-          texts: s.texts,
-          tallySig: ctx.tallySig,
-          band,
-          existingPhrases: curatedPhrases,
-          productTitle: ctx.productTitle ?? undefined,
-        },
-        ctx.used
-      );
-      if (wm.specificLine) wordsmithLine = wm.specificLine;
-    } catch {
-      wordsmithLine = "";
-    }
-  }
-  if (wordsmithLine) {
-    // Enriched (hotfix 2026-10-16): the concrete sentence REPLACES the bare
-    // generic lead and the generic strength frame — it never stacks with
-    // them (that stacking was the live "alien" sentence: "The reviews keep
-    // circling back to this. Buyers get concrete about this — instant pot
-    // and electric pressure cooker. This is a steady drumbeat in the
-    // reviews."). Content-bearing sentences are kept: the curated-specifics
-    // sentence and the pair-clause lead when they exist — a lead that carries
-    // real specifics is not the generic frame the ban targets. The
-    // evidenced-negative caveat is a hard rule, so it rides on the concrete
-    // line when there is no strength sentence to carry it.
-    const enrichedCloser =
-      band === "dominant"
-        ? pickFrame(CLOSERS, `${ctx.tallySig}|closer|${s.side}|${s.key}`, ctx.used)
-        : "";
-    let head = "";
-    if (specifics || pairClause) {
-      const lead = pickFrame(leadFamily, `${ctx.tallySig}|lead|${s.side}|${s.rank}|${s.key}`, ctx.used);
-      head =
-        specifics && pairClause
-          ? `${lead}: ${specifics}${pairClause}.`
-          : specifics
-            ? `${lead}: ${specifics}.`
-            : `${lead}${pairClause}.`;
-    }
-    let concrete = wordsmithLine;
-    if (s.opposingCount >= 1 && s.opposingEvident) {
-      const base = wordsmithLine.replace(/\.\s*$/, "");
-      if (s.side === "for") {
-        const note = depth?.againstNote ?? "some buyers had the opposite experience";
-        const template = pickFrame(CAVEATS, `${ctx.tallySig}|caveat|${s.key}`, ctx.used);
-        concrete = `${base}${renderFrame(template, { note })}.`;
-      } else {
-        const template = pickFrame(AGAINST_CAVEATS, `${ctx.tallySig}|caveat|${s.key}`, ctx.used);
-        concrete = `${base}${template}`;
-      }
-    }
-    const parts = [head, concrete, enrichedCloser].filter(Boolean);
-    return { title, summary: parts.join(" "), basis, band, severity };
-  }
+  // Hotfix 2 2026-10-16: the wordsmith enrichment is switched OFF at the
+  // compose seam — the miner produced ungrammatical n-gram fragments live
+  // (scan_41a15295: "anyone looking and build quality — that's what buyers
+  // keep naming." / "What buyers name, again and again: doesn't require a
+  // separate and interior unlike most electric."). lib/wordsmith.ts stays in
+  // the repo, dormant, for the future rebuild; no production path calls it
+  // anymore. The composition below is the plain sentence-library basis that
+  // predates the Wordsmith — the style that passed Junel's checks on the
+  // Shark / Keurig / Sony live proofs.
 
   const lead = pickFrame(leadFamily, `${ctx.tallySig}|lead|${s.side}|${s.rank}|${s.key}`, ctx.used);
   const sentence1 =
@@ -642,8 +538,7 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
       ? pickFrame(CLOSERS, `${ctx.tallySig}|closer|${s.side}|${s.key}`, ctx.used)
       : "";
 
-  // Unenriched: today's honest composition — lead + strength (+ closer).
-  // The wordsmith path above returns early when it earned its line.
+  // Today's honest composition — lead + strength (+ closer).
   const summary = closer ? `${sentence1} ${sentence2} ${closer}` : `${sentence1} ${sentence2}`;
   return { title, summary, basis, band, severity };
 }
@@ -890,10 +785,7 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   }
 
   const used = new Set<string>();
-  // Hotfix 2026-10-16: the listing title feeds the wordsmith's title-token
-  // filter. No title (listing not read) -> the wordsmith enriches nothing.
-  const productTitle = productTitleOf(result) || null;
-  const ctx: ComposeCtx = { reviewCount, thin, tallySig, used, coPairNoun, coPairForKey, productTitle };
+  const ctx: ComposeCtx = { reviewCount, thin, tallySig, used, coPairNoun, coPairForKey };
   const forFactors = forSignals.map((s) => composeSignal(s, ctx));
   const againstFactors = againstSignals.map((s) => composeSignal(s, ctx));
 

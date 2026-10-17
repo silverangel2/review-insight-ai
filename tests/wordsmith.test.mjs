@@ -53,12 +53,14 @@ function richFixture() {
   };
 }
 
-test("rich corpus: mined specifics appear, no generic filler, nothing invented", () => {
+// Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): flipped from the
+// original model. Even a rich corpus gets the plain sentence-library basis.
+test("rich corpus: no buyer-words sentence — the wordsmith is off, plain basis renders", () => {
   const a = ra.deriveReviewAnalysis(richFixture());
   const factor = a.forFactors.find((f) => /battery/i.test(f.title));
   assert(factor, "battery factor exists");
-  assert.match(factor.summary, BUYER_WORDS_SENTENCE, "buyer-words specifics sentence renders");
-  assert.match(factor.summary, /quick pairing/, "the buyers' repeated phrase appears verbatim");
+  assert(!BUYER_WORDS_SENTENCE.test(factor.summary), `no buyer-words sentence: ${factor.summary}`);
+  assert(factor.summary.trim().endsWith("."), "complete grammatical sentence");
   // Nothing invented: no detail the corpus never named.
   assert(!/waterproof|wireless charging|solar|bluetooth 6|noise cancelling/i.test(factor.summary), "no invented detail");
   // No verbatim buyer sentence leaks.
@@ -111,7 +113,10 @@ const forBodies = [
 const counterfeitBody =
   "The packaging was a plain brown box and the serial number sticker looked photocopied.";
 
-test("one counterfeit report: red flag named at true size, with mined detail", () => {
+// Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): flipped — the
+// red-flag sentence is the curated sentence-library core at true size,
+// with no mined-detail clause from the wordsmith.
+test("one counterfeit report: red flag named at true size, plain core, no wordsmith detail", () => {
   const fixture = {
     reviewEvidence: {
       evidenceAdjudication: { acceptedRecords: [...records(forBodies), ...records([counterfeitBody], "rc")] },
@@ -128,8 +133,12 @@ test("one counterfeit report: red flag named at true size, with mined detail", (
   assert.match(red.summary, /red flag|serious concern/i, "red flag named");
   assert.match(red.summary, /one buyer/i, "sized as one buyer");
   assert(!/several buyers/i.test(red.summary), "not exaggerated");
-  assert.match(red.summary, /serial number sticker|plain brown box/, "mined evidence detail woven in");
+  assert(
+    !/serial number sticker|plain brown box/.test(red.summary),
+    `no wordsmith-mined detail clause: ${red.summary}`
+  );
   assert(!red.summary.includes(counterfeitBody), "no pasted buyer sentence");
+  assert(red.summary.trim().endsWith("."), "complete grammatical sentence");
   assert.equal(red.basis, "One buyer reported this", "basis agrees with true size");
 });
 
