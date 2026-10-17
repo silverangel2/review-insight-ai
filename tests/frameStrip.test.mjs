@@ -116,33 +116,35 @@ test("corpus 1: no pattern sentence prints in any regular-path theme basis", () 
   }
 });
 
-test("corpus 1: regular themes render heading + tag only (no empty-row artifacts)", () => {
+test("corpus 1: regular themes print findings bullets (never pattern sentences)", () => {
   const a = ra.deriveReviewAnalysis(genericFrameCorpus());
   for (const f of allFactors(a)) {
     assert(f.title && f.title.length > 0, "theme heading present");
     assert(f.basis && f.basis.length > 0, `tally tag present [${f.title}]`);
-    // summary is "" (heading + tag only) or a standalone caveat — never a
-    // join artifact, never whitespace-only.
+    // summary is a findings bullet (or "" only when the theme has no
+    // resolvable texts) — never whitespace-only, never a join artifact.
     assert(
-      f.summary === "" || f.summary.trim().length > 0,
-      `no whitespace-only basis [${f.title}]`
+      f.summary === "" || /buyers mention it\.|say \d+ of \d+ buyers\./.test(f.summary),
+      `findings shape [${f.title}]: ${f.summary}`
     );
     assert(!/  /.test(f.summary), `no double-space artifact [${f.title}]`);
   }
-  // The plain repeated themes print NOTHING as basis: heading + tag only.
+  // The plain repeated themes print findings bullets, not pattern frames.
   const heatsUp = allFactors(a).find((f) => /heats up fast/i.test(f.title));
   assert(heatsUp, "heats-up theme exists");
-  assert.strictEqual(heatsUp.summary, "", "generic-frame theme: heading + tag only");
+  assert.match(heatsUp.summary, /^\d+ of 20 buyers mention it\.$/);
 });
 
 test("corpus 1: an evidenced opposing complaint is voiced as a standalone caveat", () => {
   const a = ra.deriveReviewAnalysis(genericFrameCorpus());
   const easyClean = allFactors(a).find((f) => /easy to clean/i.test(f.title));
   assert(easyClean, "easy-to-clean theme exists");
-  assert(easyClean.summary.length > 0, "evidenced opposing signal is voiced, never hidden");
+  // Findings bullet first, then the evidenced opposing signal as a second
+  // standalone sentence — voiced, never hidden.
+  assert.match(easyClean.summary, /^\d+ of 20 buyers mention it\./);
   const note = ac.depthFor("easy to clean")?.againstNote ?? "some buyers had the opposite experience";
   assert(
-    /^(A few buyers found|Not every buyer agrees|A small minority reported)/.test(easyClean.summary),
+    /(A few buyers found|Not every buyer agrees|A small minority reported)/.test(easyClean.summary),
     `standalone caveat shape: ${easyClean.summary}`
   );
   assert(

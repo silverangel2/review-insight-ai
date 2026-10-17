@@ -95,12 +95,12 @@ test("composed basis carries no wordsmith frames and no mined fragments", () => 
   }
 });
 
-test("composed basis is heading + tag only (frame strip 2026-10-16)", () => {
+test("composed basis prints findings bullets, never pattern sentences (findings 2026-10-16)", () => {
   const a = ra.deriveReviewAnalysis(fixture());
   const factor = a.forFactors.find((f) => /fast cooking/i.test(f.title));
   assert(factor, "fast-cooking factor exists");
-  // No pattern sentences print at all — the theme renders heading + tag only.
-  assert.strictEqual(factor.summary, "", `no basis sentences, got: ${factor.summary}`);
+  // Findings bullet in RI's own frame — never a pattern sentence.
+  assert.match(factor.summary, /^\d+ of \d+ buyers mention it\.$/);
   // The basis label is the plain tallied basis, never a mined clause.
   assert(
     ["Pattern across most reviews", "Repeated across reviews", "One buyer reported this"].includes(
@@ -108,8 +108,11 @@ test("composed basis is heading + tag only (frame strip 2026-10-16)", () => {
     ),
     `plain tallied basis: ${factor.basis}`
   );
-  // No em-dash-stitched fragments (the live failure's signature shape).
-  assert(!/—\s*[a-z]/.test(factor.summary) || !WORDSMITH_FRAMES.test(factor.summary), "no stitched fragments");
+  // No dead-frame fragment may print inside a bullet.
+  const low = factor.summary.toLowerCase();
+  for (const frag of ["circling back", "steady drumbeat", "get concrete", "keeps coming up", "buyer after buyer"]) {
+    assert(!low.includes(frag), `dead-frame fragment in bullet: ${frag}`);
+  }
 });
 
 test("dormancy is proven at the source: no production path calls wordsmithEnrich", () => {

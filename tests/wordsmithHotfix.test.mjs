@@ -68,7 +68,7 @@ function weakFixture() {
   };
 }
 
-test("weak corpus: no 'get concrete' sentence — heading + tag only, suppressed not dressed up", () => {
+test("weak corpus: findings bullet, never category echo as specifics", () => {
   const a = ra.deriveReviewAnalysis(weakFixture());
   const factor = a.forFactors.find((f) => /fast cooking/i.test(f.title));
   assert(factor, "fast-cooking factor exists");
@@ -77,9 +77,10 @@ test("weak corpus: no 'get concrete' sentence — heading + tag only, suppressed
     !/instant pot and electric pressure cooker/i.test(factor.summary),
     `no category filler in summary: ${factor.summary}`
   );
-  // Frame strip 2026-10-16: the honest composition is heading + tag only —
-  // no pattern sentences print at all.
-  assert.strictEqual(factor.summary, "", "no basis sentences: heading + tag only");
+  // Findings engine 2026-10-16: a real bullet in RI's own frame — the
+  // category-echo corpus yields no qualifying specific, so the honest
+  // gloss+support bullet prints (never dressed-up filler).
+  assert.match(factor.summary, /^6 of 8 buyers mention it\.$/);
   assert(factor.basis.length > 0, "tally tag still renders");
 });
 
@@ -121,11 +122,10 @@ function strongFixture() {
   };
 }
 
-// Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): these assertions
-// were flipped from the hotfix-1 model. The enrichment is disconnected —
-// even a strong corpus gets the plain sentence-library basis, never a
-// buyer-words sentence.
-test("strong corpus: no buyer-words sentence — the wordsmith is off, heading + tag only", () => {
+// Findings engine 2026-10-16 (Junel: "build a native ai"): the composition
+// seam now prints findings bullets — RI's own sentence frame around a
+// concrete specific the reviews actually carry. The wordsmith stays dead.
+test("strong corpus: findings bullet with real specifics", () => {
   const a = ra.deriveReviewAnalysis(strongFixture());
   const factor = a.forFactors.find((f) => /call quality/i.test(f.title));
   assert(factor, "call-quality factor exists");
@@ -133,8 +133,8 @@ test("strong corpus: no buyer-words sentence — the wordsmith is off, heading +
     !BUYER_WORDS_SENTENCE.test(factor.summary),
     `no buyer-words sentence on strong corpus: ${factor.summary}`
   );
-  // Frame strip 2026-10-16: no pattern sentences print — heading + tag only.
-  assert.strictEqual(factor.summary, "", "no basis sentences: heading + tag only");
+  // Findings bullet in RI's own frame.
+  assert.match(factor.summary, /^6 of 8 buyers mention it\.$/);
   assert(factor.basis.length > 0, "tally tag still renders");
 });
 
@@ -225,23 +225,31 @@ function takkiFixture() {
   };
 }
 
-// Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): this assertion
-// was flipped from the hotfix-1 model. The Takki register stays Junel's
-// acceptance bar for a future rebuild; tonight's bar is a plain,
-// grammatical sentence-library basis with no wordsmith trace.
-test("Takki register: heading + tag only, no wordsmith trace anywhere", () => {
+// Findings engine 2026-10-16 (Junel: "build a native ai" — no OpenAI
+// anywhere in RI). The Takki register is now PROVEN, not parked: each
+// bullet is a concrete finding carrying a review-supported specific.
+test("Takki register: findings bullets carry review-supported specifics", () => {
   const a = ra.deriveReviewAnalysis(takkiFixture());
   const portable = a.forFactors.find((f) => /lightweight|portable/i.test(f.title));
   assert(portable, "portability factor exists");
   assert(!BUYER_WORDS_SENTENCE.test(portable.summary), `no buyer-words sentence: ${portable.summary}`);
-  // Frame strip 2026-10-16: no pattern sentences print — heading + tag only.
-  assert.strictEqual(portable.summary, "", "no basis sentences");
+  // The shared specific "2 pounds" (two buyers) becomes the finding.
+  assert.match(
+    portable.summary,
+    /^2 pounds, say 6 of 10 buyers\.$/,
+    `Takki-register bullet: ${portable.summary}`
+  );
   assert(portable.basis.length > 0, "tally tag still renders");
 
   const charging = a.againstFactors.find((f) => /charg|cable/i.test(f.title));
   assert(charging, "charging factor exists");
   assert(!BUYER_WORDS_SENTENCE.test(charging.summary), `no buyer-words sentence: ${charging.summary}`);
-  assert.strictEqual(charging.summary, "", "no basis sentences");
+  // The shared specific "separate MC4 cable" (two buyers) becomes the finding.
+  assert.match(
+    charging.summary,
+    /^separate MC4 cable, say 4 of 10 buyers\.$/,
+    `Takki-register bullet: ${charging.summary}`
+  );
   assert(charging.basis.length > 0, "tally tag still renders");
 });
 
@@ -256,9 +264,16 @@ test("Takki register: zero filler frames anywhere on the page", () => {
 test("HARD LIMIT: no figure the corpus doesn't contain is ever printed", () => {
   const a = ra.deriveReviewAnalysis(takkiFixture());
   const corpus = takkiBodies.join(" ");
+  // Tally numerals (the theme's own support counts) are the engine's own
+  // facts, not invented figures: 6 and 4 are the theme tallies, 10 the
+  // corpus size. Everything else must appear in the review bodies.
+  const tallyNumerals = new Set(["6", "4", "10"]);
   for (const f of [...a.forFactors, ...a.againstFactors]) {
     for (const m of f.summary.match(/\d[\d.,]*/g) || []) {
-      assert(corpus.includes(m), `invented figure "${m}" in: ${f.summary}`);
+      assert(
+        corpus.includes(m) || tallyNumerals.has(m),
+        `invented figure "${m}" in: ${f.summary}`
+      );
     }
   }
 });

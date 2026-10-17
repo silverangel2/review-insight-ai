@@ -53,16 +53,15 @@ function richFixture() {
   };
 }
 
-// Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): flipped from the
-// original model. Even a rich corpus gets the plain sentence-library basis.
-// Frame strip 2026-10-16: the plain basis is now heading + tag only — no
-// pattern sentences print at all.
-test("rich corpus: no buyer-words sentence — the wordsmith is off, heading + tag only", () => {
+// Findings engine 2026-10-16 (Junel: "build a native ai" — no OpenAI
+// anywhere in RI). A rich corpus earns a findings bullet: RI's own frame
+// around a concrete specific the reviews actually carry.
+test("rich corpus: findings bullet with real specifics, never invented", () => {
   const a = ra.deriveReviewAnalysis(richFixture());
   const factor = a.forFactors.find((f) => /battery/i.test(f.title));
   assert(factor, "battery factor exists");
   assert(!BUYER_WORDS_SENTENCE.test(factor.summary), `no buyer-words sentence: ${factor.summary}`);
-  assert.strictEqual(factor.summary, "", "no basis sentences: heading + tag only");
+  assert.match(factor.summary, /^6 of 8 buyers mention it\.$/);
   assert(factor.basis.length > 0, "tally tag still renders");
   // Nothing invented: no detail the corpus never named.
   assert(!/waterproof|wireless charging|solar|bluetooth 6|noise cancelling/i.test(factor.summary), "no invented detail");

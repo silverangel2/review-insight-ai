@@ -78,6 +78,8 @@ function openerOfSummary(summary) {
 
 test("for factors: titles composed from theme + basis bands", () => {
   const a = ra.deriveReviewAnalysis(BASE);
+  // Iteration 4 note: the claim layer (shopperAnswer toPoints) supplies at
+  // most 3 claims per side, so the BUY slot cap (5) binds at 3 here.
   assert.equal(a.forFactors.length, 3);
   assert.equal(a.forFactors[0].title, "Comfortable, lightweight fit");
   assert.equal(a.forFactors[0].basis, "Pattern across most reviews");
@@ -110,10 +112,12 @@ test("against ordering: red flags, then recurring, then ordinary one-offs", () =
   });
   const a = ra.deriveReviewAnalysis(r);
   const titles = a.againstFactors.map((f) => f.title);
+  // Iteration 4: the fixture verdict is BUY (complaint cap 2), so the
+  // ordering is red flag first, then recurring — the ordinary one-off
+  // (Slow shipping) is dropped by the cap, never reordered.
   assert.deepEqual(titles, [
     "Watch the seller, not just the product", // red flag first
     "Strong battery life",                    // then recurring
-    "Slow shipping",                          // then ordinary one-off
   ]);
 });
 
@@ -180,11 +184,13 @@ test("empty complaints, zero negatives anywhere: honest empty state allowed", ()
   assert.deepEqual(a.suppressedThemes, []);
 });
 
-test("factors capped at three per side, top counts first", () => {
+test("factors capped by verdict: BUY renders the top themes first", () => {
   const r = airpodsFixture({
     strengths: [1, 2, 3, 4, 5].map((n) => ({ claim: `theme ${n}`, supportCount: n, sourceIds: [], sourceHashes: [] })),
   });
   const a = ra.deriveReviewAnalysis(r);
+  // Iteration 4: the claim layer supplies at most 3 claims per side, so the
+  // BUY slot cap (5) binds at 3; the top 3 by count render, best first.
   assert.equal(a.forFactors.length, 3);
   assert.equal(a.forFactors[0].title, "Theme 5");
   // Frame strip 2026-10-16: regular-path themes render heading + tag only —
@@ -343,12 +349,12 @@ function depthFixture(overrides = {}) {
   };
 }
 
-test("Phase 9: sub-aspects no longer print in theme copy (frame strip 2026-10-16)", () => {
+test("Phase 9: sub-aspects no longer print in theme copy (findings 2026-10-16)", () => {
   const a = ra.deriveReviewAnalysis(depthFixture());
   const fit = a.forFactors[0];
   assert.equal(fit.title, "Comfortable, lightweight fit");
-  // The strip removed pattern sentences from theme basis: heading + tag only.
-  assert.strictEqual(fit.summary, "");
+  // Findings engine: one bullet in RI's own frame, never a pattern sentence.
+  assert.match(fit.summary, /^\d+ of 10 buyers mention it\.$/);
   assert.ok(fit.basis.length > 0);
   // Neither supported nor unsupported sub-aspect phrases appear anywhere.
   assert.ok(
@@ -371,13 +377,13 @@ test("Phase 9: a single mention never surfaces as a sub-aspect", () => {
   assert.ok(!/run for days on a charge|stretch for days between charges/.test(battery.summary));
 });
 
-test("Phase 9: co-occurrence clause no longer prints (frame strip 2026-10-16)", () => {
+test("Phase 9: co-occurrence clause no longer prints (findings 2026-10-16)", () => {
   const a = ra.deriveReviewAnalysis(depthFixture());
   const fit = a.forFactors[0];
   // d1 and d8 are linked to BOTH fit and sound, but the co-pair clause was
-  // part of the stripped pattern-sentence layer: heading + tag only now.
+  // part of the retired pattern-sentence layer: the bullet is a finding.
   assert.ok(!/clear sound/.test(fit.summary), `no co-pair clause in: ${fit.summary}`);
-  assert.strictEqual(fit.summary, "");
+  assert.match(fit.summary, /^\d+ of 10 buyers mention it\.$/);
 });
 
 test("Phase 9: thin corpora get lead + strength only, never padded", () => {
@@ -399,10 +405,9 @@ test("Phase 9: thin corpora get lead + strength only, never padded", () => {
   const a = ra.deriveReviewAnalysis(r);
   assert.equal(a.reviewCount, 5);
   const fit = a.forFactors[0];
-  // no "they ..." specifics clause on a thin corpus
-  assert.ok(!/\bthey [a-z]/.test(fit.summary), `thin factor must not pad specifics: ${fit.summary}`);
-  // Frame strip 2026-10-16: thin corpora also render heading + tag only.
-  assert.strictEqual(fit.summary, "");
+  // Findings on a thin corpus: a real bullet in RI's frame — specifics only
+  // when >= 2 distinct reviews evidence them, never padded invention.
+  assert.match(fit.summary, /^\d+ of 5 buyers mention it\.$/);
   assert.ok(fit.basis.length > 0);
 });
 

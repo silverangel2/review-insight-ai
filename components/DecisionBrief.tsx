@@ -198,6 +198,18 @@ export function DecisionBrief({
           </p>
         </section>
 
+        {/* Iteration 4: the wait line — Wait verdicts only, and only when the
+            engine earned one from real signals. A quiet block under the
+            answer card, in the indigo family, never a second verdict. */}
+        {verdictWord === copy.verdict.wait && analysis.waitLine ? (
+          <section className="ri-card ri-lift p-5">
+            <h2 className="text-[17px] font-bold text-indigo-700 dark:text-indigo-300">{copy.whyWait}</h2>
+            <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
+              {analysis.waitLine}
+            </p>
+          </section>
+        ) : null}
+
         {/* 2 + 3. The two factor columns: stacked on mobile, side by side on desktop */}
         <div className="grid gap-3.5 lg:grid-cols-2 lg:gap-4">
           <section className="ri-card ri-lift ri-unlock-child ri-d2 p-5">

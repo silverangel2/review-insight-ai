@@ -15,18 +15,33 @@
  *  - Theme anchoring: a clause only evidences a theme when it carries one of
  *    the theme's own signal words — generic praise ("I'm impressed!") can
  *    never become a theme's specific.
- *  - Specifics are SHORT detail phrases (parentheticals, measurements,
+ *  - Specifics come FIRST from the hand-written specifics library
+ *    (lib/themeSpecifics.ts): phrase families with literal variant patterns,
+ *    each firing only on >= 2 DISTINCT reviews. The bullet's specific is the
+ *    winning family's canonical phrase — RI's words, auditable against the
+ *    verbatim example clauses carried on every hit.
+ *  - Tier-2 (legacy): short-detail extraction (parentheticals, measurements,
  *    requirements, "X enough to Y", time phrases), each traced to >= 2
  *    distinct reviews. Nothing longer than a short phrase is ever quoted
  *    (Junel's no-pasted-quotes rule; the 40-char snippet test guards it).
  *  - Every numeral traces to a source clause or the tally; the dead
  *    pattern-frame family (106 frames) can never print; the bullet is one
  *    complete grammatical sentence.
- *  - No qualifying specific -> an honest gloss+support bullet (never an
- *    empty line, never a hidden signal).
+ *  - Render is human, not templated: "up to 30 hours with the case, say 8 of
+ *    62 buyers." — no "Buyers praise it —" scaffolding repeated per bullet.
+ *  - No qualifying specific -> an honest tally-only bullet ("8 of 62 buyers
+ *    mention it.") — never an empty line, never a hidden signal.
  */
 
 import { depthFor, DIMENSION_ALIASES } from "./analysisCopy";
+import { winningFamily, matchFamilies, familyMatchedClauses } from "./themeSpecifics";
+import {
+  mineMeasurements,
+  measurementDisagreement,
+  disagreementRange,
+  type MeasurementGroup,
+  type MeasureKind,
+} from "./themeMeasurements";
 
 export type FindingsInput = {
   key: string;
@@ -37,6 +52,11 @@ export type FindingsInput = {
   reviewCount: number;
   texts: string[];
   productTitle?: string;
+  /** Iteration 3: per-review star ratings aligned with `texts` (texts[i]'s
+   *  stars[i]); null when unknown. The production seam does not provide
+   *  these yet — where absent, star context is skipped silently. Stars are
+   *  never invented or inferred. */
+  stars?: (number | null)[];
 };
 
 // ---------------------------------------------------------------------------
@@ -61,7 +81,8 @@ const VERB_BASES = new Set(
     "handle,cook,bake,brew,grind,cut,blend,dry,shine,beep,click,turn,spin,shake,rattle,leak,drip,spill," +
     "scratch,crack,wear,tear,smell,taste,weigh,cost,spend,pay,ship,pack,open,close,seal,lock,fold," +
     "adjust,rotate,oscillate,withstand,survive,matter,count,change,sit,sleep,play,need,want,think,know," +
-    "find,try,become,remain,impress,mean,reach,cover,fill,power,flag,praise,live,exist").split(",")
+    "find,try,become,remain,impress,mean,reach,cover,fill,power,flag,praise,live,exist,mention," +
+    "make,take,chop,dice,get,drop,catch,slice,brush,watch,wash,upgrade,disagree,range").split(",")
 );
 const AUX = new Set(
   "is,are,was,were,am,has,have,had,do,does,did,will,would,can,could,should,may,might,must,shall".split(",")
@@ -236,9 +257,14 @@ function tokenize(s: string): string[] {
   return s.toLowerCase().replace(/[^a-z0-9'\s-]/g, " ").split(/\s+/).filter(Boolean);
 }
 
-function verbAt(toks: string[], i: number): boolean {
+function verbAt(toks: string[], i: number, allowImperative = false): boolean {
   const t = toks[i];
   if (AUX.has(t) || IRREG.has(t)) return true;
+  // Attributive "say" ("..., say 8 of 62 buyers."): in a findings bullet it
+  // is always the attributive verb — "as 8 of 62 buyers say" read forwards.
+  // This check only ever runs on RI's own composed bullets, never raw text.
+  // (The tokenizer strips commas, so the rule is on the token itself.)
+  if (t === "say") return true;
   const m = t.match(/^(.*?)(ing|ed|es|s|d)$/);
   if (m && m[1].length >= 3) {
     const st = m[1];
@@ -250,7 +276,11 @@ function verbAt(toks: string[], i: number): boolean {
   // Bare base form ("praise", "love"): finite only with a pronoun or
   // plural-noun subject directly before it — "they praise", "buyers praise".
   // After a determiner/adjective ("great sound quality") it is a noun.
-  if (VERB_BASES.has(t) && i > 0) {
+  // Family-tier mode allows the imperative ("watch your fingers"): a
+  // subjectless command is a complete sentence, and the family variants
+  // (not the verb) carry the specificity.
+  if (VERB_BASES.has(t) && (i > 0 || allowImperative)) {
+    if (i === 0) return true; // imperative ("watch your fingers")
     const prev = toks[i - 1];
     if (PRONOUNS.has(prev)) return true;
     if (prev.length > 3 && prev.endsWith("s") && !VERB_BASES.has(prev)) return true;
@@ -258,11 +288,11 @@ function verbAt(toks: string[], i: number): boolean {
   return false;
 }
 
-const PRONOUNS = new Set("i,you,he,she,it,we,they,who,that".split(","));
+const PRONOUNS = new Set("i,you,he,she,it,we,they,who,that,these,those".split(","));
 
-function clauseHasVerb(s: string): boolean {
+function clauseHasVerb(s: string, allowImperative = false): boolean {
   const toks = tokenize(s);
-  return toks.some((_, i) => verbAt(toks, i));
+  return toks.some((_, i) => verbAt(toks, i, allowImperative));
 }
 
 function stem(t: string): string {
@@ -349,10 +379,26 @@ function splitClauses(texts: string[]): Clause[] {
   });
 }
 
-export function isCompleteClause(raw: string, mid = false): boolean {
-  const s = raw.trim().replace(/[.!?]+$/, "").trim();
+export function isCompleteClause(
+  raw: string,
+  mid = false,
+  opts: { maxWords?: number; stripLead?: boolean } = {}
+): boolean {
+  let s = raw.trim().replace(/[.!?]+$/, "").trim();
+  // Family-tier mode: the family variants carry the specificity, so a single
+  // leading discourse connective (a comma-split artifact like "and it sliced
+  // my finger open", or a sentence-initial "Plus everything drops...") is
+  // set aside before the grammar check. The extract tier never uses this.
+  if (opts.stripLead) {
+    s = s.replace(
+      /^(?:and|or|but|because|so|however|though|although|which|that|who|when|while|if|then|than|also|plus|as|yet|nor)\s+/i,
+      ""
+    ).trim();
+    if (!s) return false;
+  }
+  const maxWords = opts.maxWords ?? 24;
   const words = s.split(/\s+/);
-  if (words.length < 3 || words.length > 24) return false;
+  if (words.length < 3 || words.length > maxWords) return false;
   const first = words[0].replace(/^["'“”]+/, "");
   // Mid-sentence clauses (after a comma split) may start lowercase — they are
   // still complete when they carry subject + verb. BAD_LEAD still rejects
@@ -361,7 +407,7 @@ export function isCompleteClause(raw: string, mid = false): boolean {
   if (BAD_LEAD.has(first.toLowerCase())) return false;
   const last = words[words.length - 1].toLowerCase().replace(/["'”.,!?]+$/, "");
   if (DANGLING_END.has(last)) return false;
-  return clauseHasVerb(s);
+  return clauseHasVerb(s, !!opts.stripLead);
 }
 
 // ---------------------------------------------------------------------------
@@ -822,7 +868,9 @@ export function numeralsTrace(
 
 function isWellFormedBullet(bullet: string): boolean {
   if (bullet.length > 240) return false;
-  if (!/^[A-Z0-9]/.test(bullet)) return false;
+  // Lowercase start allowed: the bullet renders as a continuation after the
+  // theme title ("Strong battery life — up to 30 hours...").
+  if (!/^[A-Za-z0-9]/.test(bullet)) return false;
   if (!/\.$/.test(bullet)) return false;
   if (!clauseHasVerb(bullet)) return false;
   if (hasBannedFragment(bullet)) return false;
@@ -841,26 +889,218 @@ function lowerFirst(s: string): string {
 /**
  * Build the findings bullet for one theme. Returns null only when the
  * module cannot run (no texts) — otherwise always returns a bullet:
- * a specific-detail bullet when the evidence earns one, else the honest
- * gloss+support fallback. Never throws.
+ * a family-specific bullet when a hand-written phrase family fires on
+ * >= 2 distinct reviews, else the legacy short-detail bullet when the
+ * evidence earns one, else the honest tally-only fallback. Never throws.
+ *
+ * Render (humanized, iteration 2 — Junel's boilerplate ban):
+ *   "up to 30 hours with the charging case, say 8 of 62 buyers."
+ *   "19 of 62 buyers mention it."
+ * The bullet is the sentence that follows the theme title; it carries no
+ * repeated "Buyers praise it —" scaffolding.
  */
-export function themeFinding(input: FindingsInput): string | null {
+export type FindingAudit = {
+  bullet: string | null;
+  tier: "measurement" | "disagreement" | "family" | "extract" | "fallback" | "none";
+  /** Present when tier === "family": the winning family + audit trail. */
+  familyId?: string;
+  canonical?: string;
+  familySources?: number[];
+  /** Verbatim matched clauses, up to 3. */
+  examples?: string[];
+  /** Iteration 3: qualifying measurement groups for the winning family. */
+  measurements?: MeasurementGroup[];
+  /** Iteration 3: the disagreement poles, when tier === "disagreement". */
+  disagreement?: {
+    kind: "measurement" | "family";
+    /** Hand-written wording (family) or rendered range (measurement). */
+    text: string;
+    poleA?: { renderValue: string; sources: number[]; examples: string[] };
+    poleB?: { renderValue: string; sources: number[]; examples: string[] };
+  };
+};
+
+/**
+ * Iteration 3: star-profile context. Appended to an AGAINST bullet only
+ * when the theme's reviews are concentrated in low-star reviews (>= 70%
+ * of known stars are <= 2, >= 4 known). Stars come only from the input;
+ * nothing is inferred, and silence is the default.
+ */
+function starNoteSuffix(input: FindingsInput, clauseSrcs: number[]): string {
+  if (input.side !== "against") return "";
+  const stars = input.stars ?? [];
+  const distinct = [...new Set(clauseSrcs)];
+  const known = distinct.map((s) => stars[s]).filter((s): s is number => typeof s === "number" && s >= 1 && s <= 5);
+  if (known.length < 4) return "";
+  const low = known.filter((s) => s <= 2).length;
+  if (low / known.length < 0.7) return "";
+  return " — almost all from 1- and 2-star reviews";
+}
+
+/**
+ * Iteration 3: family-level disagreement. Two fired families of the same
+ * theme whose claims materially conflict (opposes): both fired means each
+ * has >= 2 distinct reviews, so the disagreement is evidenced. Deterministic:
+ * families checked in id order.
+ */
+function familyDisagreement(
+  key: string,
+  clauses: { text: string; src: number }[],
+  side: "for" | "against",
+  productTitle: string | undefined
+): { text: string; a: string; b: string } | null {
+  const fired = new Map<string, { id: string; disagreeText?: string; opposes?: string[] }>();
+  for (const s of [side, side === "for" ? "against" : "for"] as const) {
+    for (const h of matchFamilies(key, clauses, s, productTitle)) {
+      if (!fired.has(h.family.id)) {
+        fired.set(h.family.id, { id: h.family.id, disagreeText: h.family.disagreeText, opposes: h.family.opposes });
+      }
+    }
+  }
+  for (const id of [...fired.keys()].sort()) {
+    const f = fired.get(id)!;
+    for (const opp of f.opposes ?? []) {
+      if (!fired.has(opp)) continue;
+      const text = f.disagreeText ?? fired.get(opp)!.disagreeText;
+      if (!text) continue;
+      return { text, a: id, b: opp };
+    }
+  }
+  return null;
+}
+
+export function themeFindingAudit(input: FindingsInput): FindingAudit {
+  const fail: FindingAudit = { bullet: null, tier: "none" };
   try {
     const { key, title, claim, side, count, reviewCount, texts } = input;
-    if (!texts || !texts.length || count < 1 || reviewCount < 1) return null;
+    if (!texts || !texts.length || count < 1 || reviewCount < 1) return fail;
 
-    const frame = side === "for" ? "Buyers praise it" : "Buyers flag it";
-    const support = `mentioned in ${count} of ${reviewCount} review${reviewCount === 1 ? "" : "s"}`;
+    const support = (n: number) => `say ${n} of ${reviewCount} buyer${reviewCount === 1 ? "" : "s"}`;
     const allowTitle = titleWordFilter(input.productTitle);
 
-    // 1. Clauses: complete + theme-anchored.
+    // 1. Clauses: split + complete. The family tier (Tier 0) matches on
+    // complete clauses only — the family variants are themselves
+    // theme-anchored (written per theme), and the narrow anchor filter
+    // starves keyword-group themes ("Fit problems" has no dimension entry,
+    // so its anchor set is just {fit, problems}). The extract tier keeps
+    // the anchor filter: it invents phrases, so it needs the extra guard.
+    // Family-tier completeness ignores a single leading connective
+    // (a split artifact like "and it sliced my finger open") and allows
+    // longer clauses; matching and the audit trail always use the
+    // verbatim original text.
     const anchors = themeAnchors(key, title, claim);
-    const clauses = splitClauses(texts).filter(
+    const clauses = splitClauses(texts).filter((c) =>
+      isCompleteClause(c.text, c.mid, { stripLead: true, maxWords: 40 })
+    );
+    const anchored = splitClauses(texts).filter(
       (c) => isCompleteClause(c.text, c.mid) && isAnchored(c.text, anchors)
     );
+    const sourceText = clauses.map((c) => c.text).join(" ");
+    const traceSource = (extra: string) => `${sourceText} ${extra}`;
+
+    // Tier 0: the specifics library — hand-written phrase families, each
+    // firing only on >= 2 DISTINCT reviews. The specific is the winning
+    // family's canonical phrase; the support is the theme's own tally.
+    // Iteration 3 adds two tiers above it:
+    //   -1a measurement disagreement: two incompatible measurement poles,
+    //      each >= 2 reviews -> the bullet says buyers disagree.
+    //   -1b family disagreement: two fired families in an opposes pair.
+    //   -2 measurement bullet: a traced measurement the canonical lacks.
+    const clauseRefs = clauses.map((c) => ({ text: c.text, src: c.src }));
+    const starSuffix = starNoteSuffix(input, clauseRefs.map((c) => c.src));
+    const win = winningFamily(key, clauseRefs, side, input.productTitle);
+    if (win) {
+      const matched = familyMatchedClauses(win.family, clauseRefs);
+      const groups = mineMeasurements(matched, win.family.measurementKinds ?? []);
+
+      // -1a: measurement disagreement.
+      const mDis = measurementDisagreement(groups);
+      if (mDis) {
+        const text = `buyers disagree — claims range from ${disagreementRange(mDis)}`;
+        const base = `${text}, ${support(count)}.`;
+        if (!isWellFormedBullet(base)) return fail;
+        const ex = [...mDis.a.examples, ...mDis.b.examples].join(" ");
+        if (!numeralsTrace(base, traceSource(ex), count, reviewCount)) return fail;
+        const bullet = starSuffix ? `${base.slice(0, -1)}${starSuffix}.` : base;
+        return {
+          bullet,
+          tier: "disagreement",
+          familyId: win.family.id,
+          canonical: win.family.canonical,
+          familySources: win.sources,
+          examples: win.examples,
+          measurements: groups,
+          disagreement: {
+            kind: "measurement",
+            text,
+            poleA: { renderValue: mDis.a.renderValue, sources: mDis.a.sources, examples: mDis.a.examples },
+            poleB: { renderValue: mDis.b.renderValue, sources: mDis.b.sources, examples: mDis.b.examples },
+          },
+        };
+      }
+
+      // -1b: family disagreement (opposes pair, both fired => each >= 2).
+      const fDis = familyDisagreement(key, clauseRefs, side, input.productTitle);
+      if (fDis) {
+        const base = `buyers disagree — ${fDis.text}, ${support(count)}.`;
+        if (!isWellFormedBullet(base)) return fail;
+        if (!numeralsTrace(base, traceSource(win.examples.join(" ")), count, reviewCount)) return fail;
+        const bullet = starSuffix ? `${base.slice(0, -1)}${starSuffix}.` : base;
+        return {
+          bullet,
+          tier: "disagreement",
+          familyId: win.family.id,
+          canonical: win.family.canonical,
+          familySources: win.sources,
+          examples: win.examples,
+          disagreement: { kind: "family", text: fDis.text },
+        };
+      }
+
+      // -2: measurement bullet — the miner found a traced measurement the
+      // canonical doesn't already state (canonicals with numerals keep
+      // their hand-tuned wording).
+      const g0 = groups[0];
+      if (g0 && win.family.measurementRender && !/\d/.test(win.family.canonical)) {
+        const base = `${win.family.measurementRender(g0.renderValue)}, ${support(count)}.`;
+        if (!isWellFormedBullet(base)) return fail;
+        if (!numeralsTrace(base, traceSource(g0.examples.join(" ")), count, reviewCount)) return fail;
+        const bullet = starSuffix ? `${base.slice(0, -1)}${starSuffix}.` : base;
+        return {
+          bullet,
+          tier: "measurement",
+          familyId: win.family.id,
+          canonical: win.family.canonical,
+          familySources: win.sources,
+          examples: win.examples,
+          measurements: groups,
+        };
+      }
+
+      const base = `${win.family.canonical}, ${support(count)}.`;
+      if (!isWellFormedBullet(base)) return fail;
+      // Numerals in the canonical phrase must trace to a matched clause.
+      // The star suffix's own numerals ("1- and 2-star") describe the star
+      // data itself, so traceability is checked on the base bullet and the
+      // suffix is appended only after the gates pass.
+      if (!numeralsTrace(base, traceSource(win.examples.join(" ")), count, reviewCount)) {
+        return fail;
+      }
+      const bullet = starSuffix ? `${base.slice(0, -1)}${starSuffix}.` : base;
+      return {
+        bullet,
+        tier: "family",
+        familyId: win.family.id,
+        canonical: win.family.canonical,
+        familySources: win.sources,
+        examples: win.examples,
+        measurements: groups.length ? groups : undefined,
+      };
+    }
 
     // 2. Cluster near-duplicates; keep clusters with >= 2 distinct reviews.
-    const clusters = clusterClauses(clauses)
+    // The extract tier keeps the narrow anchor filter: it invents phrases.
+    const clusters = clusterClauses(anchored)
       .filter((c) => c.sources.size >= 2)
       .sort(
         (a, b) =>
@@ -917,19 +1157,52 @@ export function themeFinding(input: FindingsInput): string | null {
       // }
     }
 
-    const sourceText = clauses.map((c) => c.text).join(" ");
-    let bullet: string;
+    let base: string;
+    let tier: FindingAudit["tier"];
     if (detail) {
-      bullet = `${frame} — ${lowerFirst(detail)}, ${support}.`;
+      base = `${lowerFirst(detail)}, ${support(count)}.`;
+      tier = "extract";
     } else {
-      bullet = `${frame} — ${support}.`;
+      // Honest tally-only fallback: heading + tally, no scaffolding.
+      base = `${count} of ${reviewCount} buyers mention it.`;
+      tier = "fallback";
     }
 
-    // 4. Honesty gates: all must pass or no bullet ships.
-    if (!isWellFormedBullet(bullet)) return null;
-    if (!numeralsTrace(bullet, `${sourceText} ${detailSources}`, count, reviewCount)) return null;
-    return bullet;
+    // 4. Honesty gates: all must pass or no bullet ships. Gates run on the
+    // base bullet: the star suffix's own numerals ("1- and 2-star") describe
+    // the star data itself and are appended only after the gates pass.
+    if (!isWellFormedBullet(base)) return fail;
+    if (!numeralsTrace(base, traceSource(detailSources), count, reviewCount)) return fail;
+    const bullet = starSuffix ? `${base.slice(0, -1)}${starSuffix}.` : base;
+    return { bullet, tier };
   } catch {
-    return null;
+    return fail;
   }
+}
+
+/** Debug/audit helper: shows the clause pipeline stages for one theme input. */
+export function debugClauses(input: FindingsInput): {
+  raw: number;
+  complete: number;
+  anchored: number;
+  anchoredTexts: string[];
+  dropped: string[];
+} {
+  const { key, title, claim, texts } = input;
+  const anchors = themeAnchors(key, title, claim);
+  const split = splitClauses(texts);
+  const complete = split.filter((c) => isCompleteClause(c.text, c.mid));
+  const anchored = complete.filter((c) => isAnchored(c.text, anchors));
+  const anchoredSet = new Set(anchored.map((c) => c.text));
+  return {
+    raw: split.length,
+    complete: complete.length,
+    anchored: anchored.length,
+    anchoredTexts: anchored.map((c) => c.text),
+    dropped: complete.filter((c) => !anchoredSet.has(c.text)).map((c) => c.text),
+  };
+}
+
+export function themeFinding(input: FindingsInput): string | null {
+  return themeFindingAudit(input).bullet;
 }
