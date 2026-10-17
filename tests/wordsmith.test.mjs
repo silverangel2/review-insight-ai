@@ -55,12 +55,15 @@ function richFixture() {
 
 // Hotfix 2 2026-10-16 (wordsmith OFF at the compose seam): flipped from the
 // original model. Even a rich corpus gets the plain sentence-library basis.
-test("rich corpus: no buyer-words sentence — the wordsmith is off, plain basis renders", () => {
+// Frame strip 2026-10-16: the plain basis is now heading + tag only — no
+// pattern sentences print at all.
+test("rich corpus: no buyer-words sentence — the wordsmith is off, heading + tag only", () => {
   const a = ra.deriveReviewAnalysis(richFixture());
   const factor = a.forFactors.find((f) => /battery/i.test(f.title));
   assert(factor, "battery factor exists");
   assert(!BUYER_WORDS_SENTENCE.test(factor.summary), `no buyer-words sentence: ${factor.summary}`);
-  assert(factor.summary.trim().endsWith("."), "complete grammatical sentence");
+  assert.strictEqual(factor.summary, "", "no basis sentences: heading + tag only");
+  assert(factor.basis.length > 0, "tally tag still renders");
   // Nothing invented: no detail the corpus never named.
   assert(!/waterproof|wireless charging|solar|bluetooth 6|noise cancelling/i.test(factor.summary), "no invented detail");
   // No verbatim buyer sentence leaks.

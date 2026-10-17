@@ -7,26 +7,13 @@ import {
 import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim } from "@/lib/evidenceConsistency";
 import {
-  AGAINST_CAVEATS,
-  AGAINST_LEAD_OTHER,
-  AGAINST_LEAD_TOP,
-  CAVEATS,
-  CLOSERS,
-  CO_PAIR_BRIDGES,
   DIMENSION_ALIASES,
   DIMENSION_DEPTH,
-  FOR_LEAD_REST,
-  FOR_LEAD_SECOND,
-  FOR_LEAD_STRONGEST,
   ONE_OFF_LEADS,
   RED_FLAG_FRAMES,
   RED_FLAG_PLURAL_FRAMES,
-  STRENGTH_DOMINANT,
-  STRENGTH_DOMINANT_FIRST,
-  STRENGTH_FEW,
-  STRENGTH_HALF,
-  STRENGTH_REPEATED,
-  VALUE_LEADS,
+  STANDALONE_CAVEATS_AGAINST,
+  STANDALONE_CAVEATS_FOR,
   depthFor,
   hashSignature,
   pickFrame,
@@ -133,12 +120,6 @@ function sentenceCaseTheme(theme: string): string {
 function lowerTheme(theme: string): string {
   const t = theme.trim();
   return t ? t.charAt(0).toLowerCase() + t.slice(1) : t;
-}
-
-function joinList(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
 /**
@@ -449,97 +430,33 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
     return { title, summary: `${renderFrame(template, { theme: fill })}.`, basis, band, severity };
   }
 
-  // Lead: collective judgment + how buyers land on it.
-  const leadFamily =
-    depth?.leadFamily === "value"
-      ? VALUE_LEADS
-      : s.side === "for"
-        ? s.rank === 0
-          ? FOR_LEAD_STRONGEST
-          : s.rank === 1
-            ? FOR_LEAD_SECOND
-            : FOR_LEAD_REST
-        : s.rank === 0
-          ? AGAINST_LEAD_TOP
-          : AGAINST_LEAD_OTHER;
-  // Specifics: only mined sub-aspects, woven in. Thin corpora skip this.
-  let specifics = "";
-  if (!ctx.thin && s.aspectHitIds.length > 0) {
-    const phrases = s.aspectHitIds
-      .map((id) => aspectPhrase(s.key, id, s.side, ctx.tallySig))
-      .filter((p): p is string => Boolean(p));
-    if (phrases.length > 0) {
-      specifics = `they ${joinList(phrases)}`;
-    }
-  }
-  let pairClause = "";
-  if (!ctx.thin && s.side === "for" && s.rank === 0 && ctx.coPairForKey === s.key && ctx.coPairNoun && depth?.pairNoun) {
-    const template = pickFrame(CO_PAIR_BRIDGES, `${ctx.tallySig}|copair|${s.key}`, ctx.used);
-    pairClause = renderFrame(template, { a: depth.pairNoun, b: ctx.coPairNoun });
-  }
-
-  // Hotfix 2 2026-10-16: the wordsmith enrichment is switched OFF at the
-  // compose seam — the miner produced ungrammatical n-gram fragments live
-  // (scan_41a15295: "anyone looking and build quality — that's what buyers
-  // keep naming." / "What buyers name, again and again: doesn't require a
-  // separate and interior unlike most electric."). lib/wordsmith.ts stays in
-  // the repo, dormant, for the future rebuild; no production path calls it
-  // anymore. The composition below is the plain sentence-library basis that
-  // predates the Wordsmith — the style that passed Junel's checks on the
-  // Shark / Keurig / Sony live proofs.
-
-  const lead = pickFrame(leadFamily, `${ctx.tallySig}|lead|${s.side}|${s.rank}|${s.key}`, ctx.used);
-  const sentence1 =
-    specifics && pairClause
-      ? `${lead}: ${specifics}${pairClause}.`
-      : specifics
-        ? `${lead}: ${specifics}.`
-        : pairClause
-          ? `${lead}${pairClause}.`
-          : `${lead}.`;
-
-  // Strength in plain words, from real tallies.
-  const share = ctx.reviewCount > 0 ? s.count / ctx.reviewCount : 0;
-  const strengthFamily =
-    band === "dominant"
-      ? s.rank === 0
-        ? STRENGTH_DOMINANT_FIRST
-        : STRENGTH_DOMINANT
-      : share >= 0.4
-        ? STRENGTH_HALF
-        : share >= 0.15
-          ? STRENGTH_REPEATED
-          : STRENGTH_FEW;
-  let sentence2 = pickFrame(
-    strengthFamily,
-    `${ctx.tallySig}|strength|${band}|${s.side}|${s.rank}|${s.key}`,
-    ctx.used
-  );
-
-  // Caveat: the same theme has signals on the other side — never pretend
-  // unanimity. R3: the caveat voices the loser, so it renders only when the
-  // loser was evidenced by a written review (hard rule: never hide an
-  // EVIDENCED negative signal; never print an unevidenced one).
+  // Frame strip 2026-10-16 (Junel: the pattern-metaphor sentences are
+  // unintelligible to shoppers — "Fucking cement it"). The regular theme path
+  // prints NO pattern sentences at all: a theme renders heading + tag only.
+  // The ONLY basis line that can print here is an evidenced opposing-signal
+  // caveat (hard rule: never hide an EVIDENCED negative signal) — voiced as
+  // a single standalone sentence carrying the real note. One-off and
+  // red-flag paths above are untouched: their sentences carry real
+  // {theme}/{detail} content.
+  let summary = "";
   if (s.opposingCount >= 1 && s.opposingEvident) {
-    const base = sentence2.replace(/\.\s*$/, "");
     if (s.side === "for") {
       const note = depth?.againstNote ?? "some buyers had the opposite experience";
-      const template = pickFrame(CAVEATS, `${ctx.tallySig}|caveat|${s.key}`, ctx.used);
-      sentence2 = `${base}${renderFrame(template, { note })}.`;
+      const template = pickFrame(
+        STANDALONE_CAVEATS_FOR,
+        `${ctx.tallySig}|caveat|${s.side}|${s.key}`,
+        ctx.used
+      );
+      summary = renderFrame(template, { note });
     } else {
-      const template = pickFrame(AGAINST_CAVEATS, `${ctx.tallySig}|caveat|${s.key}`, ctx.used);
-      sentence2 = `${base}${template}`;
+      const template = pickFrame(
+        STANDALONE_CAVEATS_AGAINST,
+        `${ctx.tallySig}|caveat|${s.side}|${s.key}`,
+        ctx.used
+      );
+      summary = template;
     }
   }
-
-  // Closer: earned only by dominant-band factors, never on thin corpora.
-  const closer =
-    !ctx.thin && band === "dominant"
-      ? pickFrame(CLOSERS, `${ctx.tallySig}|closer|${s.side}|${s.key}`, ctx.used)
-      : "";
-
-  // Today's honest composition — lead + strength (+ closer).
-  const summary = closer ? `${sentence1} ${sentence2} ${closer}` : `${sentence1} ${sentence2}`;
   return { title, summary, basis, band, severity };
 }
 
