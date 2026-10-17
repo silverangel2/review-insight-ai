@@ -6,6 +6,7 @@ import {
 } from "@/lib/shopperAnswer";
 import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim } from "@/lib/evidenceConsistency";
+import { themeFinding } from "@/lib/themeFindings";
 import {
   DIMENSION_ALIASES,
   DIMENSION_DEPTH,
@@ -383,6 +384,9 @@ type ComposeCtx = {
   used: Set<string>;
   coPairNoun: string | null;
   coPairForKey: string | null;
+  /** Listing title: the findings engine excludes clauses carrying the
+   *  product's own brand/model words (they are not buyer findings). */
+  productTitle: string;
 };
 
 function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
@@ -430,15 +434,27 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
     return { title, summary: `${renderFrame(template, { theme: fill })}.`, basis, band, severity };
   }
 
-  // Frame strip 2026-10-16 (Junel: the pattern-metaphor sentences are
-  // unintelligible to shoppers — "Fucking cement it"). The regular theme path
-  // prints NO pattern sentences at all: a theme renders heading + tag only.
-  // The ONLY basis line that can print here is an evidenced opposing-signal
-  // caveat (hard rule: never hide an EVIDENCED negative signal) — voiced as
-  // a single standalone sentence carrying the real note. One-off and
+  // Findings engine 2026-10-16 (Junel: "build a native ai" — zero external AI
+  // anywhere in RI). The regular theme path prints ONE finding bullet:
+  // RI's own sentence frame built around a concrete specific the theme's
+  // reviews actually carry (traced to >= 2 distinct reviews), with the
+  // tally woven in. No pattern sentences, no mid-sentence fragments.
+  // The ONLY other line that can print here is an evidenced
+  // opposing-signal caveat (hard rule: never hide an EVIDENCED negative
+  // signal) — appended as a second standalone sentence. One-off and
   // red-flag paths above are untouched: their sentences carry real
   // {theme}/{detail} content.
-  let summary = "";
+  let summary =
+    themeFinding({
+      key: s.key,
+      title,
+      claim: s.claim,
+      side: s.side,
+      count: s.count,
+      reviewCount: ctx.reviewCount,
+      texts: s.texts,
+      productTitle: ctx.productTitle,
+    }) ?? "";
   if (s.opposingCount >= 1 && s.opposingEvident) {
     if (s.side === "for") {
       const note = depth?.againstNote ?? "some buyers had the opposite experience";
@@ -447,14 +463,15 @@ function composeSignal(s: ThemeSignal, ctx: ComposeCtx): AnalysisFactor {
         `${ctx.tallySig}|caveat|${s.side}|${s.key}`,
         ctx.used
       );
-      summary = renderFrame(template, { note });
+      const caveat = renderFrame(template, { note });
+      summary = summary ? `${summary} ${caveat}` : caveat;
     } else {
       const template = pickFrame(
         STANDALONE_CAVEATS_AGAINST,
         `${ctx.tallySig}|caveat|${s.side}|${s.key}`,
         ctx.used
       );
-      summary = template;
+      summary = summary ? `${summary} ${template}` : template;
     }
   }
   return { title, summary, basis, band, severity };
@@ -702,7 +719,8 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
   }
 
   const used = new Set<string>();
-  const ctx: ComposeCtx = { reviewCount, thin, tallySig, used, coPairNoun, coPairForKey };
+  const productTitle = String(obj(obj(result).product).title ?? "").trim();
+  const ctx: ComposeCtx = { reviewCount, thin, tallySig, used, coPairNoun, coPairForKey, productTitle };
   const forFactors = forSignals.map((s) => composeSignal(s, ctx));
   const againstFactors = againstSignals.map((s) => composeSignal(s, ctx));
 
