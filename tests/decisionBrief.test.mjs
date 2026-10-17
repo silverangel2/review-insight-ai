@@ -187,7 +187,9 @@ test("factors capped at three per side, top counts first", () => {
   const a = ra.deriveReviewAnalysis(r);
   assert.equal(a.forFactors.length, 3);
   assert.equal(a.forFactors[0].title, "Theme 5");
-  assert.ok(a.forFactors.every((f) => f.title.length > 0 && f.summary.length > 0));
+  // Frame strip 2026-10-16: regular-path themes render heading + tag only —
+  // summaries are "" by design, so the cap asserts title + tag, not summary.
+  assert.ok(a.forFactors.every((f) => f.title.length > 0 && f.basis.length > 0));
 });
 
 // ---------- PHASE 5: widen the analysis input ----------
@@ -341,21 +343,19 @@ function depthFixture(overrides = {}) {
   };
 }
 
-test("Phase 9: supported sub-aspects surface; unsupported ones do not exist in the copy", () => {
+test("Phase 9: sub-aspects no longer print in theme copy (frame strip 2026-10-16)", () => {
   const a = ra.deriveReviewAnalysis(depthFixture());
   const fit = a.forFactors[0];
   assert.equal(fit.title, "Comfortable, lightweight fit");
-  // light (d1, d2) and no-ache (d1, d2) meet the >=2 threshold
+  // The strip removed pattern sentences from theme basis: heading + tag only.
+  assert.strictEqual(fit.summary, "");
+  assert.ok(fit.basis.length > 0);
+  // Neither supported nor unsupported sub-aspect phrases appear anywhere.
   assert.ok(
-    /feel light|barely-there light/.test(fit.summary),
-    `expected a light phrase in: ${fit.summary}`
+    !/feel light|barely-there light|don't ache over long listening|stay comfortable through all-day wear|stay secure during activity|stay put even during workouts/.test(
+      fit.summary
+    )
   );
-  assert.ok(
-    /don't ache over long listening|stay comfortable through all-day wear/.test(fit.summary),
-    `expected a no-ache phrase in: ${fit.summary}`
-  );
-  // secure has only 1 hit (d8) -> must not appear
-  assert.ok(!/stay secure during activity|stay put even during workouts/.test(fit.summary));
 });
 
 test("Phase 9: a single mention never surfaces as a sub-aspect", () => {
@@ -371,11 +371,13 @@ test("Phase 9: a single mention never surfaces as a sub-aspect", () => {
   assert.ok(!/run for days on a charge|stretch for days between charges/.test(battery.summary));
 });
 
-test("Phase 9: co-occurrence pairs the lead theme with its partner", () => {
+test("Phase 9: co-occurrence clause no longer prints (frame strip 2026-10-16)", () => {
   const a = ra.deriveReviewAnalysis(depthFixture());
   const fit = a.forFactors[0];
-  // d1 and d8 are linked to BOTH fit and sound -> co-occurrence fires
-  assert.ok(/clear sound/.test(fit.summary), `expected co-pair clause in: ${fit.summary}`);
+  // d1 and d8 are linked to BOTH fit and sound, but the co-pair clause was
+  // part of the stripped pattern-sentence layer: heading + tag only now.
+  assert.ok(!/clear sound/.test(fit.summary), `no co-pair clause in: ${fit.summary}`);
+  assert.strictEqual(fit.summary, "");
 });
 
 test("Phase 9: thin corpora get lead + strength only, never padded", () => {
@@ -399,7 +401,9 @@ test("Phase 9: thin corpora get lead + strength only, never padded", () => {
   const fit = a.forFactors[0];
   // no "they ..." specifics clause on a thin corpus
   assert.ok(!/\bthey [a-z]/.test(fit.summary), `thin factor must not pad specifics: ${fit.summary}`);
-  assert.ok(fit.summary.length > 20);
+  // Frame strip 2026-10-16: thin corpora also render heading + tag only.
+  assert.strictEqual(fit.summary, "");
+  assert.ok(fit.basis.length > 0);
 });
 
 test("Phase 9: unanimity caveat names the opposing signal", () => {
@@ -462,19 +466,33 @@ function thirdFixture() {
   };
 }
 
-test("Amendment: three different corpora share no identical factor paragraph", () => {
-  const corpora = [BASE, depthFixture(), thirdFixture()];
-  const all = corpora.map((c) => {
-    const a = ra.deriveReviewAnalysis(c);
-    return [...a.forFactors, ...a.againstFactors].map((f) => f.summary);
-  });
-  const seen = new Map();
-  all.forEach((summaries, ci) => {
-    summaries.forEach((s) => {
-      assert.ok(!seen.has(s), `identical paragraph in corpora ${seen.get(s)} and ${ci}: ${s.slice(0, 80)}…`);
-      seen.set(s, ci);
-    });
-  });
+test("Amendment: no pattern sentences print on any corpus (frame strip 2026-10-16)", () => {
+  // The strip replaced the variant-paragraph machinery for regular-path
+  // themes: no pattern sentences print at all. This is the broad regression
+  // net — every sentence the deck offers for theme basis, checked against
+  // every composed theme summary on three corpora.
+  const deck = [
+    ...copy.FOR_LEAD_STRONGEST,
+    ...copy.FOR_LEAD_SECOND,
+    ...copy.FOR_LEAD_REST,
+    ...copy.VALUE_LEADS,
+    ...copy.AGAINST_LEAD_TOP,
+    ...copy.AGAINST_LEAD_OTHER,
+    ...copy.STRENGTH_DOMINANT_FIRST,
+    ...copy.STRENGTH_DOMINANT,
+    ...copy.STRENGTH_HALF,
+    ...copy.STRENGTH_REPEATED,
+    ...copy.STRENGTH_FEW,
+    ...copy.CLOSERS,
+  ];
+  for (const fixture of [BASE, depthFixture(), thirdFixture()]) {
+    const a = ra.deriveReviewAnalysis(fixture);
+    for (const f of [...a.forFactors, ...a.againstFactors]) {
+      for (const s of deck) {
+        assert.ok(!f.summary.includes(s), `pattern sentence in [${f.title}]: ${s}`);
+      }
+    }
+  }
 });
 
 test("Amendment: repeated render of the same corpus is byte-identical", () => {
@@ -485,11 +503,32 @@ test("Amendment: repeated render of the same corpus is byte-identical", () => {
   assert.equal(third, JSON.stringify(ra.deriveReviewAnalysis(BASE)));
 });
 
-test("Amendment: no two factors on one page start with the same frame", () => {
+test("Amendment: no factor summary starts with a pattern-frame opener (frame strip 2026-10-16)", () => {
+  // With no pattern sentences printed, the opener de-dupe machinery has no
+  // frames to de-dupe. What remains: no summary may open with any deck
+  // frame's opener — a second net alongside the full-string check above.
+  const frameOpeners = new Set(
+    [
+      ...copy.FOR_LEAD_STRONGEST,
+      ...copy.FOR_LEAD_SECOND,
+      ...copy.FOR_LEAD_REST,
+      ...copy.VALUE_LEADS,
+      ...copy.AGAINST_LEAD_TOP,
+      ...copy.AGAINST_LEAD_OTHER,
+      ...copy.STRENGTH_DOMINANT_FIRST,
+      ...copy.STRENGTH_DOMINANT,
+      ...copy.STRENGTH_REPEATED,
+      ...copy.CLOSERS,
+    ].map((s) => copy.openerOf(s))
+  );
   for (const fixture of [BASE, depthFixture(), thirdFixture()]) {
     const a = ra.deriveReviewAnalysis(fixture);
-    const openers = [...a.forFactors, ...a.againstFactors].map((f) => openerOfSummary(f.summary));
-    assert.equal(new Set(openers).size, openers.length, `repeated opener in: ${openers.join(" | ")}`);
+    for (const f of [...a.forFactors, ...a.againstFactors]) {
+      if (f.summary) {
+        const op = copy.openerOf(f.summary);
+        assert.ok(!frameOpeners.has(op), `frame opener in summary [${f.title}]: ${op}`);
+      }
+    }
   }
 });
 

@@ -212,9 +212,14 @@ export function DecisionBrief({
                     <span className="mr-2">✓</span>
                     {factor.title}
                   </p>
-                  <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
-                    {factor.summary}
-                  </p>
+                  {/* Frame strip 2026-10-16: a theme with no basis sentence
+                      renders heading + tag only — the summary line is omitted
+                      entirely, never an empty row. */}
+                  {factor.summary ? (
+                    <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
+                      {factor.summary}
+                    </p>
+                  ) : null}
                   {showBasisFor(factor.summary, factor.basis) ? (
                     <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">
                       {factor.basis}
@@ -238,9 +243,12 @@ export function DecisionBrief({
                     <span className="mr-2">!</span>
                     {factor.title}
                   </p>
-                  <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
-                    {factor.summary}
-                  </p>
+                  {/* Frame strip 2026-10-16: see the for-factors section above. */}
+                  {factor.summary ? (
+                    <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
+                      {factor.summary}
+                    </p>
+                  ) : null}
                   {showBasisFor(factor.summary, factor.basis) ? (
                     <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">
                       {factor.basis}

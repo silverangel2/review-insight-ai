@@ -68,7 +68,7 @@ function weakFixture() {
   };
 }
 
-test("weak corpus: no 'get concrete' sentence, plain basis only — suppressed, not dressed up", () => {
+test("weak corpus: no 'get concrete' sentence — heading + tag only, suppressed not dressed up", () => {
   const a = ra.deriveReviewAnalysis(weakFixture());
   const factor = a.forFactors.find((f) => /fast cooking/i.test(f.title));
   assert(factor, "fast-cooking factor exists");
@@ -77,8 +77,10 @@ test("weak corpus: no 'get concrete' sentence, plain basis only — suppressed, 
     !/instant pot and electric pressure cooker/i.test(factor.summary),
     `no category filler in summary: ${factor.summary}`
   );
-  // The honest composition remains: lead + strength (+ closer on dominant).
-  assert(factor.summary.length > 20, "a plain basis sentence still renders");
+  // Frame strip 2026-10-16: the honest composition is heading + tag only —
+  // no pattern sentences print at all.
+  assert.strictEqual(factor.summary, "", "no basis sentences: heading + tag only");
+  assert(factor.basis.length > 0, "tally tag still renders");
 });
 
 test("the exact live alien sentence can never be produced", () => {
@@ -123,7 +125,7 @@ function strongFixture() {
 // were flipped from the hotfix-1 model. The enrichment is disconnected —
 // even a strong corpus gets the plain sentence-library basis, never a
 // buyer-words sentence.
-test("strong corpus: no buyer-words sentence — the wordsmith is off, plain basis renders", () => {
+test("strong corpus: no buyer-words sentence — the wordsmith is off, heading + tag only", () => {
   const a = ra.deriveReviewAnalysis(strongFixture());
   const factor = a.forFactors.find((f) => /call quality/i.test(f.title));
   assert(factor, "call-quality factor exists");
@@ -131,9 +133,9 @@ test("strong corpus: no buyer-words sentence — the wordsmith is off, plain bas
     !BUYER_WORDS_SENTENCE.test(factor.summary),
     `no buyer-words sentence on strong corpus: ${factor.summary}`
   );
-  // The plain grammatical composition still renders: lead + strength (+ closer).
-  assert(factor.summary.length > 20, "a plain basis sentence still renders");
-  assert(factor.summary.trim().endsWith("."), "summary is a complete sentence");
+  // Frame strip 2026-10-16: no pattern sentences print — heading + tag only.
+  assert.strictEqual(factor.summary, "", "no basis sentences: heading + tag only");
+  assert(factor.basis.length > 0, "tally tag still renders");
 });
 
 test("dormancy: the wordsmith path leaves no trace in composed output", () => {
@@ -227,17 +229,20 @@ function takkiFixture() {
 // was flipped from the hotfix-1 model. The Takki register stays Junel's
 // acceptance bar for a future rebuild; tonight's bar is a plain,
 // grammatical sentence-library basis with no wordsmith trace.
-test("Takki register: plain grammatical basis, no wordsmith trace anywhere", () => {
+test("Takki register: heading + tag only, no wordsmith trace anywhere", () => {
   const a = ra.deriveReviewAnalysis(takkiFixture());
   const portable = a.forFactors.find((f) => /lightweight|portable/i.test(f.title));
   assert(portable, "portability factor exists");
   assert(!BUYER_WORDS_SENTENCE.test(portable.summary), `no buyer-words sentence: ${portable.summary}`);
-  assert(portable.summary.trim().endsWith("."), "plain complete sentence");
+  // Frame strip 2026-10-16: no pattern sentences print — heading + tag only.
+  assert.strictEqual(portable.summary, "", "no basis sentences");
+  assert(portable.basis.length > 0, "tally tag still renders");
 
   const charging = a.againstFactors.find((f) => /charg|cable/i.test(f.title));
   assert(charging, "charging factor exists");
   assert(!BUYER_WORDS_SENTENCE.test(charging.summary), `no buyer-words sentence: ${charging.summary}`);
-  assert(charging.summary.trim().endsWith("."), "plain complete sentence");
+  assert.strictEqual(charging.summary, "", "no basis sentences");
+  assert(charging.basis.length > 0, "tally tag still renders");
 });
 
 test("Takki register: zero filler frames anywhere on the page", () => {

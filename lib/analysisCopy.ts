@@ -266,6 +266,25 @@ export const AGAINST_CAVEATS: string[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// 2026-10-16 frame strip: standalone caveat sentences for the theme-basis
+// path. The regular theme path no longer prints pattern sentences, so an
+// evidenced opposing signal is voiced as its own sentence (hard rule: never
+// hide an EVIDENCED negative signal). {note} carries the real opposing note;
+// the register mirrors the approved CAVEATS above.
+// ---------------------------------------------------------------------------
+export const STANDALONE_CAVEATS_FOR: string[] = [
+  "A few buyers found {note}.",
+  "Not every buyer agrees — some found {note}.",
+  "A small minority reported {note}.",
+];
+
+export const STANDALONE_CAVEATS_AGAINST: string[] = [
+  "A few buyers had no issue with it at all.",
+  "Though some buyers were perfectly happy.",
+  "Not every buyer had this experience.",
+];
+
+// ---------------------------------------------------------------------------
 // Co-occurrence bridges ({a} = this theme's noun, {b} = the paired theme).
 // ---------------------------------------------------------------------------
 
