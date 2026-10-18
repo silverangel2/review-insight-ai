@@ -1,6 +1,6 @@
 /**
  * Sophie Command Door — ReviewIntel's side of the Empire Central Command
- * contract (v1, 2026-10-17).
+ * contract (v1, 2026-10-17; sitrep v1.2, 2026-10-18).
  *
  * Sophie (Junel's local AI) connects OUTBOUND from his iMac to this door.
  * She can read the keeper/ops picture (sitrep) and enqueue whitelisted jobs
@@ -140,6 +140,43 @@ export async function placeSophieOrder(
   return { ok: true, job };
 }
 
+/**
+ * Per-bot activity entry for the sitrep (v1.2).
+ * RI's ri_ops_jobs ledger carries no role/subsystem/objective fields —
+ * its own terms for the bot are the job_type values below, so `name` is
+ * the job_type and `action` is what the job reported (result_summary),
+ * falling back to the job type's standing purpose when nothing was
+ * reported yet. Nothing here is invented: both come from the ledger.
+ */
+export type BotActivity = {
+  name: string;
+  action: string;
+  status: string;
+  at: string;
+};
+
+/** Standing purpose of each RI ops job type (see module header). */
+const JOB_TYPE_PURPOSE: Record<OpsJobType, string> = {
+  ops_sweep: "read-only ops sweep",
+  repair_prep: "repair preparation (evidence only)",
+};
+
+function botActivity(j: OpsJob): BotActivity {
+  const reported =
+    typeof j.result_summary === "string" && j.result_summary.trim()
+      ? j.result_summary.trim()
+      : "";
+  return {
+    name: j.job_type,
+    action: (reported || JOB_TYPE_PURPOSE[j.job_type] || j.job_type).slice(
+      0,
+      160
+    ),
+    status: j.status,
+    at: j.created_at,
+  };
+}
+
 export type SophieSitrep = {
   ok: boolean;
   site: "reviewintel";
@@ -148,6 +185,7 @@ export type SophieSitrep = {
     rescue: { pending: number; rescued: number; emailed: number } | null;
     ops: {
       tablesReady: boolean;
+      bots: BotActivity[];
       recentJobs: Array<{
         id: string;
         job_type: OpsJobType;
@@ -188,6 +226,7 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
     const jobs = tablesReady ? await listRecentOpsJobs(10) : [];
     ops = {
       tablesReady,
+      bots: jobs.slice(0, 8).map(botActivity),
       recentJobs: jobs.map((j) => ({
         id: j.id,
         job_type: j.job_type,
