@@ -36,6 +36,8 @@ export const CAP_REPEATED_SAFETY = 54;
 export const CAP_SINGLE_SAFETY = 74;
 export const CAP_REPEATED_RELIABILITY = 74;
 export const CAP_TOO_NEW = 74;
+/** Owner rule (2026-10-18): a praise-carried Buy under a Strong AI-like pattern is capped here. */
+export const CAP_STRONG_AI_PATTERN = 74;
 export const DUPLICATE_SIMILARITY = 0.8;
 export const DUPLICATE_DATE_WINDOW_DAYS = 3;
 
@@ -87,6 +89,9 @@ export type BuyingScoreSignals = {
   variantResolved?: boolean;
   recall?: RecallCheck | null;
   quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] };
+  /** Deterministic AI-pattern forensics grade for the written corpus
+      ("high" = Strong AI-like pattern). Drives the owner pattern-weight rule. */
+  authenticityPattern?: "low" | "moderate" | "high" | null;
 };
 
 export type BuyingScoreWarning = {
@@ -314,7 +319,13 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   const minCapped = Math.min(Math.max(0, s.min), 3);
   let neg = 6 * s.rel + 10 * s.saf + 4 * s.themes + 3 * minCapped;
   if (flag) neg *= 1.5;
-  const pos = 10 * sBar * w;
+  // Owner rule (2026-10-18): a Strong AI-like pattern in the written corpus
+  // means the praise cannot be trusted — positive written support is removed
+  // from the score. Negative/hostile written evidence still counts fully
+  // (house asymmetry: written reviews lower much more than they raise).
+  const patternHigh = s.authenticityPattern === "high";
+  const posRaw = 10 * sBar * w;
+  const pos = patternHigh ? Math.min(0, posRaw) : posRaw;
   const A = clamp(pos - neg, ADJUSTMENT_MIN, ADJUSTMENT_MAX);
   const marketConf = hasRating ? marketConfidence(count) : null;
   const evidenceConf = evidenceConfidence(nEff, s.secondStoreReviewCount || 0);
@@ -372,7 +383,8 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   }
 
   // ---- n >= 1 ----------------------------------------------------------------
-  let S = hasRating ? clamp(base!.B + A, 0, 100) : clamp(50 + 40 * sBar * w - neg, 0, 100);
+  const writtenPos = patternHigh ? Math.min(0, 40 * sBar * w) : 40 * sBar * w;
+  let S = hasRating ? clamp(base!.B + A, 0, 100) : clamp(50 + writtenPos - neg, 0, 100);
   const caps: Array<{ cap: number; key: string; warning?: BuyingScoreWarning }> = [];
   if (s.recall?.queried && s.recall.succeeded && s.recall.recalled) {
     caps.push({ cap: CAP_RECALL, key: "official_recall", warning: { tier: "official_recall", text: "Official recall", quotes: [], sourceUrl: s.recall.sourceUrl || null } });
@@ -401,6 +413,39 @@ export function computeBuyingScore(s: BuyingScoreSignals): BuyingScoreResult {
   for (const c of caps) {
     if (c.warning) warnings.push(c.warning);
     if (S > c.cap) { S = c.cap; capsApplied.push(c.key); }
+  }
+  // Owner rule (2026-10-18): a praise-carried Buy under a Strong AI-like
+  // pattern is capped at Wait. A Buy the marketplace aggregate carries alone
+  // (base score >= 75 with zero written contribution) stands — the cap fires
+  // only when the written evidence was load-bearing. Note: with positive
+  // written support zeroed above, a faced Buy already implies a base score
+  // >= 75 on current v2 math, so this cap is the explicit guard for the rule
+  // rather than a live path today.
+  if (patternHigh && hasRating && S >= BUY_THRESHOLD) {
+    const marketAlone = clamp(base!.B, 0, 100);
+    if (marketAlone < BUY_THRESHOLD && S > CAP_STRONG_AI_PATTERN) {
+      S = CAP_STRONG_AI_PATTERN;
+      capsApplied.push("strong_ai_pattern");
+    }
+  }
+  // Owner rule (2026-10-18, extension): when the pattern rule sets praise
+  // aside, record whether the verdict fell BECAUSE of it. The counterfactual
+  // recomputes the score with praise intact (pre-rule S, all other caps
+  // applied identically, no warning re-adds); if it would have been a Buy
+  // (>= 75) and the final score is not, the drop is attributable to the
+  // pattern rule (praise zeroed and/or the cap above) by construction —
+  // nothing else differs between the two computations. Stored as a
+  // capsApplied-style METADATA marker (not a score cap; the score is final
+  // and untouched) so it rides the card audit to render and persistence
+  // alongside the other machine-readable marks.
+  if (patternHigh) {
+    const posPre = posRaw; // praise intact
+    const APre = clamp(posPre - neg, ADJUSTMENT_MIN, ADJUSTMENT_MAX);
+    let SPre = hasRating ? clamp(base!.B + APre, 0, 100) : clamp(50 + 40 * sBar * w - neg, 0, 100);
+    for (const c of caps) { if (SPre > c.cap) SPre = c.cap; }
+    if (SPre >= BUY_THRESHOLD && S < BUY_THRESHOLD) {
+      capsApplied.push("strong_ai_pattern_demoted");
+    }
   }
   if (flag) {
     warnings.push({ tier: "discrepancy", text: `The reviews we could read are noticeably worse than the ${formatStars(rating!)} overall rating.`, quotes: [] });
@@ -691,6 +736,8 @@ export type BuyingScoreFromReviewsInput = {
   variantResolved?: boolean;
   primaryStore?: string | null;
   recall?: RecallCheck | null;
+  /** Deterministic AI-pattern forensics grade for the accepted written corpus. */
+  authenticityPattern?: "low" | "moderate" | "high" | null;
 };
 
 export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
@@ -787,8 +834,16 @@ export function signalsFromReviews(input: BuyingScoreFromReviewsInput) {
 
 export function buyingScoreFromReviews(input: BuyingScoreFromReviewsInput) {
   const { signals, dropped, duplicatesRemoved, stores } = signalsFromReviews(input);
+  signals.authenticityPattern = input.authenticityPattern ?? null;
   const result = computeBuyingScore(signals);
-  return { ...result, quotes: signals.quotes!, droppedForModelMismatch: dropped.length, duplicatesRemoved, stores };
+  return {
+    ...result,
+    authenticityPattern: input.authenticityPattern ?? null,
+    quotes: signals.quotes!,
+    droppedForModelMismatch: dropped.length,
+    duplicatesRemoved,
+    stores,
+  };
 }
 
 /**
@@ -907,11 +962,12 @@ export function customerFacingDecision(input: {
 }
 
 /** One structured log line per scan (section 10). */
-export function buyingScoreLogFields(r: BuyingScoreResult) {
+export function buyingScoreLogFields(r: BuyingScoreResult & { authenticityPattern?: "low" | "moderate" | "high" | null }) {
   const a = r.audit;
   return {
     version: r.version, mode: r.mode, N: a.N, Rbar: a.Rbar, Rstar: a.Rstar, n: a.n, sBar: Math.round(a.sBar * 1000) / 1000,
     Rel: a.Rel, Saf: a.Saf, Min: a.Min, T: a.T, discrepancyFlag: a.discrepancyFlag, capsApplied: a.capsApplied,
     S: a.S, confidence: r.confidence, openAiCalls: 0,
+    authPattern: r.authenticityPattern ?? null,
   };
 }
