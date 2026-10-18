@@ -315,7 +315,10 @@ test("a quote-only result keeps raw review text out of the summary", () => {
       buyingScoreV2: {
         version: "buying-score-v2",
         mode: "buying_score",
-        score: 64,
+        // Band-consistent with the verdict word: a real v2 card welds the word
+        // to the score (Buy >= 75, Wait 50-74, Skip < 50). The Buy-57 fence
+        // re-bands the printed word to the score's band on any mismatch.
+        score: verdict.word === "Buy" ? 80 : verdict.word === "Wait" ? 64 : 30,
         verdict: verdict.word,
         confidence: "Medium",
         audit: { n: records.length },

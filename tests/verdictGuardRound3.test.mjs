@@ -22,10 +22,10 @@ function card(verdict, score = 72) {
   };
 }
 
-function result(verdict, cardVerdict, extras = {}) {
+function result(verdict, cardVerdict, extras = {}, score = 72) {
   return {
     verdict,
-    buyingScoreV2: card(cardVerdict),
+    buyingScoreV2: card(cardVerdict, score),
     reviewEvidence: { evidenceAdjudication: { acceptedRecords: [] } },
     ...extras,
   };
@@ -54,12 +54,16 @@ test("sanitizeVerdictWord maps every legacy word to Buy/Wait/Skip", () => {
 });
 
 test("shopperVerdictWord derives Buy/Wait/Skip from kind, null when no verdict", () => {
-  assert.equal(shopperVerdictWord(result("BUY", "buy", {})), "Buy");
+  // Fixtures below use band-consistent (verdict, score) pairs: a real v2 card
+  // welds the word to the score (Buy >= 75, Wait 50-74, Skip < 50), so a
+  // "buy" card never carries a 72. The Buy-57 fence re-bands the printed word
+  // to the score's band on any mismatch.
+  assert.equal(shopperVerdictWord(result("BUY", "buy", {}, 80)), "Buy");
   // Legacy stored "REVIEW FIRST" normalizes to Wait, never renders verbatim.
-  assert.equal(shopperVerdictWord(result("REVIEW FIRST", "wait", {})), "Wait");
-  assert.equal(shopperVerdictWord(result("WAIT", "wait", {})), "Wait");
-  assert.equal(shopperVerdictWord(result("AVOID", "skip", {})), "Skip");
-  assert.equal(shopperVerdictWord(result("SKIP", "skip", {})), "Skip");
+  assert.equal(shopperVerdictWord(result("REVIEW FIRST", "wait", {}, 72)), "Wait");
+  assert.equal(shopperVerdictWord(result("WAIT", "wait", {}, 72)), "Wait");
+  assert.equal(shopperVerdictWord(result("AVOID", "skip", {}, 30)), "Skip");
+  assert.equal(shopperVerdictWord(result("SKIP", "skip", {}, 30)), "Skip");
   // Thin evidence -> not_enough -> null (surfaces render their empty state).
   const thin = result("WAIT", "wait", {
     buyingScoreV2: { version: "buying-score-v2", mode: "no_score", score: null, verdict: "wait", audit: { n: 0 }, quotes: { negative: [] } },
@@ -68,9 +72,9 @@ test("shopperVerdictWord derives Buy/Wait/Skip from kind, null when no verdict",
 });
 
 test("deriveShopperAnswer label uses only Buy/Wait/Skip for verdicts", () => {
-  assert.equal(deriveShopperAnswer(result("BUY", "buy", {})).label, "Buy");
-  assert.equal(deriveShopperAnswer(result("REVIEW FIRST", "wait", {})).label, "Wait");
-  assert.equal(deriveShopperAnswer(result("AVOID", "skip", {})).label, "Skip");
+  assert.equal(deriveShopperAnswer(result("BUY", "buy", {}, 80)).label, "Buy");
+  assert.equal(deriveShopperAnswer(result("REVIEW FIRST", "wait", {}, 72)).label, "Wait");
+  assert.equal(deriveShopperAnswer(result("AVOID", "skip", {}, 30)).label, "Skip");
   // The thin-evidence state is not a verdict — it keeps its own honest
   // "Low confidence" label (never a verdict word, never an internal enum).
   const thin = result("WAIT", "wait", {

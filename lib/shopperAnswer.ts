@@ -1,4 +1,4 @@
-import { provisionalShopperFacing } from "@/lib/buyingScore";
+import { BUY_THRESHOLD, WAIT_THRESHOLD, provisionalShopperFacing } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim, quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
 import { claimRules, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
 import { fillFrame, resolveBriefDict } from "@/lib/briefI18n";
@@ -505,6 +505,24 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
     kind = cardVerdict === "buy" ? "buy" : cardVerdict === "skip" ? "skip" : "wait";
   }
   if (!provisional && card && thin) kind = "not_enough";
+  // The printed Buying Score is picked before the verdict word is finalized:
+  // the band-consistency fence below needs it (Buy-57 fix).
+  const storedScore = num(result.buyScore) ?? num(result.score) ?? num(result.productScore);
+  const provisionalScore = obj(result.buyingScoreV2).mode === "provisional_marketplace" ? num(obj(result.buyingScoreV2).score) : null;
+  const v2Score = card && String(card.mode || "") !== "no_score" ? num(card.score) : null;
+  const score = card ? v2Score : provisionalScore !== null ? provisionalScore : reviewCount > 0 ? storedScore : null;
+  // Buy-57 band-consistency fence: when a 0–100 Buying Score will print, the
+  // verdict word must sit in the score's band (Buy ≥ 75, Wait 50–74, Skip < 50).
+  // The number is the canonical v2 output; on a mismatch the WORD follows the
+  // SCORE. The fence only applies to scores that come from a v2 card (always
+  // 0–100); legacy 0–10 engine scores keep their own verdict words. Provisional,
+  // thin/not-enough, and score-less states are untouched: with no score there
+  // is nothing to fence against, and provisional facing keeps its own honest
+  // in-progress presentation.
+  const scoreFromV2 = Boolean(card) || provisionalScore !== null;
+  if (!provisional && kind !== "not_enough" && scoreFromV2 && typeof score === "number" && Number.isFinite(score)) {
+    kind = score >= BUY_THRESHOLD ? "buy" : score >= WAIT_THRESHOLD ? "wait" : "skip";
+  }
   // TRANSLATOR (bot round): display strings resolve through the brief
   // dictionary. Embedded buyer-mined vocabulary (claims, review text)
   // stays in its source language by design — only RI's frames translate.
@@ -549,10 +567,7 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
     ? briefAnswer.trustLow
     : fillFrame(briefAnswer.trustBasedOn, { sources: sourceText });
 
-  const storedScore = num(result.buyScore) ?? num(result.score) ?? num(result.productScore);
-  const provisionalScore = obj(result.buyingScoreV2).mode === "provisional_marketplace" ? num(obj(result.buyingScoreV2).score) : null;
-  const v2Score = card && String(card.mode || "") !== "no_score" ? num(card.score) : null;
-  const score = card ? v2Score : provisionalScore !== null ? provisionalScore : reviewCount > 0 ? storedScore : null;
+  // Buying Score is picked above the verdict-word fence (Buy-57 fix).
   const storedConfidence = canonicalConfidencePercent(result);
   // Keep a real percent. Never replace a missing or thin-evidence value with 0.
   const confidencePercent = !provisional && thin && (storedConfidence === null || storedConfidence <= 0) ? null : storedConfidence;

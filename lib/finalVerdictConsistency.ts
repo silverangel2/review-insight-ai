@@ -47,6 +47,36 @@ export function enforceFinalVerdictConsistency<T>(value: T): T {
     getNumber(record.score) ??
     getNumber(record.ratingScore);
 
+  // Buy-57 scale-aware guard: the legacy 0–10 engines (governor, deterministic,
+  // review-evidence scorers) all emit scores of 10 or below; the v2 0–100 engine
+  // can emit anything up to 100. A score above 10 is unambiguously 0–100, and a
+  // v2 decision source or stored v2 card marks a 0–100 record even when the
+  // numeric score is low. On the 0–100 scale the score is authoritative and the
+  // word is derived, so a BUY/WAIT/SKIP word is clamped to the score's band
+  // (Buy ≥ 75, Wait 50–74, Skip < 50 — the same bands as lib/buyingScore.ts
+  // BUY_THRESHOLD / WAIT_THRESHOLD) and the 0–10 branch clamps below do NOT run.
+  // Genuine 0–10-scale legacy records keep the exact prior behavior.
+  const v2Card = asRecord(record.buyingScoreV2);
+  const isHundredScale =
+    (currentScore !== null && currentScore > 10) ||
+    getString(record.finalDecisionSource) === "buyingScoreV2" ||
+    getString(v2Card.version) === "buying-score-v2" ||
+    getString(v2Card.mode) === "buying_score" ||
+    getString(v2Card.mode) === "provisional_marketplace";
+  if (isHundredScale && (verdict === "BUY" || verdict === "WAIT" || verdict === "SKIP")) {
+    const bandVerdict =
+      currentScore === null ? verdict : currentScore >= 75 ? "BUY" : currentScore >= 50 ? "WAIT" : "SKIP";
+    if (bandVerdict === verdict) return value;
+    return {
+      ...record,
+      verdict: bandVerdict,
+      recommendation: bandVerdict,
+      finalVerdict: bandVerdict,
+      stableVerdict: bandVerdict,
+      displayConsistencyApplied: true,
+    } as T;
+  }
+
   const currentConfidence =
     getNumber(record.buyerConfidence) ??
     getNumber(record.confidence) ??

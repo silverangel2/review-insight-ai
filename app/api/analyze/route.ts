@@ -31,7 +31,7 @@ import { flagRescueCandidateFromScanResult } from "@/lib/rescueFlag";
 import type { SubscriptionPlan, UserRole } from "@/lib/types";
 import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
-import { buyingConfidenceFromV2, buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore, shopperBottomLineForBuyingScore, wordingWhenListingAlreadySupplied } from "@/lib/buyingScore";
+import { buyingConfidenceFromV2, buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore, shopperBottomLineForBuyingScore, verdictFromScore, wordingWhenListingAlreadySupplied } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
@@ -438,6 +438,21 @@ function createAnalyzeScanId() {
 function sanitizeScanId(value: unknown) {
   const text = String(value || "").trim();
   return /^[a-z0-9_-]{8,80}$/i.test(text) ? text : "";
+}
+
+// Buy-57 finality guard: the persisted library record must carry ONE final,
+// band-consistent (verdict, score) pair. On the v2 0–100 scale the score is
+// authoritative; a mismatched stored word follows the score's band
+// (Buy ≥ 75, Wait 50–74, Skip < 50). Records from any other decision source,
+// and records with no numeric score, pass through untouched — the guard never
+// invents a word where there is no score.
+function persistedBandVerdict(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const record = result as Record<string, unknown>;
+  if (String(record.finalDecisionSource || "") !== "buyingScoreV2") return null;
+  const score = record.buyScore ?? record.score ?? null;
+  if (typeof score !== "number" || !Number.isFinite(score)) return null;
+  return verdictFromScore(score).toUpperCase();
 }
 
 function attachLanguageMeta<T extends JsonRecord>(
@@ -3217,20 +3232,33 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
         email,
         scanId,
         result: terminalScanResult,
-        save: () => saveAnalysisRecord({
+        save: () => {
+          // Buy-57 finality guard: the persisted library record carries ONE
+          // final band-consistent (verdict, score) pair. The persisted verdict
+          // word follows the persisted score's band; the score itself is never
+          // altered here. Non-v2 records and score-less records pass through
+          // untouched (see persistedBandVerdict).
+          const bandVerdict = persistedBandVerdict(terminalScanResult);
+          const persistedVerdict = bandVerdict ?? terminalScanResult.verdict ?? null;
+          return saveAnalysisRecord({
             profile_email: email,
             mode: "buyer",
             product_name: asRecord(terminalScanResult.product).name ?? "Product scan",
             platform: asRecord(terminalScanResult.product).store ?? "other",
             product_score: terminalScanResult.productScore ?? terminalScanResult.buyingConfidence ?? null,
-            recommendation: terminalScanResult.verdict ?? null,
+            recommendation: persistedVerdict,
             summary: terminalScanResult.bottomLine ?? null,
             analysis_json: {
               ...terminalScanResult,
+              verdict: persistedVerdict,
+              recommendation: persistedVerdict,
+              finalVerdict: persistedVerdict,
+              stableVerdict: persistedVerdict,
               analysisVersion: "review-evidence-v2",
             },
             account: { email, plan: accountPlan, role }
-          }),
+          });
+        },
         read: async (id) => {
           const rows = await supabaseSelect("analyses", `select=id,profile_email,analysis_json,created_at&id=eq.${encodeURIComponent(id)}&profile_email=eq.${encodeURIComponent(email)}&limit=1`);
           return rows[0];
