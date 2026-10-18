@@ -21,10 +21,13 @@
 // HONESTY RULES:
 //   - The grade describes PATTERNS IN TEXT ("AI-like signs/pattern"). It never
 //     accuses a named reviewer of anything.
-//   - Display/analysis ONLY. It does not touch the Buying Score, the verdict,
-//     or confidence. (The pre-existing engine's fakeReviewRisk DOES feed score
-//     math — see README "what existed vs what was added". That math is
-//     untouched by this module.)
+//   - The "high" grade (Strong AI-like pattern) carries weight by owner rule
+//     (2026-10-18): positive written support is removed from the Buying Score
+//     v2 (lib/buyingScore.ts) and a praise-carried Buy is capped at Wait.
+//     "low"/"moderate" grades and insufficient corpora change nothing.
+//     (The pre-existing engine's fakeReviewRisk DOES feed score math — see
+//     README "what existed vs what was added". That math is untouched by
+//     this module.)
 //   - Corpora under 4 reviews grade as insufficient-data, never faked.
 // ============================================================================
 

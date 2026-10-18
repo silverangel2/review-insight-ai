@@ -829,6 +829,17 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
     opposingCount: s.opposingCount,
     opposingEvident: s.opposingEvident,
   });
+  // Owner rule (2026-10-18): a scan whose Wait verdict exists because of
+  // the authenticity pattern rule carries the manufactured-pattern reason
+  // in the WHY WAIT block, via buildWaitLine's patternReason branch. Two
+  // audit markers qualify: the explicit cap ("strong_ai_pattern") and the
+  // demotion marker ("strong_ai_pattern_demoted", recorded when
+  // praise-zeroing moved the verdict below the Buy bar).
+  const v2CapsApplied = obj(obj(obj(result).buyingScoreV2).audit).capsApplied;
+  const patternReason =
+    Array.isArray(v2CapsApplied) &&
+    (v2CapsApplied.includes("strong_ai_pattern") ||
+      v2CapsApplied.includes("strong_ai_pattern_demoted"));
   const waitLine = buildWaitLine(verdictKind, {
     score: scoreNum,
     reviewCount,
@@ -836,6 +847,7 @@ export function deriveReviewAnalysis(input: unknown): ReviewAnalysis {
     waitThreshold: WAIT_THRESHOLD,
     forThemes: forSignals.map(toSlotTheme),
     againstThemes: againstSignals.map(toSlotTheme),
+    patternReason,
   });
 
   const complaintsPattern: ReviewAnalysis["complaintsPattern"] =

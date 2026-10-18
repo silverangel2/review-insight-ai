@@ -117,7 +117,22 @@ export type WaitCtx = {
   /** The RENDERED (post-slot) themes — the wait line explains the page. */
   forThemes: SlotTheme[];
   againstThemes: SlotTheme[];
+  /** True when this Wait exists because of the authenticity pattern rule
+      (owner rule 2026-10-18): either the explicit score cap fired, or the
+      praise-zeroing demoted the verdict (see the "strong_ai_pattern*" audit
+      markers). The wait line names the manufactured pattern in plain words
+      instead of a generic signal-derived line. */
+  patternReason?: boolean;
 };
+
+/**
+ * DRAFT customer copy (owner approval pending, 2026-10-18): the WHY WAIT
+ * line for scans whose Wait verdict exists because of the authenticity
+ * pattern rule. Names the pattern in the text — never an accusation
+ * against any person.
+ */
+export const PATTERN_WAIT_LINE_DRAFT =
+  "The written reviews follow a manufactured pattern, so we set their praise aside. The wait is for genuine buyer voices before we'd call this a buy.";
 
 function lowerTitle(t: string): string {
   const s = String(t ?? "").trim();
@@ -151,6 +166,8 @@ function auditTier(t: SlotTheme): string {
 
 export function buildWaitLine(verdict: VerdictKind, ctx: WaitCtx): string | null {
   if (verdict !== "wait") return null;
+  // The pattern reason names itself first: the wait IS the manufactured pattern.
+  if (ctx.patternReason) return PATTERN_WAIT_LINE_DRAFT;
   const { forThemes, againstThemes, reviewCount } = ctx;
   const byCount = <T extends SlotTheme>(arr: T[]): T[] => [...arr].sort((a, b) => b.count - a.count);
   const topFor = byCount(forThemes)[0] ?? null;

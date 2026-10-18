@@ -33,6 +33,7 @@ import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
 import { buyingConfidenceFromV2, buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore, shopperBottomLineForBuyingScore, verdictFromScore, wordingWhenListingAlreadySupplied } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
+import { analyzeAiPatterns } from "@/lib/aiPatternForensics";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 import { queueFirstScanUpgrade } from "@/lib/lifecycleEmail";
@@ -2311,7 +2312,17 @@ function buildReviewEvidenceShopperResult(input: {
   })();
   const v2Rating = marketplaceAggregate.rating;
   const v2Count = marketplaceAggregate.count;
+  // Owner rule (2026-10-18): the deterministic AI-pattern forensics grade for
+  // the accepted written corpus. A "high" grade (Strong AI-like pattern)
+  // removes positive written support from the v2 score and caps
+  // praise-carried Buys at Wait (lib/buyingScore.ts). Computed here — on the
+  // same accepted records the scorer reads — so the grade the shopper sees
+  // is the grade that shaped the score.
+  const aiPatternProfile = analyzeAiPatterns({
+    reviewEvidence: { evidenceAdjudication: { acceptedRecords } },
+  });
   let buyingScoreV2 = buyingScoreFromReviews({
+    authenticityPattern: aiPatternProfile.grade,
     marketplace: {
       rating: v2Rating,
       count: v2Count,
