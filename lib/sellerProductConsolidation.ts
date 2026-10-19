@@ -82,7 +82,7 @@ function humanizeFileName(value: string): string {
     .split(" ")
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
-  return words.length ? words.join(" ") : "Untitled product";
+  return words.length ? words.join(" ") : "Unnamed product";
 }
 
 function identifierFromUrl(url: string): string | null {
@@ -128,7 +128,7 @@ export function sellerProductIdentityFor(input: {
     // only a filename, the label is a cleaned human-readable form.
     const urlLabel = host && identifier ? `${host} · ${identifier}` : host || "";
     const nameIsUsable = rawName && !isFileNameLike(rawName);
-    const label = nameIsUsable ? rawName : urlLabel || "Untitled product";
+    const label = nameIsUsable ? rawName : urlLabel || "Unnamed product";
     if (host && identifier) {
       return { key: `url:${host}/${identifier}`, label, productUrl: rawUrl, platform };
     }
@@ -141,7 +141,7 @@ export function sellerProductIdentityFor(input: {
   const token = normalizeNameToken(rawName) || "unnamed-product";
   return {
     key: `name:${platform}:${token}`,
-    label: rawName ? (isFileNameLike(rawName) ? humanizeFileName(rawName) : rawName) : "Untitled product",
+    label: rawName ? (isFileNameLike(rawName) ? humanizeFileName(rawName) : rawName) : "Unnamed product",
     productUrl: "",
     platform,
   };

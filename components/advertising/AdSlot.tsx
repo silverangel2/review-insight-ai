@@ -6,7 +6,6 @@ import {
   type AdPlacement,
   type SponsorAd,
   defaultAdSettings,
-  reviewIntelPlaceholderAds,
 } from "@/lib/adConfig";
 import { COOKIE_CONSENT_EVENT, hasOptionalCookieConsent } from "@/lib/cookieConsent";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
@@ -252,13 +251,8 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
           return;
         }
 
-        if (liveSettings.placeholderAdsEnabled) {
-          eligibleAds.push(
-            ...reviewIntelPlaceholderAds
-              .filter((item) => item.placement === placement && item.active && item.status === "approved")
-              .map((item) => ({ ad: item, source: "placeholder" as const })),
-          );
-        }
+        // House placeholder ads are never rendered to shoppers: when no real
+        // ad is configured, the slot renders nothing (no placeholder box).
 
         setRotatingAds(eligibleAds);
         setCurrentAdIndex(0);
@@ -320,8 +314,7 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
   // Priority:
   // 1. Private/direct sponsor ad when available.
   // 2. Google AdSense when configured and optional consent is present.
-  // 3. ReviewIntel house fallback ad.
-  // 4. Nothing.
+  // 3. Nothing — the placeholder/house box is never rendered to shoppers.
   const googleReady =
     effectiveSettings.adsEnabled &&
     effectiveSettings.googleAdsEnabled &&
@@ -333,19 +326,10 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
     return <GoogleAdSenseBlock className={className} />;
   }
 
-  const fallbackAd =
-    effectiveSettings.adsEnabled &&
-    effectiveSettings.placeholderAdsEnabled &&
-    effectiveSettings.placements?.[placement]
-      ? reviewIntelPlaceholderAds.find(
-          (item) =>
-            item.placement === placement &&
-            item.active &&
-            item.status === "approved",
-        ) ?? null
-      : null;
-
-  const pool: Array<{ ad: SponsorAd; source: AdSource }> = rotatingAds.length ? rotatingAds : fallbackAd ? [{ ad: fallbackAd, source: "placeholder" }] : [];
+  const pool: Array<{ ad: SponsorAd; source: AdSource }> = rotatingAds;
+  // No real ad configured: render only the honest house promo for ReviewIntel
+  // Premium (clearly labelled "ReviewIntel", tracked as an upsell). The fake
+  // placeholder-ad box ("Advertise with ReviewIntel") stays gone.
   if (!pool.length) return <FeaturedDeals slides={[premiumHouseSlide(placement)]} className={className} onClickSlide={() => trackTrafficEvent({ eventType: "upsell_click", metadata: { placement: `featured_deals_${placement}`, plan: "buyer_pro" } })} />;
   const slides: DealSlide[] = pool.map(({ ad: item, source }) => {
     const isHouse = source === "placeholder";
@@ -359,8 +343,6 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       cta: item.ctaLabel || (isHouse ? "Advertise with ReviewIntel" : isAff ? "Check price" : "Learn more"),
     };
   });
-  // Subscription value as a clearly labelled "ReviewIntel" slide (ads only render for non-paid users).
-  if (placement !== "pricing") slides.push(premiumHouseSlide(placement));
   return (
     <FeaturedDeals
       slides={slides}
@@ -372,7 +354,6 @@ export function AdSlot({ placement, className = "", compact = false }: AdSlotPro
       onClickSlide={(slide) => {
         if (slide.kind === "direct") sendAdEvent("click", slide.ad.id, placement);
         if (slide.kind === "affiliate") trackTrafficEvent({ eventType: "affiliate_click", metadata: { ...affiliateEventMetadata(slide.ad, placement), destinationUrl: slide.ad.destinationUrl } });
-        if (slide.ad.id.startsWith("house-premium")) trackTrafficEvent({ eventType: "upsell_click", metadata: { placement: `featured_deals_${placement}`, plan: "buyer_pro" } });
       }}
     />
   );

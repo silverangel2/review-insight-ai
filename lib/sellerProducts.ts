@@ -186,7 +186,7 @@ export function createSellerProduct(input: Partial<SellerProduct>, plan: Subscri
     id: uid("seller-product"),
     createdAt: now,
     updatedAt: now,
-    name: input.name?.trim() || "Untitled product",
+    name: input.name?.trim() || "Unnamed product",
     imageUrl: input.imageUrl?.trim() || "",
     platform: input.platform ?? "other",
     productUrl: input.productUrl?.trim() || "",

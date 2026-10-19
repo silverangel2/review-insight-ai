@@ -57,6 +57,7 @@ export const footerLinkGroups = [
     title: "Support",
     links: [
       { label: "FAQ", href: "/faq" },
+      { label: "How scoring works", href: "/how-scoring-works" },
       { label: "Contact", href: "/contact" },
       { label: "Manage Subscription", href: "/manage-subscription" },
       { label: "Billing Support", href: "/billing-support" },

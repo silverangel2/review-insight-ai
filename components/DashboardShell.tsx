@@ -147,10 +147,10 @@ export function DashboardMetric({ label, value, detail, tone = "info" }: { label
   }[tone];
 
   return (
-    <article className="rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+    <article className="min-w-0 rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
       <p className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">{label}</p>
-      <p className={`mt-4 text-3xl font-black ${color}`}>{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{detail}</p>
+      <p className={`mt-4 break-words text-3xl font-black ${color}`}>{value}</p>
+      <p className="mt-2 break-words text-sm leading-6 text-slate-600 dark:text-slate-300">{detail}</p>
     </article>
   );
 }

@@ -212,7 +212,7 @@ export function LoginForm({ initialMode = "login" }: { initialMode?: AuthMode })
 
       <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-mist p-1 dark:bg-white/5">
         {[
-          ["login", "Login"],
+          ["login", "Log in"],
           ["signup", "Sign up"],
           ["reset", "Reset"]
         ].map(([value, label]) => (

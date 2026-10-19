@@ -28,7 +28,7 @@ const tiers: Array<{
     features: [
       "3 product scans per day",
       "Screenshot or product-link scan",
-      "BUY / REVIEW FIRST / AVOID verdict",
+      "BUY / WAIT / SKIP verdict",
       "Latest result only"
     ]
   },
@@ -85,6 +85,8 @@ export function PricingCards() {
   const [error, setError] = useState("");
   const [busyPlan, setBusyPlan] = useState<SubscriptionPlan | null>(null);
   const currency: SupportedCurrency = "CAD";
+  // The plan card for the shopper's current plan must never show an upsell CTA.
+  const [currentPlan] = useState<SubscriptionPlan | null>(() => getClientAccount()?.plan ?? null);
 
   async function choosePlan(plan: SubscriptionPlan) {
     setError("");
@@ -135,7 +137,9 @@ export function PricingCards() {
     <section>
       {error ? <p className="mb-5 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coralink">{error}</p> : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {tiers.map((tier) => (
+        {tiers.map((tier) => {
+          const isCurrentPlan = currentPlan !== null && tier.plan === currentPlan;
+          return (
           <article
             key={tier.name}
             className={`rounded-3xl border p-5 shadow-soft ${
@@ -145,7 +149,7 @@ export function PricingCards() {
             }`}
           >
             <Badge tone={tier.plan === "seller_pro" || tier.plan === "seller_premium" ? "good" : tier.plan === "free_buyer" ? "neutral" : "info"}>
-              {tier.label}
+              {isCurrentPlan ? "Your current plan" : tier.label}
             </Badge>
             <h2 className="mt-4 text-xl font-black text-ink dark:text-white">{tier.name}</h2>
             <p className="mt-3 text-3xl font-black text-ocean dark:text-cyan-300">{pricingLabelForPlan(tier.plan, currency)}</p>
@@ -160,15 +164,22 @@ export function PricingCards() {
                 </li>
               ))}
             </ul>
-            <button
-              onClick={() => void choosePlan(tier.plan)}
-              disabled={busyPlan === tier.plan}
-              className="mt-6 inline-flex w-full justify-center rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-wait disabled:bg-slate-400 dark:bg-white dark:text-ink"
-            >
-              {busyPlan === tier.plan ? "Opening checkout..." : tier.cta}
-            </button>
+            {isCurrentPlan ? (
+              <p className="mt-6 inline-flex w-full justify-center rounded-xl border border-line bg-mist px-5 py-3 text-sm font-black text-slate-600 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200">
+                You are on this plan
+              </p>
+            ) : (
+              <button
+                onClick={() => void choosePlan(tier.plan)}
+                disabled={busyPlan === tier.plan}
+                className="mt-6 inline-flex w-full justify-center rounded-xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:cursor-wait disabled:bg-slate-400 dark:bg-white dark:text-ink"
+              >
+                {busyPlan === tier.plan ? "Opening checkout..." : tier.cta}
+              </button>
+            )}
           </article>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-6 grid gap-3 rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 md:grid-cols-[1fr_auto] md:items-center">
         <div>

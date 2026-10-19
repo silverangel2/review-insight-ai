@@ -132,7 +132,7 @@ export function saveSellerJournalScan(result: AnalyzeResponse, productName: stri
     date: todayKey(),
     savedAt: createdAt,
     createdAt,
-    productName: productName.trim() || "Untitled product",
+    productName: productName.trim() || "Unnamed product",
     productScore: Math.round(analysis.product_score),
     sentimentScore: analysis.sentiment_score,
     reviewCount: result.meta.review_count_estimate,

@@ -2113,6 +2113,10 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
   const [preview, setPreview] = useState("");
   const [accountPlan, setAccountPlan] = useState<SubscriptionPlan | null>(null);
   const [requestedScanId, setRequestedScanId] = useState<string | null>(initialScanId);
+  // True only after the client loader has settled. Until then the page shows a
+  // neutral loading state — never the "No scan loaded" empty state — so a
+  // result that is about to arrive cannot flash as missing first.
+  const [loaded, setLoaded] = useState(Boolean(initialResult));
 
   const dashboardHref =
     result?.meta.audience === "seller" ||
@@ -2562,11 +2566,15 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
       } catch (error) {
         console.error("Results page failed to load latest scan", error);
         reviewIntelDevDiagnostic("RESULTS_RENDER_BRANCH", { branch: "load_error" });
-        if (!cancelled) setResult(null);
+        // Keep whatever is currently displayed. Wiping a server-rendered
+        // result on a client-side error made real results flicker into
+        // "No scan loaded" between loads.
       }
     }
 
-    void loadResult();
+    void loadResult().finally(() => {
+      if (!cancelled) setLoaded(true);
+    });
 
     return () => {
       cancelled = true;
@@ -2738,6 +2746,19 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
     };
   }, []);
 
+  if (!result && !loaded) {
+    return (
+      <section aria-busy="true" aria-label="Loading scan result" className="relative overflow-hidden rounded-2xl border border-line bg-white p-5 shadow-soft dark:border-white/10 dark:bg-gradient-to-r dark:from-sky-600 dark:to-teal-500 sm:rounded-[2rem] sm:p-8">
+        <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-teal via-ocean to-amber" />
+        <div className="mx-auto max-w-2xl animate-pulse">
+          <div className="mx-auto h-6 w-40 rounded-full bg-slate-200 dark:bg-white/20" />
+          <div className="mx-auto mt-4 h-9 w-3/4 rounded-xl bg-slate-200 dark:bg-white/20" />
+          <div className="mx-auto mt-4 h-4 w-1/2 rounded-full bg-slate-200 dark:bg-white/20" />
+        </div>
+      </section>
+    );
+  }
+
   if (!result) {
     return (
       <>
@@ -2750,12 +2771,22 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
           {requestedScanId
-            ? "ReviewIntel did not find a persisted result for the requested scan. No other scan was substituted."
-            : "Public sample results have been removed from the customer experience. Upload a product screenshot or paste a product link to generate a fresh buying verdict."}
+            ? "ReviewIntel did not find a saved result for the requested scan on this account, and no other scan was substituted. Results save only on paid accounts, so a scan made while signed out or on another account will not appear here."
+            : "There is no result on this page yet. Upload a product screenshot or paste a product link to get a fresh buying verdict."}
         </p>
-        <Link href="/analyze" className="mt-6 inline-flex rounded-2xl bg-ink px-6 py-4 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
-          Run AI Analysis
-        </Link>
+        <ol className="mx-auto mt-6 max-w-xl space-y-2 text-left text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
+          <li><span className="mr-2 inline-flex size-6 items-center justify-center rounded-full bg-teal/15 text-xs font-black text-teal dark:bg-cyan-300/15 dark:text-cyan-300">1</span>Go to Scan.</li>
+          <li><span className="mr-2 inline-flex size-6 items-center justify-center rounded-full bg-teal/15 text-xs font-black text-teal dark:bg-cyan-300/15 dark:text-cyan-300">2</span>Add a product-page screenshot — the name, price, rating, and a few reviews give the best verdict. A product link works too.</li>
+          <li><span className="mr-2 inline-flex size-6 items-center justify-center rounded-full bg-teal/15 text-xs font-black text-teal dark:bg-cyan-300/15 dark:text-cyan-300">3</span>Get a plain Buy, Wait, or Skip answer in seconds.</li>
+        </ol>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Link href="/analyze" className="inline-flex rounded-2xl bg-ink px-6 py-4 text-sm font-black text-white transition hover:bg-ocean dark:bg-white dark:text-ink">
+            Go to Scan
+          </Link>
+          <Link href="/how-scoring-works" className="inline-flex rounded-2xl border border-line px-6 py-4 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean dark:border-white/10 dark:text-white">
+            How scoring works
+          </Link>
+        </div>
       </section>
       </>
     );
