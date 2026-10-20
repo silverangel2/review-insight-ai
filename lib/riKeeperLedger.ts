@@ -55,16 +55,14 @@ export async function keeperJobStart(
   jobType: string = KEEPER_JOB_TYPE
 ): Promise<KeeperLedgerHandle | null> {
   if (!isStoreReady()) return null;
-  const jobs = await supabaseInsert<Record<string, unknown>>(RI_OPS_JOBS_TABLE, [
+  const job = await supabaseInsert<Record<string, unknown>>(RI_OPS_JOBS_TABLE, [
     { job_type: jobType, level: 1, status: "RUNNING", payload: { keeper: "v1" } },
   ]);
-  const job = Array.isArray(jobs) ? jobs[0] : null;
   if (!job || !job.id) return null;
-  const attempts = await supabaseInsert<Record<string, unknown>>(
+  const attempt = await supabaseInsert<Record<string, unknown>>(
     RI_OPS_ATTEMPTS_TABLE,
     [{ job_id: job.id, attempt_number: 1, status: "RUNNING" }]
   );
-  const attempt = Array.isArray(attempts) ? attempts[0] : null;
   if (!attempt || !attempt.id) return null;
   return { jobId: String(job.id), attemptId: String(attempt.id) };
 }
@@ -78,7 +76,7 @@ export async function keeperEvidence(
   details: Record<string, unknown> = {}
 ): Promise<boolean> {
   if (!isStoreReady()) return false;
-  const rows = await supabaseInsert<Record<string, unknown>>(
+  const row = await supabaseInsert<Record<string, unknown>>(
     RI_OPS_EVIDENCE_TABLE,
     [
       {
@@ -92,7 +90,7 @@ export async function keeperEvidence(
       },
     ]
   );
-  return Array.isArray(rows) && rows.length > 0;
+  return row !== null;
 }
 
 export async function keeperJobFinish(

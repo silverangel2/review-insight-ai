@@ -136,13 +136,28 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     .map((l, index) => ({ index, confidence: l.confidence, text: l.text.trim() }))
     .filter(l => l.confidence >= 50 && l.text)
     .slice(0, 40);
+  // Everything from a recommendations/sponsored section heading down belongs to OTHER
+  // products. Wide page OCR can merge a whole recommendation row into one long line,
+  // whose length would otherwise out-score the real title (measured 2026-10-20: a
+  // "Best sellers" row line — two rice-cooker titles merged — beat the Crock-Pot title).
+  const sectionBreak = ocr.lines.findIndex(l => /best sellers|you might (?:also )?like|customers also|related products|more items to explore|sponsored products?\b/i.test(l.text));
   let bestTitle = "";
   let bestScore = -Infinity;
   let bestTitleLine = "";
   for (const line of pool) {
     const raw = line.text;
+    if (sectionBreak >= 0 && line.index >= sectionBreak) continue;
     if (raw.length < 12 || raw.length > 320) continue;
     if (isAmazonNavOrHeaderText(raw) || isBreadcrumbLine(raw) || NON_TITLE.test(raw)) continue;
+    // A financing line is never a product title. Without this, an installment line's
+    // same-line price earns the +3 product-block signal below and can crown
+    // "4 biweekly payments of $22.07 with Klarna" as the product name (measured
+    // 2026-10-20 on the Walmart Crock-Pot page once OCR could read the whole page).
+    if (INSTALLMENT.test(raw)) continue;
+    // Delivery / seller-fulfilment lines are never titles either; at title length
+    // their length bonus alone could beat the real title (same Crock-Pot page:
+    // "Free seller delivery arrives by Fri, Oct 30 to Mississauga…").
+    if (/arrives by|sold (?:and|&) shipped|shipped by|delivery arrives|get it (?:by|on)\b/i.test(raw)) continue;
     if (chromeWordHits(raw) >= 2) continue;
     if (/out of 5|ratings?|reviews?/i.test(raw)) continue;
     const candidate = cleanOcrTitle(raw);
@@ -151,7 +166,9 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     if (letters / candidate.length < 0.45) continue;
     let score = 0;
     if (lineHasRealPrice(raw)) score += 3;
-    if (candidate.length >= 18 && candidate.length <= 200) score += 1;
+    // Longer candidates are likelier to be the real title than short feature bullets
+    // ("Feeds Large Groups"); a flat +1 left them within noise of each other.
+    if (candidate.length >= 18 && candidate.length <= 200) score += Math.min(2, candidate.length / 40);
     if (/^[a-z]/.test(candidate)) score -= 2; // sentence-fragment continuation, not a title
     if (/\b(with|and|or|the|a|for|to|of)$/i.test(candidate)) score -= 2; // dangling fragment ending
     const firstToken = candidate.split(/\s+/)[0].toLowerCase();
@@ -159,6 +176,12 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
       && other.text.split(/\s+/).filter(Boolean).length <= 4
       && other.text.toLowerCase().includes(firstToken));
     if (brandLineNear) score += 1;
+    // Brand corroboration anywhere on the page: a real title's brand word recurs
+    // (logo caption, breadcrumbs, feature text), while a stray long sentence's first
+    // word does not. This is what separates the title from other long lines once the
+    // whole page is readable.
+    const brandWord = firstToken.split(/[^a-z0-9]+/).filter(Boolean).sort((a, b) => b.length - a.length)[0] ?? "";
+    if (brandWord.length >= 4 && pool.some(other => other.index !== line.index && new RegExp(`\\b${brandWord}\\b`, "i").test(other.text.replace(/[^a-z0-9]+/gi, " ")))) score += 1;
     score -= line.index * 0.02; // titles sit above features and legal text
     if (score > bestScore) { bestScore = score; bestTitle = candidate; bestTitleLine = raw; }
   }
@@ -166,9 +189,14 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
 
   // Price: the price on the title line wins; otherwise the largest non-installment price
   // in the readable pool (installment amounts and plan prices are smaller decoys).
-  const pricePool = ocr.lines.filter(l => l.confidence >= 40).map(l => l.text);
+  // The pool stops at the recommendations/sponsored section break: a price from another
+  // product's card is a wrong fact, worse than no price (measured 2026-10-20: when the
+  // main price glyph went unread, the pool returned a recommendation's $19.97).
+  const pricePool = ocr.lines
+    .filter((l, index) => l.confidence >= 40 && (sectionBreak < 0 || index < sectionBreak))
+    .map(l => l.text);
   let priceText = "";
-  const titleLinePrice = bestTitleLine ? bestTitleLine.match(PRICE_RE) : null;
+  const titleLinePrice = bestTitleLine && !INSTALLMENT.test(bestTitleLine) ? bestTitleLine.match(PRICE_RE) : null;
   if (titleLinePrice && priceValue(titleLinePrice[0]) > 0) priceText = titleLinePrice[0];
   else {
     const candidates: Array<{ raw: string; value: number }> = [];
@@ -186,19 +214,27 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   const brand = brandM?.[1] ?? (title ? title.split(/\s+/)[0].replace(/[^\w&'.-]/g, "") : "");
   if (!title) warnings.push("Could not read the product title clearly from the screenshot.");
   if (!priceText) warnings.push("No price was read with good confidence.");
+  // A title-like line with NO product-block context anywhere in the read (no price, no
+  // rating, no review count, no store) is not trusted as identity: OCR of a bare product
+  // photo can crown control-panel words (a slow cooker's "Low / High / Warm" dial) as a
+  // title. Dropping it keeps the honest "could not identify" outcome — and the shopper
+  // prompt for a listing screenshot or link — instead of inventing a product name.
+  const corroborated = Boolean(priceText || ratingM || countM || store);
+  const trustedTitle = title && corroborated ? title : "";
+  if (title && !trustedTitle) warnings.push("A title-like line was read with no price, rating, or store context, so it is not trusted.");
   // Without layout understanding we can't prove the price/rating belong to the main product unless a title was read.
-  const tied = Boolean(title);
+  const tied = Boolean(trustedTitle);
   // Price needs a real title. Ratings and review counts stay supplemental even when the
   // only long line was Amazon's menu (the product link names the product).
   if (!tied && priceText) warnings.push("Price seen but not tied to a readable title, so it is ignored.");
-  const conf = Math.round(Math.max(0, Math.min(100, ocr.ocrConfidence * (title ? 1 : 0.5))));
+  const conf = Math.round(Math.max(0, Math.min(100, ocr.ocrConfidence * (trustedTitle ? 1 : 0.5))));
   return {
-    name: title, brand: title ? brand : "", category: "", store,
+    name: trustedTitle, brand: trustedTitle ? brand : "", category: "", store,
     price: tied && priceText ? priceText.replace(/\s+/g, "") : "", rating: ratingM ? ratingM[1].replace(",", ".") : "",
     reviewCount: countM ? countM[1].replace(/[\s.,]/g, "") : "",
     priceBelongsToProduct: tied && Boolean(priceText), ratingBelongsToProduct: Boolean(ratingM), reviewCountBelongsToProduct: Boolean(countM),
     visibleFeatures: [], visibleBadges: lines.filter(l => /best seller|amazon'?s choice|overall pick|top rated/i.test(l)).slice(0, 5),
     identityWarnings: ["Read with free on-device OCR (no AI vision); please confirm the product name.", ...warnings],
-    normalizedSearchQuery: title, imageConfidence: conf,
+    normalizedSearchQuery: trustedTitle, imageConfidence: conf,
   };
 }

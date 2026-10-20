@@ -134,7 +134,7 @@ export const rescuePrepStore: RescuePrepStore = {
   async savePrepPack(pack: RescuePrepPack): Promise<boolean> {
     if (!ready()) return false;
     try {
-      const rows = await supabaseInsert<Rec>(RESCUE_PREP_PACKS_TABLE, [
+      const row = await supabaseInsert<Rec>(RESCUE_PREP_PACKS_TABLE, [
         {
           queue_id: pack.queueId,
           scan_ref: pack.scanRef,
@@ -142,7 +142,7 @@ export const rescuePrepStore: RescuePrepStore = {
           pack,
         },
       ]);
-      return Array.isArray(rows) && rows.length > 0;
+      return row !== null;
     } catch {
       return false; // migration not applied yet, or write failed — fail soft
     }
