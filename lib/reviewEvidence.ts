@@ -74,6 +74,13 @@ import {
   unionLibraryCorpora,
 } from "@/lib/productReviewLibrary";
 import {
+  isReviewHuntEnabled,
+  runReviewHunt,
+  shouldRunReviewHunt,
+  type ReviewHuntDiagnostics,
+} from "./reviewHunt";
+import { extractProductFingerprint } from "./productFingerprint";
+import {
   runAdaptiveReviewResearch,
   type AdaptiveReviewRecord,
 } from "@/lib/adaptiveReviewResearch";
@@ -207,6 +214,7 @@ export type ReviewEvidenceResult = {
     pagesBlocked?: number;
     nativeScraperBlocked?: boolean;
     finalStopReason?: string;
+    reviewHunt?: ReviewHuntDiagnostics | null;
   };
   evidenceAdjudication?: ReviewEvidenceAdjudication;
 };
@@ -2865,6 +2873,62 @@ export async function collectAndAnalyzeReviewEvidence(
     exactListingTitle: checkedListingTitle,
   });
 
+  // Review hunt (owner design, 2026-10-20): when the shared pass accepted
+  // ZERO written reviews and the product identity is anchored, hunt other
+  // stores for the exact same product — fingerprint-matched, pooled with
+  // per-source provenance — and re-run the SAME shared adjudication over
+  // the enlarged corpus, so hunted evidence is judged by exactly the rules
+  // Amazon evidence is judged by. Gated by REVIEWINTEL_REVIEW_HUNT_ENABLED
+  // (default OFF), time-boxed inside the scan's collection deadline, and
+  // fail-soft: any hunt failure leaves the scan exactly as it was (the
+  // honest zero-read state).
+  let reviewHuntDiagnostics: ReviewHuntDiagnostics | null = null;
+  {
+    const huntFingerprint = extractProductFingerprint({
+      brand: input.brand || nativeReviewRetrieval?.primaryPageIdentity?.brand || null,
+      productName: checkedListingTitle || input.productName,
+      model: input.model || stableIdentity.models.join(" ") || null,
+      categoryBreadcrumbs: input.categoryBreadcrumbs,
+    });
+    const huntTrigger = shouldRunReviewHunt({
+      enabled: isReviewHuntEnabled(),
+      acceptedRecordCount: evidenceAdjudication.acceptedRecordCount,
+      fingerprint: huntFingerprint,
+    });
+    if (huntTrigger.fire) {
+      try {
+        const hunt = await runReviewHunt({
+          brand: input.brand || null,
+          model: input.model || stableIdentity.models.join(" ") || null,
+          productName: checkedListingTitle || input.productName,
+          listingUrl: checkedListingUrl || listingUrlForReviewCollector || null,
+          store: input.store,
+          categoryBreadcrumbs: input.categoryBreadcrumbs,
+          fingerprint: huntFingerprint,
+          costTelemetry: input.costTelemetry,
+        });
+        reviewHuntDiagnostics = hunt.diagnostics;
+        if (hunt.reviews.length) {
+          collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
+            reviews: mergeUnknownArrays<ReviewCollectorResult["reviews"][number]>(
+              collectedWrittenReviews.reviews,
+              hunt.reviews as unknown as ReviewCollectorResult["reviews"],
+              500
+            ),
+            coverageNote: `${collectedWrittenReviews.coverageNote} Review hunt pooled ${hunt.reviews.length} written review(s) from fingerprint-matched listings at other stores (${hunt.diagnostics.matchedListings.map((listing) => listing.host).filter(Boolean).join(", ")}).`,
+            fallbackUrlsTried: hunt.diagnostics.sourcesChecked,
+          });
+          evidenceAdjudication = adjudicateReviewEvidence(
+            collectedWrittenReviews.reviews,
+            adjudicationOptions
+          );
+        }
+      } catch {
+        // Fail-soft by design: a hunt failure never changes the scan.
+      }
+    }
+  }
+
   const preAdjudicationRecordCount = collectedWrittenReviews.reviews.length;
   const preAdjudicationUniqueCount = preAdjudicationRecordCount - evidenceAdjudication.deduplicatedRecordCount;
   const adjudicatedReviews = evidenceAdjudication.acceptedRecords.map((record) => ({
@@ -2940,6 +3004,7 @@ export async function collectAndAnalyzeReviewEvidence(
     pagesBlocked: nativeReviewRetrieval?.diagnostics.pagesBlocked || 0,
     nativeScraperBlocked: nativeReviewRetrieval?.nativeScraperBlocked || false,
     finalStopReason: nativeReviewRetrieval?.stopReason || "identity_not_verified",
+    reviewHunt: reviewHuntDiagnostics,
   };
 
   const localSourceLinks = normalizeSourceLinks([

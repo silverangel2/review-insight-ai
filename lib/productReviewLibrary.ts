@@ -15,6 +15,12 @@
  * leaves the scan behaving exactly as it did before the library existed.
  */
 import { supabaseDelete, supabaseSelect, supabaseUpsert } from "@/lib/supabaseServer";
+import {
+  extractProductFingerprint,
+  matchListingToFingerprint,
+  type FingerprintInput,
+  type ProductFingerprint,
+} from "@/lib/productFingerprint";
 
 export const PRODUCT_REVIEW_LIBRARY_TABLE = "product_review_library";
 export const LIBRARY_CORPUS_CAP = 500;
@@ -250,4 +256,186 @@ export async function saveLibraryCorpus(input: {
   } catch {
     return false;
   }
+}
+
+/* ==========================================================================
+ * Cross-store fingerprint linking (additive, 2026-10-20).
+ *
+ * The per-marketplace keys above stay exactly as they are. This section adds
+ * the owner's match-words layer on top: a product's fingerprint (see
+ * lib/productFingerprint.ts) links the marketplace listings that provably
+ * name the same product, and their stored corpora pool into one verdict
+ * corpus. Pooling is gated like the library-trust rule demands — identity
+ * (fingerprint match), provenance (every pooled review carries its source
+ * marketplace), deduplication (libraryRecordIdentity, the same rule the
+ * per-key union uses) — and every pair that does NOT pool is reported in
+ * `exclusions` with its verdict and reason. Nothing here writes storage:
+ * pooling is a read-time view the caller may persist under its own key.
+ * ======================================================================== */
+
+export type FingerprintLibraryEntry = {
+  /** Existing per-marketplace library key, e.g. "amazon.ca:B0DGJDKHRQ". */
+  productKey: string;
+  /** Listing evidence for this entry's product (title/brand/model/ids). */
+  listing: FingerprintInput;
+  reviews: LibraryReviewRecord[];
+};
+
+export type PooledLibraryGroup = {
+  /** Fingerprint identity of the group's anchor entry, when anchored. */
+  fingerprintKey: string | null;
+  fingerprint: ProductFingerprint;
+  productKeys: string[];
+  /** Pooled, deduped reviews; each carries sourceMarketplace provenance. */
+  reviews: LibraryReviewRecord[];
+};
+
+export type PoolingExclusion = {
+  productKey: string;
+  againstKey: string;
+  verdict: "no_match" | "ambiguous";
+  reason: string;
+};
+
+/** Marketplace a stored review came from: stamped field, else its source URL's host. */
+export function reviewSourceMarketplace(
+  record: LibraryReviewRecord,
+  fallbackProductKey?: string | null
+): string | null {
+  if (!record || typeof record !== "object") return null;
+  const stamped = cleanText(record.sourceMarketplace);
+  if (stamped) return stamped.toLowerCase();
+  const url = cleanText(record.sourceUrl);
+  if (url) {
+    try {
+      return new URL(url).hostname.toLowerCase().replace(/^www\./, "") || null;
+    } catch {
+      /* fall through to the key */
+    }
+  }
+  const key = cleanText(fallbackProductKey);
+  const fromKey = key.split(":")[0];
+  return fromKey ? fromKey.toLowerCase() : null;
+}
+
+/**
+ * Copy of a review record with sourceMarketplace provenance guaranteed.
+ * Existing provenance is never overwritten — a stamped record keeps the
+ * marketplace it was first attributed to.
+ */
+export function stampReviewProvenance(
+  record: LibraryReviewRecord,
+  productKey: string
+): LibraryReviewRecord {
+  if (!record || typeof record !== "object") return record;
+  if (cleanText(record.sourceMarketplace)) return record;
+  const marketplace = reviewSourceMarketplace(record, productKey);
+  if (!marketplace) return record;
+  return { ...record, sourceMarketplace: marketplace };
+}
+
+/**
+ * Pool library entries whose listings provably share one fingerprint.
+ * Pairwise decisions run the fingerprint matcher in both directions and a
+ * pair links only when BOTH directions prove match: pooling moves reviews,
+ * so the stricter reading wins — if either direction can only say
+ * "ambiguous" (e.g. one listing carries a model the other cannot evidence),
+ * the pair stays unmerged and the doubt is logged in `exclusions`.
+ * Deterministic for a given input order; groups keep input order, and the
+ * pooled corpus is the identity-deduped union (stored order first), capped
+ * at LIBRARY_CORPUS_CAP exactly like the per-key union.
+ */
+export function poolLinkedLibraryCorpora(entries: FingerprintLibraryEntry[]): {
+  groups: PooledLibraryGroup[];
+  exclusions: PoolingExclusion[];
+} {
+  const exclusions: PoolingExclusion[] = [];
+  const fingerprints = entries.map((entry) => extractProductFingerprint(entry.listing));
+  const parent = entries.map((_, i) => i);
+  const find = (i: number): number => {
+    let root = i;
+    while (parent[root] !== root) root = parent[root];
+    while (parent[i] !== root) {
+      const next = parent[i];
+      parent[i] = root;
+      i = next;
+    }
+    return root;
+  };
+
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      if (entries[i].productKey === entries[j].productKey) continue;
+      const forward = matchListingToFingerprint(fingerprints[i], entries[j].listing);
+      const backward = matchListingToFingerprint(fingerprints[j], entries[i].listing);
+      const verdicts = [forward.verdict, backward.verdict];
+      if (verdicts.includes("no_match")) {
+        const bad = forward.verdict === "no_match" ? forward : backward;
+        exclusions.push({
+          productKey: entries[j].productKey,
+          againstKey: entries[i].productKey,
+          verdict: "no_match",
+          reason: bad.reasons[0] || "no_match",
+        });
+        continue;
+      }
+      if (forward.verdict === "match" && backward.verdict === "match") {
+        const ri = find(i);
+        const rj = find(j);
+        if (ri !== rj) parent[Math.max(ri, rj)] = Math.min(ri, rj);
+        continue;
+      }
+      const amb = forward.verdict === "ambiguous" ? forward : backward;
+      exclusions.push({
+        productKey: entries[j].productKey,
+        againstKey: entries[i].productKey,
+        verdict: "ambiguous",
+        reason: amb.reasons[0] || "ambiguous",
+      });
+    }
+  }
+
+  const byRoot = new Map<number, number[]>();
+  entries.forEach((_, i) => {
+    const root = find(i);
+    if (!byRoot.has(root)) byRoot.set(root, []);
+    byRoot.get(root)!.push(i);
+  });
+
+  const groups: PooledLibraryGroup[] = [...byRoot.values()].map((members) => {
+    const anchor = members[0];
+    let reviews: LibraryReviewRecord[] = [];
+    for (const member of members) {
+      const stamped = (entries[member].reviews || []).map((record) =>
+        stampReviewProvenance(record, entries[member].productKey)
+      );
+      reviews = unionLibraryCorpora(reviews, stamped);
+    }
+    return {
+      fingerprintKey: fingerprints[anchor].fingerprintKey,
+      fingerprint: fingerprints[anchor],
+      productKeys: members.map((m) => entries[m].productKey),
+      reviews,
+    };
+  });
+
+  return { groups, exclusions };
+}
+
+/**
+ * Load the stored corpora for the given entries' keys and pool the ones
+ * whose listings share a fingerprint. Fail-soft like every library read:
+ * a storage failure reads as an empty corpus for that key (the entry then
+ * simply pools nothing). The loader is injectable for tests.
+ */
+export async function loadPooledLibraryCorpus(
+  entries: Array<{ productKey: string; listing: FingerprintInput }>,
+  loadCorpus: typeof loadLibraryCorpus = loadLibraryCorpus
+): Promise<{ groups: PooledLibraryGroup[]; exclusions: PoolingExclusion[] }> {
+  const loaded: FingerprintLibraryEntry[] = [];
+  for (const entry of entries) {
+    const stored = await loadCorpus(entry.productKey);
+    loaded.push({ productKey: entry.productKey, listing: entry.listing, reviews: stored.reviews });
+  }
+  return poolLinkedLibraryCorpora(loaded);
 }
