@@ -16,14 +16,18 @@ const nextConfig: NextConfig = {
       "./node_modules/tesseract.js-core/*.wasm",
       "./node_modules/tesseract.js-core/*.js",
       "./node_modules/tesseract.js/src/worker-script/**/*",
-      "./node_modules/@tesseract.js-data/eng/**/*"
+      "./node_modules/@tesseract.js-data/eng/**/*",
+      // Screenshot OCR upscales small screenshots with the bundled ffmpeg before
+      // reading them (lib/reviewScreenshotOcr.ts); the binary must ship with the function.
+      "./node_modules/@ffmpeg-installer/linux-x64/ffmpeg"
     ],
     "/tools/analyze-page": ["./extension/extractors.js"],
     "/api/review-screenshot": [
       "./node_modules/tesseract.js-core/*.wasm",
       "./node_modules/tesseract.js-core/*.js",
       "./node_modules/tesseract.js/src/worker-script/**/*",
-      "./node_modules/@tesseract.js-data/eng/**/*"
+      "./node_modules/@tesseract.js-data/eng/**/*",
+      "./node_modules/@ffmpeg-installer/linux-x64/ffmpeg"
     ],
     "/api/admin/social-media/generate-videos": [
       "./node_modules/@ffmpeg-installer/linux-x64/ffmpeg",

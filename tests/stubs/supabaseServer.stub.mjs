@@ -115,7 +115,9 @@ export async function supabaseInsert(table, rows) {
     rowsOf(table).push(row);
     return { ...row };
   });
-  return inserted;
+  // Parity with lib/supabaseServer.ts: resolves the FIRST row (data[0] ?? null),
+  // never the array. Returning the array here hid the riKeeperLedger shape bug.
+  return inserted[0] ?? null;
 }
 
 export async function supabaseUpsert(table, rows, conflict = "email") {
@@ -131,7 +133,8 @@ export async function supabaseUpsert(table, rows, conflict = "email") {
     else store.push(row);
     out.push({ ...row });
   }
-  return out;
+  // Parity with lib/supabaseServer.ts: first row or null, never the array.
+  return out[0] ?? null;
 }
 
 export async function supabaseUpdate(table, query, patch) {

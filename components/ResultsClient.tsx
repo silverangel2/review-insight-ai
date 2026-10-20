@@ -1199,6 +1199,10 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const productName = pageUnreadable && /^(?:amazon product|analyzed product)$/i.test(identifiedName)
     ? "Amazon product"
     : identifiedName;
+  // The "Product identified" badge is a claim, not a decoration: it renders only when a
+  // real product name was identified. With the placeholder fallback name it must not
+  // print (a 2026-10-20 live scan showed the badge beside the unnamed "Analyzed product").
+  const productActuallyIdentified = Boolean(identifiedName) && !/^(?:amazon product|analyzed product)$/i.test(identifiedName);
   const rawResultForVerdict = result as Record<string, unknown>;
   const reviewEvidenceState = reviewEvidenceDecisionState(rawResultForVerdict);
 
@@ -1384,7 +1388,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
 
           <div className="min-w-0">
             <div className="flex flex-wrap gap-1.5">
-              <Badge tone="good">{copy.productIdentified}</Badge>
+              {productActuallyIdentified ? <Badge tone="good">{copy.productIdentified}</Badge> : null}
               <Badge tone={researchTone(researchLevel)}>{researchLabel}</Badge>
             </div>
             <p className="mt-2 line-clamp-2 text-[12px] font-black leading-[1.12] text-ink dark:text-white">
@@ -1476,7 +1480,7 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
         <div className="grid min-w-0 gap-4 sm:gap-5">
           <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
-              <Badge tone="good">{copy.productIdentified}</Badge>
+              {productActuallyIdentified ? <Badge tone="good">{copy.productIdentified}</Badge> : null}
               <Badge tone={researchTone(researchLevel)}>{researchLabel}</Badge>
             </div>
             <h1 className="mt-4 break-words text-2xl font-black leading-tight text-ink dark:text-white sm:text-3xl lg:mt-5 lg:text-5xl">
