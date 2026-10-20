@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { readStoredLocale } from "@/lib/i18n";
+import { sanitizeVerdictWord } from "@/lib/shopperVerdictWord";
 import { shortProductName, shortCompareTitle } from "@/lib/productName";
 
 type Verdict = "BUY" | "REVIEW FIRST" | "AVOID";
@@ -787,7 +788,7 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
 
       <div className={`mb-4 rounded-2xl border px-4 py-4 text-center ${verdictClass(result.verdict)}`}>
         <p className="text-xs font-black uppercase tracking-[0.24em] opacity-80">{compareCopy(readStoredLocale()).verdictLabel}</p>
-        <p className="mt-1 text-3xl font-black">{result.verdict}</p>
+        <p className="mt-1 text-3xl font-black">{sanitizeVerdictWord(result.verdict)}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -998,7 +999,7 @@ function localComparison(productA: AnalyzeResult, productB: AnalyzeResult, copy:
           : copy.tieSummary,
     reasons: directSubstitutes
       ? [
-          `${aName} scores ${Math.round(productA.productScore || 0)}/100 with verdict ${productA.verdict}; ${bName} scores ${Math.round(productB.productScore || 0)}/100 with verdict ${productB.verdict}.`,
+          `${aName} scores ${Math.round(productA.productScore || 0)}/100 with verdict ${sanitizeVerdictWord(productA.verdict)}; ${bName} scores ${Math.round(productB.productScore || 0)}/100 with verdict ${sanitizeVerdictWord(productB.verdict)}.`,
           `Review trust check: ${aName} shows ${aRisk}% AI-like review signs while ${bName} shows ${bRisk}%.`,
           `Concern contrast: ${aName} has ${firstSignal(productA.topComplaints, "no major repeated concern")}; ${bName} has ${firstSignal(productB.topComplaints, "no major repeated concern")}.`,
           `Use-case fit: ${aName} is best for ${firstSignal(productA.bestFor, "general shoppers")}; ${bName} is best for ${firstSignal(productB.bestFor, "general shoppers")}.`
@@ -1050,8 +1051,8 @@ function ComparisonScorecard({
     },
     {
       label: copy.verdictLabel,
-      a: productA.verdict,
-      b: productB.verdict,
+      a: sanitizeVerdictWord(productA.verdict),
+      b: sanitizeVerdictWord(productB.verdict),
       edge: metricEdge(verdictRank(productA.verdict), verdictRank(productB.verdict), true, 1)
     },
     {

@@ -210,11 +210,11 @@ function analyzerFormCopy(locale: string) {
         analyze: "⚡ Analyze Product",
         clearUpload: "Clear upload",
         uploadTitle: "Upload product screenshot",
-        uploadHint: "A screenshot is optional and encouraged. It helps when the product page is hard to read.",
+        uploadHint: "Screenshot the product page — include the name, price, rating, and a few reviews for the strongest verdict.",
         linkPlaceholder: "Paste the product link",
         clearerScreenshot: "We need a clearer screenshot or product link to analyze this properly.",
         analyzeError: "We could not analyze this screenshot.",
-        intro: "Paste a product link, or add a product-page screenshot. A screenshot is optional and helps when the store page is hard to read.",
+        intro: "Thinking of buying something? Upload a product-page screenshot to get an instant AI buying verdict. A product link works too.",
         previewAlt: "Product screenshot preview",
         scanLimitMessage: "You have used all 3 free scans for today. Your scans reset tomorrow.",
         pageCaptureTitle: "Already looking at the product page?",
@@ -542,10 +542,12 @@ export default function AnalyzerForm() {
           href="/tools/analyze-page"
           className="mt-5 flex w-full items-center justify-between gap-4 rounded-2xl border border-teal/30 bg-teal/5 px-5 py-4 text-left transition hover:-translate-y-0.5 hover:border-teal dark:border-cyan-300/30 dark:bg-cyan-300/5"
         >
-          <span>
+          <span className="min-w-0">
             <span className="block text-base font-black text-ink dark:text-white">{analyzerFormCopy(readStoredLocale()).pageCaptureTitle}</span>
-            <span className="mt-1 block text-sm font-bold text-slate-500 dark:text-slate-400">{analyzerFormCopy(readStoredLocale()).pageCaptureHint}</span>
-            <span className="mt-1 block text-xs font-bold text-slate-400 dark:text-slate-500">{analyzerFormCopy(readStoredLocale()).pageCaptureNote}</span>
+            <span className="mt-1 block break-words text-sm font-bold text-slate-500 dark:text-slate-400">{analyzerFormCopy(readStoredLocale()).pageCaptureHint}</span>
+            {hydrated && isAnonymousVisitor ? (
+              <span className="mt-1 block break-words text-xs font-bold text-slate-400 dark:text-slate-500">{analyzerFormCopy(readStoredLocale()).pageCaptureNote}</span>
+            ) : null}
           </span>
           <span className="shrink-0 text-sm font-black text-teal dark:text-cyan-300">{analyzerFormCopy(readStoredLocale()).pageCaptureCta}</span>
         </a>

@@ -900,8 +900,6 @@ const extraPhraseTranslations = {
     "Use Deep Analysis": "Utiliser l’analyse approfondie",
     "Analysis readiness": "Préparation de l’analyse",
     "No scan loaded": "Aucune analyse chargée",
-    "Public sample results have been removed from the customer experience. Paste reviews or upload a CSV/TXT file to generate a fresh result.":
-      "Les exemples publics ont été retirés de l’expérience client. Collez des avis ou téléversez un fichier CSV/TXT pour générer un nouveau résultat.",
     "Your latest scan": "Votre dernière analyse",
     "Run another scan": "Lancer une autre analyse",
     "Seller Starter intelligence": "Intelligence Vendeur Premium",
@@ -3306,8 +3304,6 @@ const sanityCheckPhraseTranslations = {
 
 const coreRouteAuditPhraseTranslations: Partial<Record<ReviewIntelLocale, Record<string, string>>> = {
   fr: {
-    "Public sample results have been removed from the customer experience. Paste reviews or upload a CSV/TXT file to generate a fresh result.":
-      "Les exemples publics de résultats ont été retirés de l’expérience client. Collez des avis ou téléversez un fichier CSV/TXT pour générer un nouveau résultat.",
     "Shopper tools stay simple and recommendation-focused.": "Les outils acheteur restent simples et centrés sur la recommandation.",
     "Manage subscription": "Gérer l’abonnement",
     "Your saved product checks, buying verdicts, fake-review warnings, and best finds in one clean view.":
@@ -3373,8 +3369,8 @@ const coreRouteAuditPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Review refund terms, billing support, and cancellation controls before upgrading.":
       "Consultez les conditions de remboursement, l’assistance facturation et les contrôles d’annulation avant la mise à niveau.",
     "Real customer feedback, approved before publishing.": "Vrais retours clients, approuvés avant publication.",
-    "Users can submit feedback here. Reviews do not appear publicly until they are approved from the Admin dashboard.":
-      "Les utilisateurs peuvent envoyer un avis ici. Les avis ne sont publics qu’après approbation depuis le tableau admin.",
+    "Users can submit feedback here. Reviews appear after a quick check by our team.":
+      "Les utilisateurs peuvent envoyer un avis ici. Les avis apparaissent après une vérification rapide par notre équipe.",
     "No public reviews yet": "Aucun avis public pour l’instant",
     "We do not publish fake testimonials. Approved user reviews will appear here after moderation.":
       "Nous ne publions pas de faux témoignages. Les avis approuvés apparaîtront ici après modération.",
@@ -3416,8 +3412,6 @@ const coreRouteAuditPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Free account total = 3 AI actions": "Total compte gratuit = 3 actions IA"
   },
   es: {
-    "Public sample results have been removed from the customer experience. Paste reviews or upload a CSV/TXT file to generate a fresh result.":
-      "Los resultados públicos de muestra se retiraron de la experiencia del cliente. Pega reseñas o sube un archivo CSV/TXT para generar un resultado nuevo.",
     "Shopper tools stay simple and recommendation-focused.": "Las herramientas de comprador se mantienen simples y enfocadas en recomendaciones.",
     "Manage subscription": "Gestionar suscripción",
     "Your saved product checks, buying verdicts, fake-review warnings, and best finds in one clean view.":
@@ -3483,8 +3477,8 @@ const coreRouteAuditPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Review refund terms, billing support, and cancellation controls before upgrading.":
       "Revisa condiciones de reembolso, soporte de facturación y controles de cancelación antes de mejorar el plan.",
     "Real customer feedback, approved before publishing.": "Comentarios reales de clientes, aprobados antes de publicarse.",
-    "Users can submit feedback here. Reviews do not appear publicly until they are approved from the Admin dashboard.":
-      "Los usuarios pueden enviar comentarios aquí. Las reseñas no aparecen públicamente hasta aprobarse desde el panel admin.",
+    "Users can submit feedback here. Reviews appear after a quick check by our team.":
+      "Los usuarios pueden enviar comentarios aquí. Las reseñas aparecen tras una revisión rápida de nuestro equipo.",
     "No public reviews yet": "Aún no hay reseñas públicas",
     "We do not publish fake testimonials. Approved user reviews will appear here after moderation.":
       "No publicamos testimonios falsos. Las reseñas aprobadas aparecerán aquí después de moderación.",
@@ -3529,8 +3523,6 @@ const coreRouteAuditPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
 
 const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Record<string, string>>> = {
   de: {
-    "Public sample results have been removed from the customer experience. Paste reviews or upload a CSV/TXT file to generate a fresh result.":
-      "Öffentliche Beispielergebnisse wurden aus der Kundenerfahrung entfernt. Füge Bewertungen ein oder lade eine CSV/TXT-Datei hoch, um ein neues Ergebnis zu erzeugen.",
     "Shopper": "Käufer",
     "Shopper tools stay simple and recommendation-focused.": "Käuferwerkzeuge bleiben einfach und empfehlungsorientiert.",
     "Manage subscription": "Abo verwalten",
@@ -3599,8 +3591,8 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "Review refund terms, billing support, and cancellation controls before upgrading.":
       "Prüfe Rückerstattungsbedingungen, Abrechnungshilfe und Kündigungsoptionen vor dem Upgrade.",
     "Real customer feedback, approved before publishing.": "Echtes Kundenfeedback, vor Veröffentlichung genehmigt.",
-    "Users can submit feedback here. Reviews do not appear publicly until they are approved from the Admin dashboard.":
-      "Nutzer können hier Feedback senden. Bewertungen erscheinen erst öffentlich, wenn sie in der Admin-Übersicht genehmigt wurden.",
+    "Users can submit feedback here. Reviews appear after a quick check by our team.":
+      "Nutzer können hier Feedback senden. Bewertungen erscheinen nach einer kurzen Prüfung durch unser Team.",
     "No public reviews yet": "Noch keine öffentlichen Bewertungen",
     "We do not publish fake testimonials. Approved user reviews will appear here after moderation.":
       "Wir veröffentlichen keine gefälschten Stimmen. Genehmigte Nutzerbewertungen erscheinen nach der Moderation.",
@@ -3642,8 +3634,6 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "Product 2": "Produkt 2"
   },
   zh: {
-    "Public sample results have been removed from the customer experience. Paste reviews or upload a CSV/TXT file to generate a fresh result.":
-      "公开示例结果已从客户体验中移除。请粘贴评价或上传 CSV/TXT 文件生成新结果。",
     "Shopper tools stay simple and recommendation-focused.": "购物者工具保持简单，并专注于推荐。",
     "Manage subscription": "管理订阅",
     "Your saved product checks, buying verdicts, fake-review warnings, and best finds in one clean view.":
@@ -3709,8 +3699,8 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "Review refund terms, billing support, and cancellation controls before upgrading.":
       "升级前请查看退款条款、账单支持和取消控制。",
     "Real customer feedback, approved before publishing.": "真实客户反馈，发布前审核。",
-    "Users can submit feedback here. Reviews do not appear publicly until they are approved from the Admin dashboard.":
-      "用户可在这里提交反馈。评价需在管理员仪表板审核后才会公开显示。",
+    "Users can submit feedback here. Reviews appear after a quick check by our team.":
+      "用户可在这里提交反馈。评价经我们团队快速审核后显示。",
     "No public reviews yet": "暂无公开评价",
     "We do not publish fake testimonials. Approved user reviews will appear here after moderation.":
       "我们不发布虚假推荐。审核通过的用户评价会在 moderation 后显示。",
@@ -3752,8 +3742,6 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "Product 2": "产品 2"
   },
   hi: {
-    "Public sample results have been removed from the customer experience. Paste reviews or upload a CSV/TXT file to generate a fresh result.":
-      "सार्वजनिक नमूना परिणाम ग्राहक अनुभव से हटा दिए गए हैं। नया परिणाम बनाने के लिए समीक्षाएँ पेस्ट करें या CSV/TXT फ़ाइल अपलोड करें।",
     "Shopper tools stay simple and recommendation-focused.": "शॉपर टूल सरल और सुझाव-केंद्रित रहते हैं।",
     "Manage subscription": "सदस्यता प्रबंधित करें",
     "Your saved product checks, buying verdicts, fake-review warnings, and best finds in one clean view.":
@@ -3819,8 +3807,8 @@ const coreRouteAuditPhraseTranslationsMore: Partial<Record<ReviewIntelLocale, Re
     "Review refund terms, billing support, and cancellation controls before upgrading.":
       "अपग्रेड से पहले रिफंड शर्तें, बिलिंग सहायता और रद्दीकरण नियंत्रण देखें।",
     "Real customer feedback, approved before publishing.": "प्रकाशन से पहले स्वीकृत वास्तविक ग्राहक प्रतिक्रिया।",
-    "Users can submit feedback here. Reviews do not appear publicly until they are approved from the Admin dashboard.":
-      "उपयोगकर्ता यहाँ प्रतिक्रिया भेज सकते हैं। समीक्षाएँ Admin डैशबोर्ड से स्वीकृत होने तक सार्वजनिक नहीं दिखतीं।",
+    "Users can submit feedback here. Reviews appear after a quick check by our team.":
+      "उपयोगकर्ता यहाँ प्रतिक्रिया भेज सकते हैं। समीक्षाएँ हमारी टीम की त्वरित जाँच के बाद दिखती हैं।",
     "No public reviews yet": "अभी कोई सार्वजनिक समीक्षा नहीं",
     "We do not publish fake testimonials. Approved user reviews will appear here after moderation.":
       "हम नकली प्रशंसापत्र प्रकाशित नहीं करते। स्वीकृत उपयोगकर्ता समीक्षाएँ moderation के बाद यहाँ दिखेंगी।",
@@ -7780,16 +7768,6 @@ const workflowPhraseTranslationEntries: WorkflowPhraseEntry[] = [
     }
   ],
   [
-    "Public sample results have been removed from the customer experience. Upload a product screenshot or paste a product link to generate a fresh buying verdict.",
-    {
-      fr: "Les exemples publics ont été retirés de l'expérience client. Importez une capture produit ou collez un lien pour générer un nouveau verdict d'achat.",
-      es: "Los resultados públicos de muestra se quitaron de la experiencia del cliente. Sube una captura del producto o pega un enlace para generar un nuevo veredicto de compra.",
-      zh: "公开示例结果已从客户体验中移除。上传产品截图或粘贴产品链接，以生成新的购买判断。",
-      de: "Öffentliche Beispielergebnisse wurden aus der Kundenerfahrung entfernt. Lade einen Produktscreenshot hoch oder füge einen Produktlink ein, um ein neues Kaufurteil zu erstellen.",
-      hi: "सार्वजनिक नमूना परिणाम ग्राहक अनुभव से हटा दिए गए हैं। नया खरीद निर्णय बनाने के लिए उत्पाद स्क्रीनशॉट अपलोड करें या उत्पाद लिंक पेस्ट करें।"
-    }
-  ],
-  [
     "← Seller Dashboard",
     {
       fr: "← Tableau de bord vendeur",
@@ -7828,7 +7806,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Les forfaits acheteur accélèrent les décisions d’achat, la comparaison de produits et les meilleurs choix Amazon. Les forfaits vendeur se concentrent sur les plaintes, le suivi d’amélioration, les écarts concurrents et les décisions de croissance.",
     "Secure Stripe checkout for paid plans.": "Paiement Stripe sécurisé pour les forfaits payants.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free garde 3 analyses par jour.",
-    "Seller signups require paid access unless beta/admin-approved.": "Les inscriptions vendeur exigent un accès payant sauf bêta ou approbation admin.",
+    "Seller plans need a paid subscription.": "Les forfaits vendeur nécessitent un abonnement payant.",
     "Start simple": "Commencer simplement",
     "Best for shoppers": "Idéal pour acheteurs",
     "Seller intelligence": "Intelligence vendeur",
@@ -7867,7 +7845,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Los planes de comprador ayudan a decidir más rápido, comparar productos y ver mejores opciones de Amazon. Los planes de vendedor se enfocan en quejas, mejoras, brechas competitivas y decisiones de crecimiento.",
     "Secure Stripe checkout for paid plans.": "Pago seguro con Stripe para planes pagos.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free mantiene 3 escaneos al día.",
-    "Seller signups require paid access unless beta/admin-approved.": "Las cuentas de vendedor requieren pago salvo beta o aprobación admin.",
+    "Seller plans need a paid subscription.": "Los planes de vendedor necesitan una suscripción paga.",
     "Start simple": "Empieza simple",
     "Best for shoppers": "Ideal para compradores",
     "Seller intelligence": "Inteligencia vendedor",
@@ -7906,7 +7884,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Shopper-Pläne helfen bei schnelleren Kaufentscheidungen, Vergleichen und Amazon-Auswahl. Seller-Pläne fokussieren Beschwerden, Verbesserungen, Wettbewerbschancen und Wachstum.",
     "Secure Stripe checkout for paid plans.": "Sicherer Stripe-Checkout für bezahlte Pläne.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free bleibt bei 3 Scans pro Tag.",
-    "Seller signups require paid access unless beta/admin-approved.": "Seller-Zugänge benötigen Zahlung, außer Beta/Admin ist genehmigt.",
+    "Seller plans need a paid subscription.": "Verkäuferpläne brauchen ein kostenpflichtiges Abo.",
     "Start simple": "Einfach starten",
     "Best for shoppers": "Ideal für Käufer",
     "Seller intelligence": "Seller-Intelligenz",
@@ -7945,7 +7923,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "买家方案帮助更快决策、比较产品并查看 Amazon 更好选择。卖家方案关注投诉洞察、产品改进、竞争差距和增长决策。",
     "Secure Stripe checkout for paid plans.": "付费方案使用安全 Stripe 结账。",
     "Shopper Free keeps 3 scans per day.": "Shopper Free 每天保留 3 次扫描。",
-    "Seller signups require paid access unless beta/admin-approved.": "卖家注册需要付费访问，除非获得 Beta 或管理员批准。",
+    "Seller plans need a paid subscription.": "卖家套餐需要付费订阅。",
     "Start simple": "简单开始",
     "Best for shoppers": "最适合买家",
     "Seller intelligence": "卖家智能",
@@ -7984,7 +7962,7 @@ const releasePricingPhraseTranslations: Partial<Record<ReviewIntelLocale, Record
     "Shopper plans focus on faster buying decisions, product comparison, and Amazon Better Picks. Seller plans focus on complaint intelligence, product improvement tracking, competitor gaps, and growth decisions.": "Shopper plans तेज buying decisions, product comparison और Amazon Better Picks पर focus करते हैं. Seller plans complaints, product improvement tracking, competitor gaps और growth decisions पर focus करते हैं.",
     "Secure Stripe checkout for paid plans.": "Paid plans के लिए secure Stripe checkout.",
     "Shopper Free keeps 3 scans per day.": "Shopper Free में हर दिन 3 scans रहते हैं.",
-    "Seller signups require paid access unless beta/admin-approved.": "Seller signup के लिए paid access चाहिए, जब तक beta/admin-approved न हो.",
+    "Seller plans need a paid subscription.": "Seller plans के लिए paid subscription चाहिए।",
     "Start simple": "Simple start",
     "Best for shoppers": "Shoppers के लिए best",
     "Seller intelligence": "Seller intelligence",

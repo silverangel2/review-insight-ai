@@ -24,7 +24,6 @@ import { SellerImprovementCalendar } from "@/components/SellerImprovementCalenda
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
 import { readSellerProducts, type SellerProduct } from "@/lib/sellerProducts";
 import {
-  countSellerAnalyses,
   dedupeSellerProducts,
   dedupeSellerAnalyses,
   sellerAnalysisIdentityFor,
@@ -34,7 +33,11 @@ import { readSellerJournal } from "@/lib/sellerJournal";
 import { startSellerWorkspaceSync } from "@/lib/sellerWorkspaceSync";
 import { getClientAccount } from "@/lib/clientAccount";
 import { sellerHistoryKey } from "@/lib/sellerResultStorage";
-import { displayCodeForResult, productDisplayCode } from "@/lib/productDisplay";
+import {
+  buildSellerDashboardStats,
+  formatSellerScore,
+  sellerProductDisplayName,
+} from "@/lib/sellerDashboardStats";
 
 function uniqueTop(items: string[], limit = 6) {
   const seen = new Set<string>();
@@ -49,13 +52,6 @@ function uniqueTop(items: string[], limit = 6) {
     })
     .slice(0, limit);
 }
-
-function average(items: number[]) {
-  const valid = items.filter((value) => Number.isFinite(value));
-  if (!valid.length) return null;
-  return Math.round(valid.reduce((sum, value) => sum + value, 0) / valid.length);
-}
-
 
 function scanArray(scan: unknown, keys: string[]) {
   const record = scan as Record<string, unknown>;
@@ -449,8 +445,6 @@ export default function SellerDashboardPage() {
   const isSellerPro = account?.plan === "seller_pro";
 
   const dashboard = useMemo(() => {
-    const productScans = products.flatMap((product) => product.scans ?? []);
-
     // Audit/history scan count must use the same source as the History button.
     // This includes normal seller scans and Seller Pro Compare entries.
     const historyScans = readSellerAuditHistory();
@@ -469,10 +463,14 @@ export default function SellerDashboardPage() {
     ];
     const productAuditScans = auditScans.filter((scan) => !isCompareScan(scan));
 
-    // Product improvement tracking must stay product-only.
-    // Compare results count for audit, but do not become tracked improvement products.
-    const productImprovementScans = [...journalScans, ...productScans].filter((scan) => !isCompareScan(scan));
-    const latestScans = productImprovementScans.slice(0, 30);
+    // ONE source of truth for every headline stat on this page: the unified
+    // seller scan index (deduped product records + journal scans, the same
+    // analysis never counted twice). Products scanned, saved scans, average
+    // score, latest score, satisfaction and review volume all derive from
+    // this single list, so they cannot contradict each other.
+    const scanStats = buildSellerDashboardStats({ products, journalScans });
+    const unifiedScans = scanStats.records;
+    const latestScans = unifiedScans.slice(0, 30);
 
     // Recent product signals should show the same saved history source as the History button.
     // This includes PRD seller scans and CMR seller compare records.
@@ -520,10 +518,12 @@ export default function SellerDashboardPage() {
       )
     );
 
-    const satisfaction = average(latestScans.map((scan) => scanNumber(scan, ["sentimentScore", "sentiment_score", "satisfactionScore", "customer_satisfaction_score", "buyerSatisfaction", "sentiment"], 0)));
-    const productScore = average(latestScans.map((scan) => scanNumber(scan, ["productScore", "product_score", "healthScore", "score", "buyingConfidence", "confidenceScore", "confidence_score", "rating"], 0)));
-    const reviewCount = latestScans.reduce<number>((sum, scan) => sum + scanNumber(scan, ["reviewCount", "reviewsAnalyzed", "review_count", "validReviewCount"], 0), 0);
-    const trendSeries = sellerTrendSeries(productImprovementScans);
+    // Headline stats come from the single unified scan index (see above),
+    // never from ad-hoc mixes of the raw stores.
+    const satisfaction = scanStats.satisfaction;
+    const productScore = scanStats.averageScore;
+    const reviewCount = scanStats.reviewCount;
+    const trendSeries = sellerTrendSeries(unifiedScans);
     const trendDelta = trendSeries.length > 1
       ? trendSeries[trendSeries.length - 1].score - trendSeries[0].score
       : 0;
@@ -548,6 +548,10 @@ export default function SellerDashboardPage() {
       satisfaction,
       productScore,
       reviewCount,
+      // Headline stats: one source of truth (the unified scan index).
+      scanCount: scanStats.scanCount,
+      productCount: scanStats.productCount,
+      latestScore: scanStats.latestScore,
       productRows,
       weakestProduct,
       strongestProduct,
@@ -558,15 +562,6 @@ export default function SellerDashboardPage() {
       advisorNote: dashboardAdvisor(productRows, painPoints)
     };
   }, [products, journalScans, accountAnalyses]);
-
-  // Hoisted above the early return: hooks must run in the same order on
-  // every render. Behavior identical — the gate condition is not part of
-  // the memoized value.
-  const savedScanCount = useMemo(
-    () => countSellerAnalyses(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [products, journalScans]
-  );
 
   if (account && !isSeller) {
     return (
@@ -591,10 +586,9 @@ export default function SellerDashboardPage() {
   }
 
   const hasData = dashboard.scans.length > 0;
-  // Saved-scan count has ONE source: scans across the deduped product
-  // records (the same store the attach path writes). The old API+local
-  // history merge is what made the count flicker (6 → 9 → 10 → 2 → 10).
-  // (savedScanCount is hoisted above the early return; see there.)
+  // Headline stats share ONE source (the unified scan index inside the
+  // dashboard memo): savedScanCount, productsTracked and the average/latest
+  // scores below all derive from the same list.
   const safeSatisfaction = typeof dashboard.satisfaction === "number" ? dashboard.satisfaction : null;
   const safeProductScore = typeof dashboard.productScore === "number" ? dashboard.productScore : null;
   const satisfactionTone = safeSatisfaction === null ? "warn" : safeSatisfaction >= 70 ? "good" : "warn";
@@ -602,9 +596,11 @@ export default function SellerDashboardPage() {
   const sellerCommandCards = [
     {
       eyebrow: "Fix first",
-      title: dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "Run seller analysis",
+      title: dashboard.weakestProduct ? sellerProductDisplayName(dashboard.weakestProduct.name) : "Run seller analysis",
       detail: dashboard.weakestProduct
-        ? `${dashboard.weakestProduct.latestScore || "No"}% latest score. Main concern: ${sellerShortName(dashboard.weakestProduct.mainConcern, 58)}.`
+        ? dashboard.weakestProduct.latestScore > 0
+          ? `${dashboard.weakestProduct.latestScore}% latest score. Main concern: ${sellerShortName(dashboard.weakestProduct.mainConcern, 58)}.`
+          : `Latest score not saved yet. Main concern: ${sellerShortName(dashboard.weakestProduct.mainConcern, 58)}.`
         : "No saved product scan yet. Start with one seller analysis so the dashboard can rank your products.",
       href: "/seller/analyze",
       action: dashboard.weakestProduct ? "Improve listing" : "Run scan",
@@ -612,7 +608,7 @@ export default function SellerDashboardPage() {
     },
     {
       eyebrow: "Promote proof",
-      title: dashboard.strongestProduct ? productDisplayCode(dashboard.strongestProduct.name) : "Find a winner",
+      title: dashboard.strongestProduct ? sellerProductDisplayName(dashboard.strongestProduct.name) : "Find a winner",
       detail: dashboard.strongestProduct
         ? `Use this proof in copy: ${sellerShortName(dashboard.strongestProduct.topPositive, 58)}.`
         : "Your strongest product proof appears after saved scans with positive buyer signals.",
@@ -642,12 +638,6 @@ export default function SellerDashboardPage() {
     }
   ];
 
-  const productsTracked = new Set(
-    [...dashboard.productRows.map((row) => row.name), ...dashboard.scans.map((scan) => scanText(scan, ["productName", "product_name", "name", "title"], ""))]
-      .map((name) => String(name || "").trim().toLowerCase())
-      .filter(Boolean)
-  ).size;
-
   if (!dashboard.latestScans.length) {
     return (
       <ProOnlyGate>
@@ -663,7 +653,7 @@ export default function SellerDashboardPage() {
             </Link>
             {hasData ? (
               <p className="mt-4 text-sm text-slate-600">
-                You have {savedScanCount} saved {savedScanCount === 1 ? "scan" : "scans"} in History. Product tracking starts with your next upload.
+                You have {dashboard.scanCount} saved {dashboard.scanCount === 1 ? "scan" : "scans"} in History. Product tracking starts with your next upload.
               </p>
             ) : null}
             <p className="mt-4 text-sm text-slate-500">
@@ -714,29 +704,27 @@ export default function SellerDashboardPage() {
         <section className="seller-premium-metrics mb-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <DashboardMetric
             label="Products scanned"
-            value={String(productsTracked)}
+            value={String(dashboard.productCount)}
             detail="Distinct products in your saved seller scans."
             tone="info"
           />
           <DashboardMetric
             label="Saved scans"
-            value={String(savedScanCount)}
+            value={String(dashboard.scanCount)}
             detail="Seller scans saved to your history (compare runs not included)."
             tone="info"
           />
-          {safeProductScore !== null ? (
-            <DashboardMetric
-              label="Avg product score"
-              value={`${safeProductScore}%`}
-              detail="Average score across those saved scans."
-              tone={productScoreTone}
-            />
-          ) : null}
+          <DashboardMetric
+            label="Avg product score"
+            value={safeProductScore === null ? "—" : `${safeProductScore}%`}
+            detail="Average score across those saved scans."
+            tone={productScoreTone}
+          />
           {dashboard.weakestProduct ? (
             <DashboardMetric
               label="Improvement focus"
               value={dashboard.weakestProduct.priority}
-              detail={productDisplayCode(dashboard.weakestProduct.name)}
+              detail={sellerProductDisplayName(dashboard.weakestProduct.name)}
               tone={dashboard.weakestProduct.latestScore < 70 ? "bad" : "warn"}
             />
           ) : null}
@@ -809,7 +797,7 @@ export default function SellerDashboardPage() {
                 <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-900">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Latest score</p>
                   <p className="mt-2 text-3xl font-black text-ink dark:text-white">
-                    {dashboard.trendSeries[dashboard.trendSeries.length - 1]?.score ?? 0}%
+                    {formatSellerScore(dashboard.latestScore)}
                   </p>
                 </article>
                 <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-slate-900">
@@ -847,11 +835,11 @@ export default function SellerDashboardPage() {
               <article className="rounded-[1.25rem] border border-coral/20 bg-rose-50 p-4 dark:border-rose-300/20 dark:bg-rose-400/10">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-coralink">Fix next</p>
                 <h3 className="mt-2 text-xl font-black text-ink dark:text-white">
-                  {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "Run a seller scan"}
+                  {dashboard.weakestProduct ? sellerProductDisplayName(dashboard.weakestProduct.name) : "Run a seller scan"}
                 </h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
                   {dashboard.weakestProduct
-                    ? `${dashboard.weakestProduct.latestScore}% score. Start with: ${sellerShortName(dashboard.weakestProduct.mainConcern, 90)}`
+                    ? `${formatSellerScore(dashboard.weakestProduct.latestScore > 0 ? dashboard.weakestProduct.latestScore : null)} score. Start with: ${sellerShortName(dashboard.weakestProduct.mainConcern, 90)}`
                     : "No improvement target yet."}
                 </p>
               </article>
@@ -859,7 +847,7 @@ export default function SellerDashboardPage() {
               <article className="rounded-[1.25rem] border border-teal/20 bg-emerald-50 p-4 dark:border-emerald-300/20 dark:bg-emerald-400/10">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-teal">Use as proof</p>
                 <h3 className="mt-2 text-xl font-black text-ink dark:text-white">
-                  {dashboard.strongestProduct ? productDisplayCode(dashboard.strongestProduct.name) : "Find a winning signal"}
+                  {dashboard.strongestProduct ? sellerProductDisplayName(dashboard.strongestProduct.name) : "Find a winning signal"}
                 </h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">
                   {dashboard.strongestProduct
@@ -874,7 +862,7 @@ export default function SellerDashboardPage() {
                 <div key={product.name} className="rounded-2xl border border-line bg-mist p-4 dark:border-white/10 dark:bg-white/[0.04]">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-ink dark:text-white">{productDisplayCode(product.name)}</p>
+                      <p className="truncate text-sm font-black text-ink dark:text-white">{sellerProductDisplayName(product.name)}</p>
                       <p className="mt-1 text-xs font-bold text-slate-500 dark:text-slate-400">
                         {product.trend} {product.previousScore ? `· ${product.scoreChange > 0 ? "+" : ""}${product.scoreChange} pts` : "· new"}
                       </p>
@@ -916,7 +904,7 @@ export default function SellerDashboardPage() {
               {dashboard.productRows.slice(0, 8).map((product) => (
                 <div key={product.name} className="seller-ranking-row grid grid-cols-[1.2fr_0.6fr_0.7fr_1.4fr_0.8fr] gap-3 border-t border-line px-4 py-4 text-sm dark:border-white/10">
                   <div className="seller-ranking-product">
-                    <p className="font-black text-ink dark:text-white">{productDisplayCode(product.name)}</p>
+                    <p className="font-black text-ink dark:text-white">{sellerProductDisplayName(product.name)}</p>
                     <p className="mt-1 text-xs font-bold text-slate-500">{product.scanCount} scan{product.scanCount === 1 ? "" : "s"}</p>
                   </div>
                   <p className="seller-ranking-score font-black text-ocean">{product.latestScore ? `${product.latestScore}%` : "—"}</p>
@@ -938,11 +926,11 @@ export default function SellerDashboardPage() {
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-coralink">Focus first</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">
-              {dashboard.weakestProduct ? productDisplayCode(dashboard.weakestProduct.name) : "No product selected yet"}
+              {dashboard.weakestProduct ? sellerProductDisplayName(dashboard.weakestProduct.name) : "No product selected yet"}
             </h3>
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               {dashboard.weakestProduct
-                ? `${dashboard.weakestProduct.latestScore}% average. Main concern: ${dashboard.weakestProduct.mainConcern}`
+                ? `${formatSellerScore(dashboard.weakestProduct.avgScore > 0 ? dashboard.weakestProduct.avgScore : null)} average. Main concern: ${dashboard.weakestProduct.mainConcern}`
                 : "Run seller scans to identify the product that needs the most improvement."}
             </p>
           </article>
@@ -950,11 +938,11 @@ export default function SellerDashboardPage() {
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-teal">Best performer</p>
             <h3 className="mt-3 max-w-full break-words text-2xl font-black text-ink [overflow-wrap:anywhere] dark:text-white">
-              {dashboard.strongestProduct ? productDisplayCode(dashboard.strongestProduct.name) : "No strong product signal yet"}
+              {dashboard.strongestProduct ? sellerProductDisplayName(dashboard.strongestProduct.name) : "No strong product signal yet"}
             </h3>
             <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
               {dashboard.strongestProduct
-                ? `${dashboard.strongestProduct.latestScore}% average. Best signal: ${sellerShortName(dashboard.strongestProduct.topPositive, 44)}`
+                ? `${formatSellerScore(dashboard.strongestProduct.avgScore > 0 ? dashboard.strongestProduct.avgScore : null)} average. Best signal: ${sellerShortName(dashboard.strongestProduct.topPositive, 44)}`
                 : "Your strongest product will appear once seller scans are saved."}
             </p>
           </article>
@@ -1156,7 +1144,7 @@ export default function SellerDashboardPage() {
                           <tr key={scanText(scan, ["canonicalKey", "id"], `scan-${index}`)} className="border-t border-line dark:border-white/10">
                             <td className="whitespace-nowrap px-4 py-3 text-xs font-black text-slate-500 dark:text-slate-400">{dateLabel}</td>
                             <td className="max-w-[220px] truncate px-4 py-3 font-black text-ink dark:text-white">
-                              {displayCodeForResult(scan, scanText(scan, ["productName", "product_name", "name", "title", "fileName"], "Saved product scan"))}
+                              {sellerProductDisplayName(scanText(scan, ["product_name", "productName", "name", "title", "fileName"], ""))}
                               {mergedRuns > 1 ? (
                                 <span className="ml-2 inline-block rounded-full bg-ocean/10 px-2 py-0.5 align-middle text-[10px] font-black text-ocean dark:bg-white/10 dark:text-slate-200">
                                   {mergedRuns} scans merged

@@ -157,15 +157,15 @@ export default function SellerDashboardPage() {
               </p>
             </div>
 
-            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-soft dark:border-white/10 dark:bg-white/5">
+            <label className="mt-4 flex w-full min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-line bg-white px-5 py-4 shadow-soft dark:border-white/10 dark:bg-white/5">
               <input
                 type="checkbox"
                 checked={libraryConsent}
                 onChange={(event) => setLibraryConsent(event.target.checked)}
                 disabled={isLoading}
-                className="mt-1 size-5 shrink-0 accent-teal"
+                className="mt-1 size-5 shrink-0 grow-0 basis-5 accent-teal"
               />
-              <span className="text-sm font-semibold leading-relaxed text-slate-600 dark:text-slate-300">
+              <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-relaxed text-slate-600 dark:text-slate-300">
                 These are reviews of my own product. ReviewIntel may include them in its shared product evidence library.
               </span>
             </label>

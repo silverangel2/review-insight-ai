@@ -17,6 +17,7 @@ import {
   sellerFriendlyTheme
 } from "@/lib/insightSanitizer";
 import { getUiTextTranslation, readStoredLocale, type ReviewIntelLocale } from "@/lib/i18n";
+import { sanitizeVerdictWord } from "@/lib/shopperVerdictWord";
 import { platformLabel } from "@/lib/platforms";
 import type { AnalyzeResponse, CustomerRecommendation, SubscriptionPlan } from "@/lib/types";
 import { makeSellerAdvice, makeSellerAction, makeSellerHeadline } from "@/lib/sellerAdviceEngine";
@@ -152,9 +153,9 @@ function cleanOneLine(value: string | undefined, fallback: string, maxChars = 44
   return cut || fallback;
 }
 
-function buyerRecommendationLine(verdict: CustomerRecommendation, riskLevel: string) {
+function buyerRecommendationLine(verdict: "Buy" | "Wait" | "Skip", riskLevel: string) {
   if (verdict === "Buy") return riskLevel === "High" ? "Buy only after checking the warning." : "Worth it for the right buyer.";
-  if (verdict === "Maybe") return "Compare first before buying.";
+  if (verdict === "Wait") return "Compare first before buying.";
   return "Skip unless the issue is fixed.";
 }
 
@@ -1157,6 +1158,8 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
         ? "Buy"
         : recommendation.verdict;
   const verdictTone = recommendationTone(balancedVerdict);
+  // Customer-facing verdict word: always the canonical Buy / Wait / Skip set.
+  const canonicalVerdict = sanitizeVerdictWord(balancedVerdict);
   const trustScore = scoreNumber(analysis.product_score * 0.42 + (100 - fakeRisk) * 0.36 + analysis.confidence_score * 22);
   const valueScore = scoreNumber(analysis.value_score ?? clamp(analysis.product_score * 0.68 + sentimentPercentScore * 0.32));
   const productRealityScore = scoreNumber(analysis.product_score * 0.55 + sentimentPercentScore * 0.2 + Math.max(0, 100 - complaintPressure) * 0.25);
@@ -1165,7 +1168,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
   const safeRiskScore = scoreNumber(100 - riskScore);
   const riskLevel = safeRiskScore >= 75 ? "Low" : safeRiskScore >= 45 ? "Medium" : "High";
   const valueVerdict = valueScore >= 72 ? "Great" : valueScore >= 48 ? "Fair" : "Poor";
-  const verdictLabel = balancedVerdict.toUpperCase();
+  const verdictLabel = canonicalVerdict.toUpperCase();
   const fullStrength = cleanReviewInsightText(
     analysis.praised_features[0] ?? analysis.positive_points[0],
     "Most buyers liked the product."
@@ -1261,7 +1264,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
       )),
       checks: translateResultItems(locale, ["Check returns, warranty, seller support, shipping, and the repeated complaint."]),
       avoid: translateResultText(locale, riskScore >= 65 ? "The warning affects your main reason for buying." : "You cannot return it easily."),
-      recommendation: translateResultText(locale, buyerRecommendationLine(balancedVerdict, riskLevel))
+      recommendation: translateResultText(locale, buyerRecommendationLine(canonicalVerdict, riskLevel))
     }
   ];
 
@@ -1287,7 +1290,7 @@ function BuyerResults({ result }: { result: AnalyzeResponse }) {
             <div className="mt-8 h-4 overflow-hidden rounded-full bg-white shadow-inner dark:bg-white/10">
               <div className={`h-full rounded-full bg-gradient-to-r ${verdictAccent}`} style={{ width: widthPercent(score) }} />
             </div>
-            <p className="mt-5 text-lg font-black leading-7 text-ink dark:text-white">{translateResultText(locale, buyerRecommendationLine(recommendation.verdict, riskLevel))}</p>
+            <p className="mt-5 text-lg font-black leading-7 text-ink dark:text-white">{translateResultText(locale, buyerRecommendationLine(canonicalVerdict, riskLevel))}</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{localizedShopperRiskPhrase}</p>
           </div>
 

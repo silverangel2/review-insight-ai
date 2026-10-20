@@ -22,7 +22,7 @@ export default function ReviewsPage() {
           <Badge tone="good">ReviewIntel Reviews</Badge>
           <h1 className="mt-5 max-w-3xl text-5xl font-black leading-tight">Real customer feedback, approved before publishing.</h1>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
-            Users can submit feedback here. Reviews do not appear publicly until they are approved from the Admin dashboard.
+            Users can submit feedback here. Reviews appear after a quick check by our team.
           </p>
         </div>
       </section>

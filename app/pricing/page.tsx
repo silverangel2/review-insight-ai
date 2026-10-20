@@ -22,7 +22,7 @@ export default function PricingPage() {
           Shopper Free keeps 3 scans per day.
         </p>
         <p className="rounded-2xl border border-line bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
-          Seller signups require paid access unless beta/admin-approved.
+          Seller plans need a paid subscription.
         </p>
       </div>
       <div className="mt-10">

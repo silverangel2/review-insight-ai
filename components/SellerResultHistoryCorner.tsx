@@ -309,12 +309,12 @@ export function SellerResultHistoryCorner() {
               displayCode:
                 code.startsWith("CMR-") || code.startsWith("PRD-")
                   ? code
-                  : String(entry.displayCode || entry.code || "PRD-TEST"),
+                  : String(entry.displayCode || entry.code || "PRD-NEW"),
               productName: shortProductName(
                 entry.productName ||
                   entry.product_name ||
                   entry.title ||
-                  (code.startsWith("CMR-") ? "Seller Compare" : "Seller Test")
+                  (code.startsWith("CMR-") ? "Seller Compare" : "Unnamed product")
               ),
               createdAt: String(entry.createdAt || entry.created_at || new Date().toISOString()),
               type: mode,
@@ -489,7 +489,7 @@ export function SellerResultHistoryCorner() {
   }
 
   return (
-    <div className="reviewintel-result-history-anchor fixed left-5 top-28 z-50 w-[280px] max-w-[calc(100vw-2rem)]">
+    <div className="reviewintel-result-history-anchor fixed left-5 top-28 z-50 flex w-[280px] max-w-[calc(100vw-2rem)] flex-col max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:left-4 max-sm:top-auto max-sm:w-auto max-sm:flex-col-reverse">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -499,7 +499,7 @@ export function SellerResultHistoryCorner() {
       </button>
 
       {open ? (
-        <div className="reviewintel-history-popup-panel mt-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl">
+        <div className="reviewintel-history-popup-panel mt-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl max-sm:mb-3 max-sm:mt-0">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
               {sellerHistoryCopy(readStoredLocale()).savedTests}
@@ -552,7 +552,7 @@ export function SellerResultHistoryCorner() {
                         .slice(0, 4)
                         .toUpperCase();
 
-                      return `PRD-${shortId || "TEST"}`;
+                      return `PRD-${shortId || "NEW"}`;
                     })()}
                   </span>
                   <span className="mt-1 block text-[10px] text-slate-400">{formatDate(item.savedAt || item.createdAt || new Date().toISOString())}</span>

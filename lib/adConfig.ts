@@ -205,7 +205,7 @@ export const reviewIntelPlaceholderAds: SponsorAd[] = [
     sponsorName: "ReviewIntel",
     headline: "Know the truth before you buy",
     description:
-      "Paste any product link and get an instant BUY, REVIEW FIRST, or AVOID verdict from real review analysis.",
+      "Paste any product link and get an instant BUY, WAIT, or SKIP verdict from real review analysis.",
     destinationUrl: "/analyze",
     placement: "homepage_mid",
     active: true,

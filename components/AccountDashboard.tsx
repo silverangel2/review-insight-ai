@@ -27,7 +27,8 @@ import {
 import { formatPercent } from "@/lib/analysisScoring";
 import { clearLatestResult } from "@/lib/resultStorage";
 import type { QuotaInfo, ReviewPlatform, SubscriptionPlan } from "@/lib/types";
-import { productDisplayCode } from "@/lib/productDisplay";
+import { sellerProductDisplayName } from "@/lib/sellerDashboardStats";
+import { shortProductName } from "@/lib/productName";
 
 const planOptions: Array<{
   plan: SubscriptionPlan;
@@ -103,6 +104,31 @@ const emptyProfileForm: AccountProfileForm = {
 
 function isPrivateTestAccount(account: ClientAccount | null | undefined) {
   return Boolean(account?.email?.endsWith("@reviewintel.test"));
+}
+
+// A profile field counts as "present" only when it holds a real value —
+// empty strings and placeholder text like "n/a" do not count.
+function isMeaningfulProfileValue(value: string | null | undefined) {
+  const text = String(value ?? "").trim().toLowerCase();
+  return (
+    Boolean(text) &&
+    text !== "n/a" &&
+    text !== "na" &&
+    text !== "none" &&
+    text !== "-" &&
+    text !== "tbd"
+  );
+}
+
+// Placeholder product labels customers should never see as a history title.
+function hasRealProductName(value: string | null | undefined) {
+  const name = String(value || "").trim();
+  return (
+    Boolean(name) &&
+    name !== "Untitled product" &&
+    name !== "Unnamed product" &&
+    !/^(prd|cmr)-[a-z0-9]{3,}$/i.test(name)
+  );
 }
 
 function displayAccountName(account: ClientAccount | null, activePlan: SubscriptionPlan) {
@@ -188,6 +214,11 @@ export function AccountDashboard() {
   const router = useRouter();
   const params = useSearchParams();
   const [account, setAccount] = useState<ClientAccount | null>(null);
+  // True only once the initial account resolution has finished (local cache
+  // plus the server refresh). While false the page renders a neutral skeleton
+  // so it never flashes contradictory labels like "Account required" followed
+  // by "Shopper Free" followed by the real plan.
+  const [accountLoaded, setAccountLoaded] = useState(false);
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
   const [recentAnalyses, setRecentAnalyses] = useState<RecentAnalysis[]>([]);
   const [error, setError] = useState("");
@@ -207,6 +238,7 @@ export function AccountDashboard() {
     if (!existing) {
       setAccount(null);
       setQuota(getStoredQuota());
+      setAccountLoaded(true);
       return;
     }
 
@@ -214,9 +246,22 @@ export function AccountDashboard() {
       setProfileNotice("Payment received. Your account access will update as soon as billing syncs.");
     }
 
-    setAccount(getClientAccount());
+    // Apply the plan correction up front so the badge never renders with a
+    // stale plan between the local read and the server refresh.
+    const correctedPlan = effectiveAccountPlan(existing);
+    const corrected = existing.plan !== correctedPlan ? { ...existing, plan: correctedPlan } : existing;
+    if (corrected !== existing) saveClientAccount(corrected);
+    setAccount(getClientAccount() ?? corrected);
     setQuota(getStoredQuota());
-    void refreshAccount();
+
+    let cancelled = false;
+    (async () => {
+      await refreshAccount();
+      if (!cancelled) setAccountLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [params]);
 
   useEffect(() => {
@@ -234,16 +279,25 @@ export function AccountDashboard() {
   }, [account]);
 
   const activePlan = effectiveAccountPlan(account);
-  const profileCompletionAccount = account
-    ? {
-        ...account,
-        ...profileForm,
-        role: account.role,
-        plan: activePlan,
-        email: account.email,
-      }
-    : null;
-  const profileMissingFields = profileCompletionMissingFields(profileCompletionAccount);
+  // "Ready" reflects the fields actually shown on this page. The shared
+  // helper exempts @reviewintel.test accounts and does not require the
+  // website, which is how the profile page could show "Ready" while
+  // Company/store, Country and Website/product store were all n/a. For
+  // sellers, Ready requires display name, company/store, country AND
+  // website/product store to hold real values.
+  const profileMissingFields = (() => {
+    const missing: string[] = [];
+    const sellerBasicsRequired = account?.role === "seller" || isSellerPlan(activePlan);
+    if (!isMeaningfulProfileValue(profileForm.name)) missing.push("Display name");
+    if (sellerBasicsRequired && !isMeaningfulProfileValue(profileForm.companyName)) {
+      missing.push("Company or store");
+    }
+    if (!isMeaningfulProfileValue(profileForm.country)) missing.push("Country");
+    if (sellerBasicsRequired && !isMeaningfulProfileValue(profileForm.website)) {
+      missing.push("Website / product store");
+    }
+    return missing;
+  })();
   const isProfileReady = profileMissingFields.length === 0;
   const isBetaAccountPlan = activePlan === "buyer_beta" || activePlan === "seller_beta";
   const betaDaysLeft = betaDaysRemaining(account?.betaExpiresAt);
@@ -613,7 +667,17 @@ export function AccountDashboard() {
 
   return (
     <section className="space-y-8">
-      {!account ? (
+      {!accountLoaded ? (
+        <article aria-busy="true" aria-label="Loading account" className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+          <div className="animate-pulse">
+            <div className="h-6 w-32 rounded-full bg-slate-200 dark:bg-white/20" />
+            <div className="mt-4 h-9 w-2/3 rounded-xl bg-slate-200 dark:bg-white/20" />
+            <div className="mt-3 h-4 w-1/2 rounded-full bg-slate-200 dark:bg-white/20" />
+          </div>
+        </article>
+      ) : null}
+
+      {accountLoaded && !account ? (
         <article data-account-profile className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
           <Badge tone="warn">Account required</Badge>
           <h1 className="mt-4 text-3xl font-black tracking-tight text-ink dark:text-white">Log in to open your workspace</h1>
@@ -631,7 +695,7 @@ export function AccountDashboard() {
         </article>
       ) : null}
 
-      {account ? (
+      {accountLoaded && account ? (
       <>
       <article className="rounded-2xl border border-line bg-white p-6 shadow-soft dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -690,10 +754,10 @@ export function AccountDashboard() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-xl font-black leading-tight text-ink dark:text-white">
-                      {profileForm.name || "Not provided"}
+                      {isPrivateTestAccount(account) ? displayAccountName(account, activePlan) : profileForm.name || "Not provided"}
                     </p>
                     <p className="mt-1 text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {account.email || displayAccountEmail(account) || "Email not available"}
+                      {displayAccountEmail(account) || "Email not available"}
                     </p>
                     <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                       {effectiveRoleLabel(account)} · {displayPlanBadge(account, activePlan)}
@@ -793,8 +857,8 @@ export function AccountDashboard() {
                   {
                     title: "Identity",
                     items: [
-                      ["Display name", profileForm.name || "Not provided"],
-                      ["Email", account.email || displayAccountEmail(account) || "Email not available"],
+                      ["Display name", isPrivateTestAccount(account) ? displayAccountName(account, activePlan) : profileForm.name || "Not provided"],
+                      ["Email", displayAccountEmail(account) || "Email not available"],
                       ["Account type", effectiveRoleLabel(account)],
                       ["Plan", displayPlanBadge(account, activePlan)],
                     ],
@@ -804,8 +868,8 @@ export function AccountDashboard() {
                     items: [
                       ["Company / store", profileForm.companyName || (account.role === "seller" || isSellerPlan(activePlan) ? "Required" : "Optional")],
                       ["Country", profileForm.country || "Not provided"],
-                      ["Website / product store", profileForm.website || "Optional"],
-                      ["Phone", profileForm.phone || "Optional"],
+                      ["Website / product store", profileForm.website || (account.role === "seller" || isSellerPlan(activePlan) ? "Required" : "Optional")],
+                      ["Phone", isPrivateTestAccount(account) ? "Optional" : profileForm.phone || "Optional"],
                     ],
                   },
                   {
@@ -1036,7 +1100,7 @@ export function AccountDashboard() {
           {recentAnalyses.length ? recentAnalyses.map((item) => (
             <article key={item.id} className="rounded-xl border border-line p-4 dark:border-white/10">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="font-black text-ink dark:text-white">{productDisplayCode(item.product_name || "Untitled product")}</p>
+                <p className="font-black text-ink dark:text-white">{hasRealProductName(item.product_name) ? shortProductName(item.product_name) : sellerProductDisplayName(item.product_name || item.id)}</p>
                 <Badge tone={item.product_score >= 70 ? "good" : item.product_score >= 45 ? "warn" : "bad"}>{formatPercent(item.product_score)}</Badge>
               </div>
               <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{item.overall_summary}</p>
