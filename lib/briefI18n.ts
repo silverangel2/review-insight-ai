@@ -98,6 +98,7 @@ export type BriefDict = {
   basisFrames: string[];
   basisParts: { marketplaceRating: string; writtenReviews: string };
   limitsFrames: string[];
+  limitsMultiFrames: string[];
   authRows: BriefAuthRows;
   authLow: string[];
   authModerateBase: string[];
@@ -212,6 +213,7 @@ export function resolveBriefDict(locale: string | undefined): BriefDict {
       writtenReviews: pickString(basisParts.writtenReviews, EN.basisParts.writtenReviews),
     },
     limitsFrames: pickFrames(rec.limitsFrames, EN.limitsFrames),
+    limitsMultiFrames: pickFrames(rec.limitsMultiFrames, EN.limitsMultiFrames),
     authRows: {
       low: pickString(authRows.low, EN.authRows.low),
       moderate: pickString(authRows.moderate, EN.authRows.moderate),

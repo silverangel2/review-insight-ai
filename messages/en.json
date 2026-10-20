@@ -163,6 +163,11 @@
       "A caveat: only {store}'s written reviews fed this check — other stores' reviews didn't.",
       "Keep in mind the written reviews are from {store}'s pages — this doesn't cover other stores."
     ],
+    "limitsMultiFrames": [
+      "The written reviews come from {stores} — each one matched to this exact product before it counted.",
+      "One thing to know: this check read written reviews on {stores}, and only reviews matched to this exact product counted.",
+      "Reviews from {stores} fed this check — every one matched to this exact product first."
+    ],
     "authRows": {
       "low": "Few AI-like signs",
       "moderate": "Some AI-like signs",

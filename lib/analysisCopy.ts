@@ -772,6 +772,17 @@ export const LIMITS_SINGLE_SOURCE_FRAMES: string[] = [
   "Keep in mind the written reviews are from {store}'s pages — this doesn't cover other stores.",
 ];
 
+/** The multi-source limits sentence: written reviews from more than one
+ * store fed this check. {stores} is the joined shopper-facing store list.
+ * Grammar only, like every frame here — the store names are filled from
+ * the accepted records, and the exact-product match is the adjudication's
+ * own rule for every record it accepts, from any store. */
+export const LIMITS_MULTI_SOURCE_FRAMES: string[] = [
+  "The written reviews come from {stores} — each one matched to this exact product before it counted.",
+  "One thing to know: this check read written reviews on {stores}, and only reviews matched to this exact product counted.",
+  "Reviews from {stores} fed this check — every one matched to this exact product first.",
+];
+
 /** The plain honesty note for the authenticity fold: a pattern check, never an authorship verdict. */
 export const AUTH_HONESTY: string[] = [
   "This checks review text for patterns only — it can't prove who wrote a review.",

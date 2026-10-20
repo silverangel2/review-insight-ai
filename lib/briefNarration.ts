@@ -13,12 +13,14 @@
  * - No internal labels, no backstage vocabulary in any returned string.
  */
 import {
+  acceptedRecords,
   deriveShopperAnswer,
   marketplaceAggregateNumbers,
 } from "@/lib/shopperAnswer";
 import { analyzeAiPatterns } from "@/lib/aiPatternForensics";
 import {
   BASIS_FRAMES,
+  LIMITS_MULTI_SOURCE_FRAMES,
   LIMITS_SINGLE_SOURCE_FRAMES,
   pickFrame,
 } from "@/lib/analysisCopy";
@@ -119,21 +121,125 @@ export function foldBasisLine(input: unknown, locale: string = "en"): string | n
   return fillFrame(localized, { basis });
 }
 
+/** Host of a review's source page, lowercased and www-stripped. */
+function sourceHostOf(url: unknown): string | null {
+  try {
+    return new URL(String(url)).hostname.toLowerCase().replace(/^www\./, "") || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Store families RI reads, keyed by host prefix. A host outside this list
+ * is its own family and is named by its host — never renamed, never hidden. */
+const STORE_FAMILY_BY_HOST_PREFIX: Array<[string, string]> = [
+  ["amazon.", "amazon"],
+  ["walmart.", "walmart"],
+  ["bestbuy.", "bestbuy"],
+  ["target.", "target"],
+  ["homedepot.", "homedepot"],
+];
+
+const STORE_FAMILY_NAMES: Record<string, string> = {
+  amazon: "Amazon",
+  walmart: "Walmart",
+  bestbuy: "Best Buy",
+  target: "Target",
+  homedepot: "Home Depot",
+};
+
+type AcceptedStoreSource = { family: string; name: string; count: number };
+
 /**
- * The fold's one limits sentence: the written reviews come from one store's
- * pages, so other stores' reviews aren't in this check. Stated as plain
- * information — never as the page arguing with its own verdict.
- * Null unless the corpus is single-source with a known store.
+ * The stores whose written reviews actually fed this verdict, derived from
+ * the adjudication's accepted records — never from the scanned listing.
+ * A record names its store by its own source page (sourceUrl; the stamped
+ * source marketplace is the fallback — it is itself the source host).
+ * Fresh, library-stored, and second-search records all pass through the
+ * same adjudication, so this describes every route a review can take in.
+ *
+ * Null when no coverage sentence can be stated truthfully:
+ * - no accepted written reviews (the honest zero-read state speaks
+ *   elsewhere on the page; the fold adds nothing), or
+ * - any accepted record whose store cannot be named — a partial list
+ *   could understate where the reviews came from, so the fold stays
+ *   silent rather than guess.
+ * The store that contributed the most reviews leads the list; ties keep
+ * corpus order, so the same evidence always names the same stores in the
+ * same order.
+ */
+function acceptedReviewSources(input: unknown): AcceptedStoreSource[] | null {
+  const records = acceptedRecords(obj(input)) as unknown as Rec[];
+  if (records.length === 0) return null;
+  // The scanned listing's own store label, used for CASING ONLY: when the
+  // listing's store is the very store a family's reviews came from, the
+  // label's exact form ("Amazon.ca") is the name's display form. It never
+  // names a store the accepted records didn't come from.
+  const record = obj(input);
+  const listingStore = String(obj(record.product).store || record.store || "").trim();
+  const byFamily = new Map<string, { hosts: Set<string>; count: number }>();
+  for (const record of records) {
+    const stamped = String(record.sourceMarketplace || "").trim().toLowerCase().replace(/^www\./, "");
+    const host =
+      sourceHostOf(record.sourceUrl) ||
+      (/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$/.test(stamped) ? stamped : null);
+    if (!host) return null;
+    const family =
+      STORE_FAMILY_BY_HOST_PREFIX.find(([prefix]) => host.startsWith(prefix))?.[1] || host;
+    const entry = byFamily.get(family) || { hosts: new Set<string>(), count: 0 };
+    entry.hosts.add(host);
+    entry.count += 1;
+    byFamily.set(family, entry);
+  }
+  const sources: AcceptedStoreSource[] = [];
+  for (const [family, entry] of byFamily) {
+    // Store names are data, never re-cased or translated: a family that
+    // speaks through one host is named by that host, byte-exact (the
+    // listing label's casing when it is the same store). Only a family
+    // spanning several hosts takes the family name.
+    let name: string;
+    if (entry.hosts.size === 1) {
+      const host = [...entry.hosts][0];
+      name = listingStore && listingStore.toLowerCase() === host ? listingStore : host;
+    } else {
+      name = STORE_FAMILY_NAMES[family] || family;
+    }
+    sources.push({ family, name, count: entry.count });
+  }
+  sources.sort((a, b) => b.count - a.count);
+  return sources;
+}
+
+/**
+ * The fold's one limits sentence: which stores' written reviews fed this
+ * check, in plain words. Stated as plain information — never as the page
+ * arguing with its own verdict.
+ *
+ * The stores are read from the accepted records themselves (see
+ * acceptedReviewSources), NEVER from the scanned listing: a scan whose
+ * accepted reviews all came from a second store names that store, and a
+ * scan fed by several stores names them all. The pre-hunt version of this
+ * line filled the listing's store into a single-source frame — a claim
+ * that turns false the moment accepted reviews come from anywhere else.
+ * Null when no truthful coverage sentence exists.
  */
 export function foldLimitsLine(input: unknown, locale: string = "en"): string | null {
-  const answer = deriveShopperAnswer(input);
-  const record = obj(input);
-  const store = String(obj(record.product).store || record.store || "").trim();
-  if (answer.sources.length !== 1 || !store) return null;
+  const sources = acceptedReviewSources(input);
+  if (!sources) return null;
   const copy = resolveBriefDict(locale);
-  const template = pickFrame(LIMITS_SINGLE_SOURCE_FRAMES, `limits|${store}`, new Set());
-  // Store names stay byte-exact; only the frame translates.
-  return fillFrame(frameAtIndex(copy.limitsFrames, LIMITS_SINGLE_SOURCE_FRAMES, template), { store });
+  if (sources.length === 1) {
+    const store = sources[0].name;
+    const template = pickFrame(LIMITS_SINGLE_SOURCE_FRAMES, `limits|${store}`, new Set());
+    // Store names stay byte-exact; only the frame translates.
+    return fillFrame(frameAtIndex(copy.limitsFrames, LIMITS_SINGLE_SOURCE_FRAMES, template), { store });
+  }
+  const names = sources.map((source) => source.name);
+  const template = pickFrame(LIMITS_MULTI_SOURCE_FRAMES, `limits-multi|${names.join("+")}`, new Set());
+  const localized = frameAtIndex(copy.limitsMultiFrames, LIMITS_MULTI_SOURCE_FRAMES, template);
+  // A frame that fell back to English keeps the English joiner — never a
+  // half-translated store list (the basis sentence's rule).
+  const stores = joinLocalized(localized === template ? "en" : locale, names);
+  return fillFrame(localized, { stores });
 }
 
 /**
