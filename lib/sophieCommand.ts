@@ -29,6 +29,10 @@ import {
   type OpsJobType,
 } from "@/lib/riOpsStore";
 import { listRescueQueue } from "@/lib/rescueQueue";
+import {
+  buildControlCenterSection,
+  type ControlCenterSection,
+} from "@/lib/controlCenter";
 
 export const SOPHIE_ORDER_TYPES = ["run_sweep", "prepare_repair"] as const;
 export type SophieOrderType = (typeof SOPHIE_ORDER_TYPES)[number];
@@ -197,6 +201,13 @@ export type SophieSitrep = {
         result_summary: string | null;
       }>;
     } | null;
+    /**
+     * Control-center failure feed v1 (audit build order RI 1+2):
+     * scans + Referee, rescue detail/aging, keeper lanes/escalations.
+     * Additive — the sections above keep their original shape. Null when
+     * every control-center store is unreachable (see `degraded`).
+     */
+    controlCenter: ControlCenterSection | null;
   };
   degraded: string[];
 };
@@ -243,11 +254,22 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
     degraded.push("ops");
   }
 
+  let controlCenter: ControlCenterSection | null = null;
+  try {
+    const built = await buildControlCenterSection();
+    controlCenter = built.section;
+    for (const group of built.degradedGroups) {
+      degraded.push(`controlCenter.${group}`);
+    }
+  } catch {
+    degraded.push("controlCenter");
+  }
+
   return {
     ok: degraded.length === 0,
     site: "reviewintel",
     at: new Date().toISOString(),
-    sections: { rescue, ops },
+    sections: { rescue, ops, controlCenter },
     degraded,
   };
 }
