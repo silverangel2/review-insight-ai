@@ -111,7 +111,13 @@ function normBrand(value: string | null | undefined): string | null {
 
 function brandFromTitle(title: string): string | null {
   const first = title.trim().split(/\s+/)[0] || "";
-  const cleaned = first.replace(/[^A-Za-z0-9]/g, "");
+  // Keep the brand's word boundaries: a hyphenated brand in a title
+  // ("Crock-Pot") must normalize to the same brand as the same name in a
+  // brand field ("Crock-Pot" -> "crock pot" via normBrand). Stripping the
+  // punctuation joined the parts ("crockpot"), so a title-derived brand
+  // could never equal the brand-field form and the matcher's brand gate
+  // rejected the correct product (screenshot-evidence defect, 2026-10-20).
+  const cleaned = first.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   return cleaned.length >= 2 ? normBrand(cleaned) : null;
 }
 
@@ -124,8 +130,12 @@ export function extractVariantWords(text: string): string[] {
   const source = ` ${String(text || "").toLowerCase()} `;
   const out = new Set<string>();
   const add = (dim: string, value: number) => out.add(`${dim}:${fmtNum(value)}`);
+  // Capacity units are hyphenated in real listing titles ("7-Quart",
+  // "6-Qt", "2-Gallon"): the number-unit separator may be a hyphen as well
+  // as whitespace. Without it the capacity variant vanished and a spec-set
+  // fingerprint built from such a title could not anchor at all.
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*(?:cu\.?\s*ft\.?|cubic\s+feet)/g)) add("cap-cuft", Number(m[1]));
-  for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*(?:quarts?|qts?)\b/g)) add("cap-qt", Number(m[1]));
+  for (const m of source.matchAll(/(\d+(?:\.\d+)?)[\s-]*(?:quarts?|qts?)\b/g)) add("cap-qt", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*fl\.?\s*oz\b/g)) add("cap-floz", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*oz\b/g)) add("cap-oz", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*wh\b/g)) add("energy-wh", Number(m[1]));
@@ -136,7 +146,7 @@ export function extractVariantWords(text: string): string[] {
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*lbs?\b/g)) add("weight-lb", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*kg\b/g)) add("weight-kg", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*ml\b/g)) add("cap-ml", Number(m[1]));
-  for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*gal(?:lons?)?\b/g)) add("cap-gal", Number(m[1]));
+  for (const m of source.matchAll(/(\d+(?:\.\d+)?)[\s-]*gal(?:lons?)?\b/g)) add("cap-gal", Number(m[1]));
   for (const m of source.matchAll(/\bgen(?:eration)?\s*(\d{1,2})\b/g)) add("gen", Number(m[1]));
   for (const m of source.matchAll(/\b(\d{1,2})(?:st|nd|rd|th)\s*gen(?:eration)?\b/g)) add("gen", Number(m[1]));
   for (const m of source.matchAll(/\b(\d+)\s*[- ]?pack\b/g)) add("pack", Number(m[1]));

@@ -2,6 +2,15 @@ import { reviewMatchesExactModel } from "./buyingScore";
 import { captureStage } from "./devScanCapture";
 import { createHash } from "node:crypto";
 import { stableProductSearchTerms } from "./productIdentityTokens";
+import {
+  isVariantDuplicate,
+  prepareVariantProfile,
+  refereeIdentityVerdict,
+  refereeReviewerIdentity,
+  refereeReviewIdentity,
+  type RefereeReviewIdentity,
+  type VariantProfile,
+} from "./reviewReferee";
 
 export type EvidenceSourceType =
   | "marketplace"
@@ -46,6 +55,7 @@ export type AdjudicatedEvidenceRecord = {
   accepted: boolean;
   rejectionReason: string | null;
   duplicateOf: string | null;
+  variantOf: string | null;
   original: AdjudicationInputRecord;
 };
 
@@ -56,6 +66,8 @@ export type ReviewEvidenceAdjudication = {
   independentSourceIds: string[];
   independentSourceCount: number;
   deduplicatedRecordCount: number;
+  variantDeduplicatedRecordCount: number;
+  variantDuplicatePairs: Array<{ keptId: string; droppedId: string; containment: number; jaccard: number }>;
   acceptedRecordCount: number;
   rejectedRecordCount: number;
   evidenceSignals: number;
@@ -353,6 +365,11 @@ function adjudicateReviewEvidenceImpl(
   const records: AdjudicatedEvidenceRecord[] = [];
   const byHash = new Map<string, AdjudicatedEvidenceRecord>();
   const byReviewId = new Map<string, AdjudicatedEvidenceRecord>();
+  // Make-Sense Referee D1 (one buyer, one voice): profiles of ACCEPTED
+  // records, in adjudication order (longest body first), so a variant
+  // copy always collapses onto the longest surviving copy.
+  const acceptedVariants: Array<{ record: AdjudicatedEvidenceRecord; profile: VariantProfile; reviewer: string; identity: RefereeReviewIdentity }> = [];
+  const variantDuplicatePairs: Array<{ keptId: string; droppedId: string; containment: number; jaccard: number }> = [];
 
   const orderedInputs = [...inputRecords].sort((a, b) =>
     bodyOf(b).length - bodyOf(a).length || hash(bodyOf(a)).localeCompare(hash(bodyOf(b))) ||
@@ -368,7 +385,36 @@ function adjudicateReviewEvidenceImpl(
     const reviewKey = clean(original.reviewId) && hostOf(sourceUrl) ? `${hostOf(sourceUrl)}:${clean(original.reviewId)}` : null;
     const duplicate = byHash.get(stableEvidenceHash) || (reviewKey ? byReviewId.get(reviewKey) : null) || null;
     const identity = identityAccepted(body, original, options);
-    const accepted = identity.accepted && !duplicate;
+    // Referee D1: a record whose identity is accepted but whose text is
+    // a variant (edited / truncated / re-truncated) copy of an already
+    // accepted review is the same buyer speaking twice — it collapses
+    // onto the accepted survivor instead of being graded as a second
+    // opinion. Exact duplicates keep their existing handling above;
+    // identity-rejected records keep their identity reason.
+    let variantOf: AdjudicatedEvidenceRecord | null = null;
+    let variantSimilarity: { containment: number; jaccard: number } | null = null;
+    let candidateProfile: VariantProfile | null = null;
+    let candidateIdentity: RefereeReviewIdentity = null;
+    if (!duplicate && identity.accepted) {
+      candidateProfile = prepareVariantProfile(body);
+      const candidateReviewer = refereeReviewerIdentity(original);
+      candidateIdentity = refereeReviewIdentity(original);
+      for (const survivor of acceptedVariants) {
+        const outcome = isVariantDuplicate(
+          candidateProfile,
+          candidateReviewer,
+          survivor.profile,
+          survivor.reviewer,
+          refereeIdentityVerdict(candidateIdentity, survivor.identity)
+        );
+        if (outcome.variant) {
+          variantOf = survivor.record;
+          variantSimilarity = outcome.similarity;
+          break;
+        }
+      }
+    }
+    const accepted = identity.accepted && !duplicate && !variantOf;
     const record: AdjudicatedEvidenceRecord = {
       id,
       body,
@@ -385,14 +431,31 @@ function adjudicateReviewEvidenceImpl(
       accepted,
       rejectionReason: duplicate
         ? "duplicate of previously accepted evidence"
-        : identity.reason,
+        : variantOf
+          ? "variant duplicate of previously accepted evidence"
+          : identity.reason,
       duplicateOf: duplicate?.id || null,
+      variantOf: variantOf?.id || null,
       original,
     };
     records.push(record);
+    if (variantOf && variantSimilarity) {
+      variantDuplicatePairs.push({
+        keptId: variantOf.id,
+        droppedId: id,
+        containment: variantSimilarity.containment,
+        jaccard: variantSimilarity.jaccard,
+      });
+    }
     if (accepted) {
       byHash.set(stableEvidenceHash, record);
       if (reviewKey) byReviewId.set(reviewKey, record);
+      acceptedVariants.push({
+        record,
+        profile: candidateProfile ?? prepareVariantProfile(body),
+        reviewer: refereeReviewerIdentity(original),
+        identity: candidateIdentity ?? refereeReviewIdentity(original),
+      });
     }
   }
 
@@ -412,6 +475,8 @@ function adjudicateReviewEvidenceImpl(
     independentSourceIds,
     independentSourceCount: independentSourceIds.length,
     deduplicatedRecordCount: records.filter((record) => Boolean(record.duplicateOf)).length,
+    variantDeduplicatedRecordCount: records.filter((record) => Boolean(record.variantOf)).length,
+    variantDuplicatePairs,
     acceptedRecordCount: acceptedRecords.length,
     rejectedRecordCount: rejectedRecords.length,
     evidenceSignals: acceptedRecords.length,

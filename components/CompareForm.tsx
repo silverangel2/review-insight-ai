@@ -3,6 +3,9 @@
 import { saveLatestResult } from "@/lib/resultStorage";
 import { getClientAccount, incrementStoredScanTally } from "@/lib/clientAccount";
 import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
+import { shopperVerdictWord, type ShopperVerdictWord } from "@/lib/shopperVerdictWord";
+import { deriveShopperAnswer, isAsinPlaceholder } from "@/lib/shopperAnswer";
+import { lowConfidenceShopperCompare } from "@/lib/shopperCompareFree";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -10,10 +13,10 @@ import { displayCodeForResult } from "@/lib/productDisplay";
 import { readStoredLocale } from "@/lib/i18n";
 import { shortProductName, shortCompareTitle } from "@/lib/productName";
 
-type Verdict = "BUY" | "REVIEW FIRST" | "AVOID";
-
 type AnalyzeResult = {
-  verdict: Verdict;
+  // Raw engine vocabulary ("BUY", "DO NOT BUY YET", ...). Never render this
+  // directly — every displayed verdict word goes through sideVerdictWord().
+  verdict: string;
   productScore: number;
   valueForMoney: string;
   bottomLine: string;
@@ -28,7 +31,9 @@ type AnalyzeResult = {
   };
   reviewAuthenticity: {
     label: string;
-    score: number;
+    // Null/absent when no written reviews were analyzed: there is no signs
+    // measurement, and no surface may print one (no "0% signs", no "100%").
+    score: number | null;
     reasons: string[];
   };
   topStrengths: string[];
@@ -48,8 +53,14 @@ type CompareSide = {
 
 type ShopperComparison = {
   winner: "A" | "B" | "TIE" | "INCOMPARABLE";
-  directSubstitutes: boolean;
-  confidence: number;
+  // Tri-state: true/false only from a real product-type judgment; null means
+  // no type judgment was made (e.g. an evidence shortfall) and no surface may
+  // print a types claim from it.
+  directSubstitutes: boolean | null;
+  // Null means no measured confidence exists — render no figure at all.
+  confidence: number | null;
+  reason?: string | null;
+  evidence?: { commentsAnalyzedA: number | null; commentsAnalyzedB: number | null } | null;
   verdictHeadline: string;
   summary: string;
   reasons: string[];
@@ -151,7 +162,11 @@ function compareCopy(locale: string) {
     scoreGap: "Score gap",
     similar: "Similar",
     stronger: (label: "A" | "B") => `Product ${label} stronger`,
-    checkBoth: "Check both"
+    checkBoth: "Check both",
+    lowConfidence: "Low confidence",
+    notMeasured: "Not measured",
+    unidentifiedTitle: (label: "A" | "B") => `We couldn't identify Product ${label}`,
+    unidentifiedBody: "That screenshot or link didn't give us a readable product name, so there is nothing honest to compare yet. Try a clearer screenshot of the product page, or paste the product link instead."
   };
 
   switch (locale) {
@@ -431,10 +446,37 @@ function compareCopy(locale: string) {
 }
 
 
-function verdictRank(verdict: Verdict) {
-  if (verdict === "BUY") return 3;
-  if (verdict === "REVIEW FIRST") return 2;
-  return 1;
+/** Rank of the CANONICAL shopper word (never of the raw engine enum). */
+function verdictRank(verdict: unknown) {
+  const word = shopperVerdictWord(verdict);
+  if (word === "Buy") return 3;
+  if (word === "Wait") return 2;
+  if (word === "Skip") return 1;
+  return 0;
+}
+
+/**
+ * The only verdict word a shopper may ever see on this surface. Maps the raw
+ * engine enum through the canonical lib/shopperVerdictWord.ts, and shows the
+ * not-enough-evidence state as "Low confidence" — an evidence-less side never
+ * borrows a "Wait" it did not earn (2026-10-20 compare audit, D4).
+ */
+function sideVerdictWord(result: AnalyzeResult): ShopperVerdictWord {
+  if (deriveShopperAnswer(result).kind === "not_enough") return "Low confidence";
+  return shopperVerdictWord(result.verdict);
+}
+
+function verdictClassForWord(word: ShopperVerdictWord) {
+  if (word === "Buy") return "border-emerald-300 bg-emerald-50 text-emerald-950";
+  if (word === "Wait") return "border-amber-300 bg-amber-50 text-amber-950";
+  if (word === "Skip") return "border-rose-300 bg-rose-50 text-rose-950";
+  return "border-slate-300 bg-slate-50 text-slate-900";
+}
+
+/** The measured AI-like signs percentage, or null when none exists. */
+function signsScore(result: AnalyzeResult): number | null {
+  const raw = (result.reviewAuthenticity as { score?: unknown } | undefined)?.score;
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 }
 
 
@@ -464,29 +506,36 @@ function winnerLetter(value: "A" | "B" | "TIE" | null): "A" | "B" | null {
   return value === "A" || value === "B" ? value : null;
 }
 
-function pickWinner(a: AnalyzeResult | null, b: AnalyzeResult | null) {
+/**
+ * The one client-side winner rule, used ONLY when no server comparison
+ * object exists. It mirrors the server engine (lib/shopperCompareFree.ts)
+ * exactly: both sides need a real-review score, the higher derived score
+ * wins, and a gap under 0.5 is a tie (2026-10-20 compare audit, D7).
+ */
+function fallbackWinner(a: AnalyzeResult | null, b: AnalyzeResult | null): "A" | "B" | "TIE" | "INCOMPARABLE" | null {
   if (!a || !b) return null;
-
-  const aRank = verdictRank(a.verdict);
-  const bRank = verdictRank(b.verdict);
-
-  if (aRank > bRank) return "A";
-  if (bRank > aRank) return "B";
-
-  const aRisk = a.reviewAuthenticity?.score ?? 0;
-  const bRisk = b.reviewAuthenticity?.score ?? 0;
-
-  const aScore = (a.productScore || 0) - aRisk * 0.35 - (a.topComplaints?.length || 0) * 2;
-  const bScore = (b.productScore || 0) - bRisk * 0.35 - (b.topComplaints?.length || 0) * 2;
-
-  if (Math.abs(aScore - bScore) < 3) return "TIE";
-  return aScore > bScore ? "A" : "B";
+  const answerA = deriveShopperAnswer(a);
+  const answerB = deriveShopperAnswer(b);
+  if (answerA.kind === "not_enough" || answerA.score === null || answerB.kind === "not_enough" || answerB.score === null) {
+    return "INCOMPARABLE";
+  }
+  if (Math.abs(answerA.score - answerB.score) < 0.5) return "TIE";
+  return answerA.score > answerB.score ? "A" : "B";
 }
 
-function verdictClass(verdict: Verdict) {
-  if (verdict === "BUY") return "border-emerald-300 bg-emerald-50 text-emerald-950";
-  if (verdict === "REVIEW FIRST") return "border-amber-300 bg-amber-50 text-amber-950";
-  return "border-rose-300 bg-rose-50 text-rose-950";
+/**
+ * A side counts as identified only when its scan produced a real product
+ * name — not the "Analyzed product" placeholder, not an ASIN standing in
+ * for a name, and not the uploaded file's name. Compare never renders a
+ * comparison for an unidentified side (2026-10-20 compare audit, D1).
+ */
+function isCompareIdentified(result: AnalyzeResult) {
+  const name = compareProductName(result, "").trim();
+  if (!name) return false;
+  if (/^(?:amazon product|analyzed product)$/i.test(name)) return false;
+  if (/\.(?:png|jpe?g|webp|gif)$/i.test(name)) return false;
+  if (isAsinPlaceholder(name)) return false;
+  return true;
 }
 
 function rawProductTitle(result: AnalyzeResult | null, fallback: string) {
@@ -724,12 +773,24 @@ function ShopperCompareToolProof({ productA, productB }: { productA: AnalyzeResu
     (b.reviewsAnalyzedByReviewIntel || 0) +
     (b.totalMarketplaceReviews || 0) / 100;
 
+  // The "similar evidence" sentence needs a floor: it may only fire when BOTH
+  // sides actually had written reviews read. Two empty evidence sets are not
+  // "similar review evidence" (2026-10-20 compare audit, D5).
+  const aRead = a.reviewsAnalyzedByReviewIntel || 0;
+  const bRead = b.reviewsAnalyzedByReviewIntel || 0;
   const evidenceAdvantage =
-    Math.abs(aEvidenceScore - bEvidenceScore) < 2
-      ? "Both products have similar review evidence."
-      : aEvidenceScore > bEvidenceScore
-        ? "Product A has stronger review evidence."
-        : "Product B has stronger review evidence.";
+    aRead === 0 && bRead === 0
+      ? "Neither product has enough review evidence yet."
+      : aRead === 0
+        ? "Product B has stronger review evidence."
+        : bRead === 0
+          ? "Product A has stronger review evidence."
+          : Math.abs(aEvidenceScore - bEvidenceScore) < 2
+            ? "Both products have similar review evidence."
+            : aEvidenceScore > bEvidenceScore
+              ? "Product A has stronger review evidence."
+              : "Product B has stronger review evidence.";
+  const anyEvidence = aRead + bRead > 0 || a.sourcesChecked.length + b.sourcesChecked.length > 0;
 
   return (
     <section className="rounded-[2rem] border border-sky-200 bg-white p-4 shadow-soft dark:border-sky-300/20 dark:bg-gradient-to-r from-sky-600 to-teal-500 sm:p-6">
@@ -741,7 +802,9 @@ function ShopperCompareToolProof({ productA, productB }: { productA: AnalyzeResu
           What ReviewIntel checked for this comparison
         </h2>
         <p className="mt-2 text-sm font-bold leading-6 text-slate-600 dark:text-slate-300">
-          Compare uses product memory, exact listing search, and review evidence for both products before deciding.
+          {anyEvidence
+            ? "Compare uses product memory, exact listing search, and review evidence for both products before deciding."
+            : "No review evidence could be read for either product in this comparison."}
         </p>
       </div>
 
@@ -759,6 +822,8 @@ function ShopperCompareToolProof({ productA, productB }: { productA: AnalyzeResu
 
 
 function ResultCard({ label, result, winner }: { label: "A" | "B"; result: AnalyzeResult; winner: boolean }) {
+  const word = sideVerdictWord(result);
+  const signs = signsScore(result);
   return (
     <div
       className={`compare-readable-card rounded-[2rem] border p-5 shadow-soft ${
@@ -785,9 +850,9 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
         )}
       </div>
 
-      <div className={`mb-4 rounded-2xl border px-4 py-4 text-center ${verdictClass(result.verdict)}`}>
+      <div className={`mb-4 rounded-2xl border px-4 py-4 text-center ${verdictClassForWord(word)}`}>
         <p className="text-xs font-black uppercase tracking-[0.24em] opacity-80">{compareCopy(readStoredLocale()).verdictLabel}</p>
-        <p className="mt-1 text-3xl font-black">{result.verdict}</p>
+        <p className="mt-1 text-3xl font-black">{word}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -797,7 +862,7 @@ function ResultCard({ label, result, winner }: { label: "A" | "B"; result: Analy
         </div>
         <div className="rounded-2xl border border-line bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-900">
           <p className="text-xs text-slate-700 dark:text-slate-300">{compareCopy(readStoredLocale()).reviewTrust}</p>
-          <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-white">{Math.round(result.reviewAuthenticity?.score || 0)}% signs</p>
+          <p className="mt-1 text-xl font-black text-ink sm:text-2xl dark:text-white">{signs !== null ? `${Math.round(signs)}% signs` : compareCopy(readStoredLocale()).notMeasured}</p>
         </div>
       </div>
 
@@ -851,7 +916,7 @@ const productCategoryRules = [
   { id: "tablet", keywords: ["tablet", "ipad", "galaxy tab", "kindle"] },
   { id: "display", keywords: ["monitor", "television", "tv", "projector", "display"] },
   { id: "camera", keywords: ["camera", "webcam", "dash cam", "security camera", "lens"] },
-  { id: "kitchen", keywords: ["air fryer", "blender", "coffee maker", "espresso", "toaster", "rice cooker", "kettle", "mixer"] },
+  { id: "kitchen", keywords: ["air fryer", "blender", "coffee maker", "espresso", "toaster", "rice cooker", "slow cooker", "slow-cooker", "crock pot", "crock-pot", "crockpot", "pressure cooker", "instant pot", "kettle", "mixer"] },
   { id: "home_appliance", keywords: ["vacuum", "fan", "heater", "humidifier", "air purifier", "dehumidifier", "mop"] },
   { id: "beauty", keywords: ["serum", "skin", "skincare", "hair", "makeup", "cream", "shampoo", "conditioner"] },
   { id: "clothing", keywords: ["shirt", "dress", "jacket", "pants", "jeans", "hoodie", "sweater", "coat"] },
@@ -865,9 +930,20 @@ const productCategoryRules = [
   { id: "baby", keywords: ["baby", "stroller", "crib", "diaper", "car seat"] }
 ] as const;
 
+/**
+ * Word-boundary keyword match. Raw substring matching made category
+ * assignment close to arbitrary ("wh" fired on "white", "car" on "care"),
+ * which could declare two slow cookers "different product types" — or two
+ * different products the same type (2026-10-20 compare audit, D1).
+ */
+function keywordInText(text: string, keyword: string) {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`).test(text);
+}
+
 function productComparisonCategory(result: AnalyzeResult) {
   const allText = comparisonSearchText(result);
-  return productCategoryRules.find((rule) => rule.keywords.some((keyword) => allText.includes(keyword)))?.id || "unknown";
+  return productCategoryRules.find((rule) => rule.keywords.some((keyword) => keywordInText(allText, keyword)))?.id || "unknown";
 }
 
 const compareStopWords = new Set([
@@ -937,21 +1013,76 @@ function firstSignal(items: string[] | undefined, fallback: string) {
   return (items || []).map((item) => String(item || "").trim()).find(Boolean) || fallback;
 }
 
-function weightedBuyingScore(result: AnalyzeResult) {
-  const score = Number(result.productScore || 0);
-  const risk = Number(result.reviewAuthenticity?.score || 0);
-  const complaintPenalty = Math.min(15, (result.topComplaints?.length || 0) * 2.5);
-  const strengthLift = Math.min(8, (result.topStrengths?.length || 0) * 1.5);
-  const verdictLift = verdictRank(result.verdict) * 4;
+function localComparison(productA: AnalyzeResult, productB: AnalyzeResult, copy: ReturnType<typeof compareCopy>): ShopperComparison {
+  const answerA = deriveShopperAnswer(productA);
+  const answerB = deriveShopperAnswer(productB);
+  const ratedA = answerA.kind !== "not_enough" && answerA.score !== null;
+  const ratedB = answerB.kind !== "not_enough" && answerB.score !== null;
 
-  return score - risk * 0.22 - complaintPenalty + strengthLift + verdictLift;
-}
+  // Same semantics as the server engine: a side without a real-review score
+  // means no winner, and the outcome is an EVIDENCE shortage — the shared
+  // low-confidence response, never a product-type claim and never an
+  // invented confidence number.
+  if (!ratedA || !ratedB) {
+    const low = lowConfidenceShopperCompare(answerA.reviewCount || 0, answerB.reviewCount || 0);
+    return { ...low, winner: "INCOMPARABLE" as const, directSubstitutes: null, confidence: null };
+  }
 
-function pickFallbackWinner(productA: AnalyzeResult, productB: AnalyzeResult): "A" | "B" | "TIE" {
-  const aScore = weightedBuyingScore(productA);
-  const bScore = weightedBuyingScore(productB);
-  if (Math.abs(aScore - bScore) < 4) return "TIE";
-  return aScore > bScore ? "A" : "B";
+  const aName = productTitle(productA, copy.productA);
+  const bName = productTitle(productB, copy.productB);
+  const evidence = { commentsAnalyzedA: answerA.reviewCount || 0, commentsAnalyzedB: answerB.reviewCount || 0 };
+  const directSubstitutes = areLikelyDirectSubstitutes(productA, productB);
+
+  if (!directSubstitutes) {
+    // A real product-type judgment from this surface's own category rules —
+    // the only local outcome allowed to print the different-types claim.
+    return {
+      winner: "INCOMPARABLE",
+      directSubstitutes: false,
+      reason: "different_types",
+      evidence,
+      confidence: null,
+      verdictHeadline: copy.notDirectlyComparable,
+      summary: copy.differentTypes,
+      reasons: [
+        `${aName} and ${bName} appear to solve different shopping jobs, so a forced winner would be misleading.`,
+        `Compare ${aName} against another ${productComparisonCategory(productA).replace(/_/g, " ")} option and ${bName} against another ${productComparisonCategory(productB).replace(/_/g, " ")} option.`,
+        `You can still use the individual scores to judge risk, but not as a direct substitute decision.`
+      ],
+      nextSteps: [
+        "Decide the job you need the product to do before choosing.",
+        "Run a second comparison using two products in the same category.",
+        "Use each individual scan to understand risk, value, and review trust separately."
+      ],
+    };
+  }
+
+  const sa = answerA.score as number;
+  const sb = answerB.score as number;
+  const winner: "A" | "B" | "TIE" = Math.abs(sa - sb) < 0.5 ? "TIE" : sa > sb ? "A" : "B";
+  const firstC = (x: typeof answerA) => x.complaints[0]?.claim, firstL = (x: typeof answerA) => x.loves[0]?.claim;
+  const reasons = [
+    `Real-review score: Product A ${sa.toFixed(1)} vs Product B ${sb.toFixed(1)}.`,
+    firstL(answerA) || firstL(answerB) ? `Most praised: A "${firstL(answerA) ?? "nothing repeated"}", B "${firstL(answerB) ?? "nothing repeated"}".` : null,
+    firstC(answerA) || firstC(answerB) ? `Most repeated complaint: A "${firstC(answerA) ?? "none repeated"}", B "${firstC(answerB) ?? "none repeated"}".` : null,
+    `Value from reviews: A ${answerA.value}, B ${answerB.value}.`,
+  ].filter((r): r is string => Boolean(r));
+
+  return {
+    winner,
+    directSubstitutes: true,
+    reason: "compared",
+    evidence,
+    confidence: null,
+    verdictHeadline: winner === "TIE" ? copy.tooClose : copy.winner(winner),
+    summary: winner === "TIE" ? copy.tieSummary : copy.directWinner(winner),
+    reasons: reasons.slice(0, 4),
+    nextSteps: [
+      "Check the latest reviews, return policy, warranty, and exact model before checkout.",
+      "Choose the product that fits your real use case, not only the higher headline score.",
+      "If the score gap is small, compare recent one-star reviews before buying."
+    ],
+  };
 }
 
 type CompareEdge = "A" | "B" | "TIE";
@@ -967,61 +1098,6 @@ function edgeText(edge: CompareEdge, copy: ReturnType<typeof compareCopy>) {
   return copy.similar;
 }
 
-function localComparison(productA: AnalyzeResult, productB: AnalyzeResult, copy: ReturnType<typeof compareCopy>): ShopperComparison {
-  const directSubstitutes = areLikelyDirectSubstitutes(productA, productB);
-  const picked = directSubstitutes ? pickFallbackWinner(productA, productB) : "INCOMPARABLE";
-  const winner: ShopperComparison["winner"] = picked || "TIE";
-  const aRisk = Math.round(productA.reviewAuthenticity?.score || 0);
-  const bRisk = Math.round(productB.reviewAuthenticity?.score || 0);
-  const aName = productTitle(productA, copy.productA);
-  const bName = productTitle(productB, copy.productB);
-  const scoreGap = Math.abs(weightedBuyingScore(productA) - weightedBuyingScore(productB));
-  const confidence = directSubstitutes
-    ? Math.max(58, Math.min(94, Math.round(60 + scoreGap * 1.4 + Math.abs(aRisk - bRisk) * 0.18)))
-    : 88;
-
-  return {
-    winner,
-    directSubstitutes,
-    confidence,
-    verdictHeadline:
-      winner === "INCOMPARABLE"
-        ? copy.notDirectlyComparable
-        : winner === "A" || winner === "B"
-          ? copy.winner(winner)
-          : copy.tooClose,
-    summary:
-      winner === "INCOMPARABLE"
-        ? copy.differentTypes
-        : winner === "A" || winner === "B"
-          ? `${winner === "A" ? aName : bName} has the stronger combined buying signal after score, verdict, complaints, value, and review-trust checks.`
-          : copy.tieSummary,
-    reasons: directSubstitutes
-      ? [
-          `${aName} scores ${Math.round(productA.productScore || 0)}/100 with verdict ${productA.verdict}; ${bName} scores ${Math.round(productB.productScore || 0)}/100 with verdict ${productB.verdict}.`,
-          `Review trust check: ${aName} shows ${aRisk}% AI-like review signs while ${bName} shows ${bRisk}%.`,
-          `Concern contrast: ${aName} has ${firstSignal(productA.topComplaints, "no major repeated concern")}; ${bName} has ${firstSignal(productB.topComplaints, "no major repeated concern")}.`,
-          `Use-case fit: ${aName} is best for ${firstSignal(productA.bestFor, "general shoppers")}; ${bName} is best for ${firstSignal(productB.bestFor, "general shoppers")}.`
-        ]
-      : [
-          `${aName} and ${bName} appear to solve different shopping jobs, so a forced winner would be misleading.`,
-          `Compare ${aName} against another ${productComparisonCategory(productA).replace(/_/g, " ")} option and ${bName} against another ${productComparisonCategory(productB).replace(/_/g, " ")} option.`,
-          `You can still use the individual scores to judge risk, but not as a direct substitute decision.`
-        ],
-    nextSteps: directSubstitutes
-      ? [
-          "Check the latest reviews, return policy, warranty, and exact model before checkout.",
-          "Choose the product that fits your real use case, not only the higher headline score.",
-          "If the score gap is small, compare recent one-star reviews before buying."
-        ]
-      : [
-          "Decide the job you need the product to do before choosing.",
-          "Run a second comparison using two products in the same category.",
-          "Use each individual scan to understand risk, value, and review trust separately."
-        ],
-  };
-}
-
 function ComparisonScorecard({
   productA,
   productB,
@@ -1033,13 +1109,20 @@ function ComparisonScorecard({
   comparison: ShopperComparison | null;
   copy: ReturnType<typeof compareCopy>;
 }) {
-  const aRisk = Math.round(productA.reviewAuthenticity?.score || 0);
-  const bRisk = Math.round(productB.reviewAuthenticity?.score || 0);
+  const aSigns = signsScore(productA);
+  const bSigns = signsScore(productB);
   const aScore = Math.round(productA.productScore || 0);
   const bScore = Math.round(productB.productScore || 0);
-  const winner = comparison?.winner || pickFallbackWinner(productA, productB);
-  const directSubstitutes = comparison?.directSubstitutes ?? areLikelyDirectSubstitutes(productA, productB);
+  // A server comparison object decides. The fallback rule runs only when no
+  // comparison object exists — the two never silently disagree (D7).
+  const winner = comparison ? comparison.winner : fallbackWinner(productA, productB);
+  const directSubstitutes = comparison ? comparison.directSubstitutes : areLikelyDirectSubstitutes(productA, productB);
   const winnerEdge: CompareEdge = winner === "A" || winner === "B" ? winner : "TIE";
+  const aWord = sideVerdictWord(productA);
+  const bWord = sideVerdictWord(productB);
+  const aRank = verdictRank(productA.verdict);
+  const bRank = verdictRank(productB.verdict);
+  const verdictEdge: CompareEdge = aRank === 0 || bRank === 0 ? "TIE" : metricEdge(aRank, bRank, true, 1);
 
   const rows: Array<{ label: string; a: string; b: string; edge: CompareEdge }> = [
     {
@@ -1050,27 +1133,27 @@ function ComparisonScorecard({
     },
     {
       label: copy.verdictLabel,
-      a: productA.verdict,
-      b: productB.verdict,
-      edge: metricEdge(verdictRank(productA.verdict), verdictRank(productB.verdict), true, 1)
+      a: aWord,
+      b: bWord,
+      edge: verdictEdge
     },
     {
       label: copy.reviewTrust,
-      a: `${Math.max(0, 100 - aRisk)}%`,
-      b: `${Math.max(0, 100 - bRisk)}%`,
-      edge: metricEdge(aRisk, bRisk, false, 5)
+      a: aSigns !== null ? `${Math.max(0, 100 - Math.round(aSigns))}%` : copy.notMeasured,
+      b: bSigns !== null ? `${Math.max(0, 100 - Math.round(bSigns))}%` : copy.notMeasured,
+      edge: aSigns !== null && bSigns !== null ? metricEdge(aSigns, bSigns, false, 5) : "TIE"
     },
     {
       label: copy.valueLabel,
       a: productA.valueForMoney || copy.checkBoth,
       b: productB.valueForMoney || copy.checkBoth,
-      edge: directSubstitutes ? winnerEdge : "TIE"
+      edge: directSubstitutes === false ? "TIE" : winnerEdge
     },
     {
       label: copy.topConcern,
       a: shortProductName(firstSignal(productA.topComplaints, copy.noConcern), copy.noConcern),
       b: shortProductName(firstSignal(productB.topComplaints, copy.noConcern), copy.noConcern),
-      edge: directSubstitutes ? winnerEdge : "TIE"
+      edge: directSubstitutes === false ? "TIE" : winnerEdge
     },
     {
       label: copy.bestUse,
@@ -1087,9 +1170,11 @@ function ComparisonScorecard({
           <p className="text-xs font-black uppercase tracking-[0.2em] text-teal">{copy.sideBySide}</p>
           <h3 className="mt-1 text-xl font-black text-ink dark:text-white">{shortCompareTitle(compareDisplayTitle(productA, productB))}</h3>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-slate-100">
-          {directSubstitutes ? copy.directCompare : copy.buyingConfidenceOnly}
-        </span>
+        {directSubstitutes !== null ? (
+          <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-slate-100">
+            {directSubstitutes ? copy.directCompare : copy.buyingConfidenceOnly}
+          </span>
+        ) : null}
       </div>
 
       <div className="shopper-compare-matrix overflow-hidden rounded-2xl border border-line dark:border-white/10">
@@ -1114,11 +1199,15 @@ function ComparisonScorecard({
   );
 }
 
-async function compareProductsWithAi(productA: AnalyzeResult, productB: AnalyzeResult, locale: string) {
+async function compareProductsWithAi(productA: AnalyzeResult, productB: AnalyzeResult, locale: string, listingUrls?: { a?: string; b?: string }) {
+  // The link the shopper pasted is the exact listing their scan read; pass it
+  // through so the compare route can anchor its evidence work on it (D3).
+  const withListingUrl = (result: AnalyzeResult, url?: string) =>
+    url ? ({ ...result, listingUrl: url } as AnalyzeResult) : result;
   const response = await fetch("/api/shopper-compare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ productA, productB, locale }),
+    body: JSON.stringify({ productA: withListingUrl(productA, listingUrls?.a), productB: withListingUrl(productB, listingUrls?.b), locale }),
   });
 
   const data = await response.json();
@@ -1189,13 +1278,17 @@ export function CompareForm() {
   const [productA, setProductA] = useState<CompareSide>(emptySide("A"));
   const [productB, setProductB] = useState<CompareSide>(emptySide("B"));
   const [comparison, setComparison] = useState<ShopperComparison | null>(null);
+  const [identityBlock, setIdentityBlock] = useState<"A" | "B" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // One winner rule: a server comparison object decides; the shared
+  // fallback rule (same tie/verdict semantics) serves only when no
+  // comparison object exists. INCOMPARABLE means no winner, never a tie.
   const winner = useMemo(() => {
-    if (comparison?.winner === "INCOMPARABLE") return "TIE";
-    if (comparison?.winner) return comparison.winner;
-    return pickWinner(productA.result, productB.result);
+    if (comparison) return comparison.winner === "INCOMPARABLE" ? null : comparison.winner;
+    const fallback = fallbackWinner(productA.result, productB.result);
+    return fallback === "INCOMPARABLE" ? null : fallback;
   }, [comparison, productA.result, productB.result]);
 
   const directSubstitutes = useMemo(() => {
@@ -1209,14 +1302,24 @@ export function CompareForm() {
   function setFile(label: "A" | "B", file: File | null) {
     const preview = file ? URL.createObjectURL(file) : "";
     setComparison(null);
+    setIdentityBlock(null);
     if (label === "A") setProductA((current) => ({ ...current, file, preview, result: null }));
     if (label === "B") setProductB((current) => ({ ...current, file, preview, result: null }));
   }
 
   function setLink(label: "A" | "B", link: string) {
     setComparison(null);
+    setIdentityBlock(null);
     if (label === "A") setProductA((current) => ({ ...current, link, result: null }));
     if (label === "B") setProductB((current) => ({ ...current, link, result: null }));
+  }
+
+  function resetCompare() {
+    setProductA(emptySide("A"));
+    setProductB(emptySide("B"));
+    setComparison(null);
+    setIdentityBlock(null);
+    setError("");
   }
 
   async function analyzeSide(side: CompareSide) {
@@ -1251,11 +1354,27 @@ export function CompareForm() {
 
     try {
       const [resultA, resultB] = await Promise.all([analyzeSide(productA), analyzeSide(productB)]);
+
+      // Identity guard: an unidentified side is never compared. No banner,
+      // no confidence figure, no verdict can be printed from a product we
+      // could not name (2026-10-20 compare audit, D1).
+      const unidentifiedSide = !isCompareIdentified(resultA) ? "A" : !isCompareIdentified(resultB) ? "B" : null;
+      if (unidentifiedSide) {
+        setComparison(null);
+        setIdentityBlock(unidentifiedSide);
+        setProductA((current) => ({ ...current, result: resultA }));
+        setProductB((current) => ({ ...current, result: resultB }));
+        return;
+      }
+
       const createdAt = new Date().toISOString();
       let comparisonNow: ShopperComparison;
 
       try {
-        comparisonNow = await compareProductsWithAi(resultA, resultB, locale);
+        comparisonNow = await compareProductsWithAi(resultA, resultB, locale, {
+          a: productA.link.trim() || undefined,
+          b: productB.link.trim() || undefined,
+        });
       } catch (comparisonError) {
         console.warn("AI shopper comparison failed; using scan-grounded fallback", comparisonError);
         comparisonNow = localComparison(resultA, resultB, copy);
@@ -1323,7 +1442,9 @@ export function CompareForm() {
   const scoreGap = showResults
     ? Math.abs(Math.round(productA.result!.productScore || 0) - Math.round(productB.result!.productScore || 0))
     : 0;
-  const confidenceValue = comparison?.confidence ?? (directSubstitutes ? Math.min(92, 62 + scoreGap) : 88);
+  // No measured confidence, no figure: when the comparison carries
+  // confidence: null the tile is hidden — never a typed-in number (D2).
+  const confidenceValue = comparison?.confidence ?? null;
 
   return (
     <main className="min-h-screen bg-paper px-3 py-4 text-ink sm:px-6 sm:py-8 lg:px-8 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white">
@@ -1379,7 +1500,26 @@ export function CompareForm() {
         </section>
         )}
 
-        {showResults && (
+        {identityBlock && (
+          <section className="rounded-[1.75rem] border border-line bg-white p-4 shadow-soft sm:rounded-[2.5rem] sm:p-10 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-teal sm:text-sm sm:tracking-[0.3em] dark:text-cyan-200">{copy.reviewIntelCompare}</p>
+            <h2 className="mt-4 text-3xl font-black tracking-tight text-ink sm:text-5xl dark:text-white">
+              {copy.unidentifiedTitle(identityBlock)}
+            </h2>
+            <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-slate-700 sm:text-lg dark:text-slate-100">
+              {copy.unidentifiedBody}
+            </p>
+            <button
+              type="button"
+              onClick={resetCompare}
+              className="mt-6 rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-teal dark:border-white/10 dark:bg-white/5 dark:text-white"
+            >
+              {copy.compareAnother}
+            </button>
+          </section>
+        )}
+
+        {!identityBlock && showResults && (
           <section className="shopper-compare-result-shell rounded-[2.5rem] border border-line bg-white p-4 shadow-soft sm:p-8 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500">
             <div className="mb-6 rounded-[2rem] border border-line bg-teal-50 p-5 text-center shadow-soft sm:p-6 dark:border-white/10">
               <p className="text-xs font-black uppercase tracking-[0.3em] text-teal dark:text-cyan-200">{compareCopy(readStoredLocale()).comparisonVerdict}</p>
@@ -1391,17 +1531,13 @@ export function CompareForm() {
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-slate-700 dark:text-slate-100">
                 {comparison?.summary ||
-                (winner === "TIE"
+                (winner === "TIE" || !winnerLetter(winner)
                   ? compareCopy(readStoredLocale()).tieSummary
-                  : directSubstitutes
-                    ? winnerLetter(winner)
-                      ? compareCopy(readStoredLocale()).directWinner(winnerLetter(winner)!)
-                      : compareCopy(readStoredLocale()).tieSummary
-                    : winnerLetter(winner)
-                      ? compareCopy(readStoredLocale()).confidenceWinner(winnerLetter(winner)!)
-                      : compareCopy(readStoredLocale()).tieSummary)}
+                  : directSubstitutes === false
+                    ? compareCopy(readStoredLocale()).confidenceWinner(winnerLetter(winner)!)
+                    : compareCopy(readStoredLocale()).directWinner(winnerLetter(winner)!))}
               </p>
-              {!directSubstitutes ? (
+              {directSubstitutes === false ? (
                 <div className="mx-auto mt-4 max-w-2xl rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-black leading-6 text-amber-950 shadow-sm">
                   {copy.differentTypes}
                 </div>
@@ -1411,19 +1547,23 @@ export function CompareForm() {
                 <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.decisionSnapshot}</p>
                   <p className="mt-2 text-xl font-black text-ink dark:text-white">
-                    {comparison?.winner === "INCOMPARABLE" ? copy.notDirectlyComparable : winnerLetter(winner) ? copy.winner(winnerLetter(winner)!) : copy.tooClose}
+                    {comparison?.winner === "INCOMPARABLE" ? (comparison.reason === "insufficient_evidence" ? copy.lowConfidence : copy.notDirectlyComparable) : winnerLetter(winner) ? copy.winner(winnerLetter(winner)!) : copy.tooClose}
                   </p>
                 </article>
-                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.confidenceLabel}</p>
-                  <p className="mt-2 text-xl font-black text-ink dark:text-white">{confidenceValue}%</p>
-                </article>
-                <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.compareType}</p>
-                  <p className="mt-2 text-xl font-black text-ink dark:text-white">
-                    {directSubstitutes ? copy.directCompare : copy.buyingConfidenceOnly}
-                  </p>
-                </article>
+                {confidenceValue !== null ? (
+                  <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.confidenceLabel}</p>
+                    <p className="mt-2 text-xl font-black text-ink dark:text-white">{confidenceValue}%</p>
+                  </article>
+                ) : null}
+                {directSubstitutes !== null ? (
+                  <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.compareType}</p>
+                    <p className="mt-2 text-xl font-black text-ink dark:text-white">
+                      {directSubstitutes ? copy.directCompare : copy.buyingConfidenceOnly}
+                    </p>
+                  </article>
+                ) : null}
                 <article className="rounded-2xl border border-line bg-white p-4 dark:border-white/10 dark:bg-white/5">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{copy.scoreGap}</p>
                   <p className="mt-2 text-xl font-black text-ink dark:text-white">{scoreGap} pts</p>
@@ -1466,12 +1606,7 @@ export function CompareForm() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setProductA(emptySide("A"));
-                  setProductB(emptySide("B"));
-                  setComparison(null);
-                  setError("");
-                }}
+                onClick={resetCompare}
                 className="mt-5 rounded-2xl border border-line bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-teal dark:border-white/10 dark:bg-white/5 dark:text-white"
               >
                 {copy.compareAnother}

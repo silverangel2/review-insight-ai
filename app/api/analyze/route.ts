@@ -33,6 +33,19 @@ import { collectAndAnalyzeReviewEvidence } from "@/lib/reviewEvidence";
 import { scoreReviewEvidenceSignals } from "@/lib/reviewEvidenceScoring";
 import { buyingConfidenceFromV2, buyingScoreFromReviews, buyingScoreLogFields, customerFacingDecision, marketplaceAggregateForScore, shopperBottomLineForBuyingScore, verdictFromScore, wordingWhenListingAlreadySupplied } from "@/lib/buyingScore";
 import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
+import {
+  buildRefereeDecision,
+  capConfidenceLevel,
+  refereeCheckClaims,
+  refereeConfidenceCeiling,
+  refereeFlipGate,
+  refereeHeldScore,
+  type RefereeConfidenceLevel,
+  type RefereeEvidenceSummary,
+  type RefereeIntervention,
+  type RefereeVerdictWord,
+} from "@/lib/reviewReferee";
+import { loadRefereeState, saveRefereeState, type RefereeState } from "@/lib/refereeState";
 import { analyzeAiPatterns } from "@/lib/aiPatternForensics";
 import type { AdjudicatedEvidenceRecord } from "@/lib/reviewEvidenceAdjudication";
 import { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
@@ -1881,6 +1894,14 @@ async function researchAndVerdict(
     openAiWebSearchDiagnostics: reviewEvidence?.openAiWebSearchDiagnostics,
   });
 
+  // Make-Sense Referee D3: load the last printed verdict state for this
+  // product (keyed by the review library's canonical key — the identity
+  // the flip gate's delta is computed against). Fail-soft: no state
+  // simply means the gate falls back to the stored-corpus verdict.
+  const refereeStoredState = reviewEvidence.referee?.libraryProductKey
+    ? await loadRefereeState(reviewEvidence.referee.libraryProductKey)
+    : null;
+
   return buildReviewEvidenceShopperResult({
     vision: (suppliedAsin ? { ...vision, name: screenshotName, normalizedSearchQuery: screenshotName, brand: "" } : vision) as Record<string, unknown>,
     reviewEvidence: reviewEvidence as unknown as Record<string, unknown>,
@@ -1890,6 +1911,7 @@ async function researchAndVerdict(
     detectedProductKey: cleanDetectedProductKey(detectedProductKey),
     suppliedListingUrl: productLink,
     linkOnly,
+    refereeStoredState,
   });
 }
 
@@ -2180,6 +2202,8 @@ function buildReviewEvidenceShopperResult(input: {
   detectedProductKey?: string;
   suppliedListingUrl?: string | null;
   linkOnly?: boolean;
+  /** Referee state loaded by the async caller (this builder is sync). */
+  refereeStoredState?: RefereeState | null;
 }) {
   const vision = input.vision || {};
   const evidence = input.reviewEvidence || {};
@@ -2292,6 +2316,37 @@ function buildReviewEvidenceShopperResult(input: {
     },
     summaryModelVersion: process.env.OPENAI_REVIEW_SEARCH_MODEL || process.env.OPENAI_MODEL || null,
   });
+  // ── Make-Sense Referee D2 — reasons match their side ────────────
+  // Every composed strength/complaint is re-checked against the text
+  // of its own backing records: a purely-negative record can never
+  // back a strength, a purely-positive one never a complaint. A claim
+  // left with an offending backing record is dropped, never re-sided.
+  const refereeEvidenceSummary: RefereeEvidenceSummary | null =
+    (evidence.referee as RefereeEvidenceSummary | undefined) ?? null;
+  const refereeRouteInterventions: RefereeIntervention[] = [];
+  const refereeClaimCheck = refereeCheckClaims({
+    strengths: deterministic.strengths.map((item) => ({ claim: item.claim, sourceIds: item.sourceIds })),
+    complaints: deterministic.complaints.map((item) => ({ claim: item.claim, sourceIds: item.sourceIds })),
+    bodyByRecordId: new Map(acceptedRecords.map((record) => [record.id, record.body])),
+  });
+  const refereeDroppedClaimKeys = new Set(
+    refereeClaimCheck.dropped.map((item) => `${item.side}:${item.claim}`)
+  );
+  const refereeStrengths = deterministic.strengths.filter(
+    (item) => !refereeDroppedClaimKeys.has(`strength:${item.claim}`)
+  );
+  const refereeComplaints = deterministic.complaints.filter(
+    (item) => !refereeDroppedClaimKeys.has(`complaint:${item.claim}`)
+  );
+  for (const dropped of refereeClaimCheck.dropped) {
+    refereeRouteInterventions.push({
+      code: "REASON_SIDE_MISMATCH",
+      duty: "D2",
+      detail: dropped.reason,
+      numbers: { offendingRecords: dropped.offendingRecordIds.length },
+    });
+  }
+
   const canonicalEvidenceEligible = exactListingAccepted && canonicalSufficiencyPassed && deterministic.evidenceState === "SUFFICIENT";
   // Buying Score v2 (docs/scoring-spec-v2.md). Pure, deterministic, zero OpenAI.
   // Inputs: real marketplace aggregate for the exact listing + the accepted,
@@ -2709,12 +2764,12 @@ function buildReviewEvidenceShopperResult(input: {
     ? {
         ...evidence,
         commentsAnalyzed,
-        productPros: deterministic.strengths.map(item => item.claim),
-        productCons: deterministic.complaints.map(item => item.claim),
-        strengths: deterministic.strengths.map(item => item.claim),
-        complaints: deterministic.complaints.map(item => item.claim),
-        repeatedPraises: deterministic.strengths.filter(item => item.supportCount >= 2).map(item => ({ theme: item.claim, evidenceCount: item.supportCount })),
-        repeatedComplaints: deterministic.complaints.filter(item => item.supportCount >= 2).map(item => ({ theme: item.claim, evidenceCount: item.supportCount })),
+        productPros: refereeStrengths.map(item => item.claim),
+        productCons: refereeComplaints.map(item => item.claim),
+        strengths: refereeStrengths.map(item => item.claim),
+        complaints: refereeComplaints.map(item => item.claim),
+        repeatedPraises: refereeStrengths.filter(item => item.supportCount >= 2).map(item => ({ theme: item.claim, evidenceCount: item.supportCount })),
+        repeatedComplaints: refereeComplaints.filter(item => item.supportCount >= 2).map(item => ({ theme: item.claim, evidenceCount: item.supportCount })),
         overallImpact: deterministic.bottomLine,
         buyAssessment: deterministic.customerVerdict,
         evidenceState: deterministic.evidenceState,
@@ -2786,6 +2841,124 @@ function buildReviewEvidenceShopperResult(input: {
     pageUnreadable = listingWasSupplied && commentsAnalyzed === 0 && buyingScoreV2.audit.n === 0 && !marketplaceKnown && buyingScoreV2.mode === "no_score";
   }
 
+  // ── Make-Sense Referee — D4 block, D3 hold, D5 cap, one decision ──
+  // Internal only: the decision object lands on the scan record and in
+  // the server log; no customer-facing words change beyond what the
+  // existing honest states already print.
+  const refereeUniqueOpinionCount = deterministic.acceptedReviewHashes.length;
+  const refereeIndependentSourceCount = Number(deterministic.deterministicScoringInputs.independentSourceCount || 0);
+  const refereeStateKey = refereeEvidenceSummary?.libraryProductKey || stableProductKey;
+  const refereeStoredState = input.refereeStoredState ?? null;
+  const refereePreviousVerdict = (refereeStoredState?.verdict || refereeEvidenceSummary?.storedVerdict || null) as RefereeVerdictWord | null;
+  const refereePreviousSource = refereeStoredState ? "referee_state" : refereeEvidenceSummary?.storedVerdict ? "stored_corpus" : "none";
+  const refereeAttemptedVerdict = verdict;
+  const refereeComputedScore = typeof buyScore === "number" && Number.isFinite(buyScore) ? buyScore : null;
+  let refereeHeldVerdict: string | null = null;
+  let refereeConfidenceCeilingValue: RefereeConfidenceLevel | null = null;
+  let refereeConfidenceCapped = false;
+  const refereeBlocked = Boolean(refereeEvidenceSummary && !refereeEvidenceSummary.countsReconciled);
+  if (refereeBlocked) {
+    // D4: the counts do not reconcile, so no graded verdict may print —
+    // fall back to the pipeline's existing honest no-evidence state.
+    verdict = "REVIEW EVIDENCE NOT ENOUGH";
+    decisionStatus = "not_enough_written_review_evidence";
+    finalDecisionSource = "reviewEvidenceNotEnough";
+    buyScore = null;
+    valueForMoney = "Unknown";
+    bottomLine =
+      "ReviewIntel identified the product or listing, but did not collect enough readable written reviews to calculate a trustworthy Buy Score.";
+  } else if (
+    refereeComputedScore !== null &&
+    (verdict === "BUY" || verdict === "WAIT" || verdict === "SKIP")
+  ) {
+    // D3 — no flip without a reason: a verdict-word change against the
+    // product's stored state requires a material delta of genuinely
+    // NEW unique opinions; otherwise the stored word stands and the
+    // score is clamped inside its band.
+    const refereeGate = refereeFlipGate({
+      previousVerdict: refereePreviousVerdict,
+      newVerdict: verdict as RefereeVerdictWord,
+      newUniqueOpinionCount: refereeEvidenceSummary?.newUniqueOpinionCount ?? null,
+      totalUniqueOpinionCount: refereeUniqueOpinionCount,
+    });
+    if (refereeGate.hold && refereePreviousVerdict) {
+      const heldScore = refereeHeldScore(refereePreviousVerdict, refereeComputedScore);
+      refereeHeldVerdict = refereePreviousVerdict;
+      verdict = refereePreviousVerdict;
+      buyScore = heldScore;
+      const heldWord = refereePreviousVerdict === "BUY" ? "Buy" : refereePreviousVerdict === "WAIT" ? "Wait" : "Skip";
+      buyingScoreV2 = { ...buyingScoreV2, score: heldScore, verdict: heldWord as typeof buyingScoreV2.verdict };
+      bottomLine = shopperSafeText(shopperBottomLineForBuyingScore(buyingScoreV2, refereePreviousVerdict, store));
+      refereeRouteInterventions.push({
+        code: "VERDICT_HELD_NO_MATERIAL_DELTA",
+        duty: "D3",
+        detail: refereeGate.reason,
+        numbers: {
+          newUniqueOpinions: refereeEvidenceSummary?.newUniqueOpinionCount ?? -1,
+          requiredNewOpinions: refereeGate.requiredNewOpinions,
+          computedScore: refereeComputedScore,
+          printedScore: heldScore,
+          previousVerdictSource: refereePreviousSource,
+        },
+      });
+    }
+    // D5 — confidence ceiling: capped by unique-opinion count and
+    // independent-source count; the Referee can lower, never raise.
+    refereeConfidenceCeilingValue = refereeConfidenceCeiling({
+      uniqueOpinionCount: refereeUniqueOpinionCount,
+      independentSourceCount: refereeIndependentSourceCount,
+    });
+    const refereeCurrentLevel: RefereeConfidenceLevel =
+      displayedVerdictConfidence >= 80 ? "High" : displayedVerdictConfidence >= 65 ? "Medium" : "Low";
+    const refereeCapped = capConfidenceLevel(refereeCurrentLevel, refereeConfidenceCeilingValue);
+    if (refereeCapped.capped) {
+      refereeConfidenceCapped = true;
+      displayedVerdictConfidence = buyingConfidenceFromV2(refereeCapped.level);
+      refereeRouteInterventions.push({
+        code: "CONFIDENCE_CAPPED",
+        duty: "D5",
+        detail: `Confidence capped from ${refereeCurrentLevel} to ${refereeCapped.level} by the evidence ceiling.`,
+        numbers: {
+          uniqueOpinions: refereeUniqueOpinionCount,
+          independentSources: refereeIndependentSourceCount,
+        },
+      });
+    }
+  }
+  const refereeDecision = buildRefereeDecision({
+    interventions: [...(refereeEvidenceSummary?.interventions ?? []), ...refereeRouteInterventions],
+    uniqueOpinionCount: refereeUniqueOpinionCount,
+    independentSourceCount: refereeIndependentSourceCount,
+    variantDuplicatesCollapsed: refereeEvidenceSummary?.variantDuplicatesCollapsed ?? 0,
+    newUniqueOpinionCount: refereeEvidenceSummary?.newUniqueOpinionCount ?? null,
+    storedOpinionCount: refereeEvidenceSummary?.storedOpinionCount ?? null,
+    previousVerdict: refereePreviousVerdict,
+    newVerdict: refereeAttemptedVerdict,
+    heldVerdict: refereeHeldVerdict,
+    computedScore: refereeComputedScore,
+    printedScore: typeof buyScore === "number" && Number.isFinite(buyScore) ? buyScore : null,
+    confidenceCeiling: refereeConfidenceCeilingValue,
+    confidenceCapped: refereeConfidenceCapped,
+    countsReconciled: refereeEvidenceSummary?.countsReconciled ?? true,
+    corpusFingerprint: refereeEvidenceSummary?.corpusFingerprint ?? null,
+  });
+  console.log("[ReviewIntel REFEREE]", JSON.stringify(refereeDecision));
+  if (
+    !refereeBlocked &&
+    (verdict === "BUY" || verdict === "WAIT" || verdict === "SKIP") &&
+    typeof buyScore === "number" &&
+    Number.isFinite(buyScore)
+  ) {
+    // The next scan's flip gate reads this back. Fail-soft by design.
+    void saveRefereeState({
+      productKey: refereeStateKey,
+      verdict,
+      score: buyScore,
+      corpusFingerprint: refereeDecision.corpusFingerprint,
+      uniqueOpinionCount: refereeUniqueOpinionCount,
+    });
+  }
+
   console.log("[ReviewIntel PIPELINE] exact-product-gate", JSON.stringify({
     acceptedExactProductReviews: deterministic.acceptedReviewHashes.length,
     rejectedReviews: evidenceAdjudication && typeof evidenceAdjudication.rejectedRecordCount === "number" ? evidenceAdjudication.rejectedRecordCount : null,
@@ -2835,6 +3008,7 @@ function buildReviewEvidenceShopperResult(input: {
 
     analysisVersion: "review-evidence-v2",
     buyingScoreV2,
+    refereeDecision,
     scanId: input.scanId || null,
     identityUnconfirmed: mismatchedListing,
     pageUnreadable,
@@ -2982,12 +3156,12 @@ function buildReviewEvidenceShopperResult(input: {
     exactListingUrl: exactListingUrl || null,
     url: exactListingUrl || input.suppliedListingUrl || null,
 
-    topStrengths: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.strengths.map((item) => item.claim) : [],
-    topComplaints: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.complaints.map((item) => item.claim) : [],
-    strengths: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.strengths.map((item) => item.claim) : [],
-    complaints: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? deterministic.complaints.map((item) => item.claim) : [],
-    strengthProvenance: deterministic.strengths,
-    complaintProvenance: deterministic.complaints,
+    topStrengths: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? refereeStrengths.map((item) => item.claim) : [],
+    topComplaints: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? refereeComplaints.map((item) => item.claim) : [],
+    strengths: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? refereeStrengths.map((item) => item.claim) : [],
+    complaints: canonicalEvidenceEligible && deterministic.evidenceState === "SUFFICIENT" ? refereeComplaints.map((item) => item.claim) : [],
+    strengthProvenance: refereeStrengths,
+    complaintProvenance: refereeComplaints,
     acceptedReviewHashes: deterministic.acceptedReviewHashes,
     sourceDistribution: acceptedSourceDistribution,
     acceptedCorpusHash: deterministic.acceptedCorpusHash,
