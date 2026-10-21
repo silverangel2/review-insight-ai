@@ -69,6 +69,7 @@ import {
 } from "@/lib/reviewCollector";
 import {
   libraryProductKeyFor,
+  loadFingerprintMatchedLibraryCorpus,
   loadLibraryCorpus,
   saveLibraryCorpus,
   unionLibraryCorpora,
@@ -91,6 +92,17 @@ import {
   type ReviewEvidenceAdjudication,
 } from "@/lib/reviewEvidenceAdjudication";
 import { uniqueAttemptedHttpSources } from "@/lib/retrievalSourceMetrics";
+import { deriveDeterministicEvidenceResult } from "@/lib/reviewEvidenceDeterminism";
+import {
+  REFEREE_VERSION,
+  countNewOpinions,
+  refereeCorpusFingerprint,
+  refereeReconcileCounts,
+  refereeRecordIdentity,
+  refereeSnippetSentiment,
+  type RefereeEvidenceSummary,
+  type RefereeIntervention,
+} from "@/lib/reviewReferee";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
 type ReviewEvidenceInput = {
   productName: string;
@@ -215,8 +227,15 @@ export type ReviewEvidenceResult = {
     nativeScraperBlocked?: boolean;
     finalStopReason?: string;
     reviewHunt?: ReviewHuntDiagnostics | null;
+    libraryFingerprintPool?: {
+      matchedProductKeys: string[];
+      pooledReviews: number;
+    } | null;
+    referee?: RefereeEvidenceSummary;
   };
   evidenceAdjudication?: ReviewEvidenceAdjudication;
+  /** Make-Sense Referee evidence summary (internal diagnostics only). */
+  referee?: RefereeEvidenceSummary;
 };
 
 
@@ -2840,6 +2859,8 @@ export async function collectAndAnalyzeReviewEvidence(
     : null;
   let libraryPreviousScanCount = 0;
   let libraryStoredReviews: Array<Record<string, unknown>> = [];
+  let fingerprintPoolDiagnostics: { matchedProductKeys: string[]; pooledReviews: number } | null = null;
+  let fingerprintPooledReviewCount = 0;
   if (libraryProductKey) {
     const libraryEntry = await loadLibraryCorpus(libraryProductKey);
     libraryPreviousScanCount = libraryEntry.scanCount;
@@ -2857,6 +2878,35 @@ export async function collectAndAnalyzeReviewEvidence(
           500
         ),
         coverageNote: `${collectedWrittenReviews.coverageNote} Consolidated with ${libraryEntry.reviews.length} previously accepted ReviewIntel library review(s) for this exact product.`,
+      });
+    }
+  } else {
+    // No canonical library key: there is no verified exact listing, which
+    // is the screenshot door's normal end state. Pool the library by
+    // fingerprint identity instead — every pooled corpus individually
+    // proved a two-direction fingerprint match against this scan's
+    // identity, carries per-source provenance, and still faces the same
+    // shared adjudication below. Fail-soft inside the loader: any storage
+    // problem pools nothing and the scan is exactly as it was.
+    const fingerprintPool = await loadFingerprintMatchedLibraryCorpus({
+      brand: input.brand,
+      productName: checkedListingTitle || input.productName,
+      model: input.model,
+      categoryBreadcrumbs: input.categoryBreadcrumbs,
+    });
+    fingerprintPoolDiagnostics = {
+      matchedProductKeys: fingerprintPool.matchedProductKeys,
+      pooledReviews: fingerprintPool.reviews.length,
+    };
+    if (fingerprintPool.reviews.length) {
+      fingerprintPooledReviewCount = fingerprintPool.reviews.length;
+      collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
+        reviews: mergeUnknownArrays<ReviewCollectorResult["reviews"][number]>(
+          collectedWrittenReviews.reviews,
+          fingerprintPool.reviews as ReviewCollectorResult["reviews"],
+          500
+        ),
+        coverageNote: `${collectedWrittenReviews.coverageNote} Consolidated with ${fingerprintPool.reviews.length} previously accepted ReviewIntel library review(s) whose listings fingerprint-match this product (${fingerprintPool.matchedProductKeys.join(", ")}).`,
       });
     }
   }
@@ -2929,8 +2979,29 @@ export async function collectAndAnalyzeReviewEvidence(
     }
   }
 
+  // Fingerprint-pooled evidence — the library pool above and/or the review
+  // hunt — that the shared adjudication accepted is a real evidence source
+  // even when no exact listing was verified (the screenshot door's normal
+  // state). Without this, the collector gate below discards the accepted
+  // records and reports the zero this fix exists to remove. Only pooled
+  // records that adjudication actually accepted open the gate; a scan that
+  // accepted nothing keeps the honest no-evidence state.
+  if (
+    !collectorSourceAccepted &&
+    evidenceAdjudication.acceptedRecordCount > 0 &&
+    (fingerprintPooledReviewCount > 0 || (reviewHuntDiagnostics?.pooledCount ?? 0) > 0)
+  ) {
+    collectorSourceAccepted = true;
+    collectorSourceRejectedReason = null;
+  }
+
   const preAdjudicationRecordCount = collectedWrittenReviews.reviews.length;
-  const preAdjudicationUniqueCount = preAdjudicationRecordCount - evidenceAdjudication.deduplicatedRecordCount;
+  // Referee D4: the published unique count is the post-D1 unique-opinion
+  // set — exact duplicates AND collapsed variant duplicates both leave.
+  const preAdjudicationUniqueCount =
+    preAdjudicationRecordCount -
+    evidenceAdjudication.deduplicatedRecordCount -
+    evidenceAdjudication.variantDeduplicatedRecordCount;
   const adjudicatedReviews = evidenceAdjudication.acceptedRecords.map((record) => ({
     ...record.original,
     source: record.source,
@@ -2940,10 +3011,109 @@ export async function collectAndAnalyzeReviewEvidence(
 
   collectedWrittenReviews = reviewCollectorResultWith(collectedWrittenReviews, {
     reviews: adjudicatedReviews,
-    coverageNote: exactListingAccepted
+    coverageNote: exactListingAccepted || collectorSourceAccepted
       ? `${collectedWrittenReviews.coverageNote} Canonical adjudication accepted the written reviews that match this exact product.`
       : `${collectedWrittenReviews.coverageNote} Written-review candidates were collected, but canonical exact-product association is not yet established, so none are accepted evidence.`,
   });
+
+  // ── Make-Sense Referee — evidence layer ──────────────────────────
+  // D4: reconcile the adjudication ledger against what this scan will
+  // publish. D3 inputs: how many of today's accepted opinions are
+  // genuinely new vs the stored corpus, and the verdict the stored
+  // corpus alone produces (the flip gate's fallback previous verdict).
+  // Fail-soft: any referee computation problem degrades to "no stored
+  // verdict / unknown delta", never to a failed scan.
+  const refereeStoredVerdict: string | null = (() => {
+    if (!libraryStoredReviews.length) return null;
+    try {
+      const storedAdjudication = adjudicateReviewEvidence(
+        libraryStoredReviews as unknown as AdjudicationInputRecord[],
+        adjudicationOptions
+      );
+      if (!storedAdjudication.acceptedRecords.length) return null;
+      const storedDeterministic = deriveDeterministicEvidenceResult({
+        acceptedRecords: storedAdjudication.acceptedRecords,
+        exactProductAccepted: exactListingAccepted,
+        rating: null,
+        marketplaceReviewCount: 0,
+      });
+      const word = String(storedDeterministic.customerVerdict || "").toUpperCase();
+      return word === "BUY" ? "BUY" : word === "AVOID" ? "SKIP" : word === "DO NOT BUY YET" ? "WAIT" : null;
+    } catch {
+      return null;
+    }
+  })();
+  const refereeNewUniqueOpinionCount: number | null = libraryProductKey
+    ? countNewOpinions(
+        evidenceAdjudication.acceptedRecords.map((record) => ({
+          body: record.body,
+          stableEvidenceHash: record.stableEvidenceHash,
+          original: record.original as Record<string, unknown>,
+        })),
+        libraryStoredReviews
+      )
+    : null;
+  const refereeReconcile = refereeReconcileCounts({
+    preGradeRecordCount: preAdjudicationRecordCount,
+    totalRecordCount: evidenceAdjudication.records.length,
+    acceptedRecordCount: evidenceAdjudication.acceptedRecordCount,
+    rejectedRecordCount: evidenceAdjudication.rejectedRecordCount,
+    exactDuplicateCount: evidenceAdjudication.deduplicatedRecordCount,
+    variantDuplicateCount: evidenceAdjudication.variantDeduplicatedRecordCount,
+    publishedAcceptedCount: adjudicatedReviews.length,
+  });
+  const refereeInterventions: RefereeIntervention[] = [];
+  if (evidenceAdjudication.variantDeduplicatedRecordCount > 0) {
+    refereeInterventions.push({
+      code: "VARIANT_DUPLICATE_COLLAPSED",
+      duty: "D1",
+      detail: `${evidenceAdjudication.variantDeduplicatedRecordCount} variant duplicate(s) collapsed onto their longest accepted copy before grading.`,
+      numbers: { collapsed: evidenceAdjudication.variantDeduplicatedRecordCount },
+    });
+  }
+  if (!refereeReconcile.reconciled) {
+    refereeInterventions.push({
+      code: "COUNTS_MISMATCH_BLOCK",
+      duty: "D4",
+      detail: refereeReconcile.detail,
+      numbers: {
+        preGrade: preAdjudicationRecordCount,
+        accepted: evidenceAdjudication.acceptedRecordCount,
+        rejected: evidenceAdjudication.rejectedRecordCount,
+      },
+    });
+  }
+  // D2 snippet corrections (below, at both snippet construction sites)
+  // accumulate into one intervention entry whose count keeps updating.
+  const refereeSnippetTally: { corrected: number } = { corrected: 0 };
+  const noteRefereeSnippetCorrection = () => {
+    refereeSnippetTally.corrected += 1;
+    if (refereeSnippetTally.corrected === 1) {
+      refereeInterventions.push({
+        code: "SNIPPET_SENTIMENT_CORRECTED",
+        duty: "D2",
+        detail: "Snippet sentiment corrected where the review's own text is purely the opposite side of its rating-derived label.",
+        numbers: refereeSnippetTally as unknown as Record<string, number>,
+      });
+    }
+  };
+  const refereeSummary: RefereeEvidenceSummary = {
+    version: REFEREE_VERSION,
+    uniqueOpinionCount: evidenceAdjudication.acceptedRecordCount,
+    independentSourceCount: evidenceAdjudication.independentSourceCount,
+    variantDuplicatesCollapsed: evidenceAdjudication.variantDeduplicatedRecordCount,
+    variantDuplicatePairs: evidenceAdjudication.variantDuplicatePairs,
+    storedOpinionCount: libraryProductKey ? libraryStoredReviews.length : null,
+    newUniqueOpinionCount: refereeNewUniqueOpinionCount,
+    corpusFingerprint: refereeCorpusFingerprint(
+      evidenceAdjudication.acceptedRecords.map((record) => refereeRecordIdentity(record.original as Record<string, unknown>))
+    ),
+    countsReconciled: refereeReconcile.reconciled,
+    libraryProductKey,
+    storedVerdict: refereeStoredVerdict,
+    storedVerdictSource: refereeStoredVerdict ? "stored_corpus" : null,
+    interventions: refereeInterventions,
+  };
 
   // Persist the union of the stored corpus and this run's accepted
   // reviews: the library ACCUMULATES. Saving only the run's accepted
@@ -3005,6 +3175,8 @@ export async function collectAndAnalyzeReviewEvidence(
     nativeScraperBlocked: nativeReviewRetrieval?.nativeScraperBlocked || false,
     finalStopReason: nativeReviewRetrieval?.stopReason || "identity_not_verified",
     reviewHunt: reviewHuntDiagnostics,
+    libraryFingerprintPool: fingerprintPoolDiagnostics,
+    referee: refereeSummary,
   };
 
   const localSourceLinks = normalizeSourceLinks([
@@ -3075,21 +3247,28 @@ export async function collectAndAnalyzeReviewEvidence(
   const recoveryEvidenceFromLocalRetrieval = (reason: string): ReviewEvidenceResult => {
     const reviewSnippets = collectorSourceAccepted
       ? collectedWrittenReviews.reviews
-      .map((review) => ({
-        source: review.source || collectedWrittenReviews.extractor || "Native public review retrieval",
-        snippet: review.body,
-        sentiment:
+      .map((review) => {
+        // Referee D2: the rating-derived label is corrected when the
+        // review's own text is purely the opposite side.
+        const assigned =
           typeof review.rating === "number"
             ? review.rating >= 4
-              ? "positive" as const
+              ? ("positive" as const)
               : review.rating <= 2
-                ? "negative" as const
-                : "mixed" as const
-            : "mixed" as const,
-        evidenceType: review.source?.toLowerCase().includes("search snippet")
-          ? "open web review intelligence"
-          : "marketplace review",
-      }))
+                ? ("negative" as const)
+                : ("mixed" as const)
+            : ("mixed" as const);
+        const checked = refereeSnippetSentiment(assigned, review.body);
+        if (checked.corrected) noteRefereeSnippetCorrection();
+        return {
+          source: review.source || collectedWrittenReviews.extractor || "Native public review retrieval",
+          snippet: review.body,
+          sentiment: checked.sentiment,
+          evidenceType: review.source?.toLowerCase().includes("search snippet")
+            ? "open web review intelligence"
+            : "marketplace review",
+        };
+      })
       .filter((item) => item.snippet.trim().length >= 12)
       .slice(0, 240)
       : [];
@@ -3124,6 +3303,7 @@ export async function collectAndAnalyzeReviewEvidence(
       openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
       retrievalDiagnostics,
       evidenceAdjudication,
+      referee: refereeSummary,
       reviewsFound: commentsAnalyzed,
       marketplaceReviewCount: firstPositiveNumber(
         collectedWrittenReviews.marketplaceAggregate?.count,
@@ -3641,19 +3821,26 @@ Scoring rules:
         snippet: string;
         sentiment: "positive" | "mixed" | "negative";
         evidenceType: string;
-      } => ({
-        source: review.source || collectedWrittenReviews.extractor || "Marketplace written review",
-        snippet: review.body,
-        sentiment:
+      } => {
+        // Referee D2: the rating-derived label is corrected when the
+        // review's own text is purely the opposite side.
+        const assigned: "positive" | "mixed" | "negative" =
           typeof review.rating === "number"
             ? review.rating >= 4
               ? "positive"
               : review.rating <= 2
                 ? "negative"
                 : "mixed"
-            : "mixed",
-        evidenceType: "marketplace review",
-      }))
+            : "mixed";
+        const checked = refereeSnippetSentiment(assigned, review.body);
+        if (checked.corrected) noteRefereeSnippetCorrection();
+        return {
+          source: review.source || collectedWrittenReviews.extractor || "Marketplace written review",
+          snippet: review.body,
+          sentiment: checked.sentiment,
+          evidenceType: "marketplace review",
+        };
+      })
       .filter((item) => item.snippet.trim().length >= 12)
       .slice(0, 240);
 
@@ -3846,6 +4033,7 @@ Scoring rules:
       resultSource: "analyze",
       openAiWebSearchDiagnostics: getOpenAiWebSearchDiagnostics(openAiWebSearchContext),
       retrievalDiagnostics,
+      referee: refereeSummary,
       sourcesChecked: Array.isArray(parsed.sourcesChecked)
         ? uniqueAttemptedHttpSources([
             ...localAttemptedSources,

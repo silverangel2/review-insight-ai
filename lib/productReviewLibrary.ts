@@ -439,3 +439,113 @@ export async function loadPooledLibraryCorpus(
   }
   return poolLinkedLibraryCorpora(loaded);
 }
+
+/* ==========================================================================
+ * Fingerprint discovery (additive, 2026-10-20): find the library rows whose
+ * listings provably name the scanned product, and pool their corpora.
+ *
+ * The per-key loader above serves only a scan that already knows the
+ * product's canonical key — which requires a verified exact listing. A
+ * screenshot-identified product arrives with brand + title but no listing,
+ * so the library stayed invisible to it (the screenshot-evidence defect).
+ * This loader reads a bounded set of library listing rows (metadata only),
+ * runs the fingerprint matcher in BOTH directions per row — the same
+ * both-directions rule poolLinkedLibraryCorpora applies between entries,
+ * because pooling moves reviews — and only then loads the matched rows'
+ * corpora, provenance-stamped and identity-deduped. Rows that do not prove
+ * the match are reported in `exclusions` with verdict and reason; ambiguous
+ * rows stay unmerged. Fail-soft like every library read: any storage
+ * failure pools nothing and the scan behaves exactly as it did before.
+ * ======================================================================== */
+
+export const LIBRARY_FINGERPRINT_CANDIDATE_LIMIT = 200;
+
+export type FingerprintLibraryPoolResult = {
+  fingerprint: ProductFingerprint;
+  /** Pooled, provenance-stamped, identity-deduped reviews from matched rows. */
+  reviews: LibraryReviewRecord[];
+  matchedProductKeys: string[];
+  exclusions: PoolingExclusion[];
+};
+
+type LibraryListingRow = LibraryRow & {
+  product_name?: unknown;
+  brand?: unknown;
+  store?: unknown;
+  canonical_url?: unknown;
+};
+
+export async function loadFingerprintMatchedLibraryCorpus(
+  identity: FingerprintInput,
+  loadCorpus: typeof loadLibraryCorpus = loadLibraryCorpus
+): Promise<FingerprintLibraryPoolResult> {
+  const fingerprint = extractProductFingerprint(identity);
+  const empty: FingerprintLibraryPoolResult = {
+    fingerprint,
+    reviews: [],
+    matchedProductKeys: [],
+    exclusions: [],
+  };
+  // An unanchored scan identity pools nothing: there is no strict way to
+  // claim any stored product is this one.
+  if (!fingerprint.fingerprintKey) return empty;
+  try {
+    const rows = await supabaseSelect<LibraryListingRow>(
+      PRODUCT_REVIEW_LIBRARY_TABLE,
+      `select=product_key,product_name,brand,store,canonical_url&order=updated_at.desc&limit=${LIBRARY_FINGERPRINT_CANDIDATE_LIMIT}`
+    );
+    const anchorListing: FingerprintInput = {
+      brand: identity.brand ?? null,
+      productName: identity.productName ?? identity.title ?? null,
+      title: identity.title ?? identity.productName ?? null,
+      model: identity.model ?? null,
+      categoryBreadcrumbs: identity.categoryBreadcrumbs ?? null,
+    };
+    const exclusions: PoolingExclusion[] = [];
+    const matchedProductKeys: string[] = [];
+    let reviews: LibraryReviewRecord[] = [];
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const productKey = cleanText(row.product_key);
+      const productName = cleanText(row.product_name);
+      if (!productKey || !productName) continue;
+      const listing: FingerprintInput = {
+        brand: cleanText(row.brand) || null,
+        productName,
+        title: productName,
+      };
+      const forward = matchListingToFingerprint(fingerprint, listing);
+      if (forward.verdict !== "match") {
+        exclusions.push({
+          productKey,
+          againstKey: fingerprint.fingerprintKey,
+          verdict: forward.verdict,
+          reason: forward.reasons[0] || forward.verdict,
+        });
+        continue;
+      }
+      const backward = matchListingToFingerprint(
+        extractProductFingerprint(listing),
+        anchorListing
+      );
+      if (backward.verdict !== "match") {
+        exclusions.push({
+          productKey,
+          againstKey: fingerprint.fingerprintKey,
+          verdict: backward.verdict,
+          reason: backward.reasons[0] || backward.verdict,
+        });
+        continue;
+      }
+      const entry = await loadCorpus(productKey);
+      if (!entry.reviews.length) continue;
+      matchedProductKeys.push(productKey);
+      reviews = unionLibraryCorpora(
+        reviews,
+        entry.reviews.map((record) => stampReviewProvenance(record, productKey))
+      );
+    }
+    return { fingerprint, reviews, matchedProductKeys, exclusions };
+  } catch {
+    return empty;
+  }
+}
