@@ -159,6 +159,19 @@ export function mergeOcrLines(
     return { line, order, ny, nx };
   });
   placed.sort((a, b) => (a.ny - b.ny) || (a.nx - b.nx) || (a.order - b.order));
+  // Merged lines must share ONE coordinate space: rescale boxes that came from
+  // a differently-sized pass (the upscaled read) into the primary image's
+  // pixels. Before this, a merged set mixed two scales, so any geometry a
+  // consumer computes over it (font height, page zone) silently lied.
+  if (primarySize?.width && primarySize?.height) {
+    for (const { line, size } of entries) {
+      if (!line.bbox || !size?.width || !size?.height) continue;
+      if (size.width === primarySize.width && size.height === primarySize.height) continue;
+      const sx = primarySize.width / size.width;
+      const sy = primarySize.height / size.height;
+      line.bbox = { x0: line.bbox.x0 * sx, y0: line.bbox.y0 * sy, x1: line.bbox.x1 * sx, y1: line.bbox.y1 * sy };
+    }
+  }
   return placed.map(p => p.line);
 }
 
