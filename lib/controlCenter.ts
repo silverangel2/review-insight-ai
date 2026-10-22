@@ -677,8 +677,8 @@ export function buildKeeperSection(input: {
 /* Store readers (fail-closed where an outage must not look empty)     */
 /* ------------------------------------------------------------------ */
 
-async function probeTable(table: string): Promise<void> {
-  await supabaseSelect(table, "select=id&limit=1", { failClosed: true });
+async function probeTable(table: string, column = "id"): Promise<void> {
+  await supabaseSelect(table, `select=${column}&limit=1`, { failClosed: true });
 }
 
 /* ---- scan operations (reviewintel_scan_operations) ---- */
@@ -893,7 +893,12 @@ async function readOpsAttempts(jobId: string): Promise<AttemptRow[]> {
 async function buildScansGroup(
   sinceIso: string
 ): Promise<{ section: ControlCenterScans; truncated: boolean }> {
-  await probeTable(SCAN_OPERATIONS_TABLE);
+  // Probe on scan_id, NOT the generic "id": reviewintel_scan_operations
+  // has no id column — its primary key is operation_key (supabase/
+  // migrations/20261006_reviewintel_scan_cost_safety.sql). Probing "id"
+  // makes PostgREST return 400 on every call, the fail-closed probe
+  // throws, and this group degrades permanently (the PR #74 red door).
+  await probeTable(SCAN_OPERATIONS_TABLE, "scan_id");
   const [running, completed, failed, blocked] = await Promise.all([
     countScanOps("RUNNING", sinceIso),
     countScanOps("COMPLETED", sinceIso),
