@@ -268,6 +268,13 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
     degraded.push("ops");
   }
 
+  // Headline `ok` reflects the CORE sections only (rescue + ops — the
+  // pre-controlCenter v1.2 semantics), so it is snapshotted here, before
+  // any controlCenter names are pushed. Control-center degradation is
+  // still reported in `degraded` (Sophie's consumer reads it), but an
+  // add-on feed failure must not turn the whole door red on its own.
+  const coreOk = degraded.length === 0;
+
   let controlCenter: ControlCenterSection | null = null;
   try {
     const built = await buildControlCenterSection();
@@ -280,7 +287,7 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
   }
 
   return {
-    ok: degraded.length === 0,
+    ok: coreOk,
     site: "reviewintel",
     at: new Date().toISOString(),
     sections: { rescue, ops, controlCenter },

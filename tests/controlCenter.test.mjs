@@ -447,6 +447,7 @@ function applyQuery(rows, query) {
   return out;
 }
 export async function supabaseSelect(table, query = "select=*", options = {}) {
+  (globalThis.__ccQueries ||= []).push({ table, query });
   if (globalThis.__ccDown.has(table)) {
     if (options.failClosed) throw new Error("SUPABASE_READ_FAILED");
     return [];
@@ -454,6 +455,7 @@ export async function supabaseSelect(table, query = "select=*", options = {}) {
   return applyQuery(TABLES()[table] || [], query);
 }
 export async function supabaseCount(table, query = "select=*") {
+  (globalThis.__ccQueries ||= []).push({ table, query });
   if (globalThis.__ccDown.has(table)) return 0;
   return applyQuery(TABLES()[table] || [], query).length;
 }
@@ -497,6 +499,7 @@ function resetFixtures(down = []) {
     ri_ops_evidence: opsEvidence,
   };
   globalThis.__ccDown = new Set(down);
+  globalThis.__ccQueries = [];
 }
 
 test("controlCenter: referee shape from tonight's Sony record (HOLD, D3 + D5)", async () => {
@@ -715,6 +718,79 @@ test("sitrep: controlCenter rides along; existing sections keep their shape", as
   assert.ok(Array.isArray(sitrep.sections.ops.bots));
   assert.ok(Array.isArray(sitrep.sections.ops.recentJobs));
   assert.ok(!sitrep.degraded.some((d) => d.startsWith("controlCenter")));
+  assert.equal(sitrep.ok, true);
   const json = JSON.stringify(sitrep);
   assert.ok(!json.includes(POISON));
+});
+
+test("controlCenter: every scans-store query names only real schema columns", async () => {
+  resetFixtures();
+  await buildControlCenterSection(NOW);
+  // Column set of public.reviewintel_scan_operations per
+  // supabase/migrations/20261006_reviewintel_scan_cost_safety.sql.
+  // The table has NO "id" column (its primary key is operation_key).
+  // The stub projector above returns null for a missing column instead
+  // of erroring the way PostgREST does (400 / 42703), so only this
+  // contract test can catch a query naming a column production would
+  // reject — the exact failure that kept the scans group degraded
+  // after PR #74 (the probe selected "id").
+  const SCHEMA = new Set([
+    "operation_key", "account_key", "scan_id", "status", "result_json",
+    "error_code", "reservation_json", "created_at", "updated_at",
+  ]);
+  const queries = (globalThis.__ccQueries || []).filter(
+    (q) => q.table === "reviewintel_scan_operations"
+  );
+  assert.ok(queries.length > 0, "expected scans-store queries to be recorded");
+  for (const { query } of queries) {
+    const params = new URLSearchParams(query);
+    const select = params.get("select") || "*";
+    if (select !== "*") {
+      for (const item of select.split(",")) {
+        const colon = item.indexOf(":");
+        const base =
+          colon === -1 ? item : item.slice(colon + 1).split(/->>?/)[0];
+        assert.ok(
+          SCHEMA.has(base),
+          `select names non-schema column "${base}": ${query}`
+        );
+      }
+    }
+    for (const [key] of params.entries()) {
+      if (["select", "limit", "offset", "order"].includes(key)) continue;
+      assert.ok(
+        SCHEMA.has(key),
+        `filter names non-schema column "${key}": ${query}`
+      );
+    }
+    const order = params.get("order");
+    if (order) {
+      assert.ok(
+        SCHEMA.has(order.split(".")[0]),
+        `order names non-schema column: ${query}`
+      );
+    }
+  }
+});
+
+test("sitrep: controlCenter-only degradation keeps the headline ok (core = rescue + ops)", async () => {
+  resetFixtures(["reviewintel_scan_operations"]);
+  const sitrep = await buildSophieSitrep();
+  assert.equal(sitrep.sections.controlCenter.scans, null);
+  assert.ok(sitrep.degraded.includes("controlCenter.scans"));
+  assert.ok(sitrep.sections.rescue);
+  assert.ok(sitrep.sections.ops);
+  assert.equal(sitrep.ok, true);
+});
+
+test("sitrep: a fully unreachable controlCenter still keeps the headline ok", async () => {
+  resetFixtures([
+    "reviewintel_scan_operations",
+    "scan_rescue_queue",
+    "ri_ops_evidence",
+  ]);
+  const sitrep = await buildSophieSitrep();
+  assert.equal(sitrep.sections.controlCenter, null);
+  assert.ok(sitrep.degraded.some((d) => d.startsWith("controlCenter")));
+  assert.equal(sitrep.ok, true);
 });
