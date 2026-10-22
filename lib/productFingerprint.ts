@@ -94,6 +94,14 @@ const GENERIC_KIND_WORDS = new Set([
   "featuring", "compatible", "technology", "crisp", "max",
 ]);
 
+/** Measurement/unit words: specs, never product-kind evidence. */
+const UNIT_KIND_WORDS = new Set([
+  "ounce", "ounces", "oz", "fluid", "liter", "liters", "litre", "litres",
+  "ml", "gram", "grams", "kg", "g", "lb", "lbs", "pound", "pounds",
+  "inch", "inches", "cm", "mm", "watt", "watts", "volt", "volts",
+  "quart", "quarts", "gallon", "gallons", "count", "ct",
+]);
+
 /** Category head nouns: when both sides name one, they must agree. */
 const KIND_HEAD_WORDS = new Set([
   "dryer", "washer", "oven", "fryer", "airfryer", "cream", "moisturizer",
@@ -107,6 +115,19 @@ const KIND_HEAD_WORDS = new Set([
 function normBrand(value: string | null | undefined): string | null {
   const b = String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   return b || null;
+}
+
+/**
+ * Same brand, allowing truncation: equal, or one is a word-boundary prefix
+ * of the other ("hamilton" ~ "hamilton beach", "dr" ~ "dr brown s"). Both
+ * sides arrive normBrand-normalized (words space-joined). A one-letter
+ * fragment never counts as a brand prefix.
+ */
+function brandsCompatible(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  if (shorter.length < 2) return false;
+  return longer.startsWith(`${shorter} `);
 }
 
 function brandFromTitle(title: string): string | null {
@@ -137,6 +158,9 @@ export function extractVariantWords(text: string): string[] {
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*(?:cu\.?\s*ft\.?|cubic\s+feet)/g)) add("cap-cuft", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)[\s-]*(?:quarts?|qts?)\b/g)) add("cap-qt", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*fl\.?\s*oz\b/g)) add("cap-floz", Number(m[1]));
+  // The spelled-out form ("16 fluid ounces") is the same dimension; titles
+  // that write it out produced NO capacity variant and could not anchor.
+  for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*fluid\s+ounces?\b/g)) add("cap-floz", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*oz\b/g)) add("cap-oz", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*wh\b/g)) add("energy-wh", Number(m[1]));
   for (const m of source.matchAll(/(\d+(?:\.\d+)?)\s*kwh\b/g)) add("energy-wh", Number(m[1]) * 1000);
@@ -181,6 +205,32 @@ export function scanModelCodes(text: string): string[] {
     if (/^(?:19|20)\d{2}$/.test(raw)) continue;
     const normalized = normalizeModelId(raw);
     if (normalized) found.add(normalized);
+  }
+  // Pure-numeric model numbers in model position. Many brands number their
+  // models with digits only (Hamilton Beach "(22633)"), and normalizeModelId
+  // refuses letter-less ids by design — so such a title produced NO model,
+  // no fingerprint anchor, and the library pool + review hunt both silently
+  // skipped a correctly identified product (measured 2026-10-21: the
+  // Hamilton Beach toaster's screenshot scan pooled zero reviews its own
+  // link scan had banked hours earlier). A 4–8 digit number counts only in
+  // model position: parenthesized (the listing convention for a model
+  // number) or as the title's final token. Years, prices ("$49.99" has a
+  // decimal point and a $), pack counts (1–2 digits) and long identifiers
+  // (UPC/EAN are 12–13 digits) stay excluded.
+  const numericCode = (raw: string): string | null => {
+    if (!/^\d{4,8}$/.test(raw)) return null;
+    if (/^(?:19|20)\d{2}$/.test(raw)) return null;
+    return raw;
+  };
+  for (const m of source.matchAll(/\((\d{4,8})\)/g)) {
+    const code = numericCode(m[1]);
+    if (code) found.add(code);
+  }
+  const trimmed = source.trim();
+  const trailing = trimmed.match(/(?:^|[\s,])(\d{4,8})[.\s]*$/);
+  if (trailing) {
+    const code = numericCode(trailing[1]);
+    if (code) found.add(code);
   }
   return [...found].sort();
 }
@@ -235,6 +285,11 @@ export function extractProductFingerprint(input: FingerprintInput): ProductFinge
   for (const w of roles.primaryProductFamily) {
     const word = w.toLowerCase();
     if (GENERIC_KIND_WORDS.has(word)) continue;
+    // Unit/measurement words are not kind evidence either ("ounces" leaked
+    // in as the whole family of "Armor All Original Protectant (16 fluid
+    // ounces)" and then failed the shared-kind gate against the stored
+    // listing's real family — a unit is a spec, not a product kind).
+    if (UNIT_KIND_WORDS.has(word)) continue;
     // Kind words are words: model codes, pack counts and variant markers
     // that leak into the family extraction are not kind evidence.
     if (/\d/.test(word) || word.endsWith("pack")) continue;
@@ -328,7 +383,7 @@ export function matchListingToFingerprint(
   // all (title word extraction noise cannot outrank a GS1 identity).
   if (sharedGtins.length) {
     reasons.push("gtin_match");
-    if (fingerprint.brand && cand.brand && fingerprint.brand !== cand.brand) {
+    if (fingerprint.brand && cand.brand && !brandsCompatible(fingerprint.brand, cand.brand)) {
       reasons.push("brand_mismatch_despite_gtin");
       return done("ambiguous");
     }
@@ -343,8 +398,16 @@ export function matchListingToFingerprint(
     return done("no_match");
   }
 
-  // Brand is a hard gate when both sides state one.
-  if (fingerprint.brand && cand.brand && fingerprint.brand !== cand.brand) {
+  // Brand is a hard gate when both sides state one. One relaxation, and it
+  // is not a loosening of identity: a brand TRUNCATED to its first word(s)
+  // is the same brand. Screenshot facts derive brand as the title's first
+  // token ("Hamilton" for Hamilton Beach, "BLACK" for Black+Decker), while
+  // a stored listing row carries the full brand — exact-equality made the
+  // gate reject the very product the scan had identified, so its banked
+  // reviews never pooled. Word-boundary prefix in either direction counts
+  // as the same brand; the model/spec and kind gates below still have to
+  // pass in full, so a prefix can never merge two different products.
+  if (fingerprint.brand && cand.brand && !brandsCompatible(fingerprint.brand, cand.brand)) {
     reasons.push("brand_mismatch");
     return done("no_match");
   }

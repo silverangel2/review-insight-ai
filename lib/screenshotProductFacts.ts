@@ -16,6 +16,87 @@ const STORES: Array<[RegExp, string]> = [
 ];
 const CHROME = /^(sponsored|visit the|add to cart|buy now|in stock|ships from|sold by|deliver|free (delivery|shipping|returns)|returns?|see more|about this item|customers (also|who)|sign in|account|cart|hello|search|menu|all|today'?s deals|share|report|\$|cdn\$|c\$)/i;
 
+/**
+ * Page furniture that carries a price or a town name and kept outscoring the
+ * real title (2026-10-21 backfill: 7 of 10 live screenshot scans were named
+ * after a delivery banner, a seller-price line, or a protection plan). None
+ * of these shapes can be a product title:
+ * - delivery / pickup / shipping banners ("Free delivery over $35, arrives
+ *   tomorrow to Mississauga L5V 2N6") — including any line carrying a
+ *   Canadian postal code, which no product title contains;
+ * - seller-option prompts ("Starting from $498.00 Compare all sellers");
+ * - protection-plan upsells ("2-Year Plan", "Accident protection") — they
+ *   inherit the product's price bonuses while naming no product;
+ * - purchase-mode lines ("One-time purchase", "Subscribe & Save") and
+ *   fulfillment stamps ("Fulfilled by Walmart").
+ */
+const POSTAL_CODE = /\b[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d\b/;
+const DELIVERY_BANNER =
+  /(?:\b(?:free\s+)?(?:delivery|pickup|shipping)\b[^.]{0,60}?\b(?:over|arrives?|today|tomorrow|by|from store)\b)|\bexpress delivery\b|\barrives (?:today|tomorrow|by)\b/i;
+const SELLER_OPTIONS_LINE = /\bstarting from\s*(?:\$|cad|usd)?\s*[\d]|\bcompare all sellers\b|\bmore seller options\b|\bsold (?:&|and) shipped by\b|\bfulfilled by\b/i;
+const PROTECTION_PLAN_LINE = /\bprotection plan\b|\baccident protection\b|^\W*\d+\s*-\s*year plan\b|^\W*\d+\s*year plan\b/i;
+const PURCHASE_MODE_LINE = /\bone-time purchase\b|\bsubscribe\s*(?:&|and|to)?\s*save\b|\bsubscribe now\b|\bauto delivery\b/i;
+
+/**
+ * OCR merges neighbouring carousel cards and modules into single monster
+ * lines ("Combo Robot Vacuum u and Mop Combo with and Mop, 4000Pa Robot
+ * Vacuumand …"). The fingerprint of a merge is repetition: content words
+ * recur because several products' names were concatenated. Counting runs
+ * over the line's letter stream so garbled joins ("2-in-1Robot",
+ * "Vacuumand") still count their parts. A real title can repeat one or two
+ * words ("Roomba … Roomba 694", "Flow … Flow") and stays under the mass
+ * bar; a merged line repeats most of what it contains.
+ */
+function looksLikeMergedMultiProductLine(text: string): boolean {
+  // Two or more truncation ellipses = several card texts merged into one
+  // line. A SINGLE ellipsis is innocent: storefront apps truncate the real
+  // title itself with one ("Amazon Echo Dot (newest model) - Vibrant...").
+  if ((text.match(/\.\.\.|…/g) || []).length >= 2) return true;
+  const stream = text.toLowerCase().replace(/[^a-z]+/g, "");
+  const words = new Set(
+    text.toLowerCase().replace(/[^a-z\s]+/g, " ").split(/\s+/).filter((w) => w.length >= 4)
+  );
+  // Repetition mass: total surplus occurrences of content words. A merged
+  // carousel line repeats most of its words (mass 3+); a real title may
+  // repeat one or two ("Roomba … Roomba 694", "Flow … Flow") and stays
+  // under the bar — both shapes measured on the 2026-10-21 pages.
+  let mass = 0;
+  for (const word of words) {
+    let count = 0;
+    let at = stream.indexOf(word);
+    while (at >= 0) {
+      count += 1;
+      at = stream.indexOf(word, at + word.length);
+    }
+    if (count >= 2) mass += count - 1;
+  }
+  return mass >= 3;
+}
+
+/** Function words: titles do not start with them and they are not brand evidence. */
+const TITLE_FUNCTION_START = new Set([
+  "with", "from", "this", "that", "your", "yours", "their", "these", "those",
+  "when", "while", "each", "both", "only", "just", "also", "than", "then",
+  "into", "over", "under", "about", "there", "here", "what", "which",
+  "will", "would", "our", "its", "it", "in", "on", "at", "by", "as", "if",
+  "but", "so", "no", "yes",
+]);
+
+export function isScreenshotDecoyLine(text: string): boolean {
+  if (POSTAL_CODE.test(text)) return true;
+  if (DELIVERY_BANNER.test(text)) return true;
+  if (SELLER_OPTIONS_LINE.test(text)) return true;
+  if (PROTECTION_PLAN_LINE.test(text)) return true;
+  if (PURCHASE_MODE_LINE.test(text)) return true;
+  // Furniture rows set in large type beside the buy box ("Return policy",
+  // a bare "Free Delivery" promise): short lines, never product titles.
+  if (/\breturn policy\b/i.test(text)) return true;
+  if (/\bnot\s?returnable\b/i.test(text)) return true;
+  if (text.split(/\s+/).filter(Boolean).length <= 8 && /\bfree delivery\b/i.test(text)) return true;
+  if (looksLikeMergedMultiProductLine(text)) return true;
+  return false;
+}
+
 // Browser/site navigation anywhere in a line (address bar, greeting, account links).
 const NAV = /\b(sign in|hello,|returns & orders|your account|cart|deliver to|https?:|www\.)|\b[a-z0-9-]+\.(ca|com|co\.uk)\b/i;
 
@@ -133,7 +214,7 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // rejection (nav, breadcrumbs, retail chrome, legal/feature headings) plus scoring
   // (a same-line price is the strongest product-block signal) picks the real title.
   const pool = ocr.lines
-    .map((l, index) => ({ index, confidence: l.confidence, text: l.text.trim() }))
+    .map((l, index) => ({ index, confidence: l.confidence, text: l.text.trim(), bbox: l.bbox }))
     .filter(l => l.confidence >= 50 && l.text)
     .slice(0, 40);
   // Everything from a recommendations/sponsored section heading down belongs to OTHER
@@ -141,9 +222,17 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // whose length would otherwise out-score the real title (measured 2026-10-20: a
   // "Best sellers" row line — two rice-cooker titles merged — beat the Crock-Pot title).
   const sectionBreak = ocr.lines.findIndex(l => /best sellers|you might (?:also )?like|customers also|related products|more items to explore|sponsored products?\b/i.test(l.text));
+  // Page geometry for the title scoring below: total height and the typical
+  // (median) line height over the readable pool, in the merged lines' shared
+  // coordinate space. Lines without a bbox simply get no geometry signal.
+  const boxedPool = pool.filter((entry) => entry.bbox && entry.bbox.y1 > entry.bbox.y0);
+  const pageHeight = boxedPool.reduce((max, entry) => Math.max(max, entry.bbox!.y1), 0);
+  const poolHeights = boxedPool.map((entry) => entry.bbox!.y1 - entry.bbox!.y0).sort((a, b) => a - b);
+  const medianLineHeight = poolHeights.length ? poolHeights[Math.floor(poolHeights.length / 2)] : 0;
   let bestTitle = "";
   let bestScore = -Infinity;
   let bestTitleLine = "";
+  let bestTitleBrandCorroborated = false;
   for (const line of pool) {
     const raw = line.text;
     if (sectionBreak >= 0 && line.index >= sectionBreak) continue;
@@ -158,6 +247,12 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     // their length bonus alone could beat the real title (same Crock-Pot page:
     // "Free seller delivery arrives by Fri, Oct 30 to Mississauga…").
     if (/arrives by|sold (?:and|&) shipped|shipped by|delivery arrives|get it (?:by|on)\b/i.test(raw)) continue;
+    // The 2026-10-21 decoy families: delivery/pickup banners (incl. postal-code
+    // lines), seller-option prompts, protection plans, purchase-mode lines, and
+    // merged multi-product carousel lines. Measured: 7 of 10 live scans were
+    // named after one of these shapes; each carries a price or great length,
+    // so the bonuses below crowned them over the real title.
+    if (isScreenshotDecoyLine(raw)) continue;
     if (chromeWordHits(raw) >= 2) continue;
     if (/out of 5|ratings?|reviews?/i.test(raw)) continue;
     const candidate = cleanOcrTitle(raw);
@@ -169,21 +264,61 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     // Longer candidates are likelier to be the real title than short feature bullets
     // ("Feeds Large Groups"); a flat +1 left them within noise of each other.
     if (candidate.length >= 18 && candidate.length <= 200) score += Math.min(2, candidate.length / 40);
-    if (/^[a-z]/.test(candidate)) score -= 2; // sentence-fragment continuation, not a title
+    // Geometry: the listing title is set in the page's largest type and lives
+    // in the title zone. Merged OCR lines share one coordinate space (see
+    // mergeOcrLines), so font height and vertical position are trustworthy
+    // signals — the strongest separation between the H1 and body-size decoys.
+    if (line.bbox && pageHeight > 0 && candidate.split(/\s+/).filter(Boolean).length >= 6) {
+      // The token gate keeps big-type furniture rows ("Return policy",
+      // "Specifications") from collecting the font bonus: they are short
+      // lines set large, while a real listing title is a full phrase.
+      const lineHeight = Math.max(0, line.bbox.y1 - line.bbox.y0);
+      if (medianLineHeight > 0 && lineHeight >= medianLineHeight) {
+        const ratio = lineHeight / medianLineHeight;
+        if (ratio >= 1.6) score += 2;
+        else if (ratio >= 1.3) score += 1.25;
+        else if (ratio >= 1.15) score += 0.5;
+      }
+      const yCenter = (line.bbox.y0 + line.bbox.y1) / 2 / pageHeight;
+      if (yCenter <= 0.38) score += 0.5;
+      else if (yCenter >= 0.62) score -= 0.5;
+    }
+    // Sentence-fragment continuations start all-lowercase; a camelCase brand
+    // ("iRobot", "eBay") merely STARTS lowercase and must not pay the penalty
+    // (measured 2026-10-21: it cost the real Roomba title 2 points, enough to
+    // hand the win to a merged carousel line).
+    const firstWord = candidate.split(/\s+/)[0] ?? "";
+    if (/^[a-z]+$/.test(firstWord)) score -= 2;
+    // Titles do not open with a function word; feature sentences do ("With
+    // only five calories per mini biscuit, …" outscored the Milk-Bone title
+    // on length alone, measured 2026-10-21).
+    if (TITLE_FUNCTION_START.has(firstWord.toLowerCase().replace(/[^a-z]/g, ""))) score -= 1;
     if (/\b(with|and|or|the|a|for|to|of)$/i.test(candidate)) score -= 2; // dangling fragment ending
+    // A candidate that ends in a full stop reads as a sentence, not a name:
+    // feature copy does ("…leaving a medium shine on surfaces." beat the
+    // short Armor All title on length, measured 2026-10-21); listing titles
+    // essentially never terminate with a period.
+    if (/\.$/.test(candidate)) score -= 1;
     const firstToken = candidate.split(/\s+/)[0].toLowerCase();
-    const brandLineNear = pool.some(other => other.index !== line.index && Math.abs(other.index - line.index) <= 2
-      && other.text.split(/\s+/).filter(Boolean).length <= 4
-      && other.text.toLowerCase().includes(firstToken));
+    // Compare alphanumerics only: a leading OCR quote glyph on either side
+    // ("‘Armor All …" vs the "Armor All" brand line) must not hide the match.
+    const firstTokenKey = firstToken.replace(/[^a-z0-9]+/g, "");
+    const brandLineNear = firstTokenKey.length >= 2 && pool.some(other => other.index !== line.index && Math.abs(other.index - line.index) <= 2
+      // The brand caption usually arrives merged with rating junk ("Armor
+      // All fr drdd (46) | 31" = 7 raw tokens, 4 alphabetic): count only
+      // tokens that contain a letter.
+      && other.text.split(/\s+/).filter((t) => /[a-z]/i.test(t)).length <= 5
+      && other.text.toLowerCase().replace(/[^a-z0-9]+/g, " ").includes(firstTokenKey));
     if (brandLineNear) score += 1;
     // Brand corroboration anywhere on the page: a real title's brand word recurs
     // (logo caption, breadcrumbs, feature text), while a stray long sentence's first
     // word does not. This is what separates the title from other long lines once the
     // whole page is readable.
     const brandWord = firstToken.split(/[^a-z0-9]+/).filter(Boolean).sort((a, b) => b.length - a.length)[0] ?? "";
-    if (brandWord.length >= 4 && pool.some(other => other.index !== line.index && new RegExp(`\\b${brandWord}\\b`, "i").test(other.text.replace(/[^a-z0-9]+/gi, " ")))) score += 1;
+    const brandRecur = brandWord.length >= 4 && !TITLE_FUNCTION_START.has(brandWord) && pool.some(other => other.index !== line.index && new RegExp(`\\b${brandWord}\\b`, "i").test(other.text.replace(/[^a-z0-9]+/gi, " ")));
+    if (brandRecur) score += 1;
     score -= line.index * 0.02; // titles sit above features and legal text
-    if (score > bestScore) { bestScore = score; bestTitle = candidate; bestTitleLine = raw; }
+    if (score > bestScore) { bestScore = score; bestTitle = candidate; bestTitleLine = raw; bestTitleBrandCorroborated = brandLineNear || brandRecur; }
   }
   const title = bestTitle && !isUnusableListingTitle(bestTitle) ? bestTitle : "";
 
@@ -194,6 +329,9 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // main price glyph went unread, the pool returned a recommendation's $19.97).
   const pricePool = ocr.lines
     .filter((l, index) => l.confidence >= 40 && (sectionBreak < 0 || index < sectionBreak))
+    // Decoy lines carry other amounts (delivery thresholds, plan prices):
+    // their prices are not the product's price.
+    .filter((l) => !isScreenshotDecoyLine(l.text))
     .map(l => l.text);
   let priceText = "";
   const titleLinePrice = bestTitleLine && !INSTALLMENT.test(bestTitleLine) ? bestTitleLine.match(PRICE_RE) : null;
@@ -219,7 +357,16 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // photo can crown control-panel words (a slow cooker's "Low / High / Warm" dial) as a
   // title. Dropping it keeps the honest "could not identify" outcome — and the shopper
   // prompt for a listing screenshot or link — instead of inventing a product name.
-  const corroborated = Boolean(priceText || ratingM || countM || store);
+  // A listing page can defeat every context read at once (store wordmark is
+  // a graphic, the rating line garbles, prices sit in unread card text) while
+  // its title is read perfectly and its brand is corroborated on the page —
+  // the 2026-10-21 Roomba page: title won scoring outright, yet the scan
+  // shipped nameless because this gate demanded a price/rating/store. A
+  // decisive, brand-corroborated, full-length title corroborates itself.
+  // The bare-photo case stays protected: control-dial fragments are short,
+  // score low, and carry no brand recurrence.
+  const titleSelfCorroborated = Boolean(bestTitleBrandCorroborated && bestScore >= 3 && title.length >= 30);
+  const corroborated = Boolean(priceText || ratingM || countM || store || titleSelfCorroborated);
   const trustedTitle = title && corroborated ? title : "";
   if (title && !trustedTitle) warnings.push("A title-like line was read with no price, rating, or store context, so it is not trusted.");
   // Without layout understanding we can't prove the price/rating belong to the main product unless a title was read.
