@@ -4,6 +4,7 @@ import "./results-stagger.css";
 import { BuyingScoreV2Card, isBuyingScoreV2 } from "@/components/BuyingScoreV2Card";
 import { ResultIntelligencePanel } from "@/components/ResultIntelligencePanel";
 import { BetterPicksPanel } from "@/components/BetterPicksPanel";
+import { HouseAdSlot } from "@/components/HouseAdCard";
 import { ShareVerdictButton } from "@/components/ShareVerdictButton";
 import { AffiliateSourcePanel } from "@/components/AffiliateSourcePanel";
 import Image from "next/image";
@@ -2835,6 +2836,9 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
           </details></>)}
         </>
       )}
+      {!isSellerAudience ? (
+        <HouseAdSlot context="result" placement="result-below-verdict" />
+      ) : null}
       <style jsx global>{`
         @media (max-width: 640px) {
           html[data-layout-mode="mobile"] .reviewintel-route-results main {

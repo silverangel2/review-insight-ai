@@ -1,10 +1,10 @@
 import { unstable_cache } from "next/cache";
 import { AdSlot } from "@/components/advertising/AdSlot";
+import { HouseAdSlot } from "@/components/HouseAdCard";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { FeaturedReviews } from "@/components/FeaturedReviews";
 import { HeroScanBar } from "@/components/HeroScanBar";
-import { HeroProofCard } from "@/components/HeroProofCard";
 import { supabaseCount } from "@/lib/supabaseServer";
 import { HomepageInstructionVideo } from "@/components/HomepageInstructionVideo";
 import { SponsorAnalytics } from "@/components/SponsorAnalytics";
@@ -85,12 +85,6 @@ export default async function LandingPage() {
             {" · "}No fake or generated reviews{" · "}If there aren&apos;t enough reviews, we say so
           </p>
         </div>
-        <div className="mx-auto w-full max-w-[620px] px-5 pb-3">
-          <HeroProofCard />
-        </div>
-        <p className="pb-12 text-center text-xs text-slate-400 dark:text-slate-500">
-          A real result — exactly what a buyer sees after a scan.
-        </p>
       </section>
 
       <section aria-label="How it works" className="px-5 py-14 sm:px-6">
@@ -170,6 +164,10 @@ export default async function LandingPage() {
 
       <section className="home-premium-ad-section hidden mx-auto max-w-6xl px-6 pb-12 sm:block">
         <AdSlot placement="homepage_mid" />
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 pb-12">
+        <HouseAdSlot context="home" placement="home" />
       </section>
 
     </main>
