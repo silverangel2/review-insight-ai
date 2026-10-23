@@ -147,6 +147,35 @@ export function pickHouseAd(context: HouseAdContext, seed: number): HouseAdCreat
   return candidates[index];
 }
 
+/** Index of the next creative in a rotation of `length` creatives.
+ * Advancing from the hourly-seed start index with this helper walks the
+ * same even order pickHouseAd(context, seed + step) would pick. */
+export function nextHouseAdIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return (((Math.floor(index) + 1) % length) + length) % length;
+}
+
+export type HouseAdRotationState = {
+  documentHidden: boolean;
+  inView: boolean;
+  hovered: boolean;
+  dismissed: boolean;
+  candidateCount: number;
+};
+
+/** The slot's rotation may only advance while the card is actually on
+ * screen, the tab is visible, the pointer is not hovering the card, and
+ * the visitor has not dismissed it. */
+export function houseAdRotationAllowed(state: HouseAdRotationState): boolean {
+  return (
+    state.candidateCount > 1 &&
+    state.inView &&
+    !state.documentHidden &&
+    !state.hovered &&
+    !state.dismissed
+  );
+}
+
 export function houseAdClickPath(id: string) {
   return `/api/ads/click/${encodeURIComponent(id)}`;
 }
