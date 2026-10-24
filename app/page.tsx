@@ -104,8 +104,13 @@ export default async function LandingPage() {
             One verdict, with the reasons showing
           </h2>
           <div className="ri-home-card mt-9 grid gap-7 rounded-[24px] p-[22px] sm:p-7 lg:grid-cols-[220px_1fr]">
-            <div className="flex min-h-[130px] items-end rounded-2xl bg-[linear-gradient(140deg,#dbeafe,#ede9fe)] p-3 text-[12.5px] font-semibold text-slate-500 lg:min-h-[190px]">
-              Product photo
+            <div className="relative min-h-[130px] overflow-hidden rounded-2xl bg-[linear-gradient(140deg,#dbeafe,#ede9fe)] lg:min-h-[190px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/ads/gadget-earbuds.jpg"
+                alt="Wireless earbuds and their charging case on a desk beside a laptop"
+                className="absolute inset-0 block !h-full w-full object-cover"
+              />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-3">
