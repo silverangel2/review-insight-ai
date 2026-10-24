@@ -104,6 +104,7 @@ import {
   type RefereeIntervention,
 } from "@/lib/reviewReferee";
 import type { ScanCostTelemetry } from "@/lib/scanCostTelemetry";
+import { shouldKeepCrossStoreAmazonListing } from "@/lib/screenshotListingIdentity";
 type ReviewEvidenceInput = {
   productName: string;
   color?: string;
@@ -120,6 +121,11 @@ type ReviewEvidenceInput = {
   locale?: string;
   outputLanguage?: string;
   costTelemetry?: ScanCostTelemetry;
+  /**
+   * Screenshot-only Walmart / Best Buy scans may use an Amazon listing of the
+   * same product. A pasted store link does not set this.
+   */
+  crossStoreEnrichment?: boolean;
 
 };
 
@@ -1389,6 +1395,21 @@ function reviewEvidenceMatchesRequestedStore(
   if (!evidence) return false;
 
   const requestedStore = String(input.store || "").toLowerCase();
+  const rememberedHost = (() => {
+    try {
+      return evidence.listingEvidence?.exactListingUrl
+        ? new URL(String(evidence.listingEvidence.exactListingUrl)).hostname
+        : "";
+    } catch {
+      return "";
+    }
+  })();
+  if (shouldKeepCrossStoreAmazonListing({
+    store: input.store,
+    listingUrl: input.listingUrl,
+    crossStoreEnrichment: input.crossStoreEnrichment,
+    returnedHost: rememberedHost,
+  })) return true;
   const requiresWalmartCa =
     requestedStore.includes("walmart.ca") ||
     requestedStore.includes("walmart canada");
@@ -2343,10 +2364,6 @@ export async function collectAndAnalyzeReviewEvidence(
   });
 
   const requestedStoreHost = String(input.store || "").toLowerCase();
-  const requiresWalmartCa =
-    requestedStoreHost.includes("walmart.ca") ||
-    requestedStoreHost.includes("walmart canada");
-
   const returnedExactHost = (() => {
     try {
       return rawListingEvidence.exactListingUrl
@@ -2356,6 +2373,16 @@ export async function collectAndAnalyzeReviewEvidence(
       return "";
     }
   })();
+  const keepCrossStoreAmazon = shouldKeepCrossStoreAmazonListing({
+    store: input.store,
+    listingUrl: input.listingUrl,
+    crossStoreEnrichment: input.crossStoreEnrichment,
+    returnedHost: returnedExactHost,
+  });
+  const requiresWalmartCa =
+    !keepCrossStoreAmazon &&
+    (requestedStoreHost.includes("walmart.ca") ||
+    requestedStoreHost.includes("walmart canada"));
 
   const listingEvidence =
     requiresWalmartCa &&

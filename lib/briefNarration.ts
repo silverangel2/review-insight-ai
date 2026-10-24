@@ -67,8 +67,8 @@ export function briefFactRows(input: unknown, locale: string = "en"): BriefFactR
   const rows: BriefFactRow[] = [];
   if (agg.rating !== null)
     rows.push({ key: "marketplaceRating", term: factRowTerm(locale, "marketplaceRating"), rating: agg.rating });
-  if (agg.count !== null)
-    rows.push({ key: "ratingsCounted", term: factRowTerm(locale, "ratingsCounted"), count: agg.count });
+  // Shoppers never see a review or ratings count. The number stays available
+  // to scoring; it is not an answer-card row.
   if (answer.confidenceWords !== "Unknown")
     rows.push({ key: "howSureWeAre", term: factRowTerm(locale, "howSureWeAre"), text: confidenceWord(locale, answer.confidenceWords) });
   if (answer.value !== "Unknown" && (answer.value === "Good" || answer.value === "Fair" || answer.value === "Poor"))
@@ -94,10 +94,10 @@ export function writtenDepthWord(input: unknown): DepthWord | null {
 
 /**
  * The fold's one basis sentence: what actually backs this verdict, in a
- * single plain sentence. The marketplace aggregate lives on the answer card
- * ("Marketplace rating" / "Ratings counted" rows) — it is NEVER restated
- * here, so the numbers appear exactly once per page. Written-corpus depth in
- * words when present. Null when neither can be stated.
+ * single plain sentence. The star rating may appear on the answer card.
+ * Review counts are not shown to shoppers, and this sentence never restates
+ * a number. Written-corpus depth in words when present. Null when neither
+ * can be stated.
  */
 export function foldBasisLine(input: unknown, locale: string = "en"): string | null {
   const agg = marketplaceAggregateNumbers(input);

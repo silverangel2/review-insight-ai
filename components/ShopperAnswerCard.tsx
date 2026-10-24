@@ -94,7 +94,7 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
             <div><dt className="text-slate-500">Value for money</dt><dd className="mt-1 font-semibold text-slate-900">{answer.value}</dd></div>
           ) : null}
           {aggregate.rating ? (
-            <div><dt className="text-slate-500">Marketplace rating</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-marketplace-rating">{aggregate.rating}{aggregate.countLine ? <span className="ml-2 font-normal text-slate-500">{aggregate.countLine}</span> : null}</dd></div>
+            <div><dt className="text-slate-500">Marketplace rating</dt><dd className="mt-1 font-semibold text-slate-900" data-testid="answer-marketplace-rating">{aggregate.rating}</dd></div>
           ) : null}
         </dl>
         )}

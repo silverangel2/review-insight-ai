@@ -9,12 +9,9 @@ import { HeroScanBar } from "@/components/HeroScanBar";
  * The SCREENSHOT door is the primary action (it is the door most
  * customers use); the paste-a-link bar sits below it as the second door.
  *
- * Wiring is exactly the wiring today's hero has always had: choosing or
- * dropping screenshots routes to /analyze, where the real scan flow's
- * own upload form takes the files; the link bar is the existing
- * HeroScanBar, which prefills /analyze?url= the same way it always has.
- * Nothing about either door's behaviour changes — this panel only gives
- * the main door its proper place at the top of the page.
+ * The screenshot door is first. A chosen or dropped photo is carried to
+ * /analyze (session storage, image only, size-capped) so the phone scan
+ * starts on that picture. The link bar below is the optional second door.
  */
 export function HeroDoorPanel() {
   const router = useRouter();
@@ -22,6 +19,27 @@ export function HeroDoorPanel() {
   const [dragging, setDragging] = useState(false);
 
   const goToScreenshotDoor = () => router.push("/analyze");
+
+  const carryScreenshot = (file: File | null | undefined) => {
+    if (!file || !file.type.startsWith("image/") || file.size > 1_500_000) {
+      goToScreenshotDoor();
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        if (typeof reader.result === "string") {
+          window.sessionStorage.setItem(
+            "reviewintel_pending_screenshot",
+            JSON.stringify({ name: file.name, type: file.type, dataUrl: reader.result })
+          );
+        }
+      } catch { /* storage full — the analyze page still opens */ }
+      goToScreenshotDoor();
+    };
+    reader.onerror = () => goToScreenshotDoor();
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-[22px] text-left shadow-[0_18px_44px_rgba(23,32,51,0.08)] dark:border-white/10 dark:bg-[#171824]">
@@ -34,7 +52,7 @@ export function HeroDoorPanel() {
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          goToScreenshotDoor();
+          carryScreenshot(e.dataTransfer.files?.[0]);
         }}
         className={`rounded-2xl border-2 border-dashed px-5 py-[26px] text-center transition-colors ${
           dragging
@@ -76,7 +94,7 @@ export function HeroDoorPanel() {
           className="hidden"
           aria-label="Upload screenshots of the reviews"
           onChange={(e) => {
-            if (e.target.files && e.target.files.length > 0) goToScreenshotDoor();
+            carryScreenshot(e.target.files?.[0]);
           }}
         />
       </div>

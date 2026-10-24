@@ -124,7 +124,7 @@ test("aggregate numbers still appear exactly once (answer-card fact rows)", () =
   const rows = briefFactRows(aggregateResult());
   const terms = rows.map((r) => r.term);
   assert.ok(terms.includes("Marketplace rating"), "rating row present");
-  assert.ok(terms.includes("Ratings counted"), "count row present");
+  assert.ok(!terms.includes("Ratings counted"), "shoppers are not shown a ratings count");
 });
 
 // ---------------------------------------------------------------------------

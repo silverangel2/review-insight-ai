@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trackTrafficEvent } from "@/lib/clientTraffic";
 import type { AffiliatePartnerPlacement } from "@/lib/adConfig";
 import { readStoredLocale } from "@/lib/i18n";
+import { ensureAmazonAssociateTag } from "@/lib/affiliate";
 
 type ResultRecord = Record<string, unknown>;
 
@@ -156,7 +157,7 @@ export function BetterPicksPanel({
             <p className="truncate text-lg font-semibold text-slate-900">{primary.title}</p>
             <p className="mt-1 text-sm text-slate-500">{primary.whyBetter}</p>
           </div>
-          <a href={primary.affiliateUrl || primary.url} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(primary)}
+          <a href={ensureAmazonAssociateTag(primary.affiliateUrl || primary.url || "")} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(primary)}
             className="inline-flex shrink-0 items-center justify-center ri-lift rounded-full bg-teal px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-teal/90">
             Check price on {primary.store}
           </a>
@@ -173,7 +174,7 @@ export function BetterPicksPanel({
                   <p className="font-semibold text-slate-900">{pick.title}</p>
                   <p className="mt-1 text-sm text-slate-600">{pick.whyBetter}</p>
                 </div>
-                <a href={pick.affiliateUrl || pick.url} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(pick)}
+                <a href={ensureAmazonAssociateTag(pick.affiliateUrl || pick.url || "")} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(pick)}
                   className="mt-3 inline-flex w-fit rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:border-teal hover:text-teal">
                   Check price on {pick.store}
                 </a>
@@ -190,7 +191,7 @@ export function BetterPicksPanel({
           <ul className="mt-3 flex flex-wrap gap-2">
             {searches.map(pick => (
               <li key={pick.url}>
-                <a href={pick.affiliateUrl || pick.url} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(pick)}
+                <a href={ensureAmazonAssociateTag(pick.affiliateUrl || pick.url || "")} target="_blank" rel="sponsored noopener noreferrer" onClick={() => track(pick)}
                   className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:border-teal hover:text-teal">
                   {pick.title} <span aria-hidden="true" className="ml-1">↗</span>
                 </a>

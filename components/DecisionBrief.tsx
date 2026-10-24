@@ -172,7 +172,9 @@ export function DecisionBrief({
             </div>
           </div>
           <dl className={`ri-unlock-child ri-d1 mt-4 grid grid-cols-1 border-t border-slate-100 dark:border-white/10 ${briefGridCols} lg:gap-3 lg:border-t-0`}>
-            {facts.map((fact) => (
+            {facts.map((fact) => {
+              if (fact.key === "ratingsCounted") return null;
+              return (
               <div key={fact.key} className={factCell}>
                 <dt className={factTerm}>{fact.term}</dt>
                 <dd className={factValue}>
@@ -184,14 +186,13 @@ export function DecisionBrief({
                       </span>
                       {fact.rating} / 5
                     </>
-                  ) : fact.key === "ratingsCounted" && "count" in fact ? (
-                    fact.count.toLocaleString("en-US")
                   ) : (
                     "text" in fact ? fact.text : ""
                   )}
                 </dd>
               </div>
-            ))}
+              );
+            })}
           </dl>
           <p className="mt-3.5 text-[13.5px] leading-6 text-slate-500 dark:text-slate-400">
             {copy.independenceLine}

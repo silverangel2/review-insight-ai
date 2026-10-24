@@ -1,5 +1,6 @@
 import { ocrReviewScreenshot } from "@/lib/reviewScreenshotOcr";
 import { authoritativeDisplayName, isAmazonNavOrHeaderText, productFactsFromOcr } from "@/lib/screenshotProductFacts";
+import { screenshotCollectionPlan } from "@/lib/screenshotListingIdentity";
 import { amazonStoreLabel, isAnalyzableProductUrl } from "@/lib/listingAuthority";
 import { candidateMatchesLinkIdentity, collectionProductName, identityFromProductLink, isPlaceholderProductName, placeholderFreeText } from "@/lib/linkIdentity";
 import { attachScanAccess } from "@/lib/scanAccess";
@@ -1835,14 +1836,21 @@ async function researchAndVerdict(
   // bounded per request and aborted at the deadline; if the collector still has not returned
   // shortly after, the scan continues with what we have (v2 handles low n / provisional).
   const budgets = scanBudgets();
+  const screenshotEnrichment = screenshotCollectionPlan({
+    store: vision.store,
+    listingUrl: productLink,
+    productName: screenshotName || productForReviewEvidence,
+  });
+  const enrichedProductName = screenshotEnrichment.productName || productForReviewEvidence;
   const { value: reviewEvidence } = await raceWithBudget(budgets.collectionMs + 5_000, () => withScanDeadline(budgets.collectionMs, () => collectAndAnalyzeReviewEvidence({
-      productName: collectionProductName(productLink, productForReviewEvidence, suppliedAsin ? "" : vision.category),
+      productName: collectionProductName(productLink, enrichedProductName, suppliedAsin ? "" : vision.category),
       brand: suppliedAsin ? "" : vision.brand,
-      model: identityFromProductLink(productLink)?.modelTokens.join(" ") || undefined,
+      model: identityFromProductLink(productLink)?.modelTokens.join(" ") || screenshotEnrichment.model || undefined,
       color: [...vision.visibleFeatures, vision.name].join(" ").match(/\b(white|black|gray|grey|silver|blue|red|gold)\b/i)?.[1],
       categoryBreadcrumbs: [vision.category].filter(Boolean),
       marketingText: vision.visibleBadges,
-      store: amazonStoreLabel(productLink) || identityFromProductLink(productLink)?.storeLabel || vision.store,
+      store: amazonStoreLabel(productLink) || identityFromProductLink(productLink)?.storeLabel || screenshotEnrichment.collectionStore || vision.store,
+      crossStoreEnrichment: screenshotEnrichment.crossStoreAmazon || undefined,
       price: vision.priceBelongsToProduct || String(vision.store || "").toLowerCase().includes("walmart")
         ? vision.price
         : undefined,

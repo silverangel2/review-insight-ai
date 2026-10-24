@@ -6,6 +6,7 @@ import {
 } from "@/lib/shopperAnswer";
 import { RELIABILITY_FAILURES, SAFETY_HAZARDS } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim } from "@/lib/evidenceConsistency";
+import { excerptComplaintLabel } from "@/lib/screenshotListingIdentity";
 import { themeFinding } from "@/lib/themeFindings";
 import { severityRank } from "@/lib/themeSpecifics";
 import {
@@ -304,20 +305,28 @@ export function mineScoreComplaints(input: unknown): MinedSignal[] {
     add(key, claim || key, count, [], text, tier);
   });
 
-  // 2. Sentiment-classified negative excerpts: keyword-mined, never rendered.
+  // 2. Sentiment-classified negative excerpts. A known theme keeps its
+  // dimension. An unmatched excerpt keeps the buyer's sentence as the label.
   const quotes = obj(card.quotes);
   const negatives = Array.isArray(quotes.negative) ? quotes.negative : [];
   const perKey = new Map<string, string[]>();
   for (const excerpt of negatives) {
     const text = cleanQuoteText(String(excerpt || ""));
     if (text.length < 8) continue;
-    const key = matchDimension(text) ?? "__generic_concern";
+    const dimension = matchDimension(text);
+    // Unmatched excerpts used to collapse into __generic_concern, which the
+    // brief then hid behind "isolated concerns". Keep the buyer's own sentence
+    // as the complaint label instead of a generic band title.
+    const label = dimension ? "" : excerptComplaintLabel(text);
+    const key = dimension || (label ? `excerpt:${label.toLowerCase()}` : "");
+    if (!key) continue;
     const list = perKey.get(key) ?? [];
-    list.push(text);
+    list.push(dimension ? text : label);
     perKey.set(key, list);
   }
   for (const [key, texts] of perKey) {
-    add(key, key.startsWith("__") ? key : key, texts.length, texts, null);
+    const claim = key.startsWith("excerpt:") ? (texts[0] || key) : key;
+    add(key, claim, texts.length, texts, null);
   }
 
   return [...byKey.values()];

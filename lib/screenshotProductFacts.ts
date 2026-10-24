@@ -2,6 +2,7 @@
 // Only text actually read with good confidence is used; unclear fields stay empty and a warning is added.
 import type { ScreenshotOcrResult } from "./reviewScreenshotOcr";
 import { isUnusableListingTitle } from "./listingAuthority";
+import { chromeTitlePenalty, cleanScreenshotProductTitle, isStorePageChromeLine } from "./screenshotListingIdentity";
 
 export type ScreenshotProductFacts = {
   name: string; brand: string; category: string; store: string; price: string; rating: string; reviewCount: string;
@@ -11,7 +12,9 @@ export type ScreenshotProductFacts = {
 
 const STORES: Array<[RegExp, string]> = [
   [/amazon\.ca/i, "Amazon.ca"], [/amazon\.com/i, "Amazon.com"], [/amazon\.co\.uk/i, "Amazon.co.uk"], [/\bamazon\b/i, "Amazon"],
-  [/walmart\.ca/i, "Walmart.ca"], [/walmart/i, "Walmart"], [/best ?buy/i, "Best Buy"], [/\btarget\b/i, "Target"],
+  [/walmart\.ca/i, "Walmart.ca"], [/walmart\.com/i, "Walmart.com"], [/walmart/i, "Walmart"],
+  [/bestbuy\.ca|best\s*buy\.ca/i, "Best Buy.ca"], [/bestbuy\.com|best\s*buy\.com/i, "Best Buy.com"], [/best ?buy/i, "Best Buy"],
+  [/\btarget\b/i, "Target"],
   [/costco/i, "Costco"], [/canadian tire/i, "Canadian Tire"], [/ebay/i, "eBay"], [/home ?depot/i, "Home Depot"],
 ];
 const CHROME = /^(sponsored|visit the|add to cart|buy now|in stock|ships from|sold by|deliver|free (delivery|shipping|returns)|returns?|see more|about this item|customers (also|who)|sign in|account|cart|hello|search|menu|all|today'?s deals|share|report|\$|cdn\$|c\$)/i;
@@ -156,6 +159,7 @@ export function isScreenshotDecoyLine(text: string): boolean {
   if (/\bnot\s?returnable\b/i.test(text)) return true;
   if (text.split(/\s+/).filter(Boolean).length <= 8 && /\bfree delivery\b/i.test(text)) return true;
   if (looksLikeMergedMultiProductLine(text)) return true;
+  if (isStorePageChromeLine(text)) return true;
   return false;
 }
 
@@ -197,9 +201,9 @@ export const NEUTRAL_AMAZON_PRODUCT_LABEL = "Amazon product";
  * product-title line (not nav or menu text). A bare ASIN becomes a neutral label.
  */
 export function authoritativeDisplayName(input: { listingTitle?: string | null; screenshotName?: string | null; asin?: string | null }): string {
-  const listing = cleanProductTitle(input.listingTitle);
+  const listing = cleanScreenshotProductTitle(cleanProductTitle(input.listingTitle));
   if (listing) return listing;
-  const screenshot = cleanProductTitle(input.screenshotName);
+  const screenshot = cleanScreenshotProductTitle(cleanProductTitle(input.screenshotName));
   if (screenshot) return screenshot;
   const asin = String(input.asin || "").trim().toUpperCase();
   if (/^[A-Z0-9]{10}$/.test(asin)) return NEUTRAL_AMAZON_PRODUCT_LABEL;
@@ -245,6 +249,34 @@ function lineHasRealPrice(text: string): boolean {
   return m !== null && priceValue(m[0]) > 0;
 }
 
+function normalizeReviewCountToken(token: string): string {
+  const raw = token.replace(/\s+/g, "");
+  const thousands = raw.match(/^(\d+(?:\.\d+)?)[kK]\+?$/);
+  if (thousands) {
+    const count = Math.round(Number(thousands[1]) * 1000);
+    return Number.isFinite(count) && count > 0 && count <= 50_000_000 ? String(count) : "";
+  }
+  const digits = raw.replace(/[^\d]/g, "");
+  const count = Number(digits);
+  if (!Number.isFinite(count) || count <= 0 || count > 50_000_000) return "";
+  return String(Math.floor(count));
+}
+
+/**
+ * Marketplace total printed beside the stars. Labeled counts ("1,234 reviews",
+ * "2.3K ratings") win. A parenthetical or bare total sitting on the star line
+ * ("4.6 out of 5 stars (12,431)") counts too. The star value itself never does.
+ */
+export function reviewCountFromOcrText(value: unknown): string {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const labeled = text.match(/\b(\d{1,3}(?:[, ]\d{3})+|\d{1,7}|\d+(?:\.\d+)?\s*[kK])\+?\s*(?:global\s+)?(?:customer\s+)?(?:ratings?|reviews?|avis|évaluations)\b/i);
+  if (labeled) return normalizeReviewCountToken(labeled[1]);
+  const beside = text.match(/\b[1-5](?:[.,]\d)?\s*(?:out of\s*5|\/\s*5)?\s*stars?\s*(?:[|(,/.-]\s*)?\(?\s*(\d{1,3}(?:,\d{3})+|\d{2,7}|\d+(?:\.\d+)?\s*[kK])\+?\s*\)?/i);
+  if (beside) return normalizeReviewCountToken(beside[1]);
+  return "";
+}
+
 /** Strip OCR noise tokens and a trailing price from a raw title line. Clean titles pass through unchanged. */
 function cleanOcrTitle(raw: string): string {
   let tokens = raw.split(/\s+/).filter(Boolean);
@@ -268,7 +300,7 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   const anyText = ocr.lines.filter(l => l.confidence >= 40).map(l => l.text).join("\n");
   const store = STORES.find(([re]) => re.test(anyText))?.[1] ?? "";
   const ratingM = all.match(/\b([1-5](?:[.,]\d)?)\s*(?:out of\s*5|\/\s*5)(?:\s*stars?)?/i);
-  const countM = all.match(/\b(\d{1,3}(?:[,.\s]\d{3})+|\d{1,6})\s*(?:global\s+)?(?:ratings?|reviews?|avis|évaluations)\b/i);
+  const reviewCount = reviewCountFromOcrText(all);
 
   // Title: scored over a wider confidence pool than the corroborating facts. On real
   // screenshots the title line often OCRs at 50-70 (bold text on brand-colored blocks),
@@ -327,7 +359,7 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     }
     if (chromeWordHits(raw) >= 2) continue;
     if (/out of 5|ratings?|reviews?/i.test(raw)) continue;
-    const candidate = cleanOcrTitle(raw);
+    const candidate = cleanScreenshotProductTitle(cleanOcrTitle(raw));
     if (candidate.length < 8) continue;
     const letters = (candidate.match(/[a-z]/gi) ?? []).length;
     if (letters / candidate.length < 0.45) continue;
@@ -389,6 +421,7 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     const brandWord = firstToken.split(/[^a-z0-9]+/).filter(Boolean).sort((a, b) => b.length - a.length)[0] ?? "";
     const brandRecur = brandWord.length >= 4 && !TITLE_FUNCTION_START.has(brandWord) && pool.some(other => other.index !== line.index && new RegExp(`\\b${brandWord}\\b`, "i").test(other.text.replace(/[^a-z0-9]+/gi, " ")));
     if (brandRecur) score += 1;
+    score -= chromeTitlePenalty(raw);
     score -= line.index * 0.02; // titles sit above features and legal text
     if (score > bestScore) { bestScore = score; bestTitle = candidate; bestTitleLine = raw; bestTitleBrandCorroborated = brandLineNear || brandRecur; }
   }
@@ -438,7 +471,7 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // The bare-photo case stays protected: control-dial fragments are short,
   // score low, and carry no brand recurrence.
   const titleSelfCorroborated = Boolean(bestTitleBrandCorroborated && bestScore >= 3 && title.length >= 30);
-  const corroborated = Boolean(priceText || ratingM || countM || store || titleSelfCorroborated);
+  const corroborated = Boolean(priceText || ratingM || reviewCount || store || titleSelfCorroborated);
   const trustedTitle = title && corroborated ? title : "";
   if (title && !trustedTitle) warnings.push("A title-like line was read with no price, rating, or store context, so it is not trusted.");
   // Without layout understanding we can't prove the price/rating belong to the main product unless a title was read.
@@ -450,8 +483,8 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   return {
     name: trustedTitle, brand: trustedTitle ? brand : "", category: "", store,
     price: tied && priceText ? priceText.replace(/\s+/g, "") : "", rating: ratingM ? ratingM[1].replace(",", ".") : "",
-    reviewCount: countM ? countM[1].replace(/[\s.,]/g, "") : "",
-    priceBelongsToProduct: tied && Boolean(priceText), ratingBelongsToProduct: Boolean(ratingM), reviewCountBelongsToProduct: Boolean(countM),
+    reviewCount,
+    priceBelongsToProduct: tied && Boolean(priceText), ratingBelongsToProduct: Boolean(ratingM), reviewCountBelongsToProduct: Boolean(reviewCount),
     visibleFeatures: [], visibleBadges: lines.filter(l => /best seller|amazon'?s choice|overall pick|top rated/i.test(l)).slice(0, 5),
     identityWarnings: ["Read with free on-device OCR (no AI vision); please confirm the product name.", ...warnings],
     normalizedSearchQuery: trustedTitle, imageConfidence: conf,
