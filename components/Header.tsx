@@ -144,7 +144,6 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
           ]
     : [
         ["Pricing", "/pricing"],
-        ["Advertise", "/advertise"],
         ["Reviews", "/reviews"],
         ["Guides", "/guides"],
       ];
@@ -163,14 +162,14 @@ export function Header({ initialLocale = "en" }: HeaderProps) {
             : "";
 
   return (
-    <header className="reviewintel-site-header sticky top-0 z-50 border-b border-white/50 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500/95">
+    <header className="reviewintel-site-header sticky top-0 z-50 border-b border-white/50 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-[#101018]/95">
       <div className="mx-auto flex min-h-[64px] max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:min-h-[68px] sm:gap-3 sm:px-6 lg:px-8">
         <Link href="/" className="reviewintel-site-brand flex min-w-0 shrink-0 items-center gap-2 whitespace-nowrap sm:gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] text-sm font-black text-white shadow-soft">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#0a6cff,#5b3df0)] text-sm font-black text-white shadow-soft">
             RI
           </span>
-          <span className="reviewintel-site-header-brand-text bg-[linear-gradient(135deg,#172033,#2356a3,#08b7a8)] bg-clip-text text-base font-black tracking-tight text-transparent dark:from-white dark:via-cyan-100 dark:to-amber sm:text-lg">
-            ReviewIntel
+          <span className="reviewintel-site-header-brand-text text-base font-black tracking-tight text-ink dark:text-white sm:text-lg">
+            Review<span className="ri-gradient-text">Intel</span>
           </span>
         </Link>
 

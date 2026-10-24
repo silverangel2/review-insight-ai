@@ -105,7 +105,7 @@ export function CookieConsentBanner({ initialVisible = false, serverLocale }: { 
           
           <h2 className="sr-only">{text.title}</h2>
           <p className="text-sm leading-5 text-slate-600">{text.body}</p>
-          <Link href="/cookies" className="mt-1 inline-flex text-xs font-medium text-teal underline underline-offset-4">
+          <Link href="/cookies" className="mt-1 inline-flex text-xs font-medium text-[#0a6cff] underline underline-offset-4">
             {text.policy}
           </Link>
         </div>
@@ -115,7 +115,7 @@ export function CookieConsentBanner({ initialVisible = false, serverLocale }: { 
             type="button"
             onClick={() => choose("accepted")}
             disabled={Boolean(saving)}
-            className="rounded-full bg-teal px-4 py-2 text-sm font-semibold text-white disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
+            className="ri-btn-gradient rounded-full px-4 py-2 text-sm font-semibold text-white disabled:opacity-100 disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-300"
           >
             {saving === "accepted" ? "Saving..." : text.accept}
           </button>

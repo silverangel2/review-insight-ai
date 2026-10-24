@@ -9,12 +9,12 @@ type HomepageInstructionVideoProps = {
 
 export function HomepageInstructionVideo({ video }: HomepageInstructionVideoProps) {
   const [loopEnabled, setLoopEnabled] = useState(true);
-  const poster = video?.thumbnail_url || "/reviewintel-video-cover.svg";
+  const poster = video?.thumbnail_url || "/reviewintel-video-cover-indigo.svg";
 
   if (!video) {
     return (
-      <div className="flex aspect-[9/16] w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#10182a,#0ea5a3_55%,#f5c15c)] p-6 text-center text-white">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">
+      <div className="flex aspect-[9/16] w-full flex-col items-center justify-center rounded-[1.35rem] bg-[linear-gradient(135deg,#172033,#0a6cff_55%,#5b3df0)] p-6 text-center text-white">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-indigo-100">
           ReviewIntel video
         </p>
         <h3 className="mt-3 text-3xl font-black">Scan reviews before you buy</h3>
@@ -26,9 +26,10 @@ export function HomepageInstructionVideo({ video }: HomepageInstructionVideoProp
   }
 
   return (
-    <div className="relative">
+    <div className="relative mx-auto w-fit max-w-full rounded-[24px] bg-[linear-gradient(135deg,#0a6cff,#5b3df0)] p-2 shadow-[0_18px_44px_rgba(91,61,240,0.28)]">
       <video
-        className="aspect-[9/16] w-full rounded-[1.35rem] bg-ink object-contain"
+        style={{ width: 169, height: 300 }}
+        className="aspect-[9/16] max-w-full rounded-[18px] bg-ink object-contain"
         src={video.file_url}
         poster={poster}
         playsInline
