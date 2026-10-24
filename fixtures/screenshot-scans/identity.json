@@ -113,7 +113,9 @@
     "expectTitleIncludes": ["Instant Pot", "Duo Plus", "8qt"],
     "expectTitleExcludes": ["Available at a lower", "Walmart"],
     "expectCollectionStore": "Amazon.com",
-    "expectCrossStore": true
+    "expectCrossStore": true,
+    "expectRating": "4.6",
+    "expectReviewCount": "12431"
   },
   {
     "id": "bestbuy-com-pixel-9a",
@@ -127,7 +129,9 @@
     "expectTitleIncludes": ["Pixel", "9a"],
     "expectTitleExcludes": ["Available at a lower", "Official Outlet"],
     "expectCollectionStore": "Amazon.com",
-    "expectCrossStore": true
+    "expectCrossStore": true,
+    "expectRating": "4.5",
+    "expectReviewCount": "2300"
   },
   {
     "id": "airpods-app-banner",
@@ -229,5 +233,40 @@
     "expectTitleExcludes": ["Official Outlet"],
     "expectCollectionStore": "Amazon.ca",
     "expectCrossStore": true
+  },
+  {
+    "id": "walmart-bissell-powerforce-aggregate",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 78 },
+      { "text": "BISSELL PowerForce Turbo Pet Lightweight Upright Vacuum", "confidence": 86 },
+      { "text": "$119.99", "confidence": 91 },
+      { "text": "(4.3) | 448", "confidence": 88 },
+      { "text": "Free pickup", "confidence": 80 }
+    ],
+    "expectTitleIncludes": ["BISSELL", "PowerForce", "Turbo", "Pet"],
+    "expectTitleExcludes": ["Official Outlet", "Walmart", "(4.3)"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true,
+    "expectRating": "4.3",
+    "expectReviewCount": "448",
+    "expectProvisionalWithoutAmazon": true
+  },
+  {
+    "id": "walmart-instant-pot-duo-plus-aggregate",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 76 },
+      { "text": "Instant Pot Duo Plus 8 Quart Multi-Use Pressure Cooker", "confidence": 85 },
+      { "text": "$129.99", "confidence": 90 },
+      { "text": "(4.8) | 2,553", "confidence": 87 }
+    ],
+    "expectTitleIncludes": ["Instant Pot", "Duo Plus", "Quart"],
+    "expectTitleExcludes": ["Official Outlet", "Walmart", "2,553"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true,
+    "expectRating": "4.8",
+    "expectReviewCount": "2553",
+    "expectProvisionalWithoutAmazon": true
   }
 ]

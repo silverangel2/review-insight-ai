@@ -858,15 +858,24 @@ export function marketplaceAggregateForScore(input: {
   screenshotRating?: unknown;
   screenshotCount?: unknown;
 }): { rating: number | null; count: number | null; source: "page" | "screenshot" | "none" } {
-  if (!input.exactListingAccepted) {
-    const rating = validRating(input.screenshotRating);
-    const count = validCount(input.screenshotCount);
-    return rating !== null ? { rating, count, source: "screenshot" } : { rating: null, count: null, source: "none" };
-  }
-  const pageRating = validRating(input.pageRating);
-  if (pageRating !== null) return { rating: pageRating, count: validCount(input.pageCount), source: "page" };
   const screenshotRating = validRating(input.screenshotRating);
-  if (screenshotRating !== null) return { rating: screenshotRating, count: validCount(input.screenshotCount), source: "screenshot" };
+  const screenshotCount = validCount(input.screenshotCount);
+  const screenshotComplete = screenshotRating !== null && screenshotCount !== null;
+  // A rejected Amazon fetch contributes nothing. A blocked page that returned
+  // a rating without a count is not a pair, so it must not erase the stars
+  // printed on the screenshot. Scoring needs both numbers.
+  const pageRating = input.exactListingAccepted ? validRating(input.pageRating) : null;
+  const pageCount = input.exactListingAccepted ? validCount(input.pageCount) : null;
+  const pageComplete = pageRating !== null && pageCount !== null;
+  if (pageComplete) return { rating: pageRating, count: pageCount, source: "page" };
+  if (screenshotComplete) return { rating: screenshotRating, count: screenshotCount, source: "screenshot" };
+  if (!input.exactListingAccepted && screenshotRating !== null) {
+    return { rating: screenshotRating, count: screenshotCount, source: "screenshot" };
+  }
+  if (input.exactListingAccepted && pageRating !== null) {
+    return { rating: pageRating, count: pageCount, source: "page" };
+  }
+  if (screenshotRating !== null) return { rating: screenshotRating, count: screenshotCount, source: "screenshot" };
   return { rating: null, count: null, source: "none" };
 }
 

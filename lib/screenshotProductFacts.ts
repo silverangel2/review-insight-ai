@@ -287,16 +287,131 @@ function normalizeReviewCountToken(token: string): string {
   return String(Math.floor(count));
 }
 
+/** A 1–5 star value. One decimal is allowed. 5.5 and 12.5 are not ratings. */
+const STAR_TOKEN = String.raw`(?:[1-4](?:[.,]\d)?|5(?:[.,]0)?)`;
+const STAR_DECIMAL = String.raw`(?:[1-4][.,]\d|5[.,]0)`;
+const COUNT_TOKEN = String.raw`(?:\d{1,3}(?:[, ]\d{3})+|\d{2,7}|\d+(?:\.\d+)?\s*[kK])`;
+
+function normalizeStarToken(token: string): string {
+  const rating = Number(token.replace(",", "."));
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) return "";
+  return token.replace(",", ".");
+}
+
+function reviewTotalToken(token: string, minimum: number): string {
+  const count = normalizeReviewCountToken(token);
+  const value = Number(count);
+  if (!count || !Number.isFinite(value) || value < minimum) return "";
+  return count;
+}
+
+type StarCount = { rating: string; reviewCount: string };
+
+/**
+ * Stars and the total printed with them. Walmart and Best Buy omit the words
+ * "out of 5 stars": "(4.3) | 448", "4.3 (448)", "4.8 | 2,553". A price, a
+ * size ("8 Quart"), or a storage size is not a rating or a count.
+ */
+function starCountFromText(value: string): StarCount | null {
+  const text = value.replace(/\s+/g, " ").trim();
+  if (!text) return null;
+
+  const parenPipe = text.match(new RegExp(`\\(\\s*(${STAR_TOKEN})\\s*\\)\\s*[|]\\s*(${COUNT_TOKEN})\\b`, "i"));
+  if (parenPipe) {
+    const rating = normalizeStarToken(parenPipe[1]);
+    const reviewCount = reviewTotalToken(parenPipe[2], 10);
+    if (rating && reviewCount) return { rating, reviewCount };
+  }
+
+  const besideParen = text.match(new RegExp(
+    `(?<![\\d$])\\b(${STAR_TOKEN})(?:\\s*(?:out of\\s*5(?:\\s*stars?)?|\\/\\s*5(?:\\s*stars?)?|stars?))?\\s*\\(\\s*(${COUNT_TOKEN})\\+?\\s*\\)`,
+    "i",
+  ));
+  if (besideParen) {
+    const rating = normalizeStarToken(besideParen[1]);
+    const reviewCount = reviewTotalToken(besideParen[2], 10);
+    if (rating && reviewCount) return { rating, reviewCount };
+  }
+
+  const decimalPipe = text.match(new RegExp(`(?<![\\d$])\\b(${STAR_DECIMAL})\\s*[|]\\s*(${COUNT_TOKEN})\\b`, "i"));
+  if (decimalPipe) {
+    const grouped = /(?:[, ]\d{3}|\d\s*[kK])\b/.test(decimalPipe[2]);
+    const rating = normalizeStarToken(decimalPipe[1]);
+    const reviewCount = reviewTotalToken(decimalPipe[2], grouped ? 10 : 100);
+    if (rating && reviewCount) return { rating, reviewCount };
+  }
+
+  const bareParen = text.match(new RegExp(`^\\(\\s*(${STAR_TOKEN})\\s*\\)\\s*[|]?\\s*$`, "i"));
+  if (bareParen) {
+    const rating = normalizeStarToken(bareParen[1]);
+    if (rating) return { rating, reviewCount: "" };
+  }
+
+  const classic = text.match(new RegExp(`(?<![\\d$])\\b(${STAR_TOKEN})\\s*(?:out of\\s*5|\\/\\s*5)(?:\\s*stars?)?`, "i"));
+  if (classic) {
+    const rating = normalizeStarToken(classic[1]);
+    if (rating) return { rating, reviewCount: "" };
+  }
+  return null;
+}
+
+function stripTrailingMarketplaceAggregate(text: string): string {
+  const tails = [
+    `\\(\\s*${STAR_TOKEN}\\s*\\)\\s*[|]\\s*${COUNT_TOKEN}\\b`,
+    `${STAR_DECIMAL}\\s*[|]\\s*${COUNT_TOKEN}\\b`,
+    `\\b${STAR_TOKEN}\\s*(?:out of\\s*5(?:\\s*stars?)?|\\/\\s*5(?:\\s*stars?)?|stars?)(?:\\s*\\(\\s*${COUNT_TOKEN}\\+?\\s*\\))?`,
+    `\\b${STAR_TOKEN}\\s*\\(\\s*${COUNT_TOKEN}\\+?\\s*\\)`,
+  ];
+  let next = text;
+  for (const source of tails) next = next.replace(new RegExp(`\\s*(?:${source})\\s*$`, "i"), "");
+  return next.trim();
+}
+
+/**
+ * Buy-box stars from OCR lines above the recommendations break. The first
+ * complete pair wins. A rating on one line and "2,553 ratings" on the next
+ * still pair. Numbers are never invented.
+ */
+function marketplaceAggregateFromOcrLines(
+  lines: Array<{ text: string; confidence: number }>,
+  sectionBreak: number,
+): { rating: string; reviewCount: string } {
+  const limit = sectionBreak < 0 ? lines.length : sectionBreak;
+  let rating = "";
+  let reviewCount = "";
+  for (let index = 0; index < limit; index += 1) {
+    const line = lines[index];
+    if (line.confidence < 50 || !line.text.trim()) continue;
+    const stub = line.text.replace(/\s+/g, " ").trim();
+    const next = index + 1 < limit && lines[index + 1].confidence >= 50 ? lines[index + 1].text.trim() : "";
+    const splitCount = /^\(\s*(?:[1-4](?:[.,]\d)?|5(?:[.,]0)?)\s*\)\s*[|]?\s*$/.test(stub)
+      && Boolean(next)
+      && !/\$/.test(next)
+      && /^(?:\d{1,3}(?:,\d{3})+|\d{2,7})$/.test(next.replace(/\s+/g, ""));
+    const found = starCountFromText(splitCount ? `${stub.replace(/\s*[|]\s*$/, "")} | ${next}` : stub);
+    if (!found) continue;
+    if (found.rating && found.reviewCount) return { rating: found.rating, reviewCount: found.reviewCount };
+    if (!rating && found.rating) rating = found.rating;
+    if (!reviewCount && found.reviewCount) reviewCount = found.reviewCount;
+  }
+  const before = lines.slice(0, limit).filter((line) => line.confidence >= 50).map((line) => line.text).join("\n");
+  if (!reviewCount) reviewCount = reviewCountFromOcrText(before);
+  if (!rating) rating = starCountFromText(before.replace(/\n/g, " "))?.rating || "";
+  return { rating, reviewCount };
+}
+
 /**
  * Marketplace total printed beside the stars. Labeled counts ("1,234 reviews",
- * "2.3K ratings") win. A parenthetical or bare total sitting on the star line
- * ("4.6 out of 5 stars (12,431)") counts too. The star value itself never does.
+ * "2.3K ratings") win. Walmart/Best Buy shorthand ("(4.3) | 448", "4.3 (448)",
+ * "4.8 | 2,553") counts too. The star value itself never does.
  */
 export function reviewCountFromOcrText(value: unknown): string {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (!text) return "";
   const labeled = text.match(/\b(\d{1,3}(?:[, ]\d{3})+|\d{1,7}|\d+(?:\.\d+)?\s*[kK])\+?\s*(?:global\s+)?(?:customer\s+)?(?:ratings?|reviews?|avis|évaluations)\b/i);
   if (labeled) return normalizeReviewCountToken(labeled[1]);
+  const pair = starCountFromText(text);
+  if (pair?.reviewCount) return pair.reviewCount;
   const beside = text.match(/\b[1-5](?:[.,]\d)?\s*(?:out of\s*5|\/\s*5)?\s*stars?\s*(?:[|(,/.-]\s*)?\(?\s*(\d{1,3}(?:,\d{3})+|\d{2,7}|\d+(?:\.\d+)?\s*[kK])\+?\s*\)?/i);
   if (beside) return normalizeReviewCountToken(beside[1]);
   return "";
@@ -324,8 +439,6 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // Store names are low-risk and often sit in dark headers OCR reads with lower confidence.
   const anyText = ocr.lines.filter(l => l.confidence >= 40).map(l => l.text).join("\n");
   const store = STORES.find(([re]) => re.test(anyText))?.[1] ?? "";
-  const ratingM = all.match(/\b([1-5](?:[.,]\d)?)\s*(?:out of\s*5|\/\s*5)(?:\s*stars?)?/i);
-  const reviewCount = reviewCountFromOcrText(all);
 
   // Title: scored over a wider confidence pool than the corroborating facts. On real
   // screenshots the title line often OCRs at 50-70 (bold text on brand-colored blocks),
@@ -341,11 +454,16 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // whose length would otherwise out-score the real title (measured 2026-10-20: a
   // "Best sellers" row line — two rice-cooker titles merged — beat the Crock-Pot title).
   const sectionBreak = ocr.lines.findIndex(l => /best sellers|you might (?:also )?like|customers also|related products|more items to explore|sponsored products?\b|similar items|compare with similar|more to consider|recommended for you/i.test(l.text));
+  // Walmart/Best Buy print "(4.3) | 448" with no "out of 5". That pair is the
+  // marketplace aggregate. A recommendation card below the break is ignored.
+  const aggregate = marketplaceAggregateFromOcrLines(ocr.lines, sectionBreak);
+  const rating = aggregate.rating;
+  const reviewCount = aggregate.reviewCount;
   // The buy box stars belong to the product being scanned. A title sits
   // just above them. Ads and other products sit further up or further down.
   const ratingLineIndex = ocr.lines.findIndex((l, index) =>
     (sectionBreak < 0 || index < sectionBreak) &&
-    /\b[1-5](?:[.,]\d)?\s*(?:out of\s*5|\/\s*5)/i.test(l.text)
+    Boolean(starCountFromText(l.text)?.rating)
   );
   // Page geometry for the title scoring below: total height and the typical
   // (median) line height over the readable pool, in the merged lines' shared
@@ -390,13 +508,14 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     }
     if (chromeWordHits(raw) >= 2) continue;
     if (/out of 5|ratings?|reviews?/i.test(raw)) continue;
-    let candidate = cleanScreenshotProductTitle(cleanOcrTitle(raw));
+    let candidate = cleanScreenshotProductTitle(stripTrailingMarketplaceAggregate(cleanOcrTitle(raw)));
     const nextText = String(ocr.lines[line.index + 1]?.text || "");
-    if (candidate && /(?:,\s*)?\b\d+$/.test(candidate)) {
+    const nextIsStars = Boolean(starCountFromText(nextText)?.rating);
+    if (!nextIsStars && candidate && /(?:,\s*)?\b\d+$/.test(candidate)) {
       const unit = nextText.trim().match(/^(qt|quart|quarts|ounce|ounces|oz|gb|tb)\b/i);
       if (unit) candidate = cleanScreenshotProductTitle(`${candidate} ${unit[1]}`);
     }
-    const nextModel = modelTokenFromTitle(nextText);
+    const nextModel = nextIsStars ? "" : modelTokenFromTitle(nextText);
     if (
       candidate &&
       nextModel &&
@@ -522,7 +641,7 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // The bare-photo case stays protected: control-dial fragments are short,
   // score low, and carry no brand recurrence.
   const titleSelfCorroborated = Boolean(bestTitleBrandCorroborated && bestScore >= 3 && title.length >= 30);
-  const corroborated = Boolean(priceText || ratingM || reviewCount || store || titleSelfCorroborated);
+  const corroborated = Boolean(priceText || rating || reviewCount || store || titleSelfCorroborated);
   const trustedTitle = title && corroborated ? title : "";
   if (title && !trustedTitle) warnings.push("A title-like line was read with no price, rating, or store context, so it is not trusted.");
   // Without layout understanding we can't prove the price/rating belong to the main product unless a title was read.
@@ -533,9 +652,9 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   const conf = Math.round(Math.max(0, Math.min(100, ocr.ocrConfidence * (trustedTitle ? 1 : 0.5))));
   return {
     name: trustedTitle, brand: trustedTitle ? brand : "", category: "", store,
-    price: tied && priceText ? priceText.replace(/\s+/g, "") : "", rating: ratingM ? ratingM[1].replace(",", ".") : "",
+    price: tied && priceText ? priceText.replace(/\s+/g, "") : "", rating,
     reviewCount,
-    priceBelongsToProduct: tied && Boolean(priceText), ratingBelongsToProduct: Boolean(ratingM), reviewCountBelongsToProduct: Boolean(reviewCount),
+    priceBelongsToProduct: tied && Boolean(priceText), ratingBelongsToProduct: Boolean(rating), reviewCountBelongsToProduct: Boolean(reviewCount),
     visibleFeatures: [], visibleBadges: lines.filter(l => /best seller|amazon'?s choice|overall pick|top rated/i.test(l)).slice(0, 5),
     identityWarnings: ["Read with free on-device OCR (no AI vision); please confirm the product name.", ...warnings],
     normalizedSearchQuery: trustedTitle, imageConfidence: conf,

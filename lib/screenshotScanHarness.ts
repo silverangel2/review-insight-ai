@@ -6,7 +6,8 @@
 import { productFactsFromOcr, type ScreenshotProductFacts } from "@/lib/screenshotProductFacts";
 import type { ScreenshotOcrLine } from "@/lib/reviewScreenshotOcr";
 import { briefFactRows } from "@/lib/briefNarration";
-import { deriveShopperAnswer } from "@/lib/shopperAnswer";
+import { buyingScoreFromReviews, marketplaceAggregateForScore } from "@/lib/buyingScore";
+import { deriveShopperAnswer, shopperVerdictWord } from "@/lib/shopperAnswer";
 import { deriveReviewAnalysis } from "@/lib/reviewAnalysis";
 import {
   screenshotCollectionPlan,
@@ -25,6 +26,15 @@ export type ScreenshotIdentityFixture = {
   expectTitleExcludes?: string[];
   expectCollectionStore?: "Amazon.ca" | "Amazon.com" | null;
   expectCrossStore?: boolean;
+  /** Star value read from the screenshot, such as "4.3". */
+  expectRating?: string;
+  /** Digits only, such as "2553" for "2,553". */
+  expectReviewCount?: string;
+  /**
+   * The screenshot aggregate must produce a provisional Buy, Wait, or Skip
+   * when Amazon returned nothing. No review scrape is required.
+   */
+  expectProvisionalWithoutAmazon?: boolean;
 };
 
 export type HarnessCheck = {
@@ -34,6 +44,10 @@ export type HarnessCheck = {
   reasons: string[];
   collectionStore: string | null;
   crossStoreAmazon: boolean;
+  rating?: string;
+  reviewCount?: string;
+  score?: number | null;
+  shopperVerdict?: string | null;
 };
 
 const FORBIDDEN_SHOPPER = [/not scored/i, /not enough evidence/i, /\bvercel\b/i];
@@ -77,6 +91,73 @@ export function gradeIdentityFixture(fixture: ScreenshotIdentityFixture): Harnes
   if (fixture.expectCrossStore !== undefined && plan.crossStoreAmazon !== fixture.expectCrossStore) {
     reasons.push(`Cross-store Amazon enrichment is ${plan.crossStoreAmazon}, expected ${fixture.expectCrossStore}.`);
   }
+  if (fixture.expectRating !== undefined && facts.rating !== fixture.expectRating) {
+    reasons.push(`Rating is "${facts.rating || "(empty)"}", expected "${fixture.expectRating}".`);
+  }
+  if (fixture.expectReviewCount !== undefined && facts.reviewCount !== fixture.expectReviewCount) {
+    reasons.push(`Review count is "${facts.reviewCount || "(empty)"}", expected "${fixture.expectReviewCount}".`);
+  }
+  let score: number | null = null;
+  let shopperVerdict: string | null = null;
+  if (fixture.expectProvisionalWithoutAmazon) {
+    const missed = marketplaceAggregateForScore({
+      exactListingAccepted: false,
+      pageRating: null,
+      pageCount: null,
+      screenshotRating: facts.rating,
+      screenshotCount: facts.reviewCount,
+    });
+    const blocked = marketplaceAggregateForScore({
+      exactListingAccepted: true,
+      pageRating: 4.1,
+      pageCount: null,
+      screenshotRating: facts.rating,
+      screenshotCount: facts.reviewCount,
+    });
+    if (missed.source !== "screenshot" || missed.rating === null || missed.count === null) {
+      reasons.push("Screenshot stars did not score when Amazon returned nothing.");
+    }
+    if (blocked.source !== "screenshot" || blocked.count !== missed.count) {
+      reasons.push("A blocked Amazon page with no count erased the screenshot aggregate.");
+    }
+    const card = buyingScoreFromReviews({
+      marketplace: { rating: missed.rating, count: missed.count, matchesExactModel: true },
+      reviews: [],
+    });
+    score = typeof card.score === "number" ? card.score : null;
+    const answer = deriveShopperAnswer({
+      product: { title, name: title, store: facts.store || fixture.store || "", rating: facts.rating, reviewCount: facts.reviewCount },
+      buyingScoreV2: card,
+      buyScore: card.score,
+      reviewEvidence: { commentsAnalyzed: 0, evidenceAdjudication: { acceptedRecords: [] } },
+    });
+    shopperVerdict = shopperVerdictWord({
+      product: { title, store: facts.store || fixture.store || "" },
+      buyingScoreV2: card,
+      buyScore: card.score,
+      reviewEvidence: { commentsAnalyzed: 0, evidenceAdjudication: { acceptedRecords: [] } },
+    });
+    if (card.mode !== "provisional_marketplace" || score === null) {
+      reasons.push(`Expected a provisional score from the screenshot, got ${card.mode}.`);
+    }
+    if (answer.kind === "not_enough" || answer.label === "Low confidence" || shopperVerdict === null) {
+      reasons.push("Shopper still lands on the empty Low confidence result.");
+    }
+    if (answer.kind !== "buy" && answer.kind !== "wait" && answer.kind !== "skip") {
+      reasons.push(`Shopper verdict is ${answer.kind}.`);
+    }
+    const shown = [answer.label, answer.why, answer.trustLine].join(" ");
+    for (const pattern of FORBIDDEN_SHOPPER) {
+      if (pattern.test(shown)) reasons.push(`Shopper text contains forbidden wording: ${shown.slice(0, 140)}`);
+    }
+    if (briefFactRows({
+      product: { title, store: facts.store || fixture.store || "", rating: facts.rating, reviewCount: facts.reviewCount },
+      buyingScoreV2: card,
+      reviewEvidence: { commentsAnalyzed: 0, evidenceAdjudication: { acceptedRecords: [] } },
+    }).some((row) => row.key === "ratingsCounted")) {
+      reasons.push("Shopper answer card still shows a ratings count.");
+    }
+  }
   return {
     id: fixture.id,
     pass: reasons.length === 0,
@@ -84,6 +165,10 @@ export function gradeIdentityFixture(fixture: ScreenshotIdentityFixture): Harnes
     reasons,
     collectionStore: plan.collectionStore,
     crossStoreAmazon: plan.crossStoreAmazon,
+    rating: facts.rating,
+    reviewCount: facts.reviewCount,
+    score,
+    shopperVerdict,
   };
 }
 
@@ -202,6 +287,8 @@ export function harnessReport(checks: HarnessCheck[]): { pass: number; fail: num
     lines.push(`## ${check.pass ? "PASS" : "FAIL"} ${check.id}`);
     lines.push(``);
     lines.push(`Title: ${check.title || "(none)"}`);
+    if (check.rating || check.reviewCount) lines.push(`Screenshot aggregate: ${check.rating || "(no rating)"} / ${check.reviewCount || "(no count)"}`);
+    if (typeof check.score === "number") lines.push(`Provisional score without Amazon: ${check.score} ${check.shopperVerdict || ""}`.trim());
     if (check.collectionStore) lines.push(`Amazon enrichment: ${check.collectionStore}`);
     if (!check.pass) {
       for (const reason of check.reasons) lines.push(`- ${reason}`);
