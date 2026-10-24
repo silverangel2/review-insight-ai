@@ -221,6 +221,18 @@ export function buildWalmartAffiliateUrl(url: string) {
   }
 }
 
+/** Keep an existing associate tag. Add the store default only when Amazon has none. */
+export function ensureAmazonAssociateTag(url: string): string {
+  if (!url || !isAmazonUrl(url)) return url;
+  try {
+    const existing = new URL(url).searchParams.get("tag")?.trim();
+    if (existing) return url;
+  } catch {
+    return url;
+  }
+  return buildAmazonAffiliateUrl(url);
+}
+
 export function buildAffiliateUrl(url: string) {
   if (isAmazonUrl(url)) return buildAmazonAffiliateUrl(url);
   if (isWalmartUrl(url)) return buildWalmartAffiliateUrl(url);

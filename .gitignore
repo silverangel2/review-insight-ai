@@ -13,3 +13,4 @@ tsconfig.tsbuildinfo
 *.backup-*
 *.bak
 .reviewintel-captures/
+artifacts/screenshot-harness/

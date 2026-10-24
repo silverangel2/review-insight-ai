@@ -97,11 +97,10 @@ test("no-dash: tiny corpus omits authenticity row and keeps no dashes", () => {
   }
 });
 
-test("full fixture renders all five rows in order", () => {
+test("full fixture renders the shopper fact rows in order, without a ratings count", () => {
   const terms = narr.briefFactRows(v2Fixture()).map((r) => r.term);
   assert.deepEqual(terms, [
     "Marketplace rating",
-    "Ratings counted",
     "How sure we are",
     "Value for money",
     "Review authenticity",
@@ -113,8 +112,8 @@ test("full fixture renders all five rows in order", () => {
 test("aggregate-backed verdict is narrated as backed, never weak", () => {
   const line = narr.foldBasisLine(v2Fixture());
   assert.ok(line, "basis line must exist");
-  assert.match(line, /4\.3-star/, "names the aggregate rating");
-  assert.match(line, /9,805 ratings/, "names the aggregate count (allowed)");
+  assert.match(line, /marketplace rating/, "names the marketplace rating");
+  assert.doesNotMatch(line, /9,805|ratings\b|\d/, "shoppers do not see a ratings count in the basis line");
   assert.match(line, /written reviews we read/, "names the written corpus in words");
   assert.ok(!/\bLow\b|\bweak\b|not corroborated/i.test(line), "never weak language");
 });
@@ -151,7 +150,8 @@ test("aggregate-only result still gets a basis line", () => {
   const f = v2Fixture();
   f.reviewEvidence.evidenceAdjudication.acceptedRecords = [];
   const line = narr.foldBasisLine(f);
-  assert.ok(line && /4\.3-star/.test(line), "aggregate carries the story");
+  assert.ok(line && /marketplace rating/i.test(line), "aggregate carries the story");
+  assert.doesNotMatch(line, /\d/, "the basis line does not print the ratings count");
   assert.ok(!/written reviews we read/.test(line), "no written claim when none read");
 });
 

@@ -12,6 +12,7 @@
     "test": "node --test tests/*.test.mjs",
     "test:single-facebook-reel": "node scripts/single-facebook-reel-checks.mjs",
     "typecheck": "tsc --noEmit",
+    "harness:screenshots": "node scripts/screenshot-scan-harness.mjs",
     "reviewintel:replay": "node scripts/reviewintel-replay.mjs",
     "reviewintel:monitor": "node scripts/reviewintel-passive-monitor.mjs --captures"
   },

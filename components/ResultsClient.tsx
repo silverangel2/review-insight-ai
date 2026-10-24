@@ -24,6 +24,7 @@ import type { AnalyzeResponse, SubscriptionPlan } from "@/lib/types";
 import { ShopperResultHistoryCorner } from "@/components/ShopperResultHistoryCorner";
 import { displayCodeForResult } from "@/lib/productDisplay";
 import { shortCompareTitle, shortProductName } from "@/lib/productName";
+import { shopperFacingProductTitle } from "@/lib/screenshotListingIdentity";
 import { canonicalQuoteAttribution, cleanQuoteText, deriveShopperAnswer, evidenceStrengthLabel, isUnreadableAmazonPage, neutralProductLabel, normalizeQuoteKey, realReviewQuotes, sanitizeVerdictWord, THIN_EVIDENCE_NEXT_STEP, UNREADABLE_AMAZON_MESSAGE, unreadableRetryPhrase } from "@/lib/shopperAnswer";
 import { provisionalShopperFacing } from "@/lib/buyingScore"; import { deriveBestForNotIdeal } from "@/lib/bestForFit"; import { stripAggregateRestatement } from "@/lib/evidenceConsistency";
 import { isBuyingScoreV2Result, buyingScoreWrittenCount, resultsPageHidesScan } from "@/lib/shopperResultVisibility";
@@ -2784,11 +2785,11 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
   const productTitle = isUnreadableAmazonPage(result)
     ? "Amazon product"
     : neutralProductLabel(rawProductTitle) || displayCodeForResult(result, "Product detail verdict");
-  const decisionBriefReady = !isUnreadableAmazonPage(result) && ["buy", "wait", "skip"].includes(deriveShopperAnswer(result).kind); const evidenceStateForBrief = reviewEvidenceDecisionState(result); const resultHeading = isSellerAudience
+  const decisionBriefReady = !isUnreadableAmazonPage(result) && ["buy", "wait", "skip"].includes(deriveShopperAnswer(result).kind); const evidenceStateForBrief = reviewEvidenceDecisionState(result); const facingTitle = shopperFacingProductTitle(productTitle, "Analyzed product"); const resultHeading = isSellerAudience
     ? `${sellerPlanLabel} intelligence`
     : isCompareResult
       ? compareResultTitle(result)
-      : shortProductName(productTitle, "Analyzed product");
+      : facingTitle;
 
   return (
     <div className="ri-stagger space-y-5">
@@ -2822,8 +2823,8 @@ export function ResultsClient({ initialResult = null, initialScanId = null, init
         <ShopperCompareDetail result={result} />
       ) : (
         <>
-          {decisionBriefReady ? <DecisionBrief result={result} productName={productTitle} previewImage={preview} evidenceState={evidenceStateForBrief} locale={activeLocale} /> : (<><ShopperAnswerCard result={result} productName={productTitle} />
-          <BetterPicksPanel result={result as unknown as Record<string, unknown>} productName={productTitle} />
+          {decisionBriefReady ? <DecisionBrief result={result} productName={facingTitle} previewImage={preview} evidenceState={evidenceStateForBrief} locale={activeLocale} /> : (<><ShopperAnswerCard result={result} productName={facingTitle} />
+          <BetterPicksPanel result={result as unknown as Record<string, unknown>} productName={facingTitle} />
           <UpgradeMoment placement="results" sellerIntent={String((result as unknown as Record<string, unknown>).mode || "") === "seller"} />
           <details className="group rounded-3xl bg-white ring-1 ring-slate-900/5 dark:bg-slate-900">
             <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 text-sm font-semibold text-slate-700 dark:text-slate-200 sm:px-6">

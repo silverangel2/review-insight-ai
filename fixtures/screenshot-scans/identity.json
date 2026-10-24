@@ -1,0 +1,132 @@
+[
+  {
+    "id": "walmart-dyson-v8-real-title",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 80 },
+      { "text": "Dyson Official Outlet Walmart", "confidence": 94 },
+      { "text": "Dyson V8 Absolute Cordless Stick Vacuum Cleaner Refurbished", "confidence": 86 },
+      { "text": "$249.99", "confidence": 90 },
+      { "text": "4.6 out of 5 stars", "confidence": 88 }
+    ],
+    "expectTitleIncludes": ["Dyson", "V8", "Absolute"],
+    "expectTitleExcludes": ["Official Outlet", "Walmart"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "walmart-dyson-outlet-h1",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 80 },
+      { "text": "Dyson Official Outlet - Walmart Exclusive V8 Absolute", "confidence": 91 },
+      { "text": "$199.00", "confidence": 90 },
+      { "text": "4.4 out of 5 stars", "confidence": 86 }
+    ],
+    "expectTitleIncludes": ["Dyson", "V8", "Absolute"],
+    "expectTitleExcludes": ["Official Outlet", "Walmart Exclusive", "Walmart"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "walmart-instant-pot-duo-plus-8qt",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 75 },
+      { "text": "Available at a lower price from other sellers", "confidence": 96 },
+      { "text": "Instant Pot Duo Plus 8qt Multi-Use Pressure Cooker", "confidence": 84 },
+      { "text": "$129.99", "confidence": 92 },
+      { "text": "4.7 out of 5 stars", "confidence": 84 }
+    ],
+    "expectTitleIncludes": ["Instant Pot", "Duo Plus", "8qt"],
+    "expectTitleExcludes": ["Available at a lower", "Official Outlet"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "walmart-ninja-creami-nc301c",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 75 },
+      { "text": "Ninja CREAMi, NC301C, Ice Cream, Gelato, Milkshake Maker", "confidence": 87 },
+      { "text": "$199.99", "confidence": 91 },
+      { "text": "4.5 out of 5 stars", "confidence": 82 }
+    ],
+    "expectTitleIncludes": ["Ninja", "CREAMi", "NC301C"],
+    "expectTitleExcludes": ["Official Outlet", "Available at a lower"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "bestbuy-pixel-9a",
+    "store": "Best Buy",
+    "lines": [
+      { "text": "Best Buy", "confidence": 82 },
+      { "text": "Available at a lower price", "confidence": 95 },
+      { "text": "Google Pixel 9a 128GB Unlocked Android Smartphone", "confidence": 88 },
+      { "text": "$599.99", "confidence": 90 },
+      { "text": "4.6 out of 5 stars", "confidence": 84 }
+    ],
+    "expectTitleIncludes": ["Pixel", "9a"],
+    "expectTitleExcludes": ["Available at a lower", "Official Outlet"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "amazon-echo-stays-on-amazon",
+    "store": "Amazon.ca",
+    "lines": [
+      { "text": "Amazon.ca", "confidence": 80 },
+      { "text": "Amazon Echo Dot 5th Gen Smart Speaker with Alexa", "confidence": 88 },
+      { "text": "$49.99", "confidence": 92 },
+      { "text": "4.7 out of 5 stars", "confidence": 86 }
+    ],
+    "expectTitleIncludes": ["Echo Dot"],
+    "expectTitleExcludes": ["Official Outlet"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": false
+  },
+  {
+    "id": "walmart-pasted-link-not-cross-enriched",
+    "store": "Walmart.ca",
+    "listingUrl": "https://www.walmart.ca/en/ip/instant-pot-duo-plus-8qt/6000201948",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 80 },
+      { "text": "Instant Pot Duo Plus 8qt Multi-Use Pressure Cooker", "confidence": 88 },
+      { "text": "$129.00", "confidence": 90 },
+      { "text": "4.6 out of 5 stars", "confidence": 84 }
+    ],
+    "expectTitleIncludes": ["Instant Pot", "8qt"],
+    "expectTitleExcludes": ["Official Outlet"],
+    "expectCollectionStore": null,
+    "expectCrossStore": false
+  },
+  {
+    "id": "walmart-com-instant-pot",
+    "lines": [
+      { "text": "Walmart.com", "confidence": 80 },
+      { "text": "Available at a lower price from other sellers", "confidence": 94 },
+      { "text": "Instant Pot Duo Plus 8qt Multi-Use Pressure Cooker", "confidence": 86 },
+      { "text": "$89.99", "confidence": 90 },
+      { "text": "4.6 out of 5 stars (12,431)", "confidence": 84 }
+    ],
+    "expectTitleIncludes": ["Instant Pot", "Duo Plus", "8qt"],
+    "expectTitleExcludes": ["Available at a lower", "Walmart"],
+    "expectCollectionStore": "Amazon.com",
+    "expectCrossStore": true
+  },
+  {
+    "id": "bestbuy-com-pixel-9a",
+    "lines": [
+      { "text": "bestbuy.com", "confidence": 82 },
+      { "text": "Google Pixel 9a 128GB Unlocked Android Smartphone", "confidence": 88 },
+      { "text": "$499.99", "confidence": 90 },
+      { "text": "4.5 out of 5 stars", "confidence": 84 },
+      { "text": "2.3K reviews", "confidence": 80 }
+    ],
+    "expectTitleIncludes": ["Pixel", "9a"],
+    "expectTitleExcludes": ["Available at a lower", "Official Outlet"],
+    "expectCollectionStore": "Amazon.com",
+    "expectCrossStore": true
+  }
+]

@@ -210,11 +210,11 @@ function analyzerFormCopy(locale: string) {
         analyze: "⚡ Analyze Product",
         clearUpload: "Clear upload",
         uploadTitle: "Upload product screenshot",
-        uploadHint: "A screenshot is optional and encouraged. It helps when the product page is hard to read.",
-        linkPlaceholder: "Paste the product link",
+        uploadHint: "Screenshot the product page on your phone. The name, the price, and the reviews are enough.",
+        linkPlaceholder: "Optional: paste a product link",
         clearerScreenshot: "We need a clearer screenshot or product link to analyze this properly.",
         analyzeError: "We could not analyze this screenshot.",
-        intro: "Paste a product link, or add a product-page screenshot. A screenshot is optional and helps when the store page is hard to read.",
+        intro: "Screenshot the product page and get a plain Buy, Wait, or Skip answer. A link is optional.",
         previewAlt: "Product screenshot preview",
         scanLimitMessage: "You have used all 3 free scans for today. Your scans reset tomorrow.",
         pageCaptureTitle: "Already looking at the product page?",
@@ -290,6 +290,25 @@ export default function AnalyzerForm() {
   useEffect(() => {
     const link = new URLSearchParams(window.location.search).get("url");
     if (link && /^https?:\/\//i.test(link)) setProductLink(link.slice(0, 2000));
+  }, []);
+
+  // Homepage screenshot door stashes the chosen photo here so the phone
+  // scan starts on the picture, not on an empty form.
+  useEffect(() => {
+    const key = "reviewintel_pending_screenshot";
+    let raw = "";
+    try { raw = window.sessionStorage.getItem(key) || ""; } catch { return; }
+    if (!raw) return;
+    try { window.sessionStorage.removeItem(key); } catch { /* already gone */ }
+    try {
+      const saved = JSON.parse(raw) as { name?: string; type?: string; dataUrl?: string };
+      if (!saved?.dataUrl?.startsWith("data:image/")) return;
+      const comma = saved.dataUrl.indexOf(",");
+      const binary = atob(saved.dataUrl.slice(comma + 1));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      handleImage(new File([bytes], saved.name || "screenshot.jpg", { type: saved.type || "image/jpeg" }));
+    } catch { /* a bad stash must not block the form */ }
   }, []);
 
   useEffect(() => {
@@ -502,12 +521,13 @@ export default function AnalyzerForm() {
           </p>
         </label>
 
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Optional link</p>
         <input
           value={productLink}
           onChange={(event) => setProductLink(event.target.value)}
           placeholder={analyzerFormCopy(readStoredLocale()).linkPlaceholder}
           aria-label={analyzerFormCopy(readStoredLocale()).linkPlaceholder}
-          className="mt-5 w-full rounded-2xl border border-line bg-white px-5 py-4 text-base font-bold text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/15 dark:border-white/10 dark:bg-gradient-to-r from-sky-600 to-teal-500 dark:text-white"
+          className="mt-2 w-full rounded-2xl border border-line bg-white px-5 py-3 text-sm font-semibold text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/15 dark:border-white/10 dark:bg-slate-900 dark:text-white"
         />
 
         {error && isScanLimitError ? (

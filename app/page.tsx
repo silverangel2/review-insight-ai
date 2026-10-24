@@ -10,7 +10,7 @@ import { withSeo } from "@/lib/pageSeo";
 
 export const metadata = withSeo("/", {
   title: { absolute: "ReviewIntel | Should you buy it? We read the real reviews for you" },
-  description: "Paste a product link, add a screenshot, and get a plain Buy, Wait or Skip answer built from grouped analysis of real written buyer reviews, with an honest confidence level. Free to start.",
+  description: "Screenshot a product page and get a plain Buy, Wait or Skip answer built from grouped analysis of real written buyer reviews, with an honest confidence level. Free to start.",
 });
 
 /**

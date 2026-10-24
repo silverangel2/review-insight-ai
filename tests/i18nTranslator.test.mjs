@@ -105,15 +105,13 @@ test("fr brief: translated frames, byte-exact numbers", () => {
   const terms = rows.map((r) => r.term);
   assert.deepEqual(terms, [
     "Note du marché",
-    "Avis comptés",
     "Notre niveau de certitude",
     "Rapport qualité-prix",
     "Authenticité des avis",
   ]);
   const ratingRow = rows.find((r) => r.key === "marketplaceRating");
-  const countRow = rows.find((r) => r.key === "ratingsCounted");
+  assert.equal(rows.find((r) => r.key === "ratingsCounted"), undefined);
   assert.equal(ratingRow.rating, 4.3);
-  assert.equal(countRow.count, 9805);
   const confRow = rows.find((r) => r.key === "howSureWeAre");
   assert.equal(confRow.text, "Élevée");
   const valueRow = rows.find((r) => r.key === "valueForMoney");
@@ -153,7 +151,7 @@ test("en brief is byte-identical to the pre-translator behavior", () => {
   const rows = bn.briefFactRows(FIXTURE);
   assert.deepEqual(
     rows.map((r) => r.term),
-    ["Marketplace rating", "Ratings counted", "How sure we are", "Value for money", "Review authenticity"]
+    ["Marketplace rating", "How sure we are", "Value for money", "Review authenticity"]
   );
   const narration = bn.foldNarration(FIXTURE);
   assert.ok(narration[narration.length - 1] === "Only real written reviews and the marketplace rating feed the score.");
@@ -191,9 +189,8 @@ test("numbers stay byte-exact in every locale", () => {
   for (const locale of ["fr", "es", "de", "hi", "zh"]) {
     const rows = bn.briefFactRows(FIXTURE, locale);
     const ratingRow = rows.find((r) => r.key === "marketplaceRating");
-    const countRow = rows.find((r) => r.key === "ratingsCounted");
+    assert.equal(rows.find((r) => r.key === "ratingsCounted"), undefined, locale);
     assert.equal(ratingRow.rating, 4.3, locale);
-    assert.equal(countRow.count, 9805, locale);
   }
 });
 
