@@ -28,6 +28,8 @@ Each fixture is `PASS` or `FAIL`. A failing title, a missing model token
 a lower`), or a retailer screenshot that does not plan the matching Amazon
 store fails the run. Walmart.ca and Best Buy screenshots enrich from
 Amazon.ca. Walmart.com and BestBuy.com screenshots enrich from Amazon.com.
+BISSELL `(4.3) | 448` and Instant Pot `(4.8) | 2,553` must keep those stars
+and produce a provisional Buy, Wait, or Skip with no Amazon review scrape.
 Exit code is non-zero when anything fails.
 
 `npm test` includes the same checks.
@@ -71,10 +73,17 @@ or the docs.
   such as `&#34;` are decoded. A size unit on the next line (`8` / `Quart`)
   stays on the title.
 - A star line with a parenthetical total (`(12,431)`) or a `2.3K reviews`
-  line is kept as the marketplace count the score needs. Shoppers do not
-  get a ratings-count fact row.
-- A screenshot-only Walmart or Best Buy scan searches the matching Amazon
-  store for that product. A pasted store link stays on that store.
+  line is kept as the marketplace count the score needs. Walmart and Best
+  Buy lines that omit "out of 5" are read too: `(4.3) | 448`, `4.3 (448)`,
+  and `4.8 | 2,553`. The screenshot pair is enough for a provisional Buy,
+  Wait, or Skip when Amazon returns nothing or returns a rating without a
+  count. A complete Amazon page aggregate still wins when that page was
+  actually read. Shoppers do not get a ratings-count fact row.
+- Affiliate "Check price" links may still point at Amazon. The bot does not
+  need an Amazon review scrape to score a screenshot that already shows stars.
+- A screenshot-only Walmart or Best Buy scan can still search the matching
+  Amazon store for that product. A pasted store link stays on that store.
+  That search is not required for the provisional score.
 - Unmatched negative review excerpts show as complaints instead of the
   generic "isolated concerns" line.
 - Shoppers do not see a ratings-count row.

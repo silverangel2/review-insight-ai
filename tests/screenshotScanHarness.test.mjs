@@ -51,6 +51,106 @@ test("outlet chrome cleans to the model, and a pasted Walmart link is not cross-
   }), false);
 });
 
+test("Walmart and Best Buy aggregates score without an Amazon review scrape", () => {
+  const facts = jiti("./lib/screenshotProductFacts.ts");
+  const buying = jiti("./lib/buyingScore.ts");
+  const ocr = (lines) => ({
+    fileSha256: "0".repeat(64),
+    ocrConfidence: 90,
+    engine: "test",
+    lines: lines.map((text) => ({ text, confidence: 90 })),
+  });
+  const parenPipe = facts.productFactsFromOcr(ocr([
+    "Walmart.ca",
+    "BISSELL PowerForce Turbo Pet Lightweight Upright Vacuum",
+    "$119.99",
+    "(4.3) | 448",
+  ]));
+  assert.equal(parenPipe.rating, "4.3");
+  assert.equal(parenPipe.reviewCount, "448");
+  assert.equal(parenPipe.ratingBelongsToProduct, true);
+  assert.equal(parenPipe.price, "$119.99");
+  assert.match(parenPipe.name, /PowerForce/);
+  assert.doesNotMatch(parenPipe.name, /\(4\.3\)/);
+
+  const parenCount = facts.productFactsFromOcr(ocr([
+    "Best Buy",
+    "Sony WH-1000XM5 Wireless Noise Canceling Headphones",
+    "$398.00",
+    "4.3 (448)",
+  ]));
+  assert.equal(parenCount.rating, "4.3");
+  assert.equal(parenCount.reviewCount, "448");
+  assert.equal(parenCount.ratingBelongsToProduct, true);
+  assert.equal(parenCount.store, "Best Buy");
+
+  const pipe = facts.productFactsFromOcr(ocr([
+    "Walmart.ca",
+    "Instant Pot Duo Plus 8 Quart Multi-Use Pressure Cooker",
+    "$129.99",
+    "4.8 | 2,553",
+  ]));
+  assert.equal(pipe.rating, "4.8");
+  assert.equal(pipe.reviewCount, "2553");
+  assert.match(pipe.name, /8 Quart/);
+  assert.doesNotMatch(pipe.name, /2,553|2553/);
+
+  const split = facts.productFactsFromOcr(ocr([
+    "Walmart.ca",
+    "BISSELL PowerForce Turbo Pet Lightweight Upright Vacuum",
+    "(4.3)",
+    "448",
+  ]));
+  assert.equal(split.rating, "4.3");
+  assert.equal(split.reviewCount, "448");
+
+  const labeled = facts.reviewCountFromOcrText("2,553 ratings");
+  assert.equal(labeled, "2553");
+  const reviewsWord = facts.reviewCountFromOcrText("448 reviews");
+  assert.equal(reviewsWord, "448");
+
+  const notInvented = facts.productFactsFromOcr(ocr([
+    "Walmart.ca",
+    "BISSELL PowerForce Turbo Pet Lightweight Upright Vacuum",
+    "$119.99",
+    "8 Quart",
+  ]));
+  assert.equal(notInvented.rating, "");
+  assert.equal(notInvented.reviewCount, "");
+
+  const blocked = buying.marketplaceAggregateForScore({
+    exactListingAccepted: true,
+    pageRating: 4.1,
+    pageCount: null,
+    screenshotRating: parenPipe.rating,
+    screenshotCount: parenPipe.reviewCount,
+  });
+  assert.equal(blocked.source, "screenshot");
+  assert.equal(blocked.rating, 4.3);
+  assert.equal(blocked.count, 448);
+  const missed = buying.marketplaceAggregateForScore({
+    exactListingAccepted: false,
+    screenshotRating: "4.8",
+    screenshotCount: "2,553",
+  });
+  const score = buying.buyingScoreFromReviews({
+    marketplace: { rating: missed.rating, count: missed.count, matchesExactModel: true },
+    reviews: [],
+  });
+  assert.equal(missed.source, "screenshot");
+  assert.equal(score.mode, "provisional_marketplace");
+  assert.equal(typeof score.score, "number");
+  const pageWins = buying.marketplaceAggregateForScore({
+    exactListingAccepted: true,
+    pageRating: 4.6,
+    pageCount: 12000,
+    screenshotRating: "4.8",
+    screenshotCount: "2553",
+  });
+  assert.equal(pageWins.source, "page");
+  assert.equal(pageWins.rating, 4.6);
+});
+
 test("star-line totals become a review count without stealing the stars or a model size", () => {
   const facts = jiti("./lib/screenshotProductFacts.ts");
   const ocr = (lines) => ({
