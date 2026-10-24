@@ -2366,6 +2366,7 @@ function buildReviewEvidenceShopperResult(input: {
     pageCount: collectorAggregate.count ?? listingEvidence?.reviewCount ?? evidence.reviewCount,
     screenshotRating: vision.rating,
     screenshotCount: vision.reviewCount,
+    productName,
   });
   const v2RequestedModel = (() => {
     const explicit = String(asRecord(vision).model || asRecord(listingEvidence).model || "").trim();

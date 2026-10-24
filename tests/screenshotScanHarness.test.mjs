@@ -149,6 +149,17 @@ test("Walmart and Best Buy aggregates score without an Amazon review scrape", ()
   });
   assert.equal(pageWins.source, "page");
   assert.equal(pageWins.rating, 4.6);
+  const unnamed = buying.marketplaceAggregateForScore({
+    exactListingAccepted: true,
+    pageRating: 4.1,
+    pageCount: 900,
+    screenshotRating: "4.8",
+    screenshotCount: "2553",
+    productName: "Amazon product",
+  });
+  assert.equal(unnamed.source, "screenshot");
+  assert.equal(unnamed.rating, 4.8);
+  assert.equal(unnamed.count, 2553);
 });
 
 test("live Walmart OCR star noise still scores BISSELL 4.3 from 448 as Wait", () => {
@@ -207,11 +218,35 @@ test("live Walmart OCR star noise still scores BISSELL 4.3 from 448 as Wait", ()
       },
     },
   });
-  assert.match(answer.loves[0].finding, /^Buyers report that it stays cool in a bag\.$/);
-  assert.match(answer.complaints[0].finding, /^Shoppers note that the lid leaks\.$/);
+  assert.match(answer.loves[0].finding, /stays cool in a bag/i);
+  assert.match(answer.complaints[0].finding, /the lid leaks/i);
+  assert.doesNotMatch(`${answer.loves[0].finding} ${answer.complaints[0].finding} ${answer.why}`, /Buyers report|Shoppers note|Buyers consistently/i);
   assert.match(answer.loves[0].quote, /niece/);
   assert.doesNotMatch(answer.why, /niece|counter/i);
+  assert.match(answer.why, /stays cool in a bag/i);
+  assert.match(answer.why, /the lid leaks/i);
   assert.doesNotMatch(`${answer.loves[0].finding} ${answer.complaints[0].finding}`, /\bI\b|Vercel|Not scored|Not enough evidence/i);
+  const hollow = shopper.deriveShopperAnswer({
+    finalDecisionSource: "buyingScoreV2",
+    verdict: "BUY",
+    product: { title: "Travel kettle", name: "Travel kettle" },
+    buyingScoreV2: { version: "buying-score-v2", mode: "buying_score", score: 80, verdict: "Buy", confidence: "High", audit: { n: 2 } },
+    strengthProvenance: [{ claim: "easy to use or set up", supportCount: 2, sourceIds: ["r1"], sourceHashes: [] }],
+    complaintProvenance: [{ claim: "The lid leaks", supportCount: 2, sourceIds: ["r2"], sourceHashes: [] }],
+    reviewEvidence: {
+      evidenceAdjudication: {
+        acceptedRecordCount: 2,
+        acceptedRecords: [
+          { id: "r1", body: "It was easy to use right away.", sourceUrl: "https://www.amazon.com/dp/B0GENERIC1" },
+          { id: "r2", body: "The lid leaks if you tip it over on the counter.", sourceUrl: "https://www.amazon.ca/dp/B0GENERIC1" },
+        ],
+      },
+    },
+  });
+  assert.equal(hollow.loves[0].finding, null);
+  assert.match(hollow.complaints[0].finding, /the lid leaks/i);
+  assert.doesNotMatch(hollow.why, /easy to use/i);
+  assert.match(hollow.why, /the lid leaks/i);
 });
 
 test("star-line totals become a review count without stealing the stars or a model size", () => {

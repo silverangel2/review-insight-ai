@@ -1,5 +1,5 @@
 import { captureStage } from "./devScanCapture";
-import { collectionProductName, isPlaceholderProductName } from "./linkIdentity";
+import { collectionProductName, isPlaceholderProductName, isUnnamedProductLabel } from "./linkIdentity";
 
 function toOptionalNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -2453,7 +2453,8 @@ export async function collectAndAnalyzeReviewEvidence(
   // written reviews is the next scan's evidence. Skip the review scrape.
   // Identity verification still runs. forceRefresh always collects again.
   let reuseStoredReviews = false;
-  if (!input.forceRefresh) {
+  const unnamedProduct = isUnnamedProductLabel(input.productName);
+  if (!input.forceRefresh && !unnamedProduct) {
     try {
       const storedFingerprint = extractProductFingerprint({
         brand: input.brand,
@@ -2931,7 +2932,7 @@ export async function collectAndAnalyzeReviewEvidence(
   // verdict; genuinely new reviews re-verdict on the larger corpus. Only a
   // verified exact listing with a canonical marketplace identifier takes
   // part, and any storage failure leaves the scan exactly as it was.
-  const libraryProductKey = exactListingAccepted
+  const libraryProductKey = exactListingAccepted && !unnamedProduct
     ? libraryProductKeyFor({
         asin: listingEvidenceForCollection?.asin,
         canonicalMarketplace: listingEvidenceForCollection?.canonicalMarketplace,
@@ -3216,7 +3217,7 @@ export async function collectAndAnalyzeReviewEvidence(
       ),
       previousScanCount: libraryPreviousScanCount,
     });
-  } else if (adjudicatedReviews.length) {
+  } else if (adjudicatedReviews.length && !unnamedProduct) {
     // Screenshot and other scans with no ASIN key still persist under the
     // fingerprint, so the next scan can reuse this corpus instead of scraping.
     try {

@@ -1,6 +1,9 @@
 import { briefImageUrl, deriveReviewAnalysis } from "@/lib/reviewAnalysis";
 import {
   deriveShopperAnswer,
+  isHollowShopperTheme,
+  isRoboticShopperLine,
+  isSpecificShopperFinding,
   shopperVerdictWord,
 } from "@/lib/shopperAnswer";
 import {
@@ -215,9 +218,13 @@ export function DecisionBrief({
         <div className="grid gap-3.5 lg:grid-cols-2 lg:gap-4">
           <section className="ri-card ri-lift ri-unlock-child ri-d2 p-5">
             <h2 className="text-[17px] font-bold text-ink dark:text-white">{copy.whyBuyIt}</h2>
-            {analysis.forFactors.length > 0 ? (
+            {analysis.forFactors.some((factor) => !isHollowShopperTheme(factor.title) || isSpecificShopperFinding(factor.summary)) ? (
               <div className="mt-1">
-                {analysis.forFactors.map((factor, index) => (
+                {analysis.forFactors.map((factor, index) => {
+                  if (isHollowShopperTheme(factor.title) && !isSpecificShopperFinding(factor.summary)) return null;
+                  const summary = isRoboticShopperLine(factor.summary) ? "" : factor.summary;
+                  const basis = isRoboticShopperLine(factor.basis) ? "" : factor.basis;
+                  return (
                 <div
                   key={`for-${index}`}
                   className="border-b border-slate-100 py-3 last:border-0 last:pb-0 dark:border-white/10"
@@ -226,21 +233,19 @@ export function DecisionBrief({
                     <span className="mr-2">✓</span>
                     {factor.title}
                   </p>
-                  {/* Frame strip 2026-10-16: a theme with no basis sentence
-                      renders heading + tag only — the summary line is omitted
-                      entirely, never an empty row. */}
-                  {factor.summary ? (
+                  {summary ? (
                     <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
-                      {factor.summary}
+                      {summary}
                     </p>
                   ) : null}
-                  {showBasisFor(factor.summary, factor.basis) ? (
+                  {basis && showBasisFor(summary, basis) ? (
                     <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">
-                      {factor.basis}
+                      {basis}
                     </p>
                   ) : null}
                 </div>
-              ))}
+                  );
+                })}
             </div>
             ) : (
               /* Fix batch 2026-10-17: an empty "why you'd buy it" must never
@@ -257,7 +262,10 @@ export function DecisionBrief({
             <h2 className="text-[17px] font-bold text-ink dark:text-white">{copy.whyMightNot}</h2>
             <p className="mt-1 text-[13px] leading-5 text-slate-500 dark:text-slate-400">{complaintNote}</p>
             <div className="mt-1">
-              {analysis.againstFactors.map((factor, index) => (
+              {analysis.againstFactors.map((factor, index) => {
+                const summary = isRoboticShopperLine(factor.summary) ? "" : factor.summary;
+                const basis = isRoboticShopperLine(factor.basis) ? "" : factor.basis;
+                return (
                 <div
                   key={`against-${index}`}
                   className="border-b border-slate-100 py-3 last:border-0 last:pb-0 dark:border-white/10"
@@ -266,19 +274,19 @@ export function DecisionBrief({
                     <span className="mr-2">!</span>
                     {factor.title}
                   </p>
-                  {/* Frame strip 2026-10-16: see the for-factors section above. */}
-                  {factor.summary ? (
+                  {summary ? (
                     <p className="mt-1.5 text-[14.5px] leading-6 text-slate-700 dark:text-slate-200">
-                      {factor.summary}
+                      {summary}
                     </p>
                   ) : null}
-                  {showBasisFor(factor.summary, factor.basis) ? (
+                  {basis && showBasisFor(summary, basis) ? (
                     <p className="mt-1 text-[12.5px] text-slate-400 dark:text-slate-500">
-                      {factor.basis}
+                      {basis}
                     </p>
                   ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         </div>

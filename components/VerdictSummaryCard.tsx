@@ -17,7 +17,7 @@ export type VerdictSummary = {
   example?: boolean;
 };
 
-import { formatShopperConfidence } from "@/lib/shopperAnswer";
+import { formatShopperConfidence, isSpecificShopperFinding } from "@/lib/shopperAnswer";
 import { CountUp } from "./motion/CountUp";
 
 const LABEL_STYLE: Record<string, string> = {
@@ -29,25 +29,20 @@ const LABEL_STYLE: Record<string, string> = {
 function host(url: string | null) {
   try { return url ? new URL(url).hostname.replace(/^www\./, "") : null; } catch { return null; }
 }
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function Quote({ point, tone, delay = 0 }: { point: Point; tone: "love" | "complaint"; delay?: number }) {
+  if (!point.finding || !isSpecificShopperFinding(point.finding)) return null;
   const source = point.sourceHost || host(point.sourceUrl);
   return (
     <li className="ri-fade-in min-w-0" style={{ ["--ri-delay" as string]: `${delay}ms` }}>
       <p className="text-sm font-semibold text-slate-900">
         <span aria-hidden="true" className={tone === "love" ? "text-teal" : "text-rose-700"}>{tone === "love" ? "+ " : "– "}</span>
-        {point.finding || cap(point.claim)}
+        {point.finding}
       </p>
-      {!point.finding && point.quote ? (
-        <blockquote className="mt-1 border-l-2 border-slate-200 pl-3 text-sm leading-6 text-slate-600">
-          <p className="line-clamp-3">&ldquo;{point.quote}&rdquo;</p>
-          {source ? (
-            <footer className="mt-1 text-xs text-slate-500">
-              {point.sourceUrl ? <a className="underline-offset-2 hover:underline focus-visible:underline" href={point.sourceUrl} target="_blank" rel="noopener noreferrer">{source}</a> : source}
-            </footer>
-          ) : null}
-        </blockquote>
+      {source ? (
+        <p className="mt-1 text-xs text-slate-500">
+          {point.sourceUrl ? <a className="underline-offset-2 hover:underline focus-visible:underline" href={point.sourceUrl} target="_blank" rel="noopener noreferrer">{source}</a> : source}
+        </p>
       ) : null}
     </li>
   );

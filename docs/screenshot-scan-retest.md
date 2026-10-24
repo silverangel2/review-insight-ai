@@ -82,21 +82,27 @@ or the docs.
   opening parenthesis (`4.3) | 448`) is the same pair. A price and a bare
   `(43)` with no count are not. The screenshot pair is enough for a
   provisional Buy, Wait, or Skip when Amazon returns nothing or returns a
-  rating without a count. A complete Amazon page aggregate still wins when
-  that page was actually read. Shoppers do not get a ratings-count fact row.
+  rating without a count. A complete named Amazon page still wins when that
+  page was actually read. An unnamed result ("Amazon product") keeps the
+  screenshot stars instead, and does not reuse another product's library.
+  Shoppers do not get a ratings-count fact row.
 - When the screenshot listing is thin or blocked, the existing review hunt
   continues to other free stores. A fingerprint-matched library corpus of
   at least three accepted reviews is reused instead of scraping again.
   Screenshot stars still make a provisional Buy, Wait, or Skip when every
-  layer is empty. Strengths and complaints are third-person findings.
-  Sophie (`validateReviewProposal` in `lib/sophieContributions.ts`) grades
-  whether those findings cite reviews this scan already gathered. The
-  analyze route runs that check on the server and stores the grade. The
-  shopper client does not import it. It does not fetch reviews, call a
-  model, or replace the buying-score verdict. Its contract keeps the
-  assessment at "Insufficient evidence" and rejects score overrides. If
-  grading fails, the deterministic sentences still show. Scans do not wait
-  on Sophie, Ollama, or getreviewintel.com.
+  layer is empty. Strengths, complaints, and the verdict reason are short
+  sentences a person could say about this product, using words that appear
+  in the reviews that were gathered. A vague label ("easy to use", "does
+  what it promises") is left out rather than padded. Sophie
+  (`validateReviewProposal` in `lib/sophieContributions.ts`) grades whether
+  those findings cite reviews this scan already gathered. The analyze route
+  runs that check on the server and stores the grade. The shopper client
+  does not import it. It does not fetch reviews, call a model, or replace
+  the buying-score verdict. A finding it cannot cite is dropped, not
+  replaced with a generic sentence. Its contract keeps the assessment at
+  "Insufficient evidence" and rejects score overrides. If grading fails,
+  the deterministic sentences still show. Scans do not wait on Sophie,
+  Ollama, or getreviewintel.com.
 - Affiliate "Check price" links may still point at Amazon. The bot does not
   need an Amazon review scrape to score a screenshot that already shows stars.
 - A screenshot-only Walmart or Best Buy scan can still search the matching

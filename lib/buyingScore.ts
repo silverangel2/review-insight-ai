@@ -6,6 +6,8 @@
  * invents a review, a star rating or an opinion.
  */
 
+import { isUnnamedProductLabel } from "./linkIdentity";
+
 // ---------------------------------------------------------------------------
 // Documented constants (section 3). Fixed neutral prior. NOT calibrated from
 // pre-v2 scan history; recalibrate only on ~90 days of clean v2 data.
@@ -850,6 +852,8 @@ export function buyingScoreFromReviews(input: BuyingScoreFromReviewsInput) {
  * Page aggregate when the listing was read. Screenshot OCR stars and review
  * count (including "4.7" / "200,809" strings) are the marketplace aggregate
  * when that page did not yield a rating, and also when the listing was not accepted.
+ * An unnamed result ("Amazon product") must not let a fetched page replace a
+ * complete screenshot pair — that page may be a different product.
  */
 export function marketplaceAggregateForScore(input: {
   exactListingAccepted: boolean;
@@ -857,6 +861,7 @@ export function marketplaceAggregateForScore(input: {
   pageCount?: unknown;
   screenshotRating?: unknown;
   screenshotCount?: unknown;
+  productName?: unknown;
 }): { rating: number | null; count: number | null; source: "page" | "screenshot" | "none" } {
   const screenshotRating = validRating(input.screenshotRating);
   const screenshotCount = validCount(input.screenshotCount);
@@ -867,6 +872,9 @@ export function marketplaceAggregateForScore(input: {
   const pageRating = input.exactListingAccepted ? validRating(input.pageRating) : null;
   const pageCount = input.exactListingAccepted ? validCount(input.pageCount) : null;
   const pageComplete = pageRating !== null && pageCount !== null;
+  if (screenshotComplete && isUnnamedProductLabel(input.productName)) {
+    return { rating: screenshotRating, count: screenshotCount, source: "screenshot" };
+  }
   if (pageComplete) return { rating: pageRating, count: pageCount, source: "page" };
   if (screenshotComplete) return { rating: screenshotRating, count: screenshotCount, source: "screenshot" };
   if (!input.exactListingAccepted && screenshotRating !== null) {

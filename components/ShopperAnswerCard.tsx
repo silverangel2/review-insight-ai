@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { deriveShopperAnswer, formatShopperConfidence, marketplaceAggregateForDisplay, unreadableRetryPhrase, type ShopperPoint } from "@/lib/shopperAnswer";
+import { deriveShopperAnswer, formatShopperConfidence, isSpecificShopperFinding, marketplaceAggregateForDisplay, unreadableRetryPhrase, type ShopperPoint } from "@/lib/shopperAnswer";
 import { CountUp } from "./motion/CountUp";
 import { INDEPENDENCE_STATEMENT } from "@/lib/trustContent";
 
@@ -14,31 +14,19 @@ const TONE = {
 } as const;
 
 function PointList({ title, points, empty, tint = "bg-white" }: { title: string; points: ShopperPoint[]; empty: string; tint?: string }) {
+  const shown = points.filter((point) => point.finding && isSpecificShopperFinding(point.finding));
   return (
     <section className={`rounded-3xl ${tint} p-5 ring-1 ring-slate-900/5 sm:p-6`}>
       <h3 className="text-sm font-semibold text-slate-500">{title}</h3>
-      {points.length ? (
+      {shown.length ? (
         <ul className="mt-4 space-y-5">
-          {points.map(point => (
+          {shown.map(point => (
             <li key={point.claim}>
-              <p className="font-semibold text-slate-900">
-                {point.finding || point.claim.charAt(0).toUpperCase() + point.claim.slice(1)}
-              </p>
-              {point.finding ? (
-                point.sourceHost ? (
-                  <p className="mt-1 text-xs text-slate-400">
-                    {point.sourceUrl ? <a href={point.sourceUrl} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:underline">{point.sourceHost}</a> : point.sourceHost}
-                  </p>
-                ) : null
-              ) : point.quote && point.quote !== point.claim ? (
-                <blockquote className="ri-fade-in mt-2 border-l-2 border-teal pl-3 text-sm leading-6 text-slate-600">
-                  “{point.quote}”
-                  {point.sourceHost ? (
-                    <span className="mt-1 block text-xs text-slate-400">
-                      {point.sourceUrl ? <a href={point.sourceUrl} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:underline">{point.sourceHost}</a> : point.sourceHost}
-                    </span>
-                  ) : null}
-                </blockquote>
+              <p className="font-semibold text-slate-900">{point.finding}</p>
+              {point.sourceHost ? (
+                <p className="mt-1 text-xs text-slate-400">
+                  {point.sourceUrl ? <a href={point.sourceUrl} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:underline">{point.sourceHost}</a> : point.sourceHost}
+                </p>
               ) : null}
             </li>
           ))}
@@ -113,8 +101,8 @@ export function ShopperAnswerCard({ result, productName }: { result: unknown; pr
 
       {answer.unreadable || (answer.reviewCount === 0 && answer.loves.length === 0 && answer.complaints.length === 0) ? null : (
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        <PointList title="What buyers love" points={answer.loves} empty="No repeated praise in the real reviews yet." tint="bg-mint" />
-        <PointList title="What buyers complain about" points={answer.complaints} empty="No repeated complaints in the real reviews." tint="bg-peach" />
+        <PointList title="What buyers love" points={answer.loves} empty="Nothing specific to praise in the reviews we read." tint="bg-mint" />
+        <PointList title="What buyers complain about" points={answer.complaints} empty="Nothing specific to warn about in the reviews we read." tint="bg-peach" />
       </div>
       )}
 

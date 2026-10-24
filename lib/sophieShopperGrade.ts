@@ -4,12 +4,9 @@ import { gradeCitedFindings } from "@/lib/sophieContributions";
 /**
  * Server-only Sophie grade for a finished scan. The shopper client never
  * imports this module: it only reads sophieGradedFindings already stored on
- * the result. The buying-score verdict is not replaced.
+ * the result. The buying-score verdict is not replaced. A finding Sophie
+ * cannot cite is dropped — never replaced with a generic sentence.
  */
-const GENERIC_FINDING = {
-  strength: "Buyers report a repeated strength in the written reviews.",
-  complaint: "Shoppers note a repeated complaint in the written reviews.",
-} as const;
 
 function reviewBodies(result: Record<string, unknown>): Array<{ body: string; sourceUrl: unknown }> {
   const evidence = result.reviewEvidence;
@@ -26,15 +23,8 @@ function reviewBodies(result: Record<string, unknown>): Array<{ body: string; so
   });
 }
 
-function gradedLines(
-  points: ShopperPoint[],
-  accepted: Set<string>,
-  kind: "strength" | "complaint",
-): string[] {
-  return points.map((point) => {
-    if (point.finding && accepted.has(point.finding)) return point.finding;
-    return GENERIC_FINDING[kind];
-  });
+function gradedLines(points: ShopperPoint[], accepted: Set<string>): Array<string | null> {
+  return points.map((point) => (point.finding && accepted.has(point.finding) ? point.finding : null));
 }
 
 export function attachSophieShopperGrade<T extends Record<string, unknown>>(result: T): T {
@@ -60,8 +50,8 @@ export function attachSophieShopperGrade<T extends Record<string, unknown>>(resu
       ...result,
       sophieGradedFindings: {
         verdict,
-        loves: gradedLines(answer.loves, accepted, "strength"),
-        complaints: gradedLines(answer.complaints, accepted, "complaint"),
+        loves: gradedLines(answer.loves, accepted),
+        complaints: gradedLines(answer.complaints, accepted),
       },
     };
   } catch {

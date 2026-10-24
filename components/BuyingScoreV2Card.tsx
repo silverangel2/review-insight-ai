@@ -1,7 +1,7 @@
 import type React from "react";
 import Link from "next/link";
 import { provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
-import { cleanQuoteText, sanitizeVerdictWord, thirdPersonFinding } from "@/lib/shopperAnswer";
+import { cleanQuoteText, isSpecificShopperFinding, sanitizeVerdictWord, thirdPersonFinding } from "@/lib/shopperAnswer";
 import { sameDisplayedQuote } from "@/lib/evidenceConsistency";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
@@ -131,22 +131,28 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
 
       {!isProvisional && !isNoScore && (visiblePositive.length || visibleNegative.length) ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {visiblePositive.length ? (
+          {(() => {
+            const lines = Array.from(new Set(visiblePositive.slice(0, compact ? 2 : 3).map((q) => thirdPersonFinding(q.text, "strength", q.text)))).filter((line): line is string => Boolean(line && isSpecificShopperFinding(line)));
+            return lines.length ? (
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-700">What buyers like</p>
-              {Array.from(new Set(visiblePositive.slice(0, compact ? 2 : 3).map((q) => thirdPersonFinding(q.text, "strength", q.text)))).map((line) => (
+              {lines.map((line) => (
                 <p key={line} className="mt-1 text-xs text-slate-700 dark:text-slate-300">{line}</p>
               ))}
             </div>
-          ) : null}
-          {visibleNegative.length ? (
+            ) : null;
+          })()}
+          {(() => {
+            const lines = Array.from(new Set(visibleNegative.slice(0, compact ? 2 : 3).map((q) => thirdPersonFinding(q.text, "complaint", q.text)))).filter((line): line is string => Boolean(line && isSpecificShopperFinding(line)));
+            return lines.length ? (
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-rose-700">Complaints</p>
-              {Array.from(new Set(visibleNegative.slice(0, compact ? 2 : 3).map((q) => thirdPersonFinding(q.text, "complaint", q.text)))).map((line) => (
+              {lines.map((line) => (
                 <p key={line} className="mt-1 text-xs text-slate-700 dark:text-slate-300">{line}</p>
               ))}
             </div>
-          ) : null}
+            ) : null;
+          })()}
         </div>
       ) : null}
 

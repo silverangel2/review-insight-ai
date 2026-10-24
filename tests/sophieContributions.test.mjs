@@ -61,10 +61,11 @@ test('server grade stores cited findings and leaves the buying verdict alone', a
   const graded = attachSophieShopperGrade(result);
   assert.equal(graded.verdict, 'BUY');
   assert.equal(graded.buyingScoreV2.verdict, 'Buy');
-  assert.deepEqual(graded.sophieGradedFindings.loves, ['Buyers report that it stays cool in a bag.']);
-  assert.deepEqual(graded.sophieGradedFindings.complaints, ['Shoppers note that the lid leaks.']);
+  assert.match(graded.sophieGradedFindings.loves[0], /stays cool in a bag/i);
+  assert.match(graded.sophieGradedFindings.complaints[0], /the lid leaks/i);
+  assert.doesNotMatch(`${graded.sophieGradedFindings.loves[0]} ${graded.sophieGradedFindings.complaints[0]}`, /Buyers report|Shoppers note/i);
   const answer = deriveShopperAnswer(graded);
   assert.equal(answer.kind, 'buy');
-  assert.equal(answer.loves[0].finding, 'Buyers report that it stays cool in a bag.');
+  assert.match(answer.loves[0].finding, /stays cool in a bag/i);
   assert.match(answer.loves[0].quote, /niece/);
 });
