@@ -35,8 +35,11 @@ export const footerLinkGroups = [
       { label: "User Reviews", href: "/reviews" },
       { label: "Buying guides", href: "/guides" },
       { label: "Compare side by side", href: "/compare/side-by-side" },
-      { label: "Seller dashboard", href: "/dashboard/seller" },
-      { label: "Shopper Premium", href: "/pricing" }
+      { label: "Shopper Premium", href: "/pricing" },
+      { label: "Shopper Review Analyzer", href: "/consumer-review-analyzer" },
+      { label: "Amazon Review Analyzer", href: "/amazon-review-analyzer" },
+      { label: "Fake Review Detector", href: "/fake-review-detector" },
+      { label: "Seller Review Analytics", href: "/seller-review-analytics" }
     ]
   },
   {
@@ -65,15 +68,6 @@ export const footerLinkGroups = [
       { label: "Email preferences", href: "/email-preferences" }
     ]
   },
-  {
-    title: "SEO pages",
-    links: [
-      { label: "Shopper Review Analyzer", href: "/consumer-review-analyzer" },
-      { label: "Amazon Review Analyzer", href: "/amazon-review-analyzer" },
-      { label: "Fake Review Detector", href: "/fake-review-detector" },
-      { label: "Seller Review Analytics", href: "/seller-review-analytics" }
-    ]
-  }
 ];
 
 export const trustPages: Record<string, TrustPageContent> = {

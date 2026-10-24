@@ -16,6 +16,7 @@ import "./theme.css";
 import { ThemeEffects } from "@/components/ThemeEffects";
 import { IdleLogoutGuard } from "@/components/IdleLogoutGuard";
 import { SmartAdSlot } from "@/components/advertising/SmartAdSlot";
+import { SmartAdSlotGate } from "@/components/advertising/SmartAdSlotGate";
 import { SellerResultHistoryCorner } from "@/components/SellerResultHistoryCorner";
 import MobileTinyNav from "@/components/mobile/MobileTinyNav";
 import MobileUtilityMenu from "@/components/mobile/MobileUtilityMenu";
@@ -128,7 +129,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <SessionIdleLogout />
           <MobileUtilityMenu />{children}<AccountWorkspacePermission /><CookieConsentBanner initialVisible={!consentChoice} serverLocale={locale} /></LayoutModeProvider>
           <SellerResultHistoryCorner />
-          <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact initialShowAds={serverShowsAds} />
+          <SmartAdSlotGate>
+            <SmartAdSlot className="mx-auto my-8 max-w-6xl px-4" compact initialShowAds={serverShowsAds} />
+          </SmartAdSlotGate>
         <SiteFooter />
               </NextIntlClientProvider>
       </body>
