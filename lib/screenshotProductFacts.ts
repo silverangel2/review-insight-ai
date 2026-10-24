@@ -33,6 +33,66 @@ const CHROME = /^(sponsored|visit the|add to cart|buy now|in stock|ships from|so
 const POSTAL_CODE = /\b[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d\b/;
 const DELIVERY_BANNER =
   /(?:\b(?:free\s+)?(?:delivery|pickup|shipping)\b[^.]{0,60}?\b(?:over|arrives?|today|tomorrow|by|from store)\b)|\bexpress delivery\b|\barrives (?:today|tomorrow|by)\b/i;
+/**
+ * OCR-garbled delivery lines (2026-10-24: "Freedellvery over $35,
+ * arrivestoday to Mississauga, LSV 2N6" crowned the product). The clean
+ * DELIVERY_BANNER above needs the words "free delivery" intact; a garbled
+ * merge ("Freedellvery", "arrivestoday") and a garbled postal code ("LSV"
+ * for "L5V") defeat all three guards at once. Squash the line to letters
+ * and match "delivery" with OCR tolerance (dropped/duplicated letters),
+ * requiring a free/threshold/arrival cue in the same line so a real title
+ * containing "Dove" or "Deluxe" can never trip it (neither matches the
+ * tolerant shape).
+ */
+const DELIVERY_LIKE_SQUASHED = /d[ei]?l{1,2}[ei]?v[ei]r[yi]?/;
+function isGarbledDeliveryLine(text: string): boolean {
+  const squashed = text.toLowerCase().replace(/[^a-z]/g, "");
+  if (!DELIVERY_LIKE_SQUASHED.test(squashed)) return false;
+  return squashed.includes("free") || /\bover\b/i.test(text) || /\barrives?\b/i.test(text)
+    || /\btomorrow\b/i.test(text) || /\btoday\b/i.test(text);
+}
+/**
+ * Store-location bars (2026-10-24: "Halifax - Bayers Lak... Open - Closes
+ * at 8:00 PM" crowned the product). Shapes: a hours clause ("Closes at",
+ * "Open until", "Open today"), or a short line ending in "Open" (with an
+ * optional truncation ellipsis). The trailing-Open shape cannot touch a
+ * real title: "Open Box Dyson V8…" opens with Open but never ends with it.
+ */
+const STORE_HOURS = /\b(closes at|open until|open today|open now)\b/i;
+function isStoreLocationBar(text: string): boolean {
+  if (STORE_HOURS.test(text)) return true;
+  const trimmed = text.trim().replace(/[….]+$/, "");
+  if (/open$/i.test(trimmed) && trimmed.split(/\s+/).filter(Boolean).length <= 10) return true;
+  return false;
+}
+/**
+ * All-caps marketing-bullet leads (2026-10-24: "COMFORTABLE +
+ * NON-INVASIVE: …" crowned the product). A feature bullet opens with a
+ * shouted lead — capitals, digits and separators, at least 7 characters —
+ * terminated by a colon or comma, then sentence copy. Real listing titles
+ * essentially never open that way ("BLACK +DECKER 20-Volt MAX…" breaks
+ * the run at the lowercase "olt" and carries no lead terminator). Applied
+ * in the title loop only, with the title-zone escape hatch (see below).
+ */
+export function isAllCapsMarketingBullet(text: string): boolean {
+  const stripped = text.replace(/^[\W_]+/, "").trim();
+  return /^[A-Z][A-Z0-9 +&'’\-/]{6,}[:,]/.test(stripped);
+}
+/**
+ * Navigation breadcrumb with a long segment (2026-10-24: the Canadian Tire
+ * "Back | Home / Automotive / Car Detailing & Care Product... / … /
+ * Chemical Guys Mr. Pir" line escaped isBreadcrumbLine because one segment
+ * has 5 words). A line with 4+ separators that opens with a nav word is a
+ * breadcrumb no matter how long its segments run; no product title opens
+ * with "Back" or "Home" and carries 4+ path separators. Leading OCR glyph
+ * debris ("¢ Back | …") is stripped before reading the first word.
+ */
+function isNavBreadcrumbLine(text: string): boolean {
+  const seps = (text.match(/[/›»|]/g) || []).length;
+  if (seps < 4) return false;
+  const first = text.replace(/^[^a-zA-Z]+/, "").split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, "") ?? "";
+  return ["back", "home", "shop", "departments", "categories"].includes(first);
+}
 const SELLER_OPTIONS_LINE = /\bstarting from\s*(?:\$|cad|usd)?\s*[\d]|\bcompare all sellers\b|\bmore seller options\b|\bsold (?:&|and) shipped by\b|\bfulfilled by\b/i;
 const PROTECTION_PLAN_LINE = /\bprotection plan\b|\baccident protection\b|^\W*\d+\s*-\s*year plan\b|^\W*\d+\s*year plan\b/i;
 const PURCHASE_MODE_LINE = /\bone-time purchase\b|\bsubscribe\s*(?:&|and|to)?\s*save\b|\bsubscribe now\b|\bauto delivery\b/i;
@@ -85,6 +145,8 @@ const TITLE_FUNCTION_START = new Set([
 export function isScreenshotDecoyLine(text: string): boolean {
   if (POSTAL_CODE.test(text)) return true;
   if (DELIVERY_BANNER.test(text)) return true;
+  if (isGarbledDeliveryLine(text)) return true;
+  if (isStoreLocationBar(text)) return true;
   if (SELLER_OPTIONS_LINE.test(text)) return true;
   if (PROTECTION_PLAN_LINE.test(text)) return true;
   if (PURCHASE_MODE_LINE.test(text)) return true;
@@ -237,7 +299,7 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     const raw = line.text;
     if (sectionBreak >= 0 && line.index >= sectionBreak) continue;
     if (raw.length < 12 || raw.length > 320) continue;
-    if (isAmazonNavOrHeaderText(raw) || isBreadcrumbLine(raw) || NON_TITLE.test(raw)) continue;
+    if (isAmazonNavOrHeaderText(raw) || isBreadcrumbLine(raw) || isNavBreadcrumbLine(raw) || NON_TITLE.test(raw)) continue;
     // A financing line is never a product title. Without this, an installment line's
     // same-line price earns the +3 product-block signal below and can crown
     // "4 biweekly payments of $22.07 with Klarna" as the product name (measured
@@ -253,6 +315,16 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     // named after one of these shapes; each carries a price or great length,
     // so the bonuses below crowned them over the real title.
     if (isScreenshotDecoyLine(raw)) continue;
+    // Shouted feature-bullet leads are never titles — unless the line sits
+    // in the title zone (title-size type near the top), where it IS the
+    // title. Body-size bullets ("COMFORTABLE + NON-INVASIVE: …" at ~10px
+    // against a ~10px median) get no protection.
+    if (isAllCapsMarketingBullet(raw)) {
+      const lineHeight = line.bbox ? line.bbox.y1 - line.bbox.y0 : 0;
+      const yCenter = line.bbox && pageHeight > 0 ? (line.bbox.y0 + line.bbox.y1) / 2 / pageHeight : 1;
+      const inTitleZone = medianLineHeight > 0 && lineHeight >= 1.3 * medianLineHeight && yCenter <= 0.38;
+      if (!inTitleZone) continue;
+    }
     if (chromeWordHits(raw) >= 2) continue;
     if (/out of 5|ratings?|reviews?/i.test(raw)) continue;
     const candidate = cleanOcrTitle(raw);
