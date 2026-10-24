@@ -34,6 +34,17 @@ import {
  * least half in view (same once-per-session-per-placement rule as Phase
  * 1; the server dedupes per visitor for 30 minutes).
  *
+ * Responsive shape (mobile fix, 2026-10-23): most visitors are on
+ * phones, so the card is a compact ROW at every size — a fixed-width
+ * photo thumb (112px, 128px from 420px up) that stretches to the card's
+ * height and never sets it, beside a text column whose headline is
+ * clamped to two lines and body to one on small screens. The whole card
+ * stays under ~160px tall on a phone; from sm up it is the original
+ * desktop strip (256px photo, full copy, 176px height floor). The text
+ * column keeps a right reserve on small screens so no line ever runs
+ * under the X, and the Sponsored chip sits at card level (never clipped
+ * by the narrow thumb).
+ *
  * Test-only override: setting window.__HOUSE_AD_FX__ = { rotateMs,
  * fadeMs, enterMs } before the slot mounts retimes the effects (used to
  * capture proof frames); production always uses the defaults below.
@@ -131,30 +142,27 @@ export function HouseAdCard({
         href={houseAdClickPath(creative.id)}
         rel="sponsored noopener"
         tabIndex={focusable ? undefined : -1}
-        className="group flex h-full flex-col sm:flex-row"
+        className="group flex h-full flex-row sm:min-h-44"
       >
-        <span className="relative block shrink-0 overflow-hidden sm:w-64">
+        <span className="relative block w-28 shrink-0 overflow-hidden min-[420px]:w-32 sm:w-64">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={creative.image}
             alt={creative.imageAlt}
             loading="lazy"
-            className="h-44 w-full object-cover transition duration-500 group-hover:scale-[1.03] sm:h-full sm:min-h-44"
+            className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
           />
-          <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur-sm">
-            Sponsored
-          </span>
         </span>
-        <span className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 p-5 sm:p-6">
+        <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-3.5 pe-11 sm:gap-1.5 sm:p-6">
           <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
             {creative.sponsorLabel}
           </span>
-          <span className="text-lg font-black leading-snug text-ink sm:text-xl">
+          <span className="line-clamp-2 text-base font-black leading-snug text-ink sm:line-clamp-none sm:text-xl">
             {creative.headline}
           </span>
-          <span className="text-sm leading-relaxed text-slate-600">{creative.body}</span>
+          <span className="line-clamp-1 text-[13px] leading-snug text-slate-600 sm:line-clamp-none sm:text-sm sm:leading-relaxed">{creative.body}</span>
           <span
-            className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white"
+            className="mt-1.5 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-bold text-white sm:mt-2 sm:px-4 sm:py-2 sm:text-sm"
             style={{ backgroundImage: "linear-gradient(135deg,#0a6cff,#5b3df0)" }}
           >
             {creative.ctaLabel}
@@ -162,6 +170,12 @@ export function HouseAdCard({
           </span>
         </span>
       </a>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-2 top-2 whitespace-nowrap rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur-sm sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[11px]"
+      >
+        Sponsored
+      </span>
       <button
         type="button"
         onClick={onDismiss}
