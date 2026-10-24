@@ -2,7 +2,6 @@ import { BUY_THRESHOLD, WAIT_THRESHOLD, provisionalShopperFacing } from "@/lib/b
 import { isQuoteEchoOfClaim, quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
 import { claimRules, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
 import { fillFrame, resolveBriefDict } from "@/lib/briefI18n";
-import { gradeCitedFindings } from "@/lib/sophieContributions";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
 // No invented numbers: missing values stay null/"Unknown"; quotes are real
@@ -356,43 +355,16 @@ export function thirdPersonFinding(claim: string, kind: "strength" | "complaint"
   return `${lead} ${spoken}.`;
 }
 
-function applySophieGrade(
-  result: Rec,
-  records: ReturnType<typeof acceptedRecords>,
-  verdict: "Buy" | "Wait" | "Skip",
-  loves: ShopperPoint[],
-  complaints: ShopperPoint[],
-): { loves: ShopperPoint[]; complaints: ShopperPoint[] } {
-  const findings = [...loves, ...complaints].flatMap((point) => {
-    const stem = String(point.quote || "").replace(/…$/, "").trim().slice(0, 500);
-    if (!point.finding || !stem) return [];
-    return [{ claim: point.finding, quote: stem }];
-  });
-  if (!findings.length) return { loves, complaints };
-  const graded = gradeCitedFindings({
-    productKey: String(result.libraryProductKey || result.productKey || productTitleOf(result) || "scan"),
-    reviews: records.map((record) => ({
-      body: cleanQuoteText(String(record.body || "")),
-      sourceUrl: record.sourceUrl,
-    })),
-    verdict,
-    findings,
-  });
-  if (!graded.ok || graded.verdict !== verdict) return { loves, complaints };
-  const accepted = new Set(graded.claims);
-  const keep = (point: ShopperPoint, kind: "strength" | "complaint"): ShopperPoint => {
-    if (!point.finding || accepted.has(point.finding)) return point;
-    return {
-      ...point,
-      finding: kind === "complaint"
-        ? "Shoppers note a repeated complaint in the written reviews."
-        : "Buyers report a repeated strength in the written reviews.",
-    };
-  };
-  return {
-    loves: loves.map((point) => keep(point, "strength")),
-    complaints: complaints.map((point) => keep(point, "complaint")),
-  };
+function storedSophieFindings(result: Rec): { loves: string[]; complaints: string[] } | null {
+  const stored = obj(result.sophieGradedFindings);
+  if (!Array.isArray(stored.loves) && !Array.isArray(stored.complaints)) return null;
+  const texts = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  return { loves: texts(stored.loves), complaints: texts(stored.complaints) };
+}
+
+function applyStoredSophieFindings(points: ShopperPoint[], graded: string[]): ShopperPoint[] {
+  if (graded.length !== points.length) return points;
+  return points.map((point, index) => (graded[index] ? { ...point, finding: graded[index] } : point));
 }
 
 function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attribution: Map<string, string | null>): ShopperPoint[] {
@@ -716,9 +688,10 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
     { id: "compare", label: briefAnswer.steps.compare.label, detail: briefAnswer.steps.compare.detail },
   ] : [];
 
-  const verdictWord = kind === "buy" ? "Buy" : kind === "skip" ? "Skip" : kind === "wait" ? "Wait" : null;
-  const graded = verdictWord ? applySophieGrade(result, records, verdictWord, loves, complaints) : { loves, complaints };
-  return { kind, label, why, loves: graded.loves, complaints: graded.complaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
+  const storedGrade = storedSophieFindings(result);
+  const shownLoves = storedGrade ? applyStoredSophieFindings(loves, storedGrade.loves) : loves;
+  const shownComplaints = storedGrade ? applyStoredSophieFindings(complaints, storedGrade.complaints) : complaints;
+  return { kind, label, why, loves: shownLoves, complaints: shownComplaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
 }
 
 /**

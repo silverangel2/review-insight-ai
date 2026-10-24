@@ -90,12 +90,13 @@ or the docs.
   Screenshot stars still make a provisional Buy, Wait, or Skip when every
   layer is empty. Strengths and complaints are third-person findings.
   Sophie (`validateReviewProposal` in `lib/sophieContributions.ts`) grades
-  whether those findings cite reviews this scan already gathered. That
-  check is in-process. It does not fetch reviews, call a model, or replace
-  the buying-score verdict. Its contract keeps the assessment at
-  "Insufficient evidence" and rejects score overrides. If grading fails,
-  the deterministic sentences still show. Scans do not wait on Sophie,
-  Ollama, or getreviewintel.com.
+  whether those findings cite reviews this scan already gathered. The
+  analyze route runs that check on the server and stores the grade. The
+  shopper client does not import it. It does not fetch reviews, call a
+  model, or replace the buying-score verdict. Its contract keeps the
+  assessment at "Insufficient evidence" and rejects score overrides. If
+  grading fails, the deterministic sentences still show. Scans do not wait
+  on Sophie, Ollama, or getreviewintel.com.
 - Affiliate "Check price" links may still point at Amazon. The bot does not
   need an Amazon review scrape to score a screenshot that already shows stars.
 - A screenshot-only Walmart or Best Buy scan can still search the matching

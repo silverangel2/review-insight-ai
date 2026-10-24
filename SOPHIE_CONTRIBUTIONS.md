@@ -13,7 +13,7 @@ Existing per-site Bearer SOPHIE_COMMAND_KEY authenticates all /api/command route
 
 Assessment stays Insufficient evidence for comparing an original published verdict: this batch is not bound to an original scan/score. Sophie can propose a new research recommendation, but no false Agree/Disagree about an unseen verdict is permitted. Official score and publication overrides stay rejected.
 
-The scan path calls `validateReviewProposal` in-process (`gradeCitedFindings`) to grade third-person findings whose quotes are exact substrings of reviews already gathered by the listing, the review hunt, and the library. That call does not fetch reviews, does not add a connector, and does not replace the buying-score Buy/Wait/Skip. If the check throws, the scan keeps its deterministic sentences.
+The analyze route calls `validateReviewProposal` in-process (`gradeCitedFindings` via `lib/sophieShopperGrade.ts`) to grade third-person findings whose quotes are exact substrings of reviews already gathered by the listing, the review hunt, and the library. That module is server-only. The shopper client does not import it or `node:crypto`. The call does not fetch reviews, does not add a connector, and does not replace the buying-score Buy/Wait/Skip. If the check throws, the scan keeps its deterministic sentences.
 
 Acceptance records human-reviewed research only. It does not publish or replace RI's existing result. Verify counts, source identity, semantic support and reasoning yourself; an exact quote alone does not prove its interpretation.
 

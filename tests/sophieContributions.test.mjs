@@ -1,4 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {reviewEvidence,evidenceDigest,validateReviewProposal} from '../lib/sophieContributions.ts';
 const e=reviewEvidence([{body:'Battery failed after two days.',sourceUrl:'https://example.com/reviews/1',reviewerName:'Private name'},{body:'Battery failed after two days.'},{body:''}]);
 const draft=()=>({productKey:'store:product',evidenceDigest:evidenceDigest(e),verdict:'Wait',assessment:'Insufficient evidence',rationale:'Durability needs investigation.',patternStrength:'none',findings:[{claim:'One report of battery failure.',citations:[{reviewId:e[0].id,quote:'Battery failed'}]}]});
@@ -26,4 +27,44 @@ test('in-program grader accepts a cited third-person finding and keeps the scan 
   });
   assert.equal(invented.ok, false);
   assert.equal(invented.verdict, 'Buy');
+});
+test('shopper client does not import the Sophie crypto grader', () => {
+  const shopper = readFileSync(new URL('../lib/shopperAnswer.ts', import.meta.url), 'utf8');
+  const card = readFileSync(new URL('../components/CompareForm.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(shopper, /sophieContributions|node:crypto/);
+  assert.doesNotMatch(card, /sophieContributions|node:crypto|sophieShopperGrade/);
+});
+test('server grade stores cited findings and leaves the buying verdict alone', async () => {
+  const { createRequire } = await import('node:module');
+  const require = createRequire(import.meta.url);
+  const root = new URL('..', import.meta.url).pathname;
+  const jiti = require('jiti')(root + 'x.js', { alias: { '@': root } });
+  const { attachSophieShopperGrade } = jiti('./lib/sophieShopperGrade.ts');
+  const { deriveShopperAnswer } = jiti('./lib/shopperAnswer.ts');
+  const result = {
+    finalDecisionSource: 'buyingScoreV2',
+    verdict: 'BUY',
+    product: { title: 'Travel kettle', name: 'Travel kettle' },
+    buyingScoreV2: { version: 'buying-score-v2', mode: 'buying_score', score: 80, verdict: 'Buy', confidence: 'High', audit: { n: 2 } },
+    strengthProvenance: [{ claim: 'Stays cool in a bag', supportCount: 3, sourceIds: ['r1'], sourceHashes: [] }],
+    complaintProvenance: [{ claim: 'The lid leaks', supportCount: 2, sourceIds: ['r2'], sourceHashes: [] }],
+    reviewEvidence: {
+      evidenceAdjudication: {
+        acceptedRecordCount: 2,
+        acceptedRecords: [
+          { id: 'r1', body: "Got for my soon to be great niece's arrival and it stays cool in a bag.", sourceUrl: 'https://www.amazon.com/dp/B0GENERIC1' },
+          { id: 'r2', body: 'The lid leaks if you tip it over on the counter.', sourceUrl: 'https://www.amazon.ca/dp/B0GENERIC1' },
+        ],
+      },
+    },
+  };
+  const graded = attachSophieShopperGrade(result);
+  assert.equal(graded.verdict, 'BUY');
+  assert.equal(graded.buyingScoreV2.verdict, 'Buy');
+  assert.deepEqual(graded.sophieGradedFindings.loves, ['Buyers report that it stays cool in a bag.']);
+  assert.deepEqual(graded.sophieGradedFindings.complaints, ['Shoppers note that the lid leaks.']);
+  const answer = deriveShopperAnswer(graded);
+  assert.equal(answer.kind, 'buy');
+  assert.equal(answer.loves[0].finding, 'Buyers report that it stays cool in a bag.');
+  assert.match(answer.loves[0].quote, /niece/);
 });
