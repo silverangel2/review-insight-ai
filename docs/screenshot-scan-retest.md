@@ -30,6 +30,9 @@ store fails the run. Walmart.ca and Best Buy screenshots enrich from
 Amazon.ca. Walmart.com and BestBuy.com screenshots enrich from Amazon.com.
 BISSELL `(4.3) | 448` and Instant Pot `(4.8) | 2,553` must keep those stars
 and produce a provisional Buy, Wait, or Skip with no Amazon review scrape.
+Live Tesseract noise on that same BISSELL row — `(43) | 448` and
+`4.3) | 448` — is still 4.3 from 448. A bare `(43)` and a price such as
+`$98.88` are not ratings.
 Exit code is non-zero when anything fails.
 
 `npm test` includes the same checks.
@@ -75,10 +78,24 @@ or the docs.
 - A star line with a parenthetical total (`(12,431)`) or a `2.3K reviews`
   line is kept as the marketplace count the score needs. Walmart and Best
   Buy lines that omit "out of 5" are read too: `(4.3) | 448`, `4.3 (448)`,
-  and `4.8 | 2,553`. The screenshot pair is enough for a provisional Buy,
-  Wait, or Skip when Amazon returns nothing or returns a rating without a
-  count. A complete Amazon page aggregate still wins when that page was
-  actually read. Shoppers do not get a ratings-count fact row.
+  and `4.8 | 2,553`. Live OCR that drops the decimal (`(43) | 448`) or the
+  opening parenthesis (`4.3) | 448`) is the same pair. A price and a bare
+  `(43)` with no count are not. The screenshot pair is enough for a
+  provisional Buy, Wait, or Skip when Amazon returns nothing or returns a
+  rating without a count. A complete Amazon page aggregate still wins when
+  that page was actually read. Shoppers do not get a ratings-count fact row.
+- When the screenshot listing is thin or blocked, the existing review hunt
+  continues to other free stores. A fingerprint-matched library corpus of
+  at least three accepted reviews is reused instead of scraping again.
+  Screenshot stars still make a provisional Buy, Wait, or Skip when every
+  layer is empty. Strengths and complaints are third-person findings.
+  Sophie (`validateReviewProposal` in `lib/sophieContributions.ts`) grades
+  whether those findings cite reviews this scan already gathered. That
+  check is in-process. It does not fetch reviews, call a model, or replace
+  the buying-score verdict. Its contract keeps the assessment at
+  "Insufficient evidence" and rejects score overrides. If grading fails,
+  the deterministic sentences still show. Scans do not wait on Sophie,
+  Ollama, or getreviewintel.com.
 - Affiliate "Check price" links may still point at Amazon. The bot does not
   need an Amazon review scrape to score a screenshot that already shows stars.
 - A screenshot-only Walmart or Best Buy scan can still search the matching

@@ -1,6 +1,6 @@
 // A calm, compact verdict summary. Real scan data on share pages; on the homepage a
 // brand-free illustration flagged `example: true` (labelled "Example", no quotes or counts).
-type Point = { claim: string; quote: string | null; sourceUrl: string | null; sourceHost?: string | null };
+type Point = { claim: string; finding?: string | null; quote: string | null; sourceUrl: string | null; sourceHost?: string | null };
 export type VerdictSummary = {
   product: string;
   label: string;
@@ -37,9 +37,9 @@ function Quote({ point, tone, delay = 0 }: { point: Point; tone: "love" | "compl
     <li className="ri-fade-in min-w-0" style={{ ["--ri-delay" as string]: `${delay}ms` }}>
       <p className="text-sm font-semibold text-slate-900">
         <span aria-hidden="true" className={tone === "love" ? "text-teal" : "text-rose-700"}>{tone === "love" ? "+ " : "– "}</span>
-        {cap(point.claim)}
+        {point.finding || cap(point.claim)}
       </p>
-      {point.quote ? (
+      {!point.finding && point.quote ? (
         <blockquote className="mt-1 border-l-2 border-slate-200 pl-3 text-sm leading-6 text-slate-600">
           <p className="line-clamp-3">&ldquo;{point.quote}&rdquo;</p>
           {source ? (

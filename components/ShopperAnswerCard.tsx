@@ -22,9 +22,15 @@ function PointList({ title, points, empty, tint = "bg-white" }: { title: string;
           {points.map(point => (
             <li key={point.claim}>
               <p className="font-semibold text-slate-900">
-                {point.claim.charAt(0).toUpperCase() + point.claim.slice(1)}
+                {point.finding || point.claim.charAt(0).toUpperCase() + point.claim.slice(1)}
               </p>
-              {point.quote && point.quote !== point.claim ? (
+              {point.finding ? (
+                point.sourceHost ? (
+                  <p className="mt-1 text-xs text-slate-400">
+                    {point.sourceUrl ? <a href={point.sourceUrl} target="_blank" rel="noreferrer noopener" className="underline-offset-2 hover:underline">{point.sourceHost}</a> : point.sourceHost}
+                  </p>
+                ) : null
+              ) : point.quote && point.quote !== point.claim ? (
                 <blockquote className="ri-fade-in mt-2 border-l-2 border-teal pl-3 text-sm leading-6 text-slate-600">
                   “{point.quote}”
                   {point.sourceHost ? (

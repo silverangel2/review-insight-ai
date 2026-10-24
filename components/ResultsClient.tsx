@@ -1189,7 +1189,8 @@ function ShopperProductDetail({ result, preview }: { result: AnalyzeResponse; pr
   const shopper = shopperProductFromResult(result, locale);
   const evidenceState = reviewEvidenceDecisionState(result);
   const foundQuotes = evidenceState === "not_enough" && shopper.strengths.length === 0 ? realReviewQuotes(result) : [];
-  const strengthItems = shopper.strengths.length ? shopper.strengths : foundQuotes;
+  void foundQuotes.length;
+  const strengthItems = shopper.strengths;
   const verdict = {
     ...shopperVerdictStyle[shopper.verdict],
     ...copy.verdicts[shopper.verdict],

@@ -81,21 +81,26 @@ const untitledGroup = [
   [record({ sourceUrl: "https://www.homedepot.com/p/123456789" })],
 ];
 
-test("kill switch: flag must be exactly '1'", () => {
-  assert.equal(isReviewHuntEnabled({}), false);
+test("kill switch: off only when the flag is exactly '0'; unset stays on", () => {
+  assert.equal(isReviewHuntEnabled({}), true);
+  assert.equal(isReviewHuntEnabled({ REVIEWINTEL_REVIEW_HUNT_ENABLED: "" }), true);
   assert.equal(isReviewHuntEnabled({ REVIEWINTEL_REVIEW_HUNT_ENABLED: "0" }), false);
   assert.equal(isReviewHuntEnabled({ REVIEWINTEL_REVIEW_HUNT_ENABLED: "true" }), false);
   assert.equal(isReviewHuntEnabled({ REVIEWINTEL_REVIEW_HUNT_ENABLED: "1" }), true);
 });
 
-test("trigger: fires only on zero accepted + anchored identity + flag on", () => {
+test("trigger: fires on zero or thin written reviews when identity is anchored", () => {
   assert.deepEqual(
     shouldRunReviewHunt({ enabled: false, acceptedRecordCount: 0, fingerprint: sonyFingerprint }),
     { fire: false, reason: "flag_off" }
   );
   assert.deepEqual(
     shouldRunReviewHunt({ enabled: true, acceptedRecordCount: 3, fingerprint: sonyFingerprint }),
-    { fire: false, reason: "amazon_reviews_accepted" }
+    { fire: false, reason: "enough_written_reviews" }
+  );
+  assert.deepEqual(
+    shouldRunReviewHunt({ enabled: true, acceptedRecordCount: 2, fingerprint: sonyFingerprint }),
+    { fire: true, reason: "thin_written_reviews" }
   );
   const unanchored = extractProductFingerprint({ brand: "Sony", productName: "Sony headphones" });
   assert.equal(unanchored.fingerprintKey, null);

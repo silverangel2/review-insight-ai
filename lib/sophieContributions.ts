@@ -48,3 +48,50 @@ export function validateReviewProposal(input: unknown, evidence: Evidence[]) {
   });
   return { productKey, evidenceDigest: b.evidenceDigest, verdict: b.verdict, assessment: b.assessment, rationale: text(b.rationale,3000), patternStrength: b.patternStrength, findings, writtenReviewCount: evidence.length, aiAuthorshipVerified: false, evidence };
 }
+
+/**
+ * Grade third-person findings against reviews this scan already gathered.
+ * Uses the in-program proposal check only: exact quote membership, unique
+ * review ids, and no score override. It does not fetch reviews, call a
+ * model, or replace the buying-score verdict. A failure leaves the caller
+ * on its deterministic sentences.
+ */
+export function gradeCitedFindings(input: {
+  productKey: string;
+  reviews: Array<{ body?: unknown; sourceUrl?: unknown }>;
+  verdict: "Buy" | "Wait" | "Skip";
+  findings: Array<{ claim: string; quote: string }>;
+}): { ok: boolean; claims: string[]; verdict: "Buy" | "Wait" | "Skip"; reason?: string } {
+  try {
+    const evidence = reviewEvidence(input.reviews.map((review) => ({
+      body: review.body,
+      sourceUrl: review.sourceUrl,
+    })) as Record<string, unknown>[]);
+    if (!evidence.length || !input.findings.length) return { ok: false, claims: [], verdict: input.verdict, reason: "no evidence" };
+    const findings: Array<{ claim: string; citations: Array<{ reviewId: string; quote: string }> }> = [];
+    let strongest = 0;
+    for (const finding of input.findings) {
+      const quote = String(finding.quote || "").trim().slice(0, 500);
+      if (!quote) continue;
+      const matches = evidence.filter((review) => review.body.includes(quote));
+      if (!matches.length) continue;
+      const citations = matches.slice(0, 100).map((review) => ({ reviewId: review.id, quote }));
+      strongest = Math.max(strongest, citations.length);
+      findings.push({ claim: String(finding.claim || "").trim().slice(0, 1000), citations });
+    }
+    if (!findings.length) return { ok: false, claims: [], verdict: input.verdict, reason: "no cited findings" };
+    const proposal = {
+      productKey: String(input.productKey || "scan").slice(0, 240),
+      evidenceDigest: evidenceDigest(evidence),
+      verdict: input.verdict,
+      assessment: "Insufficient evidence" as const,
+      patternStrength: strongest >= 5 ? "strong" as const : strongest >= 2 ? "some" as const : "none" as const,
+      rationale: "Deterministic scan findings cited to gathered reviews. Sophie grades citations only and does not replace the buying score.",
+      findings,
+    };
+    const graded = validateReviewProposal(proposal, evidence);
+    return { ok: true, claims: graded.findings.map((finding) => finding.claim), verdict: input.verdict };
+  } catch (error) {
+    return { ok: false, claims: [], verdict: input.verdict, reason: error instanceof Error ? error.message : "grader unavailable" };
+  }
+}

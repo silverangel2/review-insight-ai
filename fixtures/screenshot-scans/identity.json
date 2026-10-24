@@ -268,5 +268,24 @@
     "expectRating": "4.8",
     "expectReviewCount": "2553",
     "expectProvisionalWithoutAmazon": true
+  },
+  {
+    "id": "walmart-bissell-powerforce-live-ocr-noise",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 78 },
+      { "text": "BISSELL® PowerForce® Turbo Pet Bagless Upright Vacuum", "confidence": 90 },
+      { "text": "Now $98.88", "confidence": 86 },
+      { "text": "$98.88", "confidence": 84 },
+      { "text": "BISSELL Feder dede (43) | 448", "confidence": 56 },
+      { "text": "BISSELL wR Rw 4.3) | 448", "confidence": 54 }
+    ],
+    "expectTitleIncludes": ["BISSELL", "PowerForce", "Turbo", "Pet"],
+    "expectTitleExcludes": ["Official Outlet", "Walmart", "(43)", "Feder", "4.3)"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true,
+    "expectRating": "4.3",
+    "expectReviewCount": "448",
+    "expectProvisionalWithoutAmazon": true
   }
 ]

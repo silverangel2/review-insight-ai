@@ -2,13 +2,14 @@ import { BUY_THRESHOLD, WAIT_THRESHOLD, provisionalShopperFacing } from "@/lib/b
 import { isQuoteEchoOfClaim, quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
 import { claimRules, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
 import { fillFrame, resolveBriefDict } from "@/lib/briefI18n";
+import { gradeCitedFindings } from "@/lib/sophieContributions";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
 // No invented numbers: missing values stay null/"Unknown"; quotes are real
 // accepted review bodies linked to a claim by its evidence ids/hashes.
 
 export type ShopperAnswerKind = "buy" | "wait" | "skip" | "not_enough";
-export type ShopperPoint = { claim: string; count: number; quote: string | null; sourceHost: string | null; sourceUrl: string | null; sourceIds: string[]; sourceHashes: string[] };
+export type ShopperPoint = { claim: string; finding?: string | null; count: number; quote: string | null; sourceHost: string | null; sourceUrl: string | null; sourceIds: string[]; sourceHashes: string[] };
 export type ShopperAnswer = {
   kind: ShopperAnswerKind;
   label: string;
@@ -316,6 +317,84 @@ function writtenReviewCount(result: Rec, records: ReturnType<typeof acceptedReco
   return comments !== null && comments > 0 ? Math.round(comments) : 0;
 }
 
+function looksLikeRawBuyerText(value: string): boolean {
+  const text = value.replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  const words = text.split(/\s+/);
+  const firstPerson = /\b(?:i(?:['’]m|['’]ve)?|we|my|our)\b/i;
+  if (words.length > 14) return true;
+  if (/^(?:i(?:['’]m|['’]ve)?|we|my|our)\b/i.test(text)) return true;
+  if (words.length > 8 && firstPerson.test(text)) return true;
+  if (text.length >= 12) {
+    const letters = (text.match(/[a-z]/gi) || []).length;
+    if (letters / text.length < 0.55) return true;
+  }
+  return false;
+}
+
+const FINDING_VERB = /^(?:stays|leaks|works|keeps|fails|breaks|cracks|lasts|runs|gets|feels|smells|looks|sounds|comes|makes|takes|needs|seems|stopped|died|broke|loosened)\b/i;
+
+/** A consolidated sentence. The claim and the quote stay available for evidence checks. */
+export function thirdPersonFinding(claim: string, kind: "strength" | "complaint", supportText = ""): string {
+  let theme = claim.replace(/\s+/g, " ").trim().replace(/\.+$/, "");
+  if (looksLikeRawBuyerText(theme)) {
+    const rule = claimRules.find((candidate) => candidate.kind === kind && candidate.pattern.test(supportText || theme));
+    theme = rule?.claim || "";
+  }
+  if (!theme || looksLikeRawBuyerText(theme)) {
+    return kind === "complaint"
+      ? "Shoppers note a repeated complaint in the written reviews."
+      : "Buyers report a repeated strength in the written reviews.";
+  }
+  const lead = kind === "complaint" ? "Shoppers note" : "Buyers report";
+  const lowered = theme.charAt(0).toLowerCase() + theme.slice(1);
+  const spoken = /^(?:it|the|they|this|there)\b/i.test(theme)
+    ? `that ${lowered}`
+    : FINDING_VERB.test(theme)
+      ? `that it ${lowered}`
+      : lowered;
+  return `${lead} ${spoken}.`;
+}
+
+function applySophieGrade(
+  result: Rec,
+  records: ReturnType<typeof acceptedRecords>,
+  verdict: "Buy" | "Wait" | "Skip",
+  loves: ShopperPoint[],
+  complaints: ShopperPoint[],
+): { loves: ShopperPoint[]; complaints: ShopperPoint[] } {
+  const findings = [...loves, ...complaints].flatMap((point) => {
+    const stem = String(point.quote || "").replace(/…$/, "").trim().slice(0, 500);
+    if (!point.finding || !stem) return [];
+    return [{ claim: point.finding, quote: stem }];
+  });
+  if (!findings.length) return { loves, complaints };
+  const graded = gradeCitedFindings({
+    productKey: String(result.libraryProductKey || result.productKey || productTitleOf(result) || "scan"),
+    reviews: records.map((record) => ({
+      body: cleanQuoteText(String(record.body || "")),
+      sourceUrl: record.sourceUrl,
+    })),
+    verdict,
+    findings,
+  });
+  if (!graded.ok || graded.verdict !== verdict) return { loves, complaints };
+  const accepted = new Set(graded.claims);
+  const keep = (point: ShopperPoint, kind: "strength" | "complaint"): ShopperPoint => {
+    if (!point.finding || accepted.has(point.finding)) return point;
+    return {
+      ...point,
+      finding: kind === "complaint"
+        ? "Shoppers note a repeated complaint in the written reviews."
+        : "Buyers report a repeated strength in the written reviews.",
+    };
+  };
+  return {
+    loves: loves.map((point) => keep(point, "strength")),
+    complaints: complaints.map((point) => keep(point, "complaint")),
+  };
+}
+
 function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attribution: Map<string, string | null>): ShopperPoint[] {
   const points: ShopperPoint[] = [];
   for (const record of records) {
@@ -325,6 +404,7 @@ function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attributio
     const host = attribution.get(normalizeQuoteKey(quote)) ?? hostOf(record.sourceUrl);
     points.push({
       claim: quote,
+      finding: thirdPersonFinding(quote, "strength", body),
       count: 1,
       quote,
       sourceHost: host,
@@ -481,7 +561,17 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
         sourceUrl = record.sourceUrl ? String(record.sourceUrl) : null;
         break;
       }
-      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: host, sourceUrl, sourceIds: claim.sourceIds, sourceHashes: claim.sourceHashes };
+      const supportText = candidates.map((record) => String(record.body || "")).join(" ");
+      return {
+        claim: claim.claim,
+        finding: thirdPersonFinding(claim.claim, kind, supportText),
+        count: claim.supportCount,
+        quote,
+        sourceHost: host,
+        sourceUrl,
+        sourceIds: claim.sourceIds,
+        sourceHashes: claim.sourceHashes,
+      };
     });
   const storeLabel = String(obj(result.product).store || result.store || "");
   const facing = card && String(card.mode || "") === "provisional_marketplace"
@@ -626,7 +716,9 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
     { id: "compare", label: briefAnswer.steps.compare.label, detail: briefAnswer.steps.compare.detail },
   ] : [];
 
-  return { kind, label, why, loves, complaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
+  const verdictWord = kind === "buy" ? "Buy" : kind === "skip" ? "Skip" : kind === "wait" ? "Wait" : null;
+  const graded = verdictWord ? applySophieGrade(result, records, verdictWord, loves, complaints) : { loves, complaints };
+  return { kind, label, why, loves: graded.loves, complaints: graded.complaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
 }
 
 /**

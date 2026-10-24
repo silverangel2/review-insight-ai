@@ -309,8 +309,11 @@ type StarCount = { rating: string; reviewCount: string };
 
 /**
  * Stars and the total printed with them. Walmart and Best Buy omit the words
- * "out of 5 stars": "(4.3) | 448", "4.3 (448)", "4.8 | 2,553". A price, a
- * size ("8 Quart"), or a storage size is not a rating or a count.
+ * "out of 5 stars": "(4.3) | 448", "4.3 (448)", "4.8 | 2,553". Live Tesseract
+ * on the same row also emits "4.3) | 448" (opening parenthesis dropped) and
+ * "(43) | 448" (decimal point dropped). A price, a size ("8 Quart"), or a
+ * storage size is not a rating or a count. A bare "(43)" with no count is not
+ * either.
  */
 function starCountFromText(value: string): StarCount | null {
   const text = value.replace(/\s+/g, " ").trim();
@@ -320,6 +323,15 @@ function starCountFromText(value: string): StarCount | null {
   if (parenPipe) {
     const rating = normalizeStarToken(parenPipe[1]);
     const reviewCount = reviewTotalToken(parenPipe[2], 10);
+    if (rating && reviewCount) return { rating, reviewCount };
+  }
+
+  // Collapsed OCR decimal: "(43) | 448" is 4.3 only when the first digit is
+  // 1–5, the second digit is the tenth, and a real count follows the pipe.
+  const collapsed = text.match(new RegExp(`\\(([1-5])(\\d)\\)\\s*[|]\\s*(${COUNT_TOKEN})\\b`, "i"));
+  if (collapsed) {
+    const rating = normalizeStarToken(`${collapsed[1]}.${collapsed[2]}`);
+    const reviewCount = reviewTotalToken(collapsed[3], 10);
     if (rating && reviewCount) return { rating, reviewCount };
   }
 
@@ -333,7 +345,9 @@ function starCountFromText(value: string): StarCount | null {
     if (rating && reviewCount) return { rating, reviewCount };
   }
 
-  const decimalPipe = text.match(new RegExp(`(?<![\\d$])\\b(${STAR_DECIMAL})\\s*[|]\\s*(${COUNT_TOKEN})\\b`, "i"));
+  // Optional ")" covers "4.3) | 448" when the opening "(" was not read.
+  // The "$" / digit lookbehind still rejects a price such as "$98.88 | …".
+  const decimalPipe = text.match(new RegExp(`(?<![\\d$])\\b(${STAR_DECIMAL})\\s*\\)?\\s*[|]\\s*(${COUNT_TOKEN})\\b`, "i"));
   if (decimalPipe) {
     const grouped = /(?:[, ]\d{3}|\d\s*[kK])\b/.test(decimalPipe[2]);
     const rating = normalizeStarToken(decimalPipe[1]);
@@ -358,7 +372,8 @@ function starCountFromText(value: string): StarCount | null {
 function stripTrailingMarketplaceAggregate(text: string): string {
   const tails = [
     `\\(\\s*${STAR_TOKEN}\\s*\\)\\s*[|]\\s*${COUNT_TOKEN}\\b`,
-    `${STAR_DECIMAL}\\s*[|]\\s*${COUNT_TOKEN}\\b`,
+    `\\([1-5]\\d\\)\\s*[|]\\s*${COUNT_TOKEN}\\b`,
+    `${STAR_DECIMAL}\\s*\\)?\\s*[|]\\s*${COUNT_TOKEN}\\b`,
     `\\b${STAR_TOKEN}\\s*(?:out of\\s*5(?:\\s*stars?)?|\\/\\s*5(?:\\s*stars?)?|stars?)(?:\\s*\\(\\s*${COUNT_TOKEN}\\+?\\s*\\))?`,
     `\\b${STAR_TOKEN}\\s*\\(\\s*${COUNT_TOKEN}\\+?\\s*\\)`,
   ];

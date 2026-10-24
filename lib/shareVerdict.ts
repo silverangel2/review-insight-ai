@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { deriveShopperAnswer, neutralProductLabel } from "./shopperAnswer";
 
-export type SharedPoint = { claim: string; quote: string | null; sourceUrl: string | null };
+export type SharedPoint = { claim: string; finding?: string | null; quote: string | null; sourceUrl: string | null };
 export type SharedVerdict = {
   v: 1;
   scanId: string;
@@ -39,7 +39,7 @@ export function sharedVerdictFromResult(result: Record<string, unknown>, scanId:
   const product = result.product && typeof result.product === "object" ? result.product as Record<string, unknown> : {};
   const title = (neutralProductLabel(product.title || product.name || result.productName) || "This product").slice(0, 140);
   const point = (p: (typeof a.loves)[number] | undefined): SharedPoint | null =>
-    p ? { claim: p.claim, quote: p.quote ? p.quote.slice(0, 220) : null, sourceUrl: p.sourceUrl } : null;
+    p ? { claim: p.claim, finding: p.finding || null, quote: p.quote ? p.quote.slice(0, 220) : null, sourceUrl: p.sourceUrl } : null;
   const listing = typeof result.exactListingUrl === "string" ? result.exactListingUrl : null;
   return {
     v: 1, scanId, product: title, label: a.label, kind: a.kind, why: a.why.slice(0, 260), score: a.score,
