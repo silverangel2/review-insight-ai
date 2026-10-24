@@ -64,7 +64,7 @@ test("rejected exact listings cannot collect unrelated written reviews", () => {
   );
   assert.match(evidence, /exactListingAccepted && listingUrlForReviewCollector/);
   assert.match(evidence, /collectorSourceAccepted && exactListingAccepted/);
-  assert.match(evidence, /if \(exactListingAccepted && listingUrlForReviewCollector\)/);
+  assert.match(evidence, /if \(exactListingAccepted && listingUrlForReviewCollector && !reuseStoredReviews\)/);
   assert.match(evidence, /if \(!collectorSourceAccepted\) \{/);
   assert.match(evidence, /return insufficientEvidence;/);
   assert.doesNotMatch(evidence, /Requested price .*matched listing price was not confirmed/);

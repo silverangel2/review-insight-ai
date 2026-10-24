@@ -1,6 +1,6 @@
 import { BUY_THRESHOLD, WAIT_THRESHOLD, provisionalShopperFacing } from "@/lib/buyingScore";
 import { isQuoteEchoOfClaim, quoteIdentityKey, sameDisplayedQuote } from "@/lib/evidenceConsistency";
-import { claimRules, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
+import { claimRules, rawReviewClauses, reviewSentiment, supportingClauseForClaim } from "@/lib/claimClauseEvidence";
 import { fillFrame, resolveBriefDict } from "@/lib/briefI18n";
 
 // Plain-language shopper answer derived ONLY from the existing result fields.
@@ -8,7 +8,7 @@ import { fillFrame, resolveBriefDict } from "@/lib/briefI18n";
 // accepted review bodies linked to a claim by its evidence ids/hashes.
 
 export type ShopperAnswerKind = "buy" | "wait" | "skip" | "not_enough";
-export type ShopperPoint = { claim: string; count: number; quote: string | null; sourceHost: string | null; sourceUrl: string | null; sourceIds: string[]; sourceHashes: string[] };
+export type ShopperPoint = { claim: string; finding?: string | null; count: number; quote: string | null; sourceHost: string | null; sourceUrl: string | null; sourceIds: string[]; sourceHashes: string[] };
 export type ShopperAnswer = {
   kind: ShopperAnswerKind;
   label: string;
@@ -316,6 +316,203 @@ function writtenReviewCount(result: Rec, records: ReturnType<typeof acceptedReco
   return comments !== null && comments > 0 ? Math.round(comments) : 0;
 }
 
+function looksLikeRawBuyerText(value: string): boolean {
+  const text = value.replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  const words = text.split(/\s+/);
+  const firstPerson = /\b(?:i(?:['’]m|['’]ve)?|we|my|our)\b/i;
+  if (words.length > 14) return true;
+  if (/^(?:i(?:['’]m|['’]ve)?|we|my|our)\b/i.test(text)) return true;
+  if (words.length > 8 && firstPerson.test(text)) return true;
+  if (text.length >= 12) {
+    const letters = (text.match(/[a-z]/gi) || []).length;
+    if (letters / text.length < 0.55) return true;
+  }
+  return false;
+}
+
+const FINDING_VERB = /^(?:stays|leaks|works|keeps|fails|breaks|cracks|lasts|runs|gets|feels|smells|looks|sounds|comes|makes|takes|needs|seems|stopped|died|broke|loosened|sleeps)\b/i;
+const STOP_WORD = new Set(["the", "and", "for", "with", "that", "this", "from", "your", "you", "its", "are", "was", "were", "been", "have", "has", "had", "but", "not", "just", "very", "really", "into", "over", "after", "before", "about", "than", "then", "also", "when", "what", "they", "them", "their", "our", "one", "without", "being", "little", "still"]);
+const SENTIMENT_WORD = new Set(["easy", "simple", "great", "good", "nice", "awesome", "excellent", "perfect", "reliable", "durable", "useful", "works", "working", "worked", "problem", "problems", "quality", "performance", "value", "love", "loved", "happy", "best", "fantastic", "solid", "fast", "quick"]);
+const GENERIC_WORD = new Set(["use", "using", "setup", "right", "away", "immediately", "thing", "stuff", "product", "item", "time", "times"]);
+const COMPLAINT_HINT = /\b(?:leak|leaks|leaking|loose|loosened|warm|hot|smell|smells|smelled|short|scratched|scratch|noisy|loud|heavy|sticky|stain|stained|peel|peeling|rust|crack|cracked|broke|broken|failed|dies|died)\b/i;
+const PRAISE_HINT = /\b(?:cool|quiet|soft|hydrat|moistur|absorb|sturdy|bright|comfortable|faster|improved|softer|thick|greasy|soaks|scent|zipper|stitch)\b/i;
+const HOLLOW_THEME = new Set(claimRules.map((rule) => rule.claim.toLowerCase()));
+
+function contentWords(text: string): string[] {
+  return text.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/).filter((word) => word.length > 2 && !STOP_WORD.has(word));
+}
+
+/** Taxonomy labels and checklist phrases are not something you'd tell a friend. */
+export function isHollowShopperTheme(value: unknown): boolean {
+  const text = String(value || "").replace(/\s+/g, " ").trim().replace(/[.!?]+$/, "").toLowerCase();
+  if (!text) return true;
+  if (HOLLOW_THEME.has(text)) return true;
+  return /^(?:easy to use|works well|does what it promises|reliability problems|good value|great product|nice product)(?: or .*)?$/.test(text);
+}
+
+/** Template leads and bare tallies. A specific sentence that also mentions buyers can still pass. */
+export function isRoboticShopperLine(value: unknown): boolean {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  if (/^(?:buyers report|shoppers note|buyers consistently report|buyers like|too many buyers report|buyers are mostly|buyer feedback is mixed)/i.test(text)) return true;
+  if (/^\d+ of \d+ buyers mention it\.?$/i.test(text)) return true;
+  if (/^one buyer reported this\.?$/i.test(text)) return true;
+  if (/repeated (?:strength|complaint) in the written reviews/i.test(text)) return true;
+  return false;
+}
+
+export function isSpecificShopperFinding(value: unknown): boolean {
+  return !isRoboticShopperLine(value) && !isHollowShopperTheme(value);
+}
+
+function concreteEnough(text: string): boolean {
+  const cleaned = text.replace(/\s+/g, " ").trim().replace(/[.!?]+$/, "");
+  if (cleaned.length < 8 || cleaned.length > 140) return false;
+  if (isHollowShopperTheme(cleaned) || isRoboticShopperLine(cleaned)) return false;
+  const words = contentWords(cleaned).filter((word) => !SENTIMENT_WORD.has(word) && !GENERIC_WORD.has(word));
+  return words.length >= 1;
+}
+
+function groundedIn(sentence: string, support: string): boolean {
+  const words = contentWords(sentence).filter((word) => !SENTIMENT_WORD.has(word));
+  if (!words.length) return false;
+  const hay = support.toLowerCase();
+  return words.every((word) => hay.includes(word));
+}
+
+function wordCount(text: string): number {
+  return text.replace(/[.!?]+$/, "").split(/\s+/).filter(Boolean).length;
+}
+
+/** Pull a product observation out of a first-person story, or drop the story. */
+function stripStory(clause: string): string | null {
+  const text = clause.replace(/\s+/g, " ").trim().replace(/^["“]+|["”]+$/g, "");
+  if (!text) return null;
+  const tail = text.match(/\b(?:and|but)\s+((?:it|the|they|this)\b.+)$/i);
+  if (tail && looksLikeRawBuyerText(text)) return tail[1].replace(/\s+/g, " ").trim();
+  if (/^(?:my|our)\s+/i.test(text)) {
+    const rest = text.replace(/^(?:my|our)\s+/i, "");
+    if (!looksLikeRawBuyerText(rest)) return rest;
+  }
+  if (looksLikeRawBuyerText(text)) return null;
+  return text;
+}
+
+function speak(theme: string): string | null {
+  const text = theme.replace(/\s+/g, " ").trim().replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim().replace(/[.!?]+$/, "");
+  if (!concreteEnough(text) || looksLikeRawBuyerText(text)) return null;
+  const lowered = text.charAt(0).toLowerCase() + text.slice(1);
+  const spoken = /^(?:it|the|they|this|there|a|an)\b/i.test(text)
+    ? text.charAt(0).toUpperCase() + text.slice(1)
+    : FINDING_VERB.test(text)
+      ? `It ${lowered}`
+      : text.charAt(0).toUpperCase() + text.slice(1);
+  return /[.!?]$/.test(spoken) ? spoken : `${spoken}.`;
+}
+
+function polarityOk(clause: string, kind: "strength" | "complaint"): boolean {
+  const sentiment = reviewSentiment(clause);
+  const complaintHint = COMPLAINT_HINT.test(clause);
+  const praiseHint = PRAISE_HINT.test(clause) || sentiment.praise > 0;
+  if (kind === "strength") {
+    if (sentiment.hasSevereComplaint || sentiment.complaints > sentiment.praise) return false;
+    if (complaintHint && sentiment.praise === 0 && !praiseHint) return false;
+    return true;
+  }
+  return sentiment.complaints > sentiment.praise || (complaintHint && sentiment.praise === 0);
+}
+
+function bestClause(support: string, kind: "strength" | "complaint", claim: string): string | null {
+  const claimWords = contentWords(claim).filter((word) => !SENTIMENT_WORD.has(word));
+  const claimIsSpecific = !isHollowShopperTheme(claim);
+  let best: string | null = null;
+  let bestScore = 0;
+  for (const raw of rawReviewClauses(support)) {
+    const stripped = stripStory(raw);
+    if (!stripped || !polarityOk(stripped, kind)) continue;
+    if (kind === "strength" && !PRAISE_HINT.test(stripped) && reviewSentiment(stripped).praise === 0 && !FINDING_VERB.test(stripped)) continue;
+    const spoken = speak(stripped);
+    if (!spoken || !groundedIn(spoken, support)) continue;
+    if (claimIsSpecific && claimWords.length) {
+      const overlap = claimWords.filter((word) => spoken.toLowerCase().includes(word)).length;
+      if (overlap === 0) continue;
+    }
+    const score = contentWords(spoken).length + claimWords.filter((word) => spoken.toLowerCase().includes(word)).length * 3 - Math.max(0, wordCount(spoken) - 16);
+    if (score > bestScore) {
+      best = spoken;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/**
+ * One sentence a person could say about this product.
+ * Words have to appear in the gathered review. A hollow label or a
+ * first-person story returns null so the bullet can be left out.
+ */
+export function thirdPersonFinding(claim: string, kind: "strength" | "complaint", supportText = ""): string | null {
+  const support = supportText || claim;
+  const fromSupport = bestClause(support, kind, claim);
+  const fromClaim = speak(claim);
+  const claimGrounded = Boolean(fromClaim && groundedIn(fromClaim, support));
+  if (fromSupport) {
+    if (fromClaim && claimGrounded && wordCount(fromSupport) > wordCount(fromClaim) + 8) return fromClaim;
+    return fromSupport;
+  }
+  return claimGrounded ? fromClaim : null;
+}
+
+function whyPhrase(point: ShopperPoint | undefined): string | null {
+  if (!point?.finding || !isSpecificShopperFinding(point.finding)) return null;
+  const claimSpoken = speak(point.claim);
+  const support = `${point.quote || ""} ${point.claim}`;
+  const phrase = claimSpoken && groundedIn(claimSpoken, support) && /^(?:it|the|they|this)\b/i.test(claimSpoken)
+    ? claimSpoken.replace(/[.]+$/, "")
+    : point.finding.replace(/[.]+$/, "");
+  // The one-line reason names the observation. It does not paste the review's opening.
+  const opening = String(point.quote || "").replace(/\s+/g, " ").trim().slice(0, 24).toLowerCase();
+  if (opening.length >= 16 && phrase.toLowerCase().includes(opening.slice(0, 16))) return null;
+  return phrase;
+}
+
+function humanVerdictWhy(kind: ShopperAnswerKind, love: string | null, complaint: string | null): string {
+  const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+  const loveText = love?.replace(/[.]+$/, "") || "";
+  const complaintText = complaint?.replace(/[.]+$/, "") || "";
+  if (kind === "buy") {
+    if (loveText && complaintText) return `${cap(loveText)}. ${cap(complaintText)}. I'd still buy it with that in mind.`;
+    if (loveText) return `${cap(loveText)}. That's what I'd buy it for.`;
+    if (complaintText) return `I'd still buy it. ${cap(complaintText)}, and the reviews never named a feature to put next to that.`;
+    return "I'd buy it on what we could check. The reviews don't name one feature to hang that on.";
+  }
+  if (kind === "skip") {
+    if (complaintText && loveText) return `${cap(loveText)}. Even so, ${complaintText.charAt(0).toLowerCase()}${complaintText.slice(1)}, and that's why I'd skip it.`;
+    if (complaintText) return `${cap(complaintText)}. That's why I'd skip it.`;
+    if (loveText) return `${cap(loveText)}. The rest of the reviews still make me want to skip it.`;
+    return "I'd skip it. What we could read leans toward problems.";
+  }
+  if (loveText && complaintText) return `${cap(loveText)}. ${cap(complaintText)}, so I wouldn't buy it yet.`;
+  if (loveText) return `${cap(loveText)}. I'd still wait. It isn't settled enough to buy.`;
+  if (complaintText) return `${cap(complaintText)}. I'd wait and see if that keeps coming up.`;
+  return "I'd wait. The reviews go both ways, and nothing in them settles it.";
+}
+
+function storedSophieFindings(result: Rec): { loves: Array<string | null> | null; complaints: Array<string | null> | null } | null {
+  const stored = obj(result.sophieGradedFindings);
+  if (!Array.isArray(stored.loves) && !Array.isArray(stored.complaints)) return null;
+  const texts = (value: unknown): Array<string | null> | null => Array.isArray(value)
+    ? value.map((item) => (typeof item === "string" && item.trim() ? item.trim() : null))
+    : null;
+  return { loves: texts(stored.loves), complaints: texts(stored.complaints) };
+}
+
+function applyStoredSophieFindings(points: ShopperPoint[], graded: Array<string | null> | null): ShopperPoint[] {
+  if (!graded || graded.length !== points.length) return points;
+  return points.map((point, index) => ({ ...point, finding: graded[index] && isSpecificShopperFinding(graded[index]) ? graded[index] : null }));
+}
+
 function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attribution: Map<string, string | null>): ShopperPoint[] {
   const points: ShopperPoint[] = [];
   for (const record of records) {
@@ -325,6 +522,7 @@ function quoteOnlyPoints(records: ReturnType<typeof acceptedRecords>, attributio
     const host = attribution.get(normalizeQuoteKey(quote)) ?? hostOf(record.sourceUrl);
     points.push({
       claim: quote,
+      finding: thirdPersonFinding(quote, "strength", body),
       count: 1,
       quote,
       sourceHost: host,
@@ -481,7 +679,17 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
         sourceUrl = record.sourceUrl ? String(record.sourceUrl) : null;
         break;
       }
-      return { claim: claim.claim, count: claim.supportCount, quote, sourceHost: host, sourceUrl, sourceIds: claim.sourceIds, sourceHashes: claim.sourceHashes };
+      const supportText = candidates.map((record) => String(record.body || "")).join(" ");
+      return {
+        claim: claim.claim,
+        finding: thirdPersonFinding(claim.claim, kind, supportText),
+        count: claim.supportCount,
+        quote,
+        sourceHost: host,
+        sourceUrl,
+        sourceIds: claim.sourceIds,
+        sourceHashes: claim.sourceHashes,
+      };
     });
   const storeLabel = String(obj(result.product).store || result.store || "");
   const facing = card && String(card.mode || "") === "provisional_marketplace"
@@ -538,27 +746,28 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
   const topLove = claimedLoves[0]?.claim;
   const topComplaint = claimedComplaints[0]?.claim;
   const hasListing = listingUrls(result).length > 0;
-  const neutralSummary = kind === "buy"
-    ? briefAnswer.neutralBuy
-    : kind === "skip"
-      ? briefAnswer.neutralSkip
-      : briefAnswer.neutralWait;
+  const englishVoice = briefAnswer.whyBuyBase === resolveBriefDict("en").answer.whyBuyBase;
+  const loveWords = whyPhrase(loves.find((point) => whyPhrase(point)));
+  const complaintWords = whyPhrase(complaints.find((point) => whyPhrase(point)));
   const whyBuyBase = fillFrame(briefAnswer.whyBuyBase, { love: topLove ? lower(topLove) : briefAnswer.whyBuyDefaultLove });
   const whySkipBase = fillFrame(briefAnswer.whySkipBase, { complaint: topComplaint ? lower(topComplaint) : briefAnswer.whySkipDefaultComplaint });
   const whyWaitBase = fillFrame(briefAnswer.whyWaitBase, { love: topLove ? lower(topLove) : briefAnswer.whyWaitDefaultLove });
+  const framedWhy = !topLove && !topComplaint
+    ? (kind === "buy" ? briefAnswer.neutralBuy : kind === "skip" ? briefAnswer.neutralSkip : briefAnswer.neutralWait)
+    : kind === "buy"
+      ? `${whyBuyBase}${topComplaint ? fillFrame(briefAnswer.whyBuyComplaintTail, { complaint: lower(topComplaint) }) : ""}.`
+      : kind === "skip"
+        ? `${whySkipBase}${topLove ? fillFrame(briefAnswer.whySkipLoveTail, { love: lower(topLove) }) : ""}.`
+        : `${whyWaitBase}${topComplaint ? fillFrame(briefAnswer.whyWaitComplaintTail, { complaint: lower(topComplaint) }) : ""}. ${fillFrame(briefAnswer.whyWaitCloser, { buy: briefVerdict.buy })}`;
   const why = provisional && facing
     ? facing.line
     : kind === "not_enough"
     ? (hasListing
       ? briefAnswer.whyNotEnoughListing
       : briefAnswer.whyNotEnoughNoListing)
-    : !topLove && !topComplaint
-      ? neutralSummary
-      : kind === "buy"
-        ? `${whyBuyBase}${topComplaint ? fillFrame(briefAnswer.whyBuyComplaintTail, { complaint: lower(topComplaint) }) : ""}.`
-        : kind === "skip"
-          ? `${whySkipBase}${topLove ? fillFrame(briefAnswer.whySkipLoveTail, { love: lower(topLove) }) : ""}.`
-          : `${whyWaitBase}${topComplaint ? fillFrame(briefAnswer.whyWaitComplaintTail, { complaint: lower(topComplaint) }) : ""}. ${fillFrame(briefAnswer.whyWaitCloser, { buy: briefVerdict.buy })}`;
+    : englishVoice
+      ? humanVerdictWhy(kind, loveWords, complaintWords)
+      : framedWhy;
 
   const sourceText = sources.length ? sources.join(", ") : "the product listing";
   const trustLine = provisional && facing
@@ -626,7 +835,10 @@ export function deriveShopperAnswer(input: unknown, locale: string = "en"): Shop
     { id: "compare", label: briefAnswer.steps.compare.label, detail: briefAnswer.steps.compare.detail },
   ] : [];
 
-  return { kind, label, why, loves, complaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
+  const storedGrade = storedSophieFindings(result);
+  const shownLoves = storedGrade ? applyStoredSophieFindings(loves, storedGrade.loves) : loves;
+  const shownComplaints = storedGrade ? applyStoredSophieFindings(complaints, storedGrade.complaints) : complaints;
+  return { kind, label, why, loves: shownLoves, complaints: shownComplaints, reviewCount: provisional ? 0 : reviewCount, sources, trustLine, confidenceWords, confidenceFromV2, confidencePercent, value, score, unreadable: false, nextSteps };
 }
 
 /**

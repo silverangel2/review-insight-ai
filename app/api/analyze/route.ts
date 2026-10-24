@@ -2366,6 +2366,7 @@ function buildReviewEvidenceShopperResult(input: {
     pageCount: collectorAggregate.count ?? listingEvidence?.reviewCount ?? evidence.reviewCount,
     screenshotRating: vision.rating,
     screenshotCount: vision.reviewCount,
+    productName,
   });
   const v2RequestedModel = (() => {
     const explicit = String(asRecord(vision).model || asRecord(listingEvidence).model || "").trim();
@@ -3665,7 +3666,12 @@ async function analyzePost(request: Request, serverScanId: string, opRef: ScanOp
     }
 
     captureStage("final", () => ({ buyScore: result.buyScore, verdict: result.verdict, confidence: result.verdictConfidence, value: result.valueForMoney, cost: costTelemetry.snapshot() }));
-    const completed = await recordCompletedScan(result);
+    // Sophie grades cited findings on the server. The client reads the stored
+    // grade and never imports the node:crypto proposal checker.
+    const gradedResult = await import("@/lib/sophieShopperGrade")
+      .then((mod) => mod.attachSophieShopperGrade(result as Record<string, unknown>))
+      .catch(() => result);
+    const completed = await recordCompletedScan(gradedResult as typeof result);
     return NextResponse.json(completed);
   } catch (error) {
     console.error("Analyze product failed:", error);

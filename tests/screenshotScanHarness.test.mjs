@@ -149,6 +149,104 @@ test("Walmart and Best Buy aggregates score without an Amazon review scrape", ()
   });
   assert.equal(pageWins.source, "page");
   assert.equal(pageWins.rating, 4.6);
+  const unnamed = buying.marketplaceAggregateForScore({
+    exactListingAccepted: true,
+    pageRating: 4.1,
+    pageCount: 900,
+    screenshotRating: "4.8",
+    screenshotCount: "2553",
+    productName: "Amazon product",
+  });
+  assert.equal(unnamed.source, "screenshot");
+  assert.equal(unnamed.rating, 4.8);
+  assert.equal(unnamed.count, 2553);
+});
+
+test("live Walmart OCR star noise still scores BISSELL 4.3 from 448 as Wait", () => {
+  const facts = jiti("./lib/screenshotProductFacts.ts");
+  const shopper = jiti("./lib/shopperAnswer.ts");
+  const ocr = (lines) => ({
+    fileSha256: "0".repeat(64),
+    ocrConfidence: 80,
+    engine: "test",
+    lines,
+  });
+  const noisy = facts.productFactsFromOcr(ocr([
+    { text: "Walmart.ca", confidence: 78 },
+    { text: "BISSELL® PowerForce® Turbo Pet Bagless Upright Vacuum", confidence: 90 },
+    { text: "Now $98.88", confidence: 86 },
+    { text: "$98.88", confidence: 84 },
+    { text: "BISSELL Feder dede (43) | 448", confidence: 56 },
+    { text: "BISSELL wR Rw 4.3) | 448", confidence: 54 },
+  ]));
+  assert.equal(noisy.rating, "4.3");
+  assert.equal(noisy.reviewCount, "448");
+  assert.match(noisy.name, /PowerForce/);
+  assert.doesNotMatch(noisy.name, /Feder|\(43\)|4\.3\)/);
+  const price = facts.productFactsFromOcr(ocr([
+    { text: "Walmart.ca", confidence: 80 },
+    { text: "BISSELL PowerForce Turbo Pet Bagless Upright Vacuum", confidence: 90 },
+    { text: "$98.88 | 448", confidence: 88 },
+  ]));
+  assert.equal(price.rating, "");
+  assert.equal(price.reviewCount, "");
+  const bare = facts.productFactsFromOcr(ocr([
+    { text: "Walmart.ca", confidence: 80 },
+    { text: "BISSELL PowerForce Turbo Pet Bagless Upright Vacuum", confidence: 90 },
+    { text: "(43)", confidence: 70 },
+  ]));
+  assert.equal(bare.rating, "");
+  assert.equal(bare.reviewCount, "");
+  const fixture = fixtures.find((item) => item.id === "walmart-bissell-powerforce-live-ocr-noise");
+  const graded = harness.gradeIdentityFixture(fixture);
+  assert.deepEqual(graded.reasons, []);
+  assert.equal(graded.shopperVerdict, "Wait");
+  const answer = shopper.deriveShopperAnswer({
+    finalDecisionSource: "buyingScoreV2",
+    verdict: "BUY",
+    product: { title: "Travel kettle", name: "Travel kettle" },
+    buyingScoreV2: { version: "buying-score-v2", mode: "buying_score", score: 80, verdict: "Buy", confidence: "High", audit: { n: 2 } },
+    strengthProvenance: [{ claim: "Stays cool in a bag", supportCount: 3, sourceIds: ["r1"], sourceHashes: [] }],
+    complaintProvenance: [{ claim: "The lid leaks", supportCount: 2, sourceIds: ["r2"], sourceHashes: [] }],
+    reviewEvidence: {
+      evidenceAdjudication: {
+        acceptedRecordCount: 2,
+        acceptedRecords: [
+          { id: "r1", body: "Got for my soon to be great niece's arrival and it stays cool in a bag.", sourceUrl: "https://www.amazon.com/dp/B0GENERIC1" },
+          { id: "r2", body: "The lid leaks if you tip it over on the counter.", sourceUrl: "https://www.amazon.ca/dp/B0GENERIC1" },
+        ],
+      },
+    },
+  });
+  assert.match(answer.loves[0].finding, /stays cool in a bag/i);
+  assert.match(answer.complaints[0].finding, /the lid leaks/i);
+  assert.doesNotMatch(`${answer.loves[0].finding} ${answer.complaints[0].finding} ${answer.why}`, /Buyers report|Shoppers note|Buyers consistently/i);
+  assert.match(answer.loves[0].quote, /niece/);
+  assert.doesNotMatch(answer.why, /niece|counter/i);
+  assert.match(answer.why, /stays cool in a bag/i);
+  assert.match(answer.why, /the lid leaks/i);
+  assert.doesNotMatch(`${answer.loves[0].finding} ${answer.complaints[0].finding}`, /\bI\b|Vercel|Not scored|Not enough evidence/i);
+  const hollow = shopper.deriveShopperAnswer({
+    finalDecisionSource: "buyingScoreV2",
+    verdict: "BUY",
+    product: { title: "Travel kettle", name: "Travel kettle" },
+    buyingScoreV2: { version: "buying-score-v2", mode: "buying_score", score: 80, verdict: "Buy", confidence: "High", audit: { n: 2 } },
+    strengthProvenance: [{ claim: "easy to use or set up", supportCount: 2, sourceIds: ["r1"], sourceHashes: [] }],
+    complaintProvenance: [{ claim: "The lid leaks", supportCount: 2, sourceIds: ["r2"], sourceHashes: [] }],
+    reviewEvidence: {
+      evidenceAdjudication: {
+        acceptedRecordCount: 2,
+        acceptedRecords: [
+          { id: "r1", body: "It was easy to use right away.", sourceUrl: "https://www.amazon.com/dp/B0GENERIC1" },
+          { id: "r2", body: "The lid leaks if you tip it over on the counter.", sourceUrl: "https://www.amazon.ca/dp/B0GENERIC1" },
+        ],
+      },
+    },
+  });
+  assert.equal(hollow.loves[0].finding, null);
+  assert.match(hollow.complaints[0].finding, /the lid leaks/i);
+  assert.doesNotMatch(hollow.why, /easy to use/i);
+  assert.match(hollow.why, /the lid leaks/i);
 });
 
 test("star-line totals become a review count without stealing the stars or a model size", () => {

@@ -157,7 +157,8 @@ test("en brief is byte-identical to the pre-translator behavior", () => {
   assert.ok(narration[narration.length - 1] === "Only real written reviews and the marketplace rating feed the score.");
   const answer = sa.deriveShopperAnswer(FIXTURE);
   assert.equal(answer.label, "Buy");
-  assert.match(answer.why, /^Buyers consistently report improved sleep quality/);
+  assert.match(answer.why, /sleep quality improved within a week/i);
+  assert.doesNotMatch(answer.why, /Buyers consistently report|Buyers report|Shoppers note/i);
   assert.match(answer.trustLine, /^Based on real buyer reviews from amazon\.ca\.$/);
 });
 

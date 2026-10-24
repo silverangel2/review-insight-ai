@@ -1,7 +1,7 @@
 import type React from "react";
 import Link from "next/link";
 import { provisionalShopperFacing, type BuyingScoreResult } from "@/lib/buyingScore";
-import { cleanQuoteText, sanitizeVerdictWord } from "@/lib/shopperAnswer";
+import { cleanQuoteText, isSpecificShopperFinding, sanitizeVerdictWord, thirdPersonFinding } from "@/lib/shopperAnswer";
 import { sameDisplayedQuote } from "@/lib/evidenceConsistency";
 
 type Card = BuyingScoreResult & { quotes?: { safety: string[]; reliability: string[]; positive: string[]; negative: string[] } };
@@ -117,9 +117,6 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
             <div key={i} data-testid={`warning-${w.tier}`} style={warningStyle[w.tier]} className="rounded-xl border px-3 py-2 text-sm">
               <p className="text-[11px] font-black uppercase tracking-[0.12em] opacity-80">{warningTitle[w.tier]}</p>
               <p className="font-semibold">{w.text}</p>
-              {w.quotes.map((q, j) => (
-                <blockquote key={j} className="mt-1 border-l-2 border-current/30 pl-2 text-xs italic opacity-90">“{cleanQuoteText(q)}”</blockquote>
-              ))}
               {w.sourceUrl ? <a href={w.sourceUrl} className="mt-1 inline-block text-xs font-bold underline" rel="noopener noreferrer" target="_blank">Source</a> : null}
             </div>
           ))}
@@ -134,28 +131,28 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
 
       {!isProvisional && !isNoScore && (visiblePositive.length || visibleNegative.length) ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {visiblePositive.length ? (
+          {(() => {
+            const lines = Array.from(new Set(visiblePositive.slice(0, compact ? 2 : 3).map((q) => thirdPersonFinding(q.text, "strength", q.text)))).filter((line): line is string => Boolean(line && isSpecificShopperFinding(line)));
+            return lines.length ? (
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-700">What buyers like</p>
-              {visiblePositive.slice(0, compact ? 2 : 3).map((q, i) => (
-                <blockquote key={i} className="mt-1 text-xs italic text-slate-700 dark:text-slate-300">
-                  “{q.text}”
-                  {q.host ? <span className="mt-1 block text-[11px] not-italic text-slate-400">{q.host}</span> : null}
-                </blockquote>
+              {lines.map((line) => (
+                <p key={line} className="mt-1 text-xs text-slate-700 dark:text-slate-300">{line}</p>
               ))}
             </div>
-          ) : null}
-          {visibleNegative.length ? (
+            ) : null;
+          })()}
+          {(() => {
+            const lines = Array.from(new Set(visibleNegative.slice(0, compact ? 2 : 3).map((q) => thirdPersonFinding(q.text, "complaint", q.text)))).filter((line): line is string => Boolean(line && isSpecificShopperFinding(line)));
+            return lines.length ? (
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.12em] text-rose-700">Complaints</p>
-              {visibleNegative.slice(0, compact ? 2 : 3).map((q, i) => (
-                <blockquote key={i} className="mt-1 text-xs italic text-slate-700 dark:text-slate-300">
-                  “{q.text}”
-                  {q.host ? <span className="mt-1 block text-[11px] not-italic text-slate-400">{q.host}</span> : null}
-                </blockquote>
+              {lines.map((line) => (
+                <p key={line} className="mt-1 text-xs text-slate-700 dark:text-slate-300">{line}</p>
               ))}
             </div>
-          ) : null}
+            ) : null;
+          })()}
         </div>
       ) : null}
 
@@ -165,7 +162,7 @@ export function BuyingScoreV2Card({ score, compact = false, store, quoteKeys, at
           {score.primaryAction}
         </Link>
       ) : null}
-      <p className="mt-3 text-[11px] text-slate-400">Only real written reviews and the marketplace rating are used. The score is based only on the reviews shown above.</p>
+      <p className="mt-3 text-[11px] text-slate-400">Only real written reviews and the marketplace rating are used.</p>
     </section>
   );
 }

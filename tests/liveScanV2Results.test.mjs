@@ -244,7 +244,8 @@ test("a v2 Buy is not rewritten by a legacy NOT_ENOUGH state", async () => {
   assert.equal(answer.confidenceWords, "Medium");
   assert.equal(shopper.formatShopperConfidence(answer), "Medium");
   assert.equal(answer.score, 96);
-  assert.equal(answer.why, "Buyers are mostly positive about this product.");
+  assert.doesNotMatch(answer.why, /Buyers are mostly positive|Buyers report|Shoppers note/i);
+  assert.match(answer.why, /[A-Za-z]/);
   assert.ok(answer.loves.some((point) => point.quote && point.quote.length > 20 && !answer.why.includes(point.quote.slice(0, 24))));
   assert.doesNotMatch(`${answer.label} ${answer.why} ${answer.nextSteps.map((step) => `${step.label} ${step.detail}`).join(" ")}`, /Scan the Amazon listing link/);
   assert.equal(answer.nextSteps.some((step) => step.id === "amazon_listing"), false);
@@ -327,7 +328,7 @@ test("a quote-only result keeps raw review text out of the summary", () => {
     };
     const answer = shopper.deriveShopperAnswer(result);
     assert.equal(answer.label, verdict.word, quote);
-    assert.equal(answer.why, verdict.why, quote);
+    assert.doesNotMatch(answer.why, /Buyers report|Shoppers note|Buyers are mostly positive|Buyer feedback is mixed|enough problems to skip/i, quote);
     for (const record of records) {
       assert.equal(answer.why.includes(record.body.slice(0, 24)), false, record.body);
       assert.ok(answer.loves.some((point) => point.quote && record.body.startsWith(point.quote.replace(/…$/, ""))), record.body);

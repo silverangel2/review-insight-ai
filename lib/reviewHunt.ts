@@ -14,9 +14,10 @@
  * recorded — a wrong-product review is worse than none.
  *
  * Safety shape:
- *   - Kill switch: REVIEWINTEL_REVIEW_HUNT_ENABLED must be "1" (default
- *     OFF, same precedent as RI_KEEPER_REPAIRS_ENABLED). The caller checks
- *     the flag; this module also exposes the trigger test for it.
+ *   - Kill switch: REVIEWINTEL_REVIEW_HUNT_ENABLED === "0" turns the hunt
+ *     off. Unset or empty leaves it on, so a thin or blocked first listing
+ *     still continues to other free stores. Only the exact value "1" is
+ *     also on; any other string ("true", "yes") stays off.
  *   - Time-boxed: the retrieval races a hard cap (default 25s) inside the
  *     scan's own collection deadline; a timeout, an error, or an empty
  *     result returns no reviews and leaves the scan exactly as it was.
@@ -44,11 +45,16 @@ import type { ScanCostTelemetry } from "./scanCostTelemetry";
 
 export const REVIEW_HUNT_ENV_FLAG = "REVIEWINTEL_REVIEW_HUNT_ENABLED";
 export const REVIEW_HUNT_DEFAULT_TIMEOUT_MS = 25_000;
+/** Same bar the evidence adjudicator already uses for a sufficient written set. */
+export const WRITTEN_REVIEW_ENOUGH = 3;
 
 export function isReviewHuntEnabled(
   env: Record<string, string | undefined> = process.env
 ): boolean {
-  return env[REVIEW_HUNT_ENV_FLAG] === "1";
+  const flag = env[REVIEW_HUNT_ENV_FLAG];
+  if (flag === "0") return false;
+  if (flag === undefined || flag === "") return true;
+  return flag === "1";
 }
 
 export type ReviewHuntExclusion = {
@@ -130,10 +136,11 @@ function emptyDiagnostics(reason: string, fingerprintKey: string | null): Review
 }
 
 /**
- * The v1 trigger, kept conservative on purpose: the hunt fires only when
- * the scan accepted ZERO written reviews AND the product identity is
- * anchored (a fingerprint key exists — brand + model, or brand + a full
- * spec set) AND the kill switch is on. Everything else is today's scan.
+ * Continue to other stores while this product's written set is still thin.
+ * The hunt fires when the kill switch is on, the fingerprint is anchored,
+ * and fewer than WRITTEN_REVIEW_ENOUGH reviews were accepted. Zero accepted
+ * reviews and a one- or two-review set both continue. An unanchored identity
+ * never hunts, even when the written count is already enough.
  */
 export function shouldRunReviewHunt(input: {
   enabled: boolean;
@@ -141,10 +148,12 @@ export function shouldRunReviewHunt(input: {
   fingerprint: ProductFingerprint;
 }): { fire: boolean; reason: string } {
   if (!input.enabled) return { fire: false, reason: "flag_off" };
-  if (input.acceptedRecordCount > 0)
-    return { fire: false, reason: "amazon_reviews_accepted" };
   if (!input.fingerprint.fingerprintKey)
     return { fire: false, reason: "identity_not_anchored" };
+  if (input.acceptedRecordCount >= WRITTEN_REVIEW_ENOUGH)
+    return { fire: false, reason: "enough_written_reviews" };
+  if (input.acceptedRecordCount > 0)
+    return { fire: true, reason: "thin_written_reviews" };
   return { fire: true, reason: "zero_accepted_reviews" };
 }
 

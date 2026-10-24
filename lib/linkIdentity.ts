@@ -2,7 +2,7 @@
 // cannot be fetched. Used for search, matching, and which store ladder runs.
 // Never invents a title, and never treats a placeholder as a product name.
 
-import { amazonStoreLabel } from "./listingAuthority";
+import { amazonStoreLabel, isUnusableListingTitle } from "./listingAuthority";
 import {
   amazonStableId,
   bestBuyIdentity,
@@ -34,6 +34,18 @@ export function isPlaceholderProductName(value: unknown): boolean {
     .trim();
   if (!text) return true;
   return text.split(" ").every((word) => PLACEHOLDER_WORD.test(word) || word.toLowerCase() === "amazon");
+}
+
+/**
+ * A label with no product in it ("Amazon product", a captcha title).
+ * A missing name is not this case — callers that omit the name keep
+ * their existing fallback.
+ */
+export function isUnnamedProductLabel(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  const text = String(value).replace(/\s+/g, " ").trim();
+  if (!text) return false;
+  return isPlaceholderProductName(text) || isUnusableListingTitle(text);
 }
 
 /** Empty when the text is a placeholder such as "unknown product". */

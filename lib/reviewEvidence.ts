@@ -1,5 +1,5 @@
 import { captureStage } from "./devScanCapture";
-import { collectionProductName, isPlaceholderProductName } from "./linkIdentity";
+import { collectionProductName, isPlaceholderProductName, isUnnamedProductLabel } from "./linkIdentity";
 
 function toOptionalNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -78,6 +78,7 @@ import {
   isReviewHuntEnabled,
   runReviewHunt,
   shouldRunReviewHunt,
+  WRITTEN_REVIEW_ENOUGH,
   type ReviewHuntDiagnostics,
 } from "./reviewHunt";
 import { extractProductFingerprint } from "./productFingerprint";
@@ -2448,7 +2449,58 @@ export async function collectAndAnalyzeReviewEvidence(
 
   let exactListingAccepted = Boolean(listingUrlForReviewCollector);
 
-  if (exactListingAccepted && listingUrlForReviewCollector) {
+  // A fingerprint-matched library corpus that already adjudicates to enough
+  // written reviews is the next scan's evidence. Skip the review scrape.
+  // Identity verification still runs. forceRefresh always collects again.
+  let reuseStoredReviews = false;
+  const unnamedProduct = isUnnamedProductLabel(input.productName);
+  if (!input.forceRefresh && !unnamedProduct) {
+    try {
+      const storedFingerprint = extractProductFingerprint({
+        brand: input.brand,
+        productName: input.productName,
+        model: input.model,
+        categoryBreadcrumbs: input.categoryBreadcrumbs,
+      });
+      if (storedFingerprint.fingerprintKey) {
+        const storedPool = await loadFingerprintMatchedLibraryCorpus({
+          brand: input.brand,
+          productName: input.productName,
+          model: input.model,
+          categoryBreadcrumbs: input.categoryBreadcrumbs,
+        });
+        if (storedPool.reviews.length) {
+          const storedAdjudication = adjudicateReviewEvidence(storedPool.reviews, {
+            productName: input.productName,
+            brand: input.brand,
+            model: input.model,
+            exactListingAccepted: false,
+            exactListingUrl: null,
+            exactListingTitle: input.productName,
+          });
+          if (storedAdjudication.acceptedRecordCount >= WRITTEN_REVIEW_ENOUGH) {
+            if (!exactListingAccepted) {
+              reuseStoredReviews = true;
+            } else {
+              const onListing = adjudicateReviewEvidence(storedPool.reviews, {
+                productName: input.productName,
+                brand: input.brand,
+                model: input.model,
+                exactListingAccepted: true,
+                exactListingUrl: listingUrlForReviewCollector,
+                exactListingTitle: listingEvidenceForCollection?.exactListingTitle || input.productName,
+              });
+              reuseStoredReviews = onListing.acceptedRecordCount >= WRITTEN_REVIEW_ENOUGH;
+            }
+          }
+        }
+      }
+    } catch {
+      reuseStoredReviews = false;
+    }
+  }
+
+  if (exactListingAccepted && listingUrlForReviewCollector && !reuseStoredReviews) {
     nativeReviewRetrieval = await runNativeReviewRetrieval({
       productTitle: listingEvidenceForCollection?.exactListingTitle || input.productName || product,
       brand: input.brand,
@@ -2467,6 +2519,8 @@ export async function collectAndAnalyzeReviewEvidence(
     listingEvidenceForCollection =
       adoptPrimaryPageIdentity(listingEvidenceForCollection, nativeReviewRetrieval?.primaryPageIdentity) ??
       listingEvidenceForCollection;
+  } else if (reuseStoredReviews) {
+    nativeRetrievalNote = "Native retrieval skipped because the review library already holds enough written reviews for this product.";
   } else {
     nativeRetrievalNote = "Native retrieval skipped because exact product identity was not verified.";
   }
@@ -2753,7 +2807,7 @@ export async function collectAndAnalyzeReviewEvidence(
       adjudicationOptions.exactListingUrl = checkedListingUrl;
       adjudicationOptions.exactListingTitle = checkedListingTitle;
 
-      nativeReviewRetrieval = await runNativeReviewRetrieval({
+      if (!reuseStoredReviews) nativeReviewRetrieval = await runNativeReviewRetrieval({
         listingUrl: verified.verifiedListingUrl,
         productTitle: checkedListingTitle || input.productName,
         brand: input.brand, model: stableIdentity.models.join(" ") || input.model, store: input.store,
@@ -2767,8 +2821,10 @@ export async function collectAndAnalyzeReviewEvidence(
       listingEvidenceForCollection =
         adoptPrimaryPageIdentity(listingEvidenceForCollection, nativeReviewRetrieval?.primaryPageIdentity) ??
         listingEvidenceForCollection;
-      const directReviews = collectorFromNative(nativeReviewRetrieval, verified.verifiedListingUrl);
-      if (directReviews.reviews.length > 0) {
+      const directReviews = nativeReviewRetrieval
+        ? collectorFromNative(nativeReviewRetrieval, verified.verifiedListingUrl)
+        : null;
+      if (directReviews && directReviews.reviews.length > 0) {
         collectedWrittenReviews = reviewCollectorResultWith(
           collectedWrittenReviews,
           {
@@ -2800,7 +2856,7 @@ export async function collectAndAnalyzeReviewEvidence(
   let openAiReviewUrlDiscoveryLinks: Array<{ label: string; url: string; domain?: string }> = [];
 
   const webResearchEnabled = isOpenAiWebSearchEnabled();
-  if (webResearchEnabled && collectedWrittenReviewCount() < 240 && researchQueries.length > 0) {
+  if (webResearchEnabled && !reuseStoredReviews && collectedWrittenReviewCount() < 240 && researchQueries.length > 0) {
     const adaptiveResearch = await runAdaptiveReviewResearch({
       queries: researchQueries,
       maxCalls: 5,
@@ -2876,7 +2932,7 @@ export async function collectAndAnalyzeReviewEvidence(
   // verdict; genuinely new reviews re-verdict on the larger corpus. Only a
   // verified exact listing with a canonical marketplace identifier takes
   // part, and any storage failure leaves the scan exactly as it was.
-  const libraryProductKey = exactListingAccepted
+  const libraryProductKey = exactListingAccepted && !unnamedProduct
     ? libraryProductKeyFor({
         asin: listingEvidenceForCollection?.asin,
         canonicalMarketplace: listingEvidenceForCollection?.canonicalMarketplace,
@@ -2950,15 +3006,11 @@ export async function collectAndAnalyzeReviewEvidence(
     exactListingTitle: checkedListingTitle,
   });
 
-  // Review hunt (owner design, 2026-10-20): when the shared pass accepted
-  // ZERO written reviews and the product identity is anchored, hunt other
-  // stores for the exact same product — fingerprint-matched, pooled with
-  // per-source provenance — and re-run the SAME shared adjudication over
-  // the enlarged corpus, so hunted evidence is judged by exactly the rules
-  // Amazon evidence is judged by. Gated by REVIEWINTEL_REVIEW_HUNT_ENABLED
-  // (default OFF), time-boxed inside the scan's collection deadline, and
-  // fail-soft: any hunt failure leaves the scan exactly as it was (the
-  // honest zero-read state).
+  // Review hunt: when the shared pass accepted fewer than three written
+  // reviews and the product identity is anchored, hunt other free stores
+  // for the same product and re-run the same adjudication. The hunt is on
+  // unless REVIEWINTEL_REVIEW_HUNT_ENABLED is exactly "0". A full library
+  // corpus (three or more accepted reviews) does not hunt. Fail-soft.
   let reviewHuntDiagnostics: ReviewHuntDiagnostics | null = null;
   {
     const huntFingerprint = extractProductFingerprint({
@@ -3165,6 +3217,36 @@ export async function collectAndAnalyzeReviewEvidence(
       ),
       previousScanCount: libraryPreviousScanCount,
     });
+  } else if (adjudicatedReviews.length && !unnamedProduct) {
+    // Screenshot and other scans with no ASIN key still persist under the
+    // fingerprint, so the next scan can reuse this corpus instead of scraping.
+    try {
+      const fingerprint = extractProductFingerprint({
+        brand: input.brand || null,
+        productName: checkedListingTitle || input.productName,
+        model: input.model || null,
+        categoryBreadcrumbs: input.categoryBreadcrumbs,
+      });
+      if (fingerprint.fingerprintKey) {
+        const existing = await loadLibraryCorpus(fingerprint.fingerprintKey);
+        await saveLibraryCorpus({
+          productKey: fingerprint.fingerprintKey,
+          canonicalUrl: checkedListingUrl || null,
+          productName: checkedListingTitle || input.productName || null,
+          brand: input.brand || null,
+          store: listingEvidenceForCollection?.store || input.store || null,
+          aggregateRating: collectedWrittenReviews.marketplaceAggregate?.rating ?? null,
+          aggregateCount: collectedWrittenReviews.marketplaceAggregate?.count ?? null,
+          corpus: unionLibraryCorpora(
+            existing.reviews,
+            adjudicatedReviews as unknown as Array<Record<string, unknown>>
+          ),
+          previousScanCount: existing.scanCount,
+        });
+      }
+    } catch {
+      // A library write never fails the scan.
+    }
   }
 
   // Keep the original adjudication ledger. Re-adjudicating accepted-only
