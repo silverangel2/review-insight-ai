@@ -81,6 +81,36 @@ test("star-line totals become a review count without stealing the stars or a mod
   assert.equal(phone.store, "Best Buy.com");
 });
 
+test("live chrome and other-product lines never become the product name", () => {
+  const facts = jiti("./lib/screenshotProductFacts.ts");
+  assert.equal(identity.isUnrelatedPageText("Shop in our free App today (*open"), true);
+  assert.equal(identity.isUnrelatedPageText("EmbTao Sorry The Lifestyle You Ordered Is Currently Out Of Stock Patch"), true);
+  assert.equal(identity.isUnrelatedPageText("SHOKZ Secure Fit. Big on comfort. el All"), true);
+  assert.equal(identity.isUnrelatedPageText("Sony WH-1000XM5 Wireless Noise Canceling Headphones"), false);
+  assert.equal(identity.cleanScreenshotProductTitle("Kindle Paperwhite &#34;thinnest&#34;"), 'Kindle Paperwhite "thinnest"');
+  assert.equal(
+    facts.authoritativeDisplayName({
+      listingTitle: "Epson Lifestudio Grand Ultra Short Throw",
+      screenshotName: "Logitech MX Master 3S Wireless Performance Mouse",
+    }),
+    "Logitech MX Master 3S Wireless Performance Mouse"
+  );
+  assert.equal(
+    facts.authoritativeDisplayName({
+      listingTitle: "Ninja CREAMi Ice Cream Maker",
+      screenshotName: "Ninja CREAMi NC301C Ice Cream Maker",
+    }),
+    "Ninja CREAMi NC301C Ice Cream Maker"
+  );
+  assert.equal(
+    facts.authoritativeDisplayName({
+      listingTitle: "Echo Dot (5th Gen, 2022 release) | Smart speaker with Alexa",
+      screenshotName: "Amazon Echo Dot (newest model) - Vibrant...",
+    }),
+    "Echo Dot (5th Gen, 2022 release) | Smart speaker with Alexa"
+  );
+});
+
 test("shopper headline keeps the model a 4-word cut would drop", () => {
   const creami = identity.shopperFacingProductTitle("Ninja CREAMi, NC301C, Ice Cream, Gelato, Milkshake Maker");
   assert.match(creami, /NC301C/);
