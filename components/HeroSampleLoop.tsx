@@ -20,8 +20,13 @@ export function HeroSampleLoop() {
       {/* Beat (a): the screenshot arrives */}
       <div className="ri-hero-beat ri-hero-beat-a">
         <div className="w-[min(320px,88%)] rounded-[18px] border border-[#e2e8f0] bg-white p-4 shadow-[0_14px_34px_rgba(23,32,51,0.10)] dark:border-white/10 dark:bg-[#171824]">
-          <div className="flex h-[104px] items-end rounded-xl bg-[linear-gradient(140deg,#dbeafe,#ede9fe)] p-2.5 text-xs font-semibold text-slate-500">
-            Product photo
+          <div className="relative h-[104px] overflow-hidden rounded-xl bg-[linear-gradient(140deg,#dbeafe,#ede9fe)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/ads/gadget-earbuds.jpg"
+              alt="Wireless earbuds and their charging case on a desk beside a laptop"
+              className="absolute inset-0 block !h-full w-full object-cover"
+            />
           </div>
           <div className="mt-3 flex items-baseline gap-2.5">
             <b className="text-[16.5px] text-ink dark:text-white">Wireless earbuds</b>

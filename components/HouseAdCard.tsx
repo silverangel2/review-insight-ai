@@ -150,7 +150,7 @@ export function HouseAdCard({
             src={creative.image}
             alt={creative.imageAlt}
             loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+            className="absolute inset-0 !h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
           />
         </span>
         <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-3.5 pe-11 sm:gap-1.5 sm:p-6">
