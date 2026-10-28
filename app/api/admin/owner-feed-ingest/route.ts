@@ -51,8 +51,11 @@ export async function POST(request: Request) {
         batchId,
         batchLabel: `${batch.productTitle} owner-feed batch (${batch.receivedAt.slice(0, 10)})`,
         productKey: receipt.productKey,
-        expectedIngested: receipt.ingested,
+        expectedIngested: receipt.added,
         declaredCount: receipt.parsed,
+        parsed: receipt.parsed,
+        duplicatesSkipped: receipt.duplicatesSkipped,
+        storedTotal: receipt.storedTotal,
         skippedShortBodies: receipt.skippedShortBodies.length,
         batchText,
       });

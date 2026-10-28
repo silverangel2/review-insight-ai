@@ -168,8 +168,14 @@ export type BatchRegistration = {
   batchId: string;
   batchLabel: string;
   productKey: string;
-  /** Reviews the ingest receipt said were ingested (the achievable max). */
+  /** Reviews the ingest receipt said were stored (receipt.added, post-Fix-A).
+   *  Seed batches still carry the old parsed count; they have no diagnostics. */
   expectedIngested: number;
+  /** Ingest diagnostics from the registration row (absent for seed batches). */
+  parsed?: number;
+  duplicatesSkipped?: number;
+  capDropped?: number;
+  storedTotal?: number;
   /** Stored batch text; the seed batches may lack it (see below). */
   batchText?: string;
   registeredAt?: string;
@@ -242,6 +248,10 @@ async function readRegistrations(seedBatches: BatchRegistration[]): Promise<Batc
       batchLabel: String(d.batchLabel || batchId),
       productKey: String(d.productKey || ""),
       expectedIngested: Number(d.expectedIngested ?? d.ingested ?? 0) || 0,
+      parsed: typeof d.parsed === "number" ? d.parsed : undefined,
+      duplicatesSkipped: typeof d.duplicatesSkipped === "number" ? d.duplicatesSkipped : undefined,
+      capDropped: typeof d.capDropped === "number" ? d.capDropped : undefined,
+      storedTotal: typeof d.storedTotal === "number" ? d.storedTotal : undefined,
       batchText: typeof d.batchText === "string" ? d.batchText : undefined,
       registeredAt: String(row.created_at || ""),
     });
@@ -282,15 +292,44 @@ export async function checkOwnerFeed(
       expectedIngested: reg.expectedIngested,
       ownerFedInCorpus: ownerFed,
       missing,
+      parsed: reg.parsed,
+      duplicatesSkipped: reg.duplicatesSkipped,
+      capDropped: reg.capDropped,
+      storedTotal: reg.storedTotal,
       repairable: missing > 0 && Boolean(reg.batchText),
     });
   }
   const worst = batches.find((b) => b.missing > 0);
+  // Fix-A diagnostics: per batch, parsed / added (= expectedIngested for
+  // ledger rows) / duplicates-skipped / cap-dropped / stored total, so a
+  // missing count reads as real loss, not the parse-vs-store gap. Seed
+  // batches carry no diagnostics and are omitted from this line.
+  const diagnostics = batches
+    .filter((b) => b.parsed !== undefined)
+    .map(
+      (b) =>
+        `${b.batchId}: parsed ${b.parsed}, added ${b.expectedIngested}, duplicates ${b.duplicatesSkipped ?? 0}, cap-dropped ${b.capDropped ?? 0}, stored total ${b.storedTotal ?? "?"}`
+    )
+    .join("; ");
+  const diagnosticsSuffix = diagnostics ? ` Ingest diagnostics: ${diagnostics}.` : "";
+  // Seed diagnostic: seed batches carry the old parsed counts and no
+  // registration diagnostics, so print the stored owner-fed count the
+  // keeper computed for each seed batch. The next keeper run's numbers
+  // are what a later seed correction uses — nothing here guesses them.
+  const seedIds = new Set(seedBatches.map((s) => s.batchId));
+  const seedDiagnostics = batches
+    .filter((b) => seedIds.has(b.batchId))
+    .map(
+      (b) =>
+        `seed ${b.batchId}: expected ${b.expectedIngested}, stored owner-fed ${b.ownerFedInCorpus}`
+    )
+    .join("; ");
+  const seedDiagnosticsSuffix = seedDiagnostics ? ` Seed counts: ${seedDiagnostics}.` : "";
   if (worst) {
     return {
       lane: "owner_feed",
       status: "down",
-      message: `Fed but not ingested: ${batches.length} registered batch(es), ${missingTotal} review(s) missing from the library (worst: ${worst.batchId}, missing ${worst.missing}/${worst.expectedIngested}).`,
+      message: `Fed but not ingested: ${batches.length} registered batch(es), ${missingTotal} review(s) missing from the library (worst: ${worst.batchId}, missing ${worst.missing}/${worst.expectedIngested}).${diagnosticsSuffix}${seedDiagnosticsSuffix}`,
       evidence: { batches, missingTotal },
       repairKey: "owner_feed_reingest",
       escalation: {
@@ -305,7 +344,7 @@ export async function checkOwnerFeed(
   return {
     lane: "owner_feed",
     status: "healthy",
-    message: `${batches.length} registered batch(es); all expected reviews present in the library.`,
+    message: `${batches.length} registered batch(es); all expected reviews present in the library.${diagnosticsSuffix}${seedDiagnosticsSuffix}`,
     evidence: { batches },
   };
 }
