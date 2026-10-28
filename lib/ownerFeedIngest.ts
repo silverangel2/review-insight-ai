@@ -326,6 +326,9 @@ export type IngestReceipt = {
   distribution: Record<number, number>;
   added: number;
   duplicatesSkipped: number;
+  /** Reviews never examined because the 500-cap break fired (see ingest loop).
+   *  Identity: parsed = added + duplicatesSkipped + capDropped + skippedShortBodies.length. */
+  capDropped: number;
   storedTotal: number;
   scanCount: number;
   /** Sorter-bot outcome (additive; never changes the ingest contract). */
@@ -397,7 +400,9 @@ export async function ingestOwnerFeedBatch(
 
   const fresh: LibraryReviewRecord[] = [];
   let duplicatesSkipped = 0;
-  for (const review of batch.reviews) {
+  let capDropped = 0;
+  for (let i = 0; i < batch.reviews.length; i++) {
+    const review = batch.reviews[i];
     const id = `owner-fed-${batch.productId.toLowerCase()}-${review.index}`;
     const record = ownerFeedReviewRecord(review, batch, sortAnnotations.get(id) ?? null);
     const key = ownerFeedBodyKey(record.body);
@@ -407,7 +412,11 @@ export async function ingestOwnerFeedBatch(
     }
     if (key) seen.add(key);
     fresh.push(record);
-    if (fresh.length + existing.reviews.length >= LIBRARY_CORPUS_CAP) break;
+    if (fresh.length + existing.reviews.length >= LIBRARY_CORPUS_CAP) {
+      // Reviews past this point were never examined (cap break, not dedupe).
+      capDropped = batch.reviews.length - i - 1;
+      break;
+    }
   }
   const corpus = [...existing.reviews, ...fresh].slice(0, LIBRARY_CORPUS_CAP);
   const saved = await store.saveCorpus({
@@ -429,6 +438,7 @@ export async function ingestOwnerFeedBatch(
     distribution: batch.declaredDistribution,
     added: fresh.length,
     duplicatesSkipped,
+    capDropped,
     storedTotal: corpus.length,
     scanCount: existing.scanCount,
     sorter: {
