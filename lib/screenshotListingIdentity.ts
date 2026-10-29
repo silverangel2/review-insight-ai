@@ -23,6 +23,20 @@ function tokensOf(value: string): string[] {
   return value.replace(/\s+/g, " ").trim().split(/\s+/).filter(Boolean);
 }
 
+/** Store pages sometimes OCR HTML entities (`&#34;`) straight into the title. */
+export function decodeListingText(value: unknown): string {
+  return String(value || "")
+    .replace(/&#34;|&quot;/gi, '"')
+    .replace(/&#39;|&apos;|&#x27;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#(\d{2,4});/g, (entity, digits) => {
+      const code = Number(digits);
+      return code >= 32 && code <= 126 ? String.fromCharCode(code) : entity;
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function bare(token: string): string {
   return token.toLowerCase().replace(/[^a-z0-9.]/g, "");
 }
@@ -49,12 +63,34 @@ export function hasProductModel(value: unknown): boolean {
 }
 
 /**
+ * Page text that is not the product being scanned. Live misses (Oct 24 2026):
+ * "Shop in our free App today", "Sorry … you ordered is currently out of
+ * stock", and a slogan from a different brand ("SHOKZ Secure Fit. Big on
+ * comfort."). A line that only wears outlet chrome is handled separately.
+ */
+export function isUnrelatedPageText(value: unknown): boolean {
+  const text = decodeListingText(value);
+  if (!text) return false;
+  if (/\bshop in our free app\b/i.test(text) || /\bfree app today\b/i.test(text)) return true;
+  if (/\b(?:download|get|open) (?:the |our )?(?:free )?(?:amazon )?app\b/i.test(text) && !hasProductModel(text)) return true;
+  if (/\bout of stock\b/i.test(text) || /\byou ordered\b/i.test(text)) return true;
+  if (/\bsorry\b/i.test(text) && /\b(?:unavailable|sold out)\b/i.test(text)) return true;
+  // Two sentence breaks and no digit: an ad slogan, not a model name.
+  const breaks = text.match(/[.!?]+\s+/g) || [];
+  if (breaks.length >= 2 && !/\d/.test(text)) return true;
+  // A cut-off OCR lead ("man) Epson…") is the tail of some other line.
+  if (/^[a-z]{1,6}\)\s+\S/.test(text)) return true;
+  return false;
+}
+
+/**
  * A line that is store chrome and not a product title. A line that also
  * carries a model (the outlet listing's own H1) is kept and cleaned later.
  */
 export function isStorePageChromeLine(value: unknown): boolean {
-  const text = String(value || "").replace(/\s+/g, " ").trim();
+  const text = decodeListingText(value);
   if (!text) return false;
+  if (isUnrelatedPageText(text)) return true;
   if (/available at a lower/i.test(text)) return true;
   if (/\bofficial outlet\b/i.test(text) && !hasProductModel(text)) return true;
   if (/\b(?:walmart|best buy)\s+exclusive\b/i.test(text) && !hasProductModel(text)) return true;
@@ -69,6 +105,7 @@ export function chromeTitlePenalty(value: unknown): number {
   if (/walmart exclusive/i.test(text)) penalty += 2;
   if (/best buy exclusive/i.test(text)) penalty += 2;
   if (/available at a lower/i.test(text)) penalty += 4;
+  if (isUnrelatedPageText(text)) penalty += 6;
   return penalty;
 }
 
@@ -92,13 +129,15 @@ function stripRetailerTokens(text: string): string {
 
 /** Product name with store-page chrome removed. Empty when nothing product-like remains. */
 export function cleanScreenshotProductTitle(value: unknown): string {
-  let text = String(value || "").replace(/\s+/g, " ").trim();
+  let text = decodeListingText(value);
   if (!text) return "";
+  if (isUnrelatedPageText(text)) return "";
   for (const pattern of CHROME_PHRASE) text = text.replace(pattern, " ");
+  text = text.replace(/^[a-z]{1,6}\)\s+/, "");
   text = stripRetailerTokens(text);
   text = text.replace(/\s+/g, " ").trim();
   text = text.replace(/^[-–—,;|/ ]+|[-–—,;|/ ]+$/g, "").trim();
-  if (text.length < 3 || isStorePageChromeLine(text)) return "";
+  if (text.length < 3 || isStorePageChromeLine(text) || isUnrelatedPageText(text)) return "";
   return text;
 }
 

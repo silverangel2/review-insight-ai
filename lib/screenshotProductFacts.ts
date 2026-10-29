@@ -2,7 +2,7 @@
 // Only text actually read with good confidence is used; unclear fields stay empty and a warning is added.
 import type { ScreenshotOcrResult } from "./reviewScreenshotOcr";
 import { isUnusableListingTitle } from "./listingAuthority";
-import { chromeTitlePenalty, cleanScreenshotProductTitle, isStorePageChromeLine } from "./screenshotListingIdentity";
+import { chromeTitlePenalty, cleanScreenshotProductTitle, isStorePageChromeLine, isUnrelatedPageText, modelTokenFromTitle } from "./screenshotListingIdentity";
 
 export type ScreenshotProductFacts = {
   name: string; brand: string; category: string; store: string; price: string; rating: string; reviewCount: string;
@@ -159,7 +159,10 @@ export function isScreenshotDecoyLine(text: string): boolean {
   if (/\bnot\s?returnable\b/i.test(text)) return true;
   if (text.split(/\s+/).filter(Boolean).length <= 8 && /\bfree delivery\b/i.test(text)) return true;
   if (looksLikeMergedMultiProductLine(text)) return true;
-  if (isStorePageChromeLine(text)) return true;
+  if (isStorePageChromeLine(text) || isUnrelatedPageText(text)) return true;
+  // A size unit spilled onto its own line ("Quart Stainless Steel") is the
+  // tail of the title above, not a second product.
+  if (/^(?:qt|quart|quarts|ounce|ounces|oz|gb|tb)\b/i.test(text.trim()) && text.trim().split(/\s+/).length <= 6) return true;
   return false;
 }
 
@@ -200,10 +203,32 @@ export const NEUTRAL_AMAZON_PRODUCT_LABEL = "Amazon product";
  * Prefer the link's fetched title. If that page cannot be read, use the screenshot's
  * product-title line (not nav or menu text). A bare ASIN becomes a neutral label.
  */
+function compactIdentity(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * A fetched listing may replace the screenshot name only when it is the same
+ * product. A screenshot model the listing does not carry (NC301C, V8, XM5)
+ * stays. A different brand (Epson over MX Master, SHOKZ over Sony) stays out.
+ */
+function listingMatchesScreenshot(listing: string, screenshot: string): boolean {
+  const shotModel = compactIdentity(modelTokenFromTitle(screenshot));
+  if (shotModel && !compactIdentity(listing).includes(shotModel)) return false;
+  const skip = new Set(["amazon", "walmart", "bestbuy", "the", "and", "with", "for", "pro"]);
+  const brand = screenshot
+    .split(/\s+/)
+    .map((word) => word.toLowerCase().replace(/[^a-z0-9]/g, ""))
+    .find((word) => word.length >= 4 && !skip.has(word));
+  if (brand && !compactIdentity(listing).includes(brand)) return false;
+  return true;
+}
+
 export function authoritativeDisplayName(input: { listingTitle?: string | null; screenshotName?: string | null; asin?: string | null }): string {
   const listing = cleanScreenshotProductTitle(cleanProductTitle(input.listingTitle));
-  if (listing) return listing;
   const screenshot = cleanScreenshotProductTitle(cleanProductTitle(input.screenshotName));
+  if (listing && screenshot) return listingMatchesScreenshot(listing, screenshot) ? listing : screenshot;
+  if (listing) return listing;
   if (screenshot) return screenshot;
   const asin = String(input.asin || "").trim().toUpperCase();
   if (/^[A-Z0-9]{10}$/.test(asin)) return NEUTRAL_AMAZON_PRODUCT_LABEL;
@@ -315,7 +340,13 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
   // products. Wide page OCR can merge a whole recommendation row into one long line,
   // whose length would otherwise out-score the real title (measured 2026-10-20: a
   // "Best sellers" row line — two rice-cooker titles merged — beat the Crock-Pot title).
-  const sectionBreak = ocr.lines.findIndex(l => /best sellers|you might (?:also )?like|customers also|related products|more items to explore|sponsored products?\b/i.test(l.text));
+  const sectionBreak = ocr.lines.findIndex(l => /best sellers|you might (?:also )?like|customers also|related products|more items to explore|sponsored products?\b|similar items|compare with similar|more to consider|recommended for you/i.test(l.text));
+  // The buy box stars belong to the product being scanned. A title sits
+  // just above them. Ads and other products sit further up or further down.
+  const ratingLineIndex = ocr.lines.findIndex((l, index) =>
+    (sectionBreak < 0 || index < sectionBreak) &&
+    /\b[1-5](?:[.,]\d)?\s*(?:out of\s*5|\/\s*5)/i.test(l.text)
+  );
   // Page geometry for the title scoring below: total height and the typical
   // (median) line height over the readable pool, in the merged lines' shared
   // coordinate space. Lines without a bbox simply get no geometry signal.
@@ -359,7 +390,21 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     }
     if (chromeWordHits(raw) >= 2) continue;
     if (/out of 5|ratings?|reviews?/i.test(raw)) continue;
-    const candidate = cleanScreenshotProductTitle(cleanOcrTitle(raw));
+    let candidate = cleanScreenshotProductTitle(cleanOcrTitle(raw));
+    const nextText = String(ocr.lines[line.index + 1]?.text || "");
+    if (candidate && /(?:,\s*)?\b\d+$/.test(candidate)) {
+      const unit = nextText.trim().match(/^(qt|quart|quarts|ounce|ounces|oz|gb|tb)\b/i);
+      if (unit) candidate = cleanScreenshotProductTitle(`${candidate} ${unit[1]}`);
+    }
+    const nextModel = modelTokenFromTitle(nextText);
+    if (
+      candidate &&
+      nextModel &&
+      !candidate.toLowerCase().includes(nextModel.toLowerCase()) &&
+      nextText.trim().split(/\s+/).length <= 4
+    ) {
+      candidate = cleanScreenshotProductTitle(`${candidate} ${nextModel}`);
+    }
     if (candidate.length < 8) continue;
     const letters = (candidate.match(/[a-z]/gi) ?? []).length;
     if (letters / candidate.length < 0.45) continue;
@@ -422,6 +467,12 @@ export function productFactsFromOcr(ocr: ScreenshotOcrResult, minConfidence = 70
     const brandRecur = brandWord.length >= 4 && !TITLE_FUNCTION_START.has(brandWord) && pool.some(other => other.index !== line.index && new RegExp(`\\b${brandWord}\\b`, "i").test(other.text.replace(/[^a-z0-9]+/gi, " ")));
     if (brandRecur) score += 1;
     score -= chromeTitlePenalty(raw);
+    if (ratingLineIndex >= 0) {
+      const distance = line.index - ratingLineIndex;
+      if (distance <= -1 && distance >= -6) score += 4;
+      else if (distance < -6) score -= 2.5;
+      else if (distance > 1) score -= 3;
+    }
     score -= line.index * 0.02; // titles sit above features and legal text
     if (score > bestScore) { bestScore = score; bestTitle = candidate; bestTitleLine = raw; bestTitleBrandCorroborated = brandLineNear || brandRecur; }
   }

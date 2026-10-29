@@ -128,5 +128,106 @@
     "expectTitleExcludes": ["Available at a lower", "Official Outlet"],
     "expectCollectionStore": "Amazon.com",
     "expectCrossStore": true
+  },
+  {
+    "id": "airpods-app-banner",
+    "store": "Amazon.ca",
+    "lines": [
+      { "text": "Shop in our free App today (*open", "confidence": 96 },
+      { "text": "Apple AirPods Pro 2 Wireless Earbuds with MagSafe Charging Case", "confidence": 86 },
+      { "text": "$249.99", "confidence": 92 },
+      { "text": "4.6 out of 5 stars (80421)", "confidence": 84 }
+    ],
+    "expectTitleIncludes": ["AirPods", "Pro"],
+    "expectTitleExcludes": ["free App", "Shop in our"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": false
+  },
+  {
+    "id": "mx-master-not-epson",
+    "store": "Amazon.ca",
+    "lines": [
+      { "text": "Logitech MX Master 3S Wireless Performance Mouse", "confidence": 88 },
+      { "text": "$129.99", "confidence": 90 },
+      { "text": "4.6 out of 5 stars", "confidence": 86 },
+      { "text": "man) Epson Lifestudio Grand Ultra Short Throw Projector", "confidence": 94 }
+    ],
+    "expectTitleIncludes": ["MX Master", "3S"],
+    "expectTitleExcludes": ["Epson", "Lifestudio", "man)"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": false
+  },
+  {
+    "id": "dyson-not-out-of-stock-patch",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 80 },
+      { "text": "Dyson V8 Absolute Cordless Stick Vacuum Cleaner Refurbished", "confidence": 86 },
+      { "text": "$249.99", "confidence": 90 },
+      { "text": "4.4 out of 5 stars", "confidence": 84 },
+      { "text": "EmbTao Sorry The Lifestyle You Ordered Is Currently Out Of Stock Patch Embroidered Badge", "confidence": 95 }
+    ],
+    "expectTitleIncludes": ["Dyson", "V8", "Absolute"],
+    "expectTitleExcludes": ["EmbTao", "Out Of Stock", "you ordered"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "sony-xm5-not-shokz-slogan",
+    "store": "Best Buy",
+    "lines": [
+      { "text": "Best Buy", "confidence": 80 },
+      { "text": "Sony WH-1000XM5 Wireless Noise Canceling Headphones", "confidence": 87 },
+      { "text": "$398.00", "confidence": 90 },
+      { "text": "4.5 out of 5 stars", "confidence": 84 },
+      { "text": "SHOKZ Secure Fit. Big on comfort. el All", "confidence": 96 }
+    ],
+    "expectTitleIncludes": ["Sony", "WH-1000XM5"],
+    "expectTitleExcludes": ["SHOKZ", "Big on comfort"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "kindle-html-entity",
+    "store": "Amazon.ca",
+    "lines": [
+      { "text": "Amazon Kindle Paperwhite 16 GB &#34;the thinnest and lightest Kindle&#34;", "confidence": 88 },
+      { "text": "$159.99", "confidence": 90 },
+      { "text": "4.7 out of 5 stars", "confidence": 86 }
+    ],
+    "expectTitleIncludes": ["Kindle", "Paperwhite", "\""],
+    "expectTitleExcludes": ["&#34;"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": false
+  },
+  {
+    "id": "instant-pot-size-continues-on-next-line",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 78 },
+      { "text": "Instant Pot Duo Plus Multi-Use Pressure Cooker, 8", "confidence": 86 },
+      { "text": "Quart Stainless Steel", "confidence": 84 },
+      { "text": "$89.00", "confidence": 90 },
+      { "text": "4.6 out of 5 stars", "confidence": 84 }
+    ],
+    "expectTitleIncludes": ["Instant Pot", "Duo Plus", "Quart"],
+    "expectTitleExcludes": ["Out Of Stock"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
+  },
+  {
+    "id": "creami-keeps-model-beside-stars",
+    "store": "Walmart.ca",
+    "lines": [
+      { "text": "Walmart.ca", "confidence": 78 },
+      { "text": "Ninja CREAMi NC301C Ice Cream Maker", "confidence": 84 },
+      { "text": "$199.99", "confidence": 90 },
+      { "text": "4.5 out of 5 stars", "confidence": 82 },
+      { "text": "Ninja CREAMi", "confidence": 96 }
+    ],
+    "expectTitleIncludes": ["Ninja", "CREAMi", "NC301C"],
+    "expectTitleExcludes": ["Official Outlet"],
+    "expectCollectionStore": "Amazon.ca",
+    "expectCrossStore": true
   }
 ]

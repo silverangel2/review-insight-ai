@@ -63,7 +63,13 @@ or the docs.
 
 ## What the code changes
 
-- Screenshot titles drop store chrome and keep model tokens.
+- Screenshot titles drop store chrome and keep model tokens. App-install
+  banners, out-of-stock apologies, and slogan lines from another product
+  cannot become the name. The title next to the star rating wins over a
+  longer line elsewhere on the page. A fetched listing title cannot replace
+  a screenshot name that names a different brand or model. HTML entities
+  such as `&#34;` are decoded. A size unit on the next line (`8` / `Quart`)
+  stays on the title.
 - A star line with a parenthetical total (`(12,431)`) or a `2.3K reviews`
   line is kept as the marketplace count the score needs. Shoppers do not
   get a ratings-count fact row.
